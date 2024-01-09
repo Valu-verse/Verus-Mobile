@@ -38,7 +38,13 @@ const LoginRequestInfo = props => {
   const { system_id, signing_id, challenge } = req
   const chain_id = getSystemNameFromSystemId(system_id)
 
-  const loginType = ["Login", "Login and accept an agreement", "Login and reveal identity information", "Login, accept an agreement and reveal identity information"];
+  const loginType = {"0":"Login", 
+                     "1":"Login and accept an agreement",
+                     "2":"Login and reveal identity information",
+                     "3":"Login, accept an agreement and reveal identity information",
+                     "4":"Login and accept an attestation",
+                     "5":"Login, accept an agreement and accept an attestation"};
+
   const rootSystemAdded = useSelector(
     state =>
       state.coins.activeCoinsForUser &&
@@ -138,27 +144,39 @@ const LoginRequestInfo = props => {
   useEffect(() => {
 
     if (req && req.challenge && req.challenge.requested_access) {
-      if (req.challenge.requested_access.length === 1) {
-        setReady(true);
-        setLoginMethod(0);
-      } else if (req.challenge.requested_access.length > 1 && !permissions) {
+      var tempMethod = 0;
+      var attestationRequested = -1;
+
+      if(req.challenge.redirect_uris.length > 0) {
+        attestationRequested = req.challenge.redirect_uris.map((data)=>data.vdxfkey).indexOf(primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid)
+      }
+      
+      var tempdata = {};
+      if ((req.challenge.requested_access.length > 1) || (attestationRequested > -1) && !permissions) {
         var loginTemp = [];
-        var tempMethod = 0;
         for (let i = 1; i < req.challenge.requested_access.length; i++) {
-          var tempdata = {};
           if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_AGREEMENT.vdxfid) {
             tempMethod = tempMethod | 1;
             tempdata = { data: req.challenge.requested_access[i].toJson().data, title: "Agreement to accept" }
           }
-          // TODO: Add support for identity data
+          // TODO: Add support for viewing identity data
           loginTemp.push({ vdxfkey: req.challenge.requested_access[i].vdxfkey, ...tempdata, agreed: false })
-
         }
-        setLoginMethod(tempMethod);
+        if (attestationRequested > -1) {
+          tempMethod = tempMethod | 4;
+          loginTemp.push({ vdxfkey: primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid, data: "", title: "Attestation Included" , agreed: true, nonChecked: false })
+        }
+        
+        if (tempMethod > 5) throw new Error("Invalid login method");
+        
+
         setExtraPermissions(loginTemp);
-      }
+      } else if (req.challenge.requested_access.length === 1) {
+        setReady(true);
+      } 
+      setLoginMethod(tempMethod);
     }
-  }, [req]);
+  }, []);
 
   useEffect(() => {
     if (permissions) {
@@ -247,15 +265,20 @@ const LoginRequestInfo = props => {
     }
   }
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (signedIn) {
       if (!rootSystemAdded) {
         tryAddRootSystem()
-      } else {
-        props.navigation.navigate('LoginRequestIdentity', {
-          deeplinkData,
-        });
       }
+      if (!ready) {
+        for (let i = 0; i < permissions.length; i++) {
+          const result = await buildAlert(permissions[i], i);
+          if (!result) return;
+        }
+      }
+      props.navigation.navigate("LoginRequestIdentity", {
+        deeplinkData
+      })
     } else {
       setWaitingForSignin(true);
       const coinObj = CoinDirectory.findCoinObj(chain_id);
@@ -345,10 +368,10 @@ const LoginRequestInfo = props => {
           </TouchableOpacity>
           {permissions && permissions.map((request, index) => {
             return (
-              <TouchableOpacity key={index} onPress={() => buildAlert(request)}>
+              <TouchableOpacity key={index} onPress={() => !!!request.nonChecked ?  buildAlert(request) : null}>
                 <List.Item title={request.title} description={`View the ${request.title} Details.`}
                   right={props => (
-                    <List.Icon
+                    !!!request.nonChecked && <List.Icon
                       key={request}
                       {...props}
                       icon="check"
