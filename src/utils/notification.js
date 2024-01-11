@@ -14,6 +14,7 @@ export class Notification {
     this.type = type;
     this.uid = uid == null ? getUid() : uid
     this.acchash = acchash
+    this.icon = null
   }
 
   static fromJson(json) {
@@ -74,18 +75,30 @@ export class LoadingNotification extends Notification {
 }
 
 export class DeeplinkNotification extends Notification {
-  constructor(body, title, reopen = () => {}, uid, uri, acchash) {
+  constructor(body, title, reopen = () => {}, uid, uri, acchash, extraParams = null) {
     super(body, title, NOTIFICATION_TYPE_DEEPLINK, uid, acchash)
     this.uri = uri
     this.reopen = reopen
+    this.extraParams = extraParams
   }
 
   static fromJson(json, reopen) {
-    const {body, title, uid, uri} = json;
-    return new DeeplinkNotification(body, title, reopen, uid, uri);
+    const {body, title, uid, uri, extraParams} = json;
+    return new DeeplinkNotification(body, title, reopen, uid, uri, null , extraParams);
   }
 
-  onAction() {
-    return this.reopen()
+  onAction(props = null) {
+    return this.reopen(props, this.uri, this.extraParams)
+  }
+
+  toJson() {
+    return {
+      body: this.body,
+      title: this.title,
+      type: this.type,
+      uid: this.uid,
+      uri: this.uri,
+      extraParams: this.extraParams
+    };
   }
 }

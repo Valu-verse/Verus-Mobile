@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {ScrollView, View, TouchableOpacity} from 'react-native';
 import Styles from '../../../styles/index';
 import {primitives} from 'verusid-ts-client';
@@ -11,16 +11,23 @@ import {CommonActions} from '@react-navigation/native';
 import Colors from '../../../globals/colors';
 import {URL} from 'react-native-url-polyfill';
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
+import { useSelector } from 'react-redux';
+import Attestation from '../../../components/Attestation';
 
 const LoginRequestComplete = props => {
   const {signedResponse} = props.route.params;
+  const fromService = useSelector((state) => state.deeplink.fromService);
   const res = new primitives.LoginConsentResponse(signedResponse);
   const redirects = res.decision.request.challenge.redirect_uris
     ? res.decision.request.challenge.redirect_uris
     : [];
   let url;
   let urlDisplayString = '';
+  let extraInfo = '';
+  let redirectinfo = null;
   const [loading, setLoading] = useState(false);
+  const [showAttestation, setShowAttestation] = useState(false);
+  const [attestationObj, setAttestationObj] = useState(null);
 
   const cancel = () => {
     props.navigation.dispatch(
@@ -31,27 +38,49 @@ const LoginRequestComplete = props => {
     );
   };
 
-  redirects.sort(a => {
-    if (a.vdxfkey === primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid) {
-      return -1;
-    } else {
-      return 1;
+  const storeAttestation = () => {
+
+  }
+
+  let redirectsObj = {};
+  
+  redirects.forEach(a => {redirectsObj[a.vdxfkey] = a;});
+  const attestationPresent = !!redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid];
+
+  useEffect(() => {
+    if (attestationPresent) {
+      try {
+        setLoading(true);
+        handleRedirect(signedResponse, 
+            redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid]).then((attestation) => { 
+              if (attestation && attestation.data) {
+                const localAttestaionObj = new primitives.Attestation();
+                localAttestaionObj.fromBuffer(Buffer.from(attestation.data, 'hex'));
+                setAttestationObj(localAttestaionObj);
+                setShowAttestation(true);
+              }
+              setLoading(false); 
+            });
+      } catch(e) {
+        createAlert('Error', e.message);
+        setLoading(false);
+        cancel();
+      }
     }
-  });
+  }, []);
 
-  const redirectinfo = redirects ? redirects[0] : null;
-
-  const isWebhook =
-    redirectinfo.vdxfkey === primitives.LOGIN_CONSENT_WEBHOOK_VDXF_KEY.vdxfid;
-
-  if (!isWebhook) {
+  if (redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid]) {
     try {
-      url = new URL(redirectinfo.uri);
+      redirectinfo = redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid];
+      url = new URL(redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid].uri);
+      extraInfo =  ' and return to\n'
       urlDisplayString = `${url.protocol}//${url.host}`;
     } catch(e) {
       createAlert('Error', e.message);
       cancel();
     }
+  } else {
+    redirectinfo = redirectsObj[primitives.LOGIN_CONSENT_WEBHOOK_VDXF_KEY.vdxfid];
   }
 
   const tryRedirect = async () => {
@@ -66,8 +95,13 @@ const LoginRequestComplete = props => {
 
   const completeDeeplink = async () => {
     if (redirectinfo && redirectinfo.uri) {
-      await tryRedirect();
-      cancel();
+      const returnedData = await tryRedirect();
+      if (fromService) {
+        // Only return to services, default is main home screen.
+        props.navigation.navigate("ServicesHome", { screen: fromService, params: { data: returnedData.data }});
+      } else {
+        cancel();
+      }
     } else {
       cancel();
     }
@@ -75,11 +109,19 @@ const LoginRequestComplete = props => {
 
   return (
     <ScrollView
-      style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
-      contentContainerStyle={{
-        ...Styles.focalCenter,
-        justifyContent: 'space-between',
-      }}>
+    style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
+    contentContainerStyle={{
+      ...Styles.focalCenter,
+      justifyContent: 'space-between',
+    }}>
+      {attestationObj && <Attestation
+      visible={showAttestation}
+      loginConsentResponse={res}
+      attestation={attestationObj}
+      buttons={[{text: "CANCEL", onPress: () => setShowAttestation(false)},
+        {disabled: false, onPress: () => {storeAttestation(); setShowAttestation(false);}, text: "save"},]}
+      mainTitle={"Attestation Received"}
+      />}
       <View style={Styles.focalCenter}>
         <Text
           numberOfLines={1}
@@ -88,7 +130,7 @@ const LoginRequestComplete = props => {
             fontSize: 20,
             color: Colors.verusDarkGray,
           }}>
-          {loading ? "Loading..." : 'Success!'}
+          {loading ? attestationPresent ? "Retrieving Attestation" : "Loading..." : 'Success!'}
         </Text>
         <View style={{paddingVertical: 16}}>
           {loading ? (
@@ -122,9 +164,7 @@ const LoginRequestComplete = props => {
                 fontSize: 20,
                 color: Colors.verusDarkGray,
               }}>
-              {`Press done to complete login${
-                isWebhook ? '' : ' and return to\n'
-              }`}
+              {`Press done to complete login${extraInfo}`}
               <Text
                 style={{color: Colors.basicButtonColor, textAlign: 'center'}}>
                 {urlDisplayString}

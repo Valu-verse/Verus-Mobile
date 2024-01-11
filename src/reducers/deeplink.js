@@ -1,13 +1,16 @@
 import {
   SET_DEEPLINK_DATA,
-    SET_DEEPLINK_URL
+    SET_DEEPLINK_URL,
+    SET_DEEPLINK_DATA_EXTRAPARAMS
   } from "../utils/constants/storeType";
   
   export const deeplink = (
     state = {
       url: null,
       data: {},
-      id: null
+      id: null,
+      fromService: null,
+      extraParams: null
     },
     action
   ) => {
@@ -21,7 +24,14 @@ import {
         return {
           ...state,
           id: action.payload.id,
-          data: action.payload.data
+          data: action.payload.data,
+          fromService: action.payload.fromService,
+          extraParams: action.payload.extraParams
+        }
+      case SET_DEEPLINK_DATA_EXTRAPARAMS:
+        return {
+          ...state,
+          extraParams: action.payload.extraParams
         }
       default:
         return state;
