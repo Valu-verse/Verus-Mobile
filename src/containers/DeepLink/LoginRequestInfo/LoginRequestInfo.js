@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SafeAreaView, ScrollView, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, TouchableOpacity, View } from 'react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import { Button, Divider, List, Portal, Text } from 'react-native-paper';
@@ -17,6 +17,9 @@ import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispat
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreators';
 import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
+import { requestServiceStoredData } from '../../../utils/auth/authBox';
+import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const LoginRequestInfo = props => {
   const { deeplinkData, sigtime, cancel, signerFqn } = props
@@ -145,14 +148,14 @@ const LoginRequestInfo = props => {
 
     if (req && req.challenge && req.challenge.requested_access) {
       var tempMethod = 0;
-      var attestationRequested = -1;
+      var attestationProvided = -1;
 
-      if(req.challenge.redirect_uris.length > 0) {
-        attestationRequested = req.challenge.redirect_uris.map((data)=>data.vdxfkey).indexOf(primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid)
+      if (req.challenge.redirect_uris.length > 0) {
+        attestationProvided = req.challenge.redirect_uris.map((data) => data.vdxfkey).indexOf(primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid)
       }
-      
+
       var tempdata = {};
-      if ((req.challenge.requested_access.length > 1) || (attestationRequested > -1) && !permissions) {
+      if ((req.challenge.requested_access.length > 1) || (attestationProvided > -1) && !permissions) {
         var loginTemp = [];
         for (let i = 1; i < req.challenge.requested_access.length; i++) {
           if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_AGREEMENT.vdxfid) {
@@ -162,15 +165,32 @@ const LoginRequestInfo = props => {
           // TODO: Add support for viewing identity data
           loginTemp.push({ vdxfkey: req.challenge.requested_access[i].vdxfkey, ...tempdata, agreed: false })
         }
-        if (attestationRequested > -1) {
+        if (attestationProvided > -1) {
           tempMethod = tempMethod | 4;
-          loginTemp.push({ vdxfkey: primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid, data: "", title: "Attestation Included" , agreed: true, nonChecked: false })
-        }
-        
-        if (tempMethod > 5) throw new Error("Invalid login method");
-        
+          if (!req.challenge.subject.some((subject) => subject.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid)) {
+            throw new Error("Attestation requested without ID Specified");
+          }
+          const attestationId = req.challenge.subject.find((subject) => subject.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid).data;
 
-        setExtraPermissions(loginTemp);
+          requestServiceStoredData(VERUSID_SERVICE_ID).then((verusIdServiceData) => {
+
+            if (verusIdServiceData.linked_ids)
+
+              for (const chainId of Object.keys(verusIdServiceData.linked_ids)) {
+                if (verusIdServiceData.linked_ids[chainId] &&
+                  Object.keys(verusIdServiceData.linked_ids[chainId])
+                  .includes(attestationId)) {
+                  loginTemp.push({ vdxfkey: primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid, 
+                                    title: verusIdServiceData.linked_ids[chainId][attestationId], 
+                                    data: "Contains an Attestation for", 
+                                    agreed: true, 
+                                    nonChecked: true })
+                }
+              }
+              setExtraPermissions(loginTemp);
+          })
+        }        
+        if (tempMethod > 5) Alert.alert("Error", "Invalid login method");
       } else if (req.challenge.requested_access.length === 1) {
         setReady(true);
       } 
@@ -368,8 +388,8 @@ const LoginRequestInfo = props => {
           </TouchableOpacity>
           {permissions && permissions.map((request, index) => {
             return (
-              <TouchableOpacity key={index} onPress={() => !!!request.nonChecked ?  buildAlert(request) : null}>
-                <List.Item title={request.title} description={`View the ${request.title} Details.`}
+              <TouchableOpacity key={index} onPress={() => !!request.nonChecked ?  null : buildAlert(request) }>
+                <List.Item title={request.title} description={!!request.nonChecked ? request.data : `View the ${request.title} Details.`}
                   right={props => (
                     !!!request.nonChecked && <List.Icon
                       key={request}
@@ -378,7 +398,9 @@ const LoginRequestInfo = props => {
                       style={{ borderRadius: 90, backgroundColor: request.agreed ? 'green' : 'grey' }}
                       color={Colors.secondaryColor}
                     />
-                  )} />
+                  )} 
+                  left= {() => <MaterialCommunityIcons name={'text-box-check'} size={50} color={Colors.primaryColor} style={{ width: 50, marginRight: 9, alignSelf: 'flex-end', }} />}
+                  />
                 <Divider />
               </TouchableOpacity>
             );

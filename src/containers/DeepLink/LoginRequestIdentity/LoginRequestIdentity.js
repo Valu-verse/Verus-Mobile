@@ -31,6 +31,7 @@ const LoginRequestIdentity = props => {
   const [idsloaded, setIdsloaded] = useState(false);
   const [idProvisionSuccess, setIdProvisionSuccess] = useState(false)
   const [canProvision, setCanProvision] = useState(false)
+  const [attestationID, setattestationID] = useState('')
   const req = new primitives.LoginConsentRequest(deeplinkData)
   const encryptedIds = useSelector(state => state.services.stored[VERUSID_SERVICE_ID])
   const sendModal = useSelector((state) => state.sendModal);
@@ -115,6 +116,12 @@ const LoginRequestIdentity = props => {
       req.challenge.subject.some(item => item.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid)) {
 
         const providionedId = req.challenge.subject.find(item => item.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid).data;
+        if(req.challenge.redirect_uris && req.challenge.redirect_uris
+            .some((uriKey) => uriKey.vdxfkey === primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid)){
+          // if an attestation is provided, set the attestationID so it only shows the attestation the ID is for.   
+          setattestationID(providionedId)
+        }
+
         for (const chainId of activeCoinIds) { 
           if (linkedIds[chainId] && Object.keys(linkedIds[chainId]).includes(providionedId)) {
             return;
@@ -224,6 +231,9 @@ const LoginRequestIdentity = props => {
               <List.Subheader>{`Linked ${chainId} VerusIDs`}</List.Subheader>
             )}
             {sortedIds[chainId].map(iAddr => {
+              if(attestationID && attestationID !== iAddr) {
+                return null
+              }
               return (
                 <React.Fragment key={iAddr}>
                   <Divider />
