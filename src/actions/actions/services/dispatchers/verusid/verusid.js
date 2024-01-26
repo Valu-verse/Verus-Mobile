@@ -278,3 +278,57 @@ export const checkVerusIdNotificationsForUpdates = async () => {
     }
   }
 };
+
+export const setAttestation = async (stateRoot, attestation, chain) => {
+  const state = store.getState();
+
+  if (state.authentication.activeAccount == null) {
+    throw new Error('You must be signed in for ID provisioning');
+  }
+
+  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+  const currentAttestations =
+    serviceData.attestations == null ? {} : serviceData.attestations;
+
+  return await modifyServiceStoredDataForUser(
+    {
+      ...serviceData,
+      pending_ids: {
+        ...currentAttestations,
+        [chain]: currentAttestations[chain]
+          ? {
+            ...currentAttestations[chain],
+            [stateRoot]: attestation,
+          }
+          : { [stateRoot]: attestation },
+      },
+    },
+    VERUSID_SERVICE_ID,
+    state.authentication.activeAccount.accountHash,
+  );
+};
+
+export const deleteAttestation = async (stateRoot, chain) => {
+  const state = store.getState();
+
+  if (state.authentication.activeAccount == null) {
+    throw new Error('You must be signed in to unlink VerusIDs');
+  }
+
+  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+  let currentAttestations =
+    serviceData.attestations == null ? {} : serviceData.attestations;
+
+  if (currentAttestations[chain]) {
+    delete currentAttestations[chain][stateRoot];
+  }
+
+  return await modifyServiceStoredDataForUser(
+    {
+      ...serviceData,
+      attestations: currentAttestations,
+    },
+    VERUSID_SERVICE_ID,
+    state.authentication.activeAccount.accountHash,
+  );
+};

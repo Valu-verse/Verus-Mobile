@@ -13,6 +13,9 @@ import {URL} from 'react-native-url-polyfill';
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
 import { useSelector } from 'react-redux';
 import Attestation from '../../../components/Attestation';
+import VrpcProvider from "../../../utils/vrpc/vrpcInterface"
+import { setAttestation } from '../../../actions/actions/services/dispatchers/verusid/verusid';
+
 
 const LoginRequestComplete = props => {
   const {signedResponse} = props.route.params;
@@ -38,44 +41,96 @@ const LoginRequestComplete = props => {
     );
   };
 
-  const storeAttestation = () => {
-
-  }
-
-  let redirectsObj = {};
-  
-  redirects.forEach(a => {redirectsObj[a.vdxfkey] = a;});
-  const attestationPresent = !!redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid];
-
-  useEffect(() => {
-    if (attestationPresent) {
+  const storeAttestation = async () => {
+    setShowAttestation(false);
+    if(attestationObj) {
       try {
-        setLoading(true);
-        handleRedirect(signedResponse, 
-            redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid]).then((attestation) => { 
-              if (attestation && attestation.data) {
-                const localAttestaionObj = new primitives.Attestation();
-                localAttestaionObj.fromBuffer(Buffer.from(attestation.data, 'hex'));
-                setAttestationObj(localAttestaionObj);
-                setShowAttestation(true);
-              }
-              setLoading(false); 
-            });
-      } catch(e) {
-        createAlert('Error', e.message);
+        console.log('await attestationObj.getHash()', JSON.stringify(attestationObj));
+        console.log('attestationObj.toBuffer().toString(hex)', attestationObj.toBuffer().toString('hex'));
+
+        //await setAttestation((await attestationObj.getHash()).toString('hex'), attestationObj.toBuffer().toString('hex'));
+      } catch (e) {
+        createAlert('Error saving Attestation', e.message);
         setLoading(false);
         cancel();
       }
     }
+  }
+
+  let redirectsObj = {};
+
+  redirects.forEach(a => { redirectsObj[a.vdxfkey] = a; });
+  const attestationPresent = !!redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid];
+
+  const onError = (e) => { 
+    createAlert('Error retrieving Attestation', e.message);
+    setLoading(false);
+    cancel();
+  }
+
+  useEffect(() => {
+
+    const tryRedirect = async () => {
+      if (attestationPresent) {
+        try {
+          setLoading(true);
+          const attestation = await Promise.race([
+            handleRedirect(signedResponse, redirectsObj[primitives.LOGIN_CONSENT_ATTESTATION_WEBHOOK_VDXF_KEY.vdxfid]),
+            new Promise((resolve, reject) => {
+              setTimeout(() => {
+                reject(new Error('Attestation server did not respond. Please try again later.'));
+              }, 15000);
+            })
+          ]) 
+
+          if (attestation && attestation.data) {
+            const localAttestaionObj = new primitives.Attestation();
+            localAttestaionObj.fromBuffer(Buffer.from(attestation.data, 'hex'));
+            
+            const expectedHash = await localAttestaionObj.routeHash();
+
+            delete localAttestaionObj.mmr;
+
+            const checkedHash = await localAttestaionObj.routeHash();
+
+            if (expectedHash.toString('hex') !== checkedHash.toString('hex')) { 
+              throw new Error('Attestation hash does not match expected hash. Got\n' + checkedHash.toString('hex') + ' expected\n' + expectedHash.toString('hex'));
+            }
+
+            const signingIds = Object.keys(localAttestaionObj.signatures)
+
+            if( (await Promise.all(signingIds
+              .map((iaddress) => VrpcProvider
+              .getVerusIdInterface(localAttestaionObj.signatures[iaddress].system)
+              .verifyHash(iaddress, localAttestaionObj.signatures[iaddress].signature, expectedHash)))).includes(false)) {
+                throw new Error('Attestation signature verification failed');
+              }
+            setAttestationObj(localAttestaionObj);
+            setShowAttestation(true);
+          }
+          setLoading(false);
+        } catch (e) {
+          if (e.message !== 'Attestation server did not respond. Please try again later.') {
+            createAlert('Error retrieving Attestation', e.message);
+          } else {
+            createAlert('Error reading Attestation', e.message);
+          }
+          setLoading(false);
+          cancel();
+        }
+      }
+    }
+
+    tryRedirect();
   }, []);
 
   if (redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid]) {
     try {
       redirectinfo = redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid];
       url = new URL(redirectsObj[primitives.LOGIN_CONSENT_REDIRECT_VDXF_KEY.vdxfid].uri);
-      extraInfo =  ' and return to\n'
+      extraInfo = ' and return to\n'
       urlDisplayString = `${url.protocol}//${url.host}`;
-    } catch(e) {
+    } catch (e) {
       createAlert('Error', e.message);
       cancel();
     }
@@ -98,7 +153,7 @@ const LoginRequestComplete = props => {
       const returnedData = await tryRedirect();
       if (fromService) {
         // Only return to services, default is main home screen.
-        props.navigation.navigate("ServicesHome", { screen: fromService, params: { data: returnedData.data }});
+        props.navigation.navigate("ServicesHome", { screen: fromService, params: { data: returnedData.data } });
       } else {
         cancel();
       }
@@ -109,18 +164,19 @@ const LoginRequestComplete = props => {
 
   return (
     <ScrollView
-    style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
-    contentContainerStyle={{
-      ...Styles.focalCenter,
-      justifyContent: 'space-between',
-    }}>
+      style={{ ...Styles.fullWidth, ...Styles.backgroundColorWhite }}
+      contentContainerStyle={{
+        ...Styles.focalCenter,
+        justifyContent: 'space-between',
+      }}>
       {attestationObj && <Attestation
-      visible={showAttestation}
-      loginConsentResponse={res}
-      attestation={attestationObj}
-      buttons={[{text: "CANCEL", onPress: () => setShowAttestation(false)},
-        {disabled: false, onPress: () => {storeAttestation(); setShowAttestation(false);}, text: "save"},]}
-      mainTitle={"Attestation Received"}
+        visible={showAttestation}
+        onError={onError}
+        loginConsentResponse={res}
+        attestation={attestationObj}
+        buttons={[{ text: "CANCEL", onPress: () => setShowAttestation(false) },
+          { disabled: false, onPress: () => { storeAttestation() }, text: "save" }]}
+        mainTitle={"Attestation Received"}
       />}
       <View style={Styles.focalCenter}>
         <Text
@@ -132,7 +188,7 @@ const LoginRequestComplete = props => {
           }}>
           {loading ? attestationPresent ? "Retrieving Attestation" : "Loading..." : 'Success!'}
         </Text>
-        <View style={{paddingVertical: 16}}>
+        <View style={{ paddingVertical: 16 }}>
           {loading ? (
             <AnimatedActivityIndicator
               style={{
