@@ -10,11 +10,12 @@ import { NOTIFICATION_TYPE_VERUSID_READY, NOTIFICATION_TYPE_VERUSID_ERROR, NOTIF
 import { NOTIFICATION_ICON_ERROR, NOTIFICATION_ICON_VERUSID } from '../../../../../utils/constants/notifications';
 import { updatePendingVerusIds } from "../../../channels/verusid/dispatchers/VerusidWalletReduxManager"
 import { dispatchAddNotification } from '../../../notifications/dispatchers/notifications';
-import { DeeplinkNotification, BasicNotification } from '../../../../../utils/notification';
+import { VerusIdProvisioningNotification, BasicNotification } from '../../../../../utils/notification';
 import {requestSeeds} from '../../../../../utils/auth/authBox';
 import {deriveKeyPair} from '../../../../../utils/keys';
 import {ELECTRUM} from '../../../../../utils/constants/intervalConstants';
 import { dispatchRemoveNotification } from '../../../../actions/notifications/dispatchers/notifications';
+import { verifyIdProvisioningResponse } from "../../../../../utils/api/channels/vrpc/requests/verifyIdProvisioningResponse";
 
 export const linkVerusId = async (iAddress, fqn, chain) => {
   const state = store.getState();
@@ -147,12 +148,10 @@ export const checkVerusIdNotificationsForUpdates = async () => {
   const state = store.getState();
 
   const getPotentialPrimaryAddresses = async (coinObj, channel) => {
-    const seeds = await requestSeeds();
 
-    const seed = seeds[channel];
-
-    const keyObj = await deriveKeyPair(seed, coinObj, channel);
-    const {addresses} = keyObj;
+    let addresses = [];
+    try {addresses = state.authentication.activeAccount.keys[coinObj.id].vrpc.addresses;}
+    catch (e) {}
 
     return addresses;
   };
@@ -170,11 +169,10 @@ export const checkVerusIdNotificationsForUpdates = async () => {
 
   const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
   const currentLinkedIdentities =  Object.keys(serviceData.linked_ids && serviceData.linked_ids[ticker] || {});
-
   if (pendingIds[ticker]) {
     const details = Object.keys(pendingIds[ticker]);
     for (const iaddress of details) {
-
+      
       // once an ID is linked, remove it from pending IDs, or if the server has rejected it delete.
       if (pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_READY) {
         if (currentLinkedIdentities.indexOf(iaddress) > -1 || pendingIds[ticker][iaddress].status === NOTIFICATION_TYPE_VERUSID_FAILED) {
@@ -191,24 +189,33 @@ export const checkVerusIdNotificationsForUpdates = async () => {
         let errorFound = false;
         try {
           if (pendingIds[ticker][iaddress].infoUri) {
+            
             const response = await axios.get(pendingIds[ticker][iaddress].infoUri);
             const responseData = new primitives.LoginConsentProvisioningResponse(response.data);
-            
-            if (responseData.result.state === primitives.LOGIN_CONSENT_PROVISIONING_RESULT_STATE_FAILED.vdxfid) {
+            const req = new primitives.LoginConsentRequest();
+            req.fromBuffer(Buffer.from(pendingIds[ticker][iaddress].loginRequest, 'base64'));
+            const verified = await verifyIdProvisioningResponse(system, response.data);
 
-              const newDeepLinkNotification = new DeeplinkNotification (
+            if (responseData.signing_id !== req.signing_id || !verified) {
+              throw new Error('Failed to verify response from service');
+            }
+            
+            if (responseData.decision.result.state === primitives.LOGIN_CONSENT_PROVISIONING_RESULT_STATE_FAILED.vdxfid) {
+
+              const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification (
                 "Retry",
                 [`${pendingIds[ticker][iaddress].provisioningName.split(".")[0]}@`, ` failed to create identity.`],
                 null,
-                null,
+                pendingIds[ticker][iaddress].notificationUid,
                 pendingIds[ticker][iaddress].loginRequest,
-                state.authentication.activeAccount.accountHash
+                state.authentication.activeAccount.accountHash,
+                null,
+                null
               ); 
               await deleteProvisionedIds(iaddress, ticker);
               await updatePendingVerusIds();
-              newDeepLinkNotification.icon = NOTIFICATION_ICON_ERROR;
-              newDeepLinkNotification.uid = pendingIds[ticker][iaddress].notificationUid;
-              dispatchAddNotification(newDeepLinkNotification);
+              newVerusIdProvisioningNotification.icon = NOTIFICATION_ICON_ERROR;
+              dispatchAddNotification(newVerusIdProvisioningNotification);
               continue;
             }
           } 
@@ -218,7 +225,7 @@ export const checkVerusIdNotificationsForUpdates = async () => {
                 pendingIds[ticker][iaddress].status !== NOTIFICATION_TYPE_VERUSID_ERROR) {
 
             pendingIds[ticker][iaddress].status = NOTIFICATION_TYPE_VERUSID_ERROR;
-            pendingIds[ticker][iaddress].error_desc = [`${pendingIds[ticker][iaddress].provisioningName}@`, `server connection error.`]
+            pendingIds[ticker][iaddress].error_desc = [`${pendingIds[ticker][iaddress].provisioningName}@`, ` connection error. Provisioning status unknown.`]
             pendingIds[ticker][iaddress].createdAt = Math.floor(Date.now() / 1000) + 1200;
             await setRequestedVerusId(iaddress, pendingIds[ticker][iaddress], ticker);
             await updatePendingVerusIds();
@@ -227,22 +234,22 @@ export const checkVerusIdNotificationsForUpdates = async () => {
         } 
 
         if (errorFound) {
-          const newDeepLinkNotification = new BasicNotification (
+          const newBasicNotification = new BasicNotification (
             "",
             pendingIds[ticker][iaddress].error_desc,
             null,
             state.authentication.activeAccount.accountHash
           );  
-          newDeepLinkNotification.icon = NOTIFICATION_ICON_ERROR;
-          newDeepLinkNotification.uid = pendingIds[ticker][iaddress].notificationUid;
-          dispatchAddNotification(newDeepLinkNotification);
+          newBasicNotification.icon = NOTIFICATION_ICON_ERROR;
+          newBasicNotification.uid = pendingIds[ticker][iaddress].notificationUid;
+          dispatchAddNotification(newBasicNotification);
           continue;
         }
         
       }
 
       const identity = await getIdentity(system.system_id, iaddress);
-      const addrs = await getPotentialPrimaryAddresses(system, ELECTRUM);
+      const addrs = await getPotentialPrimaryAddresses(system);
       let isInWallet = false;
 
       if (identity.result) {
@@ -261,22 +268,54 @@ export const checkVerusIdNotificationsForUpdates = async () => {
         await setRequestedVerusId(iaddress, pendingIds[ticker][iaddress], ticker);
         await updatePendingVerusIds();
 
-        const newDeepLinkNotification = new DeeplinkNotification (
+        const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification (
           "link and login",
           [`${identity.result.fullyqualifiedname.substring(0, identity.result.fullyqualifiedname.lastIndexOf('.'))}@`, ` is ready`],
           null,
-          null,
+          pendingIds[ticker][iaddress].notificationUid,
           pendingIds[ticker][iaddress].loginRequest,
-          state.authentication.activeAccount.accountHash
+          state.authentication.activeAccount.accountHash,
+          pendingIds[ticker][iaddress].fqn,
+          null
         ); 
 
-        newDeepLinkNotification.icon = NOTIFICATION_ICON_VERUSID;
-        newDeepLinkNotification.uid = pendingIds[ticker][iaddress].notificationUid;
-        newDeepLinkNotification.extraParams = { iAddress: iaddress, fqn: identity.result.fullyqualifiedname, chain: ticker, fromService: null };
-        dispatchAddNotification(newDeepLinkNotification);
+        newVerusIdProvisioningNotification.icon = NOTIFICATION_ICON_VERUSID;
+        dispatchAddNotification(newVerusIdProvisioningNotification);
       }
     }
   }
+};
+
+export const clearOldPendingVerusIds = async () => {
+  const state = store.getState();
+
+  if (state.authentication.activeAccount == null) {
+    throw new Error('You must be signed in for ID provisioning information');
+  }
+
+  const serviceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+  const currentPendingIdentities =
+    serviceData.pending_ids == null ? {} : serviceData.pending_ids;
+
+  const chainObjects = Object.keys(currentPendingIdentities);
+
+  for (const chain of chainObjects) {
+    const ids = Object.keys(currentPendingIdentities[chain] || {});
+    for (const id of ids) {
+      if ((currentPendingIdentities[chain][id].createdAt + 604800) < Math.floor(Date.now() / 1000)) {
+        delete currentPendingIdentities[chain][id];
+      }
+    }
+  }
+
+  return await modifyServiceStoredDataForUser(
+    {
+      ...serviceData,
+      pending_ids: currentPendingIdentities,
+    },
+    VERUSID_SERVICE_ID,
+    state.authentication.activeAccount.accountHash,
+  );
 };
 
 export const setAttestation = async (stateRoot, attestation, chain) => {

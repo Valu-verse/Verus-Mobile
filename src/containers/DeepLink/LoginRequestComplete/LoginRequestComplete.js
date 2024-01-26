@@ -11,7 +11,9 @@ import {CommonActions} from '@react-navigation/native';
 import Colors from '../../../globals/colors';
 import {URL} from 'react-native-url-polyfill';
 import AnimatedActivityIndicator from '../../../components/AnimatedActivityIndicator';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { resetDeeplinkData } from '../../../actions/actionCreators';
+
 import Attestation from '../../../components/Attestation';
 import VrpcProvider from "../../../utils/vrpc/vrpcInterface"
 import { setAttestation } from '../../../actions/actions/services/dispatchers/verusid/verusid';
@@ -29,10 +31,12 @@ const LoginRequestComplete = props => {
   let extraInfo = '';
   let redirectinfo = null;
   const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
   const [showAttestation, setShowAttestation] = useState(false);
   const [attestationObj, setAttestationObj] = useState(null);
 
   const cancel = () => {
+    dispatch(resetDeeplinkData());
     props.navigation.dispatch(
       CommonActions.reset({
         index: 0,
@@ -154,6 +158,7 @@ const LoginRequestComplete = props => {
       if (fromService) {
         // Only return to services, default is main home screen.
         props.navigation.navigate("ServicesHome", { screen: fromService, params: { data: returnedData.data } });
+        dispatch(resetDeeplinkData());
       } else {
         cancel();
       }
