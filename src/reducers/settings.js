@@ -26,7 +26,6 @@ export const settings = (state = {
     displayCurrency: USD,
     defaultAccount: null,
     homeCardDragDetection: false,
-    allowSettingVerusPaySlippage: false, 
     ackedCurrencyDisclaimer: false,
     addressBlocklistDefinition: {
       type: ADDRESS_BLOCKLIST_FROM_WEBSERVER,

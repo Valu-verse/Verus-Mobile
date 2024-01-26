@@ -16,9 +16,7 @@ const ExportFormModule = ({
   localNetworkDefinition,
   advancedForm,
   showMappingField,
-  mappingField,
-  exporttoDisabled,
-  mappingDisabled
+  mappingField
 }) => {
   return (
     <React.Fragment>
@@ -30,7 +28,7 @@ const ExportFormModule = ({
           advancedForm ? (
             <TextInput
               returnKeyType="done"
-              label={exporttoDisabled ? "System to send to" : "System to send to (optional)"}
+              label="System to send to (optional)"
               value={exportToField}
               mode="outlined"
               multiline={true}
@@ -38,12 +36,10 @@ const ExportFormModule = ({
               autoCapitalize={'none'}
               autoCorrect={false}
               style={{ flex: 1 }}
-              disabled={exporttoDisabled}
             />
           ) : (
             <TouchableOpacity
-              onPress={() => exporttoDisabled ? {} : handleNetworkFieldFocus()}
-              disabled={exporttoDisabled}
+              onPress={() => handleNetworkFieldFocus()}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -95,12 +91,10 @@ const ExportFormModule = ({
                 autoCapitalize={'none'}
                 autoCorrect={false}
                 style={{flex: 1}}
-                disabled={mappingDisabled}
               />
             ) : (
               <TouchableOpacity
-                onPress={() => mappingDisabled ? {} : handleMappingFieldFocus()}
-                disabled={mappingDisabled}
+                onPress={() => handleMappingFieldFocus()}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',

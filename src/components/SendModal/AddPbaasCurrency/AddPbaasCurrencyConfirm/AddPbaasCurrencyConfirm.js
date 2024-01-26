@@ -38,10 +38,7 @@ const AddPbaasCurrencyConfirm = props => {
     await props.setPreventExit(true);
 
     try {
-      if (!CoinDirectory.coinExistsInDirectory(currency.currencyid)) {
-        await CoinDirectory.addPbaasCurrency(currency, Object.keys(activeAccount.testnetOverrides).length > 0, true);
-      }
-
+      await CoinDirectory.addPbaasCurrency(currency, Object.keys(activeAccount.testnetOverrides).length > 0, true)
       const fullCoinData = CoinDirectory.findCoinObj(currency.currencyid)
   
       dispatch(
@@ -101,7 +98,7 @@ const AddPbaasCurrencyConfirm = props => {
     goBack,
     submitData,
     spotterSystem: sendModal.coinObj.system_id,
-    longestChainOnLaunchSystem: launchSystem == null ? 0 : launchSystem.bestheight
+    longestChainOnLaunchSystem: launchSystem.bestheight
   });
 };
 

@@ -16,9 +16,7 @@ const ConvertFormModule = ({
   onViaChange,
   isVia,
   showConversionField,
-  showViaField,
-  convertDisabled,
-  viaDisabled
+  showViaField
 }) => {
   return (
     <React.Fragment>
@@ -32,7 +30,7 @@ const ConvertFormModule = ({
               advancedForm ? (
                 <TextInput
                   returnKeyType="done"
-                  label={isPreconvert ? 'Preconvert to' : 'Convert to'}
+                  label={isPreconvert ? 'Currency to preconvert to' : 'Currency to convert to'}
                   value={convertToField}
                   mode="outlined"
                   multiline={true}
@@ -40,12 +38,10 @@ const ConvertFormModule = ({
                   autoCapitalize={'none'}
                   autoCorrect={false}
                   style={{ flex: 1 }}
-                  disabled={convertDisabled}
                 />
               ) : (
                 <TouchableOpacity
-                  onPress={() => convertDisabled ? {} : handleFieldFocusConvertTo()}
-                  disabled={convertDisabled}
+                  onPress={() => handleFieldFocusConvertTo()}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -80,7 +76,7 @@ const ConvertFormModule = ({
               advancedForm ? (
                 <TextInput
                   returnKeyType="done"
-                  label="Convert via (optional)"
+                  label="Currency to convert via (optional)"
                   value={viaField}
                   mode="outlined"
                   multiline={true}
@@ -88,12 +84,10 @@ const ConvertFormModule = ({
                   autoCapitalize={'none'}
                   autoCorrect={false}
                   style={{ flex: 1 }}
-                  disabled={viaDisabled}
                 />
               ) : (
                 <TouchableOpacity
-                  onPress={() => viaDisabled ? {} : handleFieldFocusVia()}
-                  disabled={viaDisabled}
+                  onPress={() => handleFieldFocusVia()}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',

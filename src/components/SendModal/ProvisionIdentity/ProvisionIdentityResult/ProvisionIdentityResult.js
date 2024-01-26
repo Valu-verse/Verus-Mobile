@@ -9,8 +9,7 @@ class ProvisionIdentityResult extends Component {
     super(props);
 
     this.state = {
-      response: props.route.params == null ? new primitives.LoginConsentProvisioningResponse() : 
-        new primitives.LoginConsentProvisioningResponse(props.route.params.response)
+      response: new primitives.LoginConsentProvisioningResponse(props.route.params.response),
     };
   }
 

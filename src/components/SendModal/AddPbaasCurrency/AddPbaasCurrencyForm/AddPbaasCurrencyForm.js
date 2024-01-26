@@ -1,4 +1,4 @@
-import {useCallback, useEffect} from 'react';
+import {useCallback} from 'react';
 import {useSelector, useDispatch} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import {Alert} from 'react-native';
@@ -10,7 +10,6 @@ import {
 import {requestSeeds} from '../../../../utils/auth/authBox';
 import {
   SEND_MODAL_FORM_STEP_CONFIRM,
-  SEND_MODAL_PBAAS_CURRENCY_PASSTHROUGH,
   SEND_MODAL_PBAAS_CURRENCY_TO_ADD_FIELD,
 } from '../../../../utils/constants/sendModal';
 import {deriveKeyPair} from '../../../../utils/keys';
@@ -59,10 +58,7 @@ const AddPbaasCurrencyForm = (props) => {
         throw new Error(`${res.result.fullyqualifiedname} has already been added to your wallet.`)
       }
 
-      const launchRes = await getCurrency(
-        coinObj.system_id,
-        res.result.launchsystemid ? res.result.launchsystemid : res.result.systemid,
-      );
+      const launchRes = await getCurrency(coinObj.system_id, res.result.launchsystemid);
 
       if (launchRes.error) {
         throw new Error(launchRes.error.message);
@@ -82,13 +78,6 @@ const AddPbaasCurrencyForm = (props) => {
 
     props.setLoading(false)
   }, [formHasError, sendModal, dispatch, props]);
-
-  useEffect(() => {
-    if (sendModal.data[SEND_MODAL_PBAAS_CURRENCY_PASSTHROUGH]) {
-      props.updateSendFormData(SEND_MODAL_PBAAS_CURRENCY_PASSTHROUGH, false)
-      submitData()
-    }
-  }, [])
 
   return AddPbaasCurrencyFormRender({
     submitData,

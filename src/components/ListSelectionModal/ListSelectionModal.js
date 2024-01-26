@@ -40,10 +40,10 @@ class ListSelectionModal extends Component {
             style={Styles.fullWidth}
             renderItem={({ item }) => {
               return (
-                <TouchableOpacity onPress={onSelect != null ? () => {
+                <TouchableOpacity onPress={() => {
                   onSelect(item)
                   cancel()
-                } : undefined}>
+                }}>
                   <List.Item
                     title={item.title}
                     description={item.description}

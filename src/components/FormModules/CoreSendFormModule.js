@@ -17,9 +17,7 @@ const CoreSendFormModule = ({
   onMaxPress,
   maxButtonDisabled = false,
   estimatedResultSubtitle = null,
-  networkName,
-  destDisabled,
-  amountDisabled
+  networkName
 }) => {
   return (
     <React.Fragment>
@@ -50,19 +48,14 @@ const CoreSendFormModule = ({
             autoCapitalize={'none'}
             autoCorrect={false}
             style={{ flex: 1 }}
-            disabled={destDisabled}
           />
-          {
-            !destDisabled && (
-              <Button
-                onPress={onSelfPress}
-                color={Colors.primaryColor}
-                style={{alignSelf: 'center', marginTop: 6, width: 64}}
-                compact>
-                {'Self'}
-              </Button>
-            )
-          }
+          <Button
+            onPress={onSelfPress}
+            color={Colors.primaryColor}
+            style={{ alignSelf: 'center', marginTop: 6, width: 64 }}
+            compact>
+            {'Self'}
+          </Button>
         </View>
       </View>
       <View style={{ ...Styles.wideBlockDense, paddingTop: 0 }}>
@@ -77,20 +70,15 @@ const CoreSendFormModule = ({
             mode="outlined"
             onChangeText={onAmountChange}
             style={{ flex: 1 }}
-            disabled={amountDisabled}
           />
-          {
-            !amountDisabled && (
-              <Button
-                onPress={onMaxPress}
-                color={Colors.primaryColor}
-                style={{alignSelf: 'center', marginTop: 6, width: 64}}
-                disabled={maxButtonDisabled}
-                compact>
-                {'Max'}
-              </Button>
-            )
-          }
+          <Button
+            onPress={onMaxPress}
+            color={Colors.primaryColor}
+            style={{ alignSelf: 'center', marginTop: 6, width: 64 }}
+            disabled={maxButtonDisabled}
+            compact>
+            {'Max'}
+          </Button>
         </View>
         {
           estimatedResultSubtitle != null ? (
