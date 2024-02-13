@@ -104,8 +104,15 @@ const LoginRequestIdentity = props => {
   } 
 
   useEffect(() => {
-    if(extraParams && extraParams.fqn){
-      const data = {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: extraParams.fqn};
+    if(passthrough && passthrough.fqnToAutoLink){
+      
+      let noLogin = false;
+
+      if (!req.challenge.redirect_uris || req.challenge.redirect_uris.length == 0) {
+        noLogin = true;
+      }
+      
+      const data = {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: passthrough.fqnToAutoLink, noLogin: noLogin};
       openLinkIdentityModal(CoinDirectory.findCoinObj(system_id, null, true), data);
     }
   }, [extraParams])
