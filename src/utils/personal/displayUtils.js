@@ -16,26 +16,31 @@ import {
   PERSONAL_LOCATIONS,
   PERSONAL_PAYMENT_METHODS,
   PERSONAL_IMAGES,
+  PERSONAL_BANK_COUNTRY,
+  PERSONAL_BANK_ACCOUNT_NUMBER,
+  PERSONAL_BANK_ACCOUNT_TYPE,
+  PERSONAL_BANK_ACCOUNT_CURRENCY,
+
 } from "../constants/personal";
 
-import  { IdentityVdxfidMap }  from 'verus-typescript-primitives/dist/vdxf/classes/IdentityData';
+import  { IdentityVdxfidMap }  from 'verus-typescript-primitives/dist/utils/IdentityData';
 import Colors from '../../globals/colors';
+import { defaultPersonalProfileDataTemplate } from "../constants/personal.js";
 
-const { IDENTITYDATA_FIRSTNAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_MIDDLENAME,
-  BANK_ACCOUNT_COUNTRY, BANK_ACCOUNT_CURRENCY, BANK_ACCOUNT_NUMBER, BANK_ACCOUNT_TYPE } = primitives;
-const { IDENTITYDATA_HOMEADDRESS_STREET1, IDENTITYDATA_HOMEADDRESS_STREET2, IDENTITYDATA_HOMEADDRESS_CITY, IDENTITYDATA_HOMEADDRESS_REGION, IDENTITYDATA_HOMEADDRESS_POSTCODE, IDENTITYDATA_HOMEADDRESS_COUNTRY } = primitives;
-const { IDENTITYDATA_CONTACT, IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_LOCATIONS, IDENTITYDATA_DOCUMENTS_AND_IMAGES, IDENTITYDATA_BANKING_INFORMATION } = primitives;
+const { IDENTITY_FIRSTNAME, IDENTITY_LASTNAME, IDENTITY_MIDDLENAME } = primitives;
+const { IDENTITY_HOMEADDRESS_STREET1, IDENTITY_HOMEADDRESS_STREET2, IDENTITY_HOMEADDRESS_CITY, IDENTITY_HOMEADDRESS_REGION, IDENTITY_HOMEADDRESS_POSTCODE, IDENTITY_HOMEADDRESS_COUNTRY } = primitives;
+const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS, IDENTITY_BANKACCOUNT } = primitives;
 
 
 export const renderPersonalFullName = (state) => {
 
-  if (!state[IDENTITYDATA_FIRSTNAME.vdxfid] && !state[IDENTITYDATA_LASTNAME.vdxfid]) {
+  if (!state[IDENTITY_FIRSTNAME.vdxfid] && !state[IDENTITY_LASTNAME.vdxfid]) {
     return {title: "John Doe"}
   }
 
   return {
-    title: `${state[IDENTITYDATA_FIRSTNAME.vdxfid] || ""} ${state[IDENTITYDATA_MIDDLENAME.vdxfid] != null && state[IDENTITYDATA_MIDDLENAME.vdxfid] > 0 ? state[IDENTITYDATA_MIDDLENAME.vdxfid] + " " : ""
-      }${state[IDENTITYDATA_LASTNAME.vdxfid] || ""}`
+    title: `${state[IDENTITY_FIRSTNAME.vdxfid] || ""} ${state[IDENTITY_MIDDLENAME.vdxfid] != null && state[IDENTITY_MIDDLENAME.vdxfid] > 0 ? state[IDENTITY_MIDDLENAME.vdxfid] + " " : ""
+      }${state[IDENTITY_LASTNAME.vdxfid] || ""}`
   };
 };
 
@@ -121,30 +126,31 @@ export const renderPersonalTaxId = (taxCountry) => {
 export const renderPersonalAddress = (address) => {
   return {
     title:
-      address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid].length > 0
-        ? `${address[IDENTITYDATA_HOMEADDRESS_STREET1.vdxfid]}${address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid] != null && address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid].length > 0 ? `, ${address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid]}` : ""
+      address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid].length > 0
+        ? `${address[IDENTITY_HOMEADDRESS_STREET1.vdxfid]}${address[IDENTITY_HOMEADDRESS_STREET2.vdxfid] != null && address[IDENTITY_HOMEADDRESS_STREET2.vdxfid].length > 0 ? `, ${address[IDENTITY_HOMEADDRESS_STREET2.vdxfid]}` : ""
         }`
         : "Empty address",
-    description: `${address[IDENTITYDATA_HOMEADDRESS_POSTCODE.vdxfid].length > 0 ? `${address[IDENTITYDATA_HOMEADDRESS_POSTCODE.vdxfid]} ` : ""}${address[IDENTITYDATA_HOMEADDRESS_REGION.vdxfid]?.length > 0 ? `${address[IDENTITYDATA_HOMEADDRESS_REGION.vdxfid]}, ` : ""
-      }${address[IDENTITYDATA_HOMEADDRESS_CITY.vdxfid]?.length > 0 ? `${address[IDENTITYDATA_HOMEADDRESS_CITY.vdxfid]}, ` : "Unknown City, "}${ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]] != null
-        ? `${ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]].emoji} ${ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]].name}`
+    description: `${address[IDENTITY_HOMEADDRESS_POSTCODE.vdxfid].length > 0 ? `${address[IDENTITY_HOMEADDRESS_POSTCODE.vdxfid]} ` : ""}${address[IDENTITY_HOMEADDRESS_REGION.vdxfid]?.length > 0 ? `${address[IDENTITY_HOMEADDRESS_REGION.vdxfid]}, ` : ""
+      }${address[IDENTITY_HOMEADDRESS_CITY.vdxfid]?.length > 0 ? `${address[IDENTITY_HOMEADDRESS_CITY.vdxfid]}, ` : "Unknown City, "}${ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]] != null
+        ? `${ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]].emoji} ${ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]].name}`
         : "Unknown Country"
       }`,
   };
 }
 
 export const renderPersonalBankAccount = (account) => {
-  const accountLocaleString = ISO_3166_COUNTRIES[account[BANK_ACCOUNT_COUNTRY.vdxfid]]
-    ? `${ISO_3166_COUNTRIES[account[BANK_ACCOUNT_COUNTRY.vdxfid]].emoji} Account`
+  console.log("test1",account)
+  const accountLocaleString = ISO_3166_COUNTRIES[account[PERSONAL_BANK_COUNTRY]]
+    ? `${ISO_3166_COUNTRIES[account[PERSONAL_BANK_COUNTRY]].emoji} Account`
     : "Bank Account";
   const accountNumberString =
-    account[BANK_ACCOUNT_NUMBER.vdxfid] != null && account[BANK_ACCOUNT_NUMBER.vdxfid].length > 4
-      ? ` ending in ${account[BANK_ACCOUNT_NUMBER.vdxfid].slice(-4)}`
+    account[PERSONAL_BANK_ACCOUNT_NUMBER] != null && account[PERSONAL_BANK_ACCOUNT_NUMBER].length > 4
+      ? ` ending in ${account[PERSONAL_BANK_ACCOUNT_NUMBER].slice(-4)}`
       : "";
-  const accountDescription = `${account[BANK_ACCOUNT_CURRENCY.vdxfid] != null && account[BANK_ACCOUNT_CURRENCY.vdxfid].length > 0
-    ? account[BANK_ACCOUNT_CURRENCY.vdxfid] + " "
+  const accountDescription = `${account[PERSONAL_BANK_ACCOUNT_CURRENCY] != null && account[PERSONAL_BANK_ACCOUNT_CURRENCY].length > 0
+    ? account[PERSONAL_BANK_ACCOUNT_CURRENCY] + " "
     : ""
-    }${account[BANK_ACCOUNT_TYPE.vdxfid]}`;
+    }${account[PERSONAL_BANK_ACCOUNT_TYPE]}`;
 
   return {
     title: `${accountLocaleString}${accountNumberString}`,
@@ -170,27 +176,27 @@ export const checkPersonalDataCatagories = async (profileDataRequested = []) => 
     let attributes = {};
     switch (permission) {
 
-      case IDENTITYDATA_PERSONAL_DETAILS.vdxfid:
+      case IDENTITY_PERSONALDETAILS.vdxfid:
         attributes = await requestPersonalData(PERSONAL_ATTRIBUTES);
-        optionalKeys = { [primitives.IDENTITYDATA_MIDDLENAME.vdxfid]: true };
-        profiletype = primitives.defaultPersonalProfileDataTemplate[0].data;
+        optionalKeys = { [primitives.IDENTITY_MIDDLENAME.vdxfid]: true };
+        profiletype = defaultPersonalProfileDataTemplate[0].data;
         break;
-      case IDENTITYDATA_CONTACT.vdxfid:
+      case IDENTITY_CONTACTDETAILS.vdxfid:
         attributes = await requestPersonalData(PERSONAL_CONTACT);
-        profiletype = primitives.defaultPersonalProfileDataTemplate[1].data;
+        profiletype = defaultPersonalProfileDataTemplate[1].data;
         break;
-      case IDENTITYDATA_LOCATIONS.vdxfid:
+      case IDENTITY_LOCATION.vdxfid:
         const locationReply = await requestPersonalData(PERSONAL_LOCATIONS);
         attributes = locationReply.physical_addresses && locationReply.physical_addresses.length > 0 ? locationReply.physical_addresses[0] : {};
-        optionalKeys = { [primitives.IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid]: true };
-        profiletype = primitives.defaultPersonalProfileDataTemplate[2].data;
+        optionalKeys = { [primitives.IDENTITY_HOMEADDRESS_STREET2.vdxfid]: true };
+        profiletype = defaultPersonalProfileDataTemplate[2].data;
         break;
-      case IDENTITYDATA_BANKING_INFORMATION.vdxfid:
+      case IDENTITY_BANKINGDETAILS.vdxfid:
         const bankRetval = await checkBankAccountPresent();
         attributes = bankRetval.attributes;
         profiletype = bankRetval.profiletype;
         break;
-      case IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid:
+      case IDENTITY_DOCUMENTS.vdxfid:
         const retval = await checkDocumentsPresent();
         attributes = retval.attributes;
         profiletype = retval.profiletype;
@@ -222,9 +228,9 @@ export const checkBankAccountPresent = async () => {
   const paymentMethods = await requestPersonalData(PERSONAL_PAYMENT_METHODS);
 
   if (!paymentMethods.bank_accounts || paymentMethods.bank_accounts.length === 0) {
-    return { profiletype: [{ vdxfkey: primitives.BANK_ACCOUNT.vdxfid }], attributes: { [primitives.BANK_ACCOUNT.vdxfid]: "" } };
+    return { profiletype: [{ vdxfkey: IDENTITY_BANKACCOUNT.vdxfid }], attributes: { [IDENTITY_BANKACCOUNT.vdxfid]: "" } };
   }
-  return { profiletype: [{ vdxfkey: primitives.BANK_ACCOUNT.vdxfid }], attributes: { [primitives.BANK_ACCOUNT.vdxfid]: "OK" } };
+  return { profiletype: [{ vdxfkey: IDENTITY_BANKACCOUNT.vdxfid }], attributes: { [IDENTITY_BANKACCOUNT.vdxfid]: "OK" } };
 }
 
 export const checkDocumentsPresent = async () => {
@@ -232,9 +238,9 @@ export const checkDocumentsPresent = async () => {
   const images = await requestPersonalData(PERSONAL_IMAGES);
 
   if (!images.documents || images.documents.length === 0) {
-    return { profiletype: [{ vdxfkey: primitives.IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid }], attributes: { [primitives.IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid]: "" }};
+    return { profiletype: [{ vdxfkey: primitives.IDENTITY_DOCUMENTS.vdxfid }], attributes: { [primitives.IDENTITY_DOCUMENTS.vdxfid]: "" }};
   }
-  return { profiletype: [{ vdxfkey: primitives.IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid }], attributes: { [primitives.IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid]: "OK" }};
+  return { profiletype: [{ vdxfkey: primitives.IDENTITY_DOCUMENTS.vdxfid }], attributes: { [primitives.IDENTITY_DOCUMENTS.vdxfid]: "OK" }};
 
 }
 

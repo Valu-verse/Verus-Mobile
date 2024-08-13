@@ -1,10 +1,11 @@
 import React from 'react';
-import {View, Dimensions} from 'react-native';
-import {Text, Paragraph} from 'react-native-paper';
+import { View, Dimensions, Image } from 'react-native';
+import { Text, Paragraph } from 'react-native-paper';
 import TallButton from '../../../components/LargerButton';
 import Colors from '../../../globals/colors';
-import {VerusLogo} from '../../../images/customIcons';
+import { VerusLogo, ValuLogo } from '../../../images/customIcons';
 import styles from '../../../styles';
+import Styles from "../../../styles/index";
 
 export default function LandingScreen(props) {
   const { height } = Dimensions.get('window');
@@ -15,8 +16,7 @@ export default function LandingScreen(props) {
         backgroundColor: Colors.secondaryColor,
         ...styles.focalCenter,
       }}>
-      <VerusLogo width={180} height={'15%'} style={{ top: 100, position: 'absolute' }}/>
-      <View style={{alignItems: 'center', position: "absolute", top: height / 2 - 40}}>
+      <View style={{ alignItems: 'center', position: "absolute" }}>
         <Text
           style={{
             textAlign: 'center',
@@ -24,15 +24,20 @@ export default function LandingScreen(props) {
             fontSize: 28,
             fontWeight: 'bold',
           }}>
-          {'Welcome to Verus'}
+          {'Welcome to'}
         </Text>
+        <Image source={ValuLogo} style={{
+          width: '60%',
+          height: '60%',
+          resizeMode: 'contain',
+        }} />
         <Text
           style={{
             textAlign: 'center',
             color: Colors.primaryColor,
             fontSize: 20
           }}>
-          {'Truth and Privacy for All'}
+          {''}
         </Text>
         <Paragraph
           style={{
@@ -46,7 +51,7 @@ export default function LandingScreen(props) {
       <TallButton
         onPress={() => props.navigation.navigate("WelcomeSlider")}
         mode="contained"
-        labelStyle={{fontWeight: "bold"}}
+        labelStyle={{ fontWeight: "bold" }}
         style={{
           position: "absolute",
           bottom: 80,

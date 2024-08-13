@@ -11555,7 +11555,7 @@ version_compare@0.0.3:
     bs58check "https://github.com/bitcoinjs/bs58check"
     create-hash "1.2.0"
 
-"verus-typescript-primitives@file:d:/dev/verus-typescript-primitives", "verus-typescript-primitives@https://github.com/VerusCoin/verus-typescript-primitives.git":
+"verus-typescript-primitives@file:i:/dev2/verus-typescript-primitives", "verus-typescript-primitives@https://github.com/VerusCoin/verus-typescript-primitives.git":
   version "1.0.1"
   dependencies:
     base64url "3.0.1"

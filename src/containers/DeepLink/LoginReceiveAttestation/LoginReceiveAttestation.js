@@ -9,7 +9,7 @@ import { SignatureData } from "verus-typescript-primitives/dist/vdxf/classes/Sig
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
 const { ATTESTATION_NAME } = primitives;
-import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/vdxf/classes/IdentityData";
+import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { ATTESTATIONS_PROVISIONED } from "../../../utils/constants/attestations";
 import { modifyAttestationDataForUser } from "../../../actions/actions/attestations/dispatchers/attestations";
 

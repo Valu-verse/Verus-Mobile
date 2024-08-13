@@ -14,6 +14,7 @@ export const PersonalPaymentMethodsRender = function () {
         {this.state.payment_methods.bank_accounts == null
           ? null
           : this.state.payment_methods.bank_accounts.map((bankAccount, index) => {
+            console.log("bankAccount", bankAccount)
               const { title, description } = renderPersonalBankAccount(bankAccount)
 
               return (

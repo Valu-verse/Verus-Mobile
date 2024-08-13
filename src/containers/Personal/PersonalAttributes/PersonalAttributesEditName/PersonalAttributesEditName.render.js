@@ -5,7 +5,7 @@ import Styles from "../../../../styles";
 import TextInputModal from "../../../../components/TextInputModal/TextInputModal"
 import Colors from "../../../../globals/colors";
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_FIRSTNAME, IDENTITYDATA_MIDDLENAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_DATEOFBIRTH, IDENTITYDATA_NATIONALITY } = primitives;
+const { IDENTITY_PERSONALDETAILS, IDENTITY_FIRSTNAME, IDENTITY_MIDDLENAME, IDENTITY_LASTNAME, IDENTITY_DATEOFBIRTH, IDENTITY_NATIONALITY } = primitives;
 
 export const PersonalAttributesEditNameRender = function () {
   return (
@@ -33,19 +33,19 @@ export const PersonalAttributesEditNameRender = function () {
         <Divider />
         <List.Item
           title={
-            !!this.state.attributes[IDENTITYDATA_FIRSTNAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_FIRSTNAME.vdxfid] == false
               ? "required"
-              : this.state.attributes[IDENTITYDATA_FIRSTNAME.vdxfid]
+              : this.state.attributes[IDENTITY_FIRSTNAME.vdxfid]
           }
           titleStyle={{
             color:
-            !!this.state.attributes[IDENTITYDATA_FIRSTNAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_FIRSTNAME.vdxfid] == false
                 ? Colors.verusDarkGray
                 : Colors.basicButtonColor,
           }}
           right={(props) => <List.Icon {...props} icon={"account-edit"} size={20} />}
           onPress={
-            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITYDATA_FIRSTNAME.vdxfid })
+            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITY_FIRSTNAME.vdxfid })
           }
         />
         <Divider />
@@ -53,19 +53,19 @@ export const PersonalAttributesEditNameRender = function () {
         <Divider />
         <List.Item
           title={
-            !!this.state.attributes[IDENTITYDATA_MIDDLENAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_MIDDLENAME.vdxfid] == false
               ? "optional"
-              : this.state.attributes[IDENTITYDATA_MIDDLENAME.vdxfid]
+              : this.state.attributes[IDENTITY_MIDDLENAME.vdxfid]
           }
           titleStyle={{
             color:
-            !!this.state.attributes[IDENTITYDATA_MIDDLENAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_MIDDLENAME.vdxfid] == false
                 ? Colors.verusDarkGray
                 : Colors.basicButtonColor,
           }}
           right={(props) => <List.Icon {...props} icon={"account-edit"} size={20} />}
           onPress={
-            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITYDATA_MIDDLENAME.vdxfid })
+            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITY_MIDDLENAME.vdxfid })
           }
         />
         <Divider />
@@ -73,19 +73,19 @@ export const PersonalAttributesEditNameRender = function () {
         <Divider />
         <List.Item
           title={
-            !!this.state.attributes[IDENTITYDATA_LASTNAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_LASTNAME.vdxfid] == false
               ? "required"
-              : this.state.attributes[IDENTITYDATA_LASTNAME.vdxfid]
+              : this.state.attributes[IDENTITY_LASTNAME.vdxfid]
           }
           titleStyle={{
             color:
-            !!this.state.attributes[IDENTITYDATA_LASTNAME.vdxfid] == false
+            !!this.state.attributes[IDENTITY_LASTNAME.vdxfid] == false
                 ? Colors.verusDarkGray
                 : Colors.basicButtonColor,
           }}
           right={(props) => <List.Icon {...props} icon={"account-edit"} size={20} />}
           onPress={
-            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITYDATA_LASTNAME.vdxfid })
+            this.state.loading ? () => {} : () => this.setState({ currentTextInputModal: IDENTITY_LASTNAME.vdxfid })
           }
         />
         <Divider />

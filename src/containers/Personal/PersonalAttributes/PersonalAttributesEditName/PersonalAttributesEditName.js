@@ -5,7 +5,7 @@ import { PERSONAL_ATTRIBUTES } from "../../../../utils/constants/personal";
 import { provideCustomBackButton } from "../../../../utils/navigation/customBack";
 import { PersonalAttributesEditNameRender } from "./PersonalAttributesEditName.render"
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_DATEOFBIRTH} = primitives;
+const { IDENTITY_PERSONALDETAILS, IDENTITY_DATEOFBIRTH} = primitives;
 
 class PersonalAttributesEditName extends Component {
   constructor(props) {

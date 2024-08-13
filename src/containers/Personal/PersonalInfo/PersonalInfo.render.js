@@ -4,7 +4,7 @@ import { Divider, List, Avatar, Title } from "react-native-paper";
 import Styles from "../../../styles";
 import { renderPersonalFullName } from "../../../utils/personal/displayUtils";
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_FIRSTNAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_PERSONAL_DETAILS} = primitives;
+const { IDENTITY_FIRSTNAME, IDENTITY_LASTNAME, IDENTITY_PERSONALDETAILS} = primitives;
 export const PersonalInfoRender = function () {
   return (
     <SafeAreaView style={Styles.defaultRoot}>
@@ -12,9 +12,9 @@ export const PersonalInfoRender = function () {
         <View style={Styles.centerContainer}>
           <Avatar.Text
             size={96}
-            label={`${this.state.attributes[IDENTITYDATA_FIRSTNAME.vdxfid]
+            label={`${this.state.attributes[IDENTITY_FIRSTNAME.vdxfid]
               .charAt(0)
-              .toUpperCase()}${this.state.attributes[IDENTITYDATA_LASTNAME.vdxfid].charAt(0).toUpperCase()}`}
+              .toUpperCase()}${this.state.attributes[IDENTITY_LASTNAME.vdxfid].charAt(0).toUpperCase()}`}
             style={{
               marginVertical: 16,
             }}

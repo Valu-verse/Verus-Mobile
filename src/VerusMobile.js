@@ -5,7 +5,8 @@ import {
   AppState,
   Platform,
   View,
-  Linking
+  Linking,
+  Image
 } from "react-native";
 import Modal from './components/Modal'
 import RootStackScreens from './containers/RootStack/RootStackScreens';
@@ -40,7 +41,8 @@ import LoadingModal from "./components/LoadingModal/LoadingModal";
 import { CoinDirectory } from "./utils/CoinData/CoinDirectory";
 import { removeInactiveCurrencyDefinitions } from "./utils/asyncStore/currencyDefinitionStorage";
 import { removeInactiveContractDefinitions } from "./utils/asyncStore/contractDefinitionStorage";
-
+import { VerusLogo, ValuLogo, ValuSeperator } from "./images/customIcons";
+import Styles from "./styles/index";
 class VerusMobile extends React.Component {
   constructor(props) {
     super(props);
@@ -184,7 +186,7 @@ class VerusMobile extends React.Component {
               {
                 width: "100%",
                 height: "100%",
-                backgroundColor: Colors.primaryColor,
+                backgroundColor: "white",
               },
               {
                 alignItems: "center",
@@ -192,7 +194,7 @@ class VerusMobile extends React.Component {
               },
             ]}
           >
-            <VrscLogo height={100} width={100} />
+            <Image source={ValuLogo} style={Styles.valuSplashLogo} />
           </View>
         </Modal>
       </View>

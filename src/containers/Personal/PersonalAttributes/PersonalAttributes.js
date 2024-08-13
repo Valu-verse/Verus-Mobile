@@ -8,7 +8,7 @@ import { PERSONAL_ATTRIBUTES, PERSONAL_BIRTHDAY, PERSONAL_NATIONALITIES } from "
 import { provideCustomBackButton } from "../../../utils/navigation/customBack";
 import { PersonalAttributesRender } from "./PersonalAttributes.render"
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_FIRSTNAME, IDENTITYDATA_MIDDLENAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_DATEOFBIRTH, IDENTITYDATA_NATIONALITY } = primitives;
+const { IDENTITY_FIRSTNAME, IDENTITY_MIDDLENAME, IDENTITY_LASTNAME, IDENTITY_DATEOFBIRTH, IDENTITY_NATIONALITY } = primitives;
 
 const EDIT = 'edit'
 const REMOVE = 'remove'
@@ -18,11 +18,11 @@ class PersonalAttributes extends Component {
     super();
     this.state = {
       attributes: {
-        [IDENTITYDATA_FIRSTNAME.vdxfid]: "John",
-        [IDENTITYDATA_MIDDLENAME.vdxfid]: "",
-        [IDENTITYDATA_LASTNAME.vdxfid]: "Doe",
-        [IDENTITYDATA_DATEOFBIRTH.vdxfid]: {},
-        [IDENTITYDATA_NATIONALITY.vdxfid]: [],
+        [IDENTITY_FIRSTNAME.vdxfid]: "John",
+        [IDENTITY_MIDDLENAME.vdxfid]: "",
+        [IDENTITY_LASTNAME.vdxfid]: "Doe",
+        [IDENTITY_DATEOFBIRTH.vdxfid]: {},
+        [IDENTITY_NATIONALITY.vdxfid]: [],
       },
       nationalityModalOpen: false,
       birthdaySelectorModalOpen: false,
@@ -123,23 +123,23 @@ class PersonalAttributes extends Component {
   }
 
   addNationality(nationalityCode) {
-    const nationalities = this.state.attributes[IDENTITYDATA_NATIONALITY.vdxfid] 
-      ? this.state.attributes[IDENTITYDATA_NATIONALITY.vdxfid] : []
-    this.updateAttribute(IDENTITYDATA_NATIONALITY.vdxfid, [...nationalities, nationalityCode])
+    const nationalities = this.state.attributes[IDENTITY_NATIONALITY.vdxfid] 
+      ? this.state.attributes[IDENTITY_NATIONALITY.vdxfid] : []
+    this.updateAttribute(IDENTITY_NATIONALITY.vdxfid, [...nationalities, nationalityCode])
   }
 
   removeNationality(index) {
-    let nationalities = this.state.attributes[IDENTITYDATA_NATIONALITY.vdxfid] 
-      ? this.state.attributes[IDENTITYDATA_NATIONALITY.vdxfid] : []
+    let nationalities = this.state.attributes[IDENTITY_NATIONALITY.vdxfid] 
+      ? this.state.attributes[IDENTITY_NATIONALITY.vdxfid] : []
     nationalities.splice(index, 1);
-    this.updateAttribute(IDENTITYDATA_NATIONALITY.vdxfid, nationalities)
+    this.updateAttribute(IDENTITY_NATIONALITY.vdxfid, nationalities)
   }
 
   setBirthday(date) {
     this.setState({
       birthdaySelectorModalOpen: false
     }, () => {
-      this.updateAttribute(IDENTITYDATA_DATEOFBIRTH.vdxfid, date)
+      this.updateAttribute(IDENTITY_DATEOFBIRTH.vdxfid, date)
     })
   }
 
@@ -172,7 +172,7 @@ class PersonalAttributes extends Component {
   }
 
   renderDate() {
-    const { day, month, year } = this.state.attributes[IDENTITYDATA_DATEOFBIRTH.vdxfid];
+    const { day, month, year } = this.state.attributes[IDENTITY_DATEOFBIRTH.vdxfid];
     const date = this.getDateClassInstance(day, month, year)
 
     const deviceLanguage =

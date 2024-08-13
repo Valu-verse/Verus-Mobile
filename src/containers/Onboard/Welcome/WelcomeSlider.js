@@ -77,15 +77,6 @@ export default function WelcomeSlider(props) {
           zIndex: -100
         }}
       />
-      <View
-        style={{
-          height: 90,
-          backgroundColor: Colors.secondaryColor,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <VerusLogo width={180} height={'50%'} style={{}} />
-      </View>
       <AppIntroSlider
         showSkipButton={true}
         renderItem={({item, index}) =>

@@ -16,7 +16,7 @@ import { resetDeeplinkData } from '../../../actions/actionCreators';
 
 
 const LoginRequestComplete = props => {
-  const {signedResponse} = props.route.params;
+  const {signedResponse, signedMessage} = props.route.params;
   const fromService = useSelector((state) => state.deeplink.fromService);
   const res = new primitives.LoginConsentResponse(signedResponse);
   const redirects = res.decision.request.challenge.redirect_uris
@@ -28,6 +28,10 @@ const LoginRequestComplete = props => {
   let redirectinfo = null;
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
+
+  if(signedMessage){
+    signedResponse.signedMessage = signedMessage;
+  }
 
   const cancel = () => {
     dispatch(resetDeeplinkData());

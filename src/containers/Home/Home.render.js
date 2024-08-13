@@ -15,6 +15,9 @@ import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
+  VALU_WIDGET_TYPE,
+  ATTESTATION_WIDGET_TYPE,
+  VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
 import {setAndSaveAccountWidgets} from '../../actions/actionCreators';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
@@ -24,6 +27,9 @@ import {
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../utils/constants/currencies';
 import VerusIdWidget from './HomeWidgets/VerusIdWidget';
+import ValuWidget from './HomeWidgets/ValuWidget';
+import AttestationWidget from './HomeWidgets/AttestationWidget';
+import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 
@@ -108,7 +114,28 @@ export const HomeRenderWidget = function (widgetId) {
         </Provider>
       );
     },
-  };
+    [VALU_WIDGET_TYPE]: () => {
+      return (
+        <Provider theme={HomeListItemThemeLight}>
+          <ValuWidget />
+        </Provider>
+      );
+    },
+    [ATTESTATION_WIDGET_TYPE]: () => {
+      return (
+        <Provider theme={HomeListItemThemeLight}>
+          <AttestationWidget />
+        </Provider>
+      );
+    },
+    [VALU_ACCOUNT_TYPE]: () => {
+      return (
+        <Provider theme={HomeListItemThemeLight}>
+          <ValuAccountWidget />
+        </Provider>
+      );
+    }
+  }
 
   return renderers[widgetType] ? renderers[widgetType]() : <View />;
 };

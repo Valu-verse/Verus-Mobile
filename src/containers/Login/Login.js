@@ -8,11 +8,11 @@
 */
 
 import React, {useEffect} from 'react';
-import {View, ScrollView, Dimensions, SafeAreaView} from 'react-native';
+import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
-import {VerusLogo} from '../../images/customIcons';
+import {VerusLogo, ValuLogo} from '../../images/customIcons';
 import {TouchableOpacity} from 'react-native';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
@@ -73,16 +73,10 @@ const Login = props => {
         backgroundColor: Colors.secondaryColor,
         ...Styles.focalCenter,
       }}>
-      <VerusLogo
-        width={180}
-        height={'15%'}
-        style={{top: 100, position: 'absolute'}}
-      />
+      <Image source={ValuLogo} style={Styles.valuSplashLogo} />
       <View
         style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top: height / 2 - 40,
+  
         }}>
         <Text
           style={{
@@ -91,7 +85,7 @@ const Login = props => {
             fontSize: 28,
             fontWeight: 'bold',
           }}>
-          {'Welcome to Verus'}
+          {'Welcome to Valu'}
         </Text>
         <Text
           style={{
@@ -99,7 +93,7 @@ const Login = props => {
             color: Colors.primaryColor,
             fontSize: 20,
           }}>
-          {'Truth and Privacy for All'}
+          {''}
         </Text>
       </View>
       <TallButton
