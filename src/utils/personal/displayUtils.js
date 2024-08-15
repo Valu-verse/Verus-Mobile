@@ -202,14 +202,13 @@ export const checkPersonalDataCatagories = async (profileDataRequested = []) => 
         profiletype = retval.profiletype;
         break;
     }
-
     profiletype.forEach((templateCategory) => {
-      const one = attributes[templateCategory.vdxfkey];
-      if (!optionalKeys[templateCategory.vdxfkey] && ((typeof one === 'object' && Array.isArray(one) && one.length === 0) ||
-        (typeof one === 'object' && Object.keys(one).length === 0) ||
-        (typeof one === 'string' && one.length === 0)
-        || one == undefined)) {
-        errorDetails += (errorDetails ? ", " : "") +`${IdentityVdxfidMap[templateCategory.vdxfkey]?.name || templateCategory.vdxfkey}`;
+      const one = typeof templateCategory === 'string' ? attributes[templateCategory] : attributes[templateCategory.vdxfkey];
+      if (!optionalKeys[templateCategory] && ((typeof one === 'object' && Array.isArray(one) && one.length === 0) ||
+      (typeof one === 'object' && Object.keys(one).length === 0) ||
+      (typeof one === 'string' && one.length === 0)
+      || one == undefined)) {
+        errorDetails += (errorDetails ? ", " : "") +`${IdentityVdxfidMap[templateCategory]?.name || templateCategory}`;
       }
     })
 

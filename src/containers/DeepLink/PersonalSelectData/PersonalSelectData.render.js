@@ -54,7 +54,8 @@ export const PersonalSelectDataRender = function (props) {
           <Button
             color={this.state.ready ? Colors.verusGreenColor : Colors.lightGrey}
             style={{ width: 148 }}
-            onPress={() => this.handleContinue()}>
+            disabled={!this.state.ready}
+            onPress={() => this.state.ready ? this.handleContinue() : null}>
             Accept
           </Button>
         </View>
