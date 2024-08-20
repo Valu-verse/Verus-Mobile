@@ -5,7 +5,7 @@ import Styles from "../../../../styles";
 import Colors from "../../../../globals/colors";
 import { ISO_3166_COUNTRIES } from "../../../../utils/constants/iso3166";
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_HOMEADDRESS_STREET1, IDENTITYDATA_HOMEADDRESS_STREET2, IDENTITYDATA_HOMEADDRESS_CITY, IDENTITYDATA_HOMEADDRESS_REGION, IDENTITYDATA_HOMEADDRESS_POSTCODE, IDENTITYDATA_HOMEADDRESS_COUNTRY } = primitives;
+const { IDENTITY_HOMEADDRESS_STREET1, IDENTITY_HOMEADDRESS_STREET2, IDENTITY_HOMEADDRESS_CITY, IDENTITY_HOMEADDRESS_REGION, IDENTITY_HOMEADDRESS_POSTCODE, IDENTITY_HOMEADDRESS_COUNTRY } = primitives;
 
 export const PersonalPaymentMethodsEditBankAccountAddressRender = function () {
   return (
@@ -22,24 +22,24 @@ export const PersonalPaymentMethodsEditBankAccountAddressRender = function () {
                   <List.Item
                     key={index}
                     title={
-                      address[IDENTITYDATA_HOMEADDRESS_STREET1.vdxfid]?.length > 0
-                        ? `${address[IDENTITYDATA_HOMEADDRESS_STREET1.vdxfid]}${
-                            address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid] != null && address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid].length > 0
-                              ? `, ${address[IDENTITYDATA_HOMEADDRESS_STREET2.vdxfid]}`
+                      address[IDENTITY_HOMEADDRESS_STREET1.vdxfid]?.length > 0
+                        ? `${address[IDENTITY_HOMEADDRESS_STREET1.vdxfid]}${
+                            address[IDENTITY_HOMEADDRESS_STREET2.vdxfid] != null && address[IDENTITY_HOMEADDRESS_STREET2.vdxfid].length > 0
+                              ? `, ${address[IDENTITY_HOMEADDRESS_STREET2.vdxfid]}`
                               : ""
                           }`
                         : "Empty address"
                     }
                     description={`${
-                      address[IDENTITYDATA_HOMEADDRESS_POSTCODE.vdxfid]?.length > 0 ? `${address[IDENTITYDATA_HOMEADDRESS_POSTCODE.vdxfid]} ` : ""
+                      address[IDENTITY_HOMEADDRESS_POSTCODE.vdxfid]?.length > 0 ? `${address[IDENTITY_HOMEADDRESS_POSTCODE.vdxfid]} ` : ""
                     }${
-                      address[IDENTITYDATA_HOMEADDRESS_REGION.vdxfid]?.length > 0
-                        ? `${address[IDENTITYDATA_HOMEADDRESS_REGION.vdxfid]}, `
+                      address[IDENTITY_HOMEADDRESS_REGION.vdxfid]?.length > 0
+                        ? `${address[IDENTITY_HOMEADDRESS_REGION.vdxfid]}, `
                         : ""
-                    }${address[IDENTITYDATA_HOMEADDRESS_CITY.vdxfid]?.length > 0 ? `${address[IDENTITYDATA_HOMEADDRESS_CITY.vdxfid]}, ` : "Unknown City, "}${
-                      ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]] != null
-                        ? `${ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]].emoji} ${
-                            ISO_3166_COUNTRIES[address[IDENTITYDATA_HOMEADDRESS_COUNTRY.vdxfid]].name
+                    }${address[IDENTITY_HOMEADDRESS_CITY.vdxfid]?.length > 0 ? `${address[IDENTITY_HOMEADDRESS_CITY.vdxfid]}, ` : "Unknown City, "}${
+                      ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]] != null
+                        ? `${ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]].emoji} ${
+                            ISO_3166_COUNTRIES[address[IDENTITY_HOMEADDRESS_COUNTRY.vdxfid]].name
                           }`
                         : "Unknown Country"
                     }`}

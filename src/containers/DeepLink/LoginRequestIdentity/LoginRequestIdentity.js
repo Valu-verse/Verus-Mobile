@@ -19,6 +19,7 @@ import { ELECTRUM } from '../../../utils/constants/intervalConstants';
 import { coinsList } from '../../../utils/CoinData/CoinsList';
 import { requestSeeds } from '../../../utils/auth/authBox';
 import { deriveKeyPair } from '../../../utils/keys';
+import { signMessage } from '../../../utils/api/channels/vrpc/requests/signMessage';
 
 const LoginRequestIdentity = props => {
   const { deeplinkData } = props.route.params
@@ -166,8 +167,18 @@ const LoginRequestIdentity = props => {
         },
       );
 
+      let foundMessage = req.challenge.requested_access.filter(x => x.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) || [];
+      let signedMessage = {};
+      if(foundMessage.length > 0) {
+        const message = foundMessage[0].data;
+        if(typeof message != 'string' || string.length == 0) throw new Error("No message found to sign");
+        signedMessage = {signature: await signMessage(CoinDirectory.findCoinObj(system_id, null, true), iAddress, message)};
+        signedMessage.message = message;
+        signedMessage.iAddress = iAddress;
+       }
       props.navigation.navigate("LoginRequestComplete", {
-        signedResponse
+        signedResponse,
+        signedMessage,
       })
     } catch(e) {
       createAlert("Error", e.message)

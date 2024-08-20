@@ -11,3 +11,12 @@ export const signMessage = async (coinObj, iAddrOrIdentity, message) => {
     privKey,
   );
 }
+
+export const getSignatureInfo = async (coinObj, iAddrOrIdentity, signature) => {
+
+
+  return VrpcProvider.getVerusIdInterface(coinObj.system_id).getSignatureInfo(
+    iAddrOrIdentity,
+    signature
+  );
+}

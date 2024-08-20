@@ -10,7 +10,7 @@ import {
 import { provideCustomBackButton } from "../../../utils/navigation/customBack";
 import { PersonalContactRender } from "./PersonalContact.render"
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_EMAIL, IDENTITYDATA_PHONENUMBER } = primitives;
+const { IDENTITY_EMAIL, IDENTITY_PHONENUMBER } = primitives;
 
 const EDIT = 'edit'
 const REMOVE = 'remove'
@@ -20,8 +20,8 @@ class PersonalContact extends Component {
     super();
     this.state = {
       contact: {
-        [IDENTITYDATA_PHONENUMBER.vdxfid]: [],
-        [IDENTITYDATA_EMAIL.vdxfid]: []
+        [IDENTITY_PHONENUMBER.vdxfid]: [],
+        [IDENTITY_EMAIL.vdxfid]: []
       },
       addPropertyModal: {
         open: false,
@@ -159,13 +159,13 @@ class PersonalContact extends Component {
   }
 
   editPhone(phone, index) {
-    let phones = this.state.contact[IDENTITYDATA_PHONENUMBER.vdxfid] ? this.state.contact[IDENTITYDATA_PHONENUMBER.vdxfid] : []
+    let phones = this.state.contact[IDENTITY_PHONENUMBER.vdxfid] ? this.state.contact[IDENTITY_PHONENUMBER.vdxfid] : []
 
     if (index == null) {
-      this.updateContactPoint(IDENTITYDATA_PHONENUMBER.vdxfid, [...phones, phone])
+      this.updateContactPoint(IDENTITY_PHONENUMBER.vdxfid, [...phones, phone])
     } else {
       phones[index] = phone
-      this.updateContactPoint(IDENTITYDATA_PHONENUMBER.vdxfid, phones)
+      this.updateContactPoint(IDENTITY_PHONENUMBER.vdxfid, phones)
     }
   }
 
@@ -181,26 +181,26 @@ class PersonalContact extends Component {
   }
 
   editEmail(email, index) {
-    let emails = this.state.contact[IDENTITYDATA_EMAIL.vdxfid] ? this.state.contact[IDENTITYDATA_EMAIL.vdxfid] : []
+    let emails = this.state.contact[IDENTITY_EMAIL.vdxfid] ? this.state.contact[IDENTITY_EMAIL.vdxfid] : []
 
     if (index == null) {
-      this.updateContactPoint(IDENTITYDATA_EMAIL.vdxfid, [...emails, email])
+      this.updateContactPoint(IDENTITY_EMAIL.vdxfid, [...emails, email])
     } else {
       emails[index] = email
-      this.updateContactPoint(IDENTITYDATA_EMAIL.vdxfid, emails)
+      this.updateContactPoint(IDENTITY_EMAIL.vdxfid, emails)
     }
   }
 
   removePhone(index) {
-    let phone_numbers = this.state.contact[IDENTITYDATA_PHONENUMBER.vdxfid] ? this.state.contact[IDENTITYDATA_PHONENUMBER.vdxfid] : []
+    let phone_numbers = this.state.contact[IDENTITY_PHONENUMBER.vdxfid] ? this.state.contact[IDENTITY_PHONENUMBER.vdxfid] : []
     phone_numbers.splice(index, 1);
-    this.updateContactPoint(IDENTITYDATA_PHONENUMBER.vdxfid, phone_numbers)
+    this.updateContactPoint(IDENTITY_PHONENUMBER.vdxfid, phone_numbers)
   }
 
   removeEmail(index) {
-    let emails = this.state.contact[IDENTITYDATA_EMAIL.vdxfid] ? this.state.contact[IDENTITYDATA_EMAIL.vdxfid] : []
+    let emails = this.state.contact[IDENTITY_EMAIL.vdxfid] ? this.state.contact[IDENTITY_EMAIL.vdxfid] : []
     emails.splice(index, 1);
-    this.updateContactPoint(IDENTITYDATA_EMAIL.vdxfid, emails)
+    this.updateContactPoint(IDENTITY_EMAIL.vdxfid, emails)
   }
 
   finishPhoneEdit(phone, index) {

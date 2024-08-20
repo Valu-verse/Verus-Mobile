@@ -6,7 +6,7 @@ import { primitives } from "verusid-ts-client"
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
 
 const { ATTESTATION_NAME } = primitives;
-import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/vdxf/classes/IdentityData";
+import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { SafeAreaView, ScrollView, View, Image } from 'react-native'
 
 import { Divider, List, Button, Text } from 'react-native-paper';

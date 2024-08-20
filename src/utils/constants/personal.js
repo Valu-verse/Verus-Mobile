@@ -149,3 +149,79 @@ export const PERSONAL_BENEFICIARY_TYPE_CORPORATE = 'corporate'
 
 export const PERSONAL_BANK_ACCOUNT_TYPE_CHECKING = 'checking'
 export const PERSONAL_BANK_ACCOUNT_TYPE_SAVINGS = 'savings'
+
+import  * as identitykeys from "verus-typescript-primitives";
+
+export const defaultPersonalProfileDataTemplate = [
+  {
+    vdxfid: identitykeys.IDENTITY_PERSONALDETAILS.vdxfid,
+    data: [
+      identitykeys.IDENTITY_FIRSTNAME.vdxfid,
+      identitykeys.IDENTITY_LASTNAME.vdxfid,
+      identitykeys.IDENTITY_MIDDLENAME.vdxfid,
+      identitykeys.IDENTITY_DATEOFBIRTH.vdxfid,
+      identitykeys.IDENTITY_NATIONALITY.vdxfid
+    ],
+    category: "Personal Details",
+    details: "Name, birthday, nationality"
+  },
+  {
+    vdxfid: identitykeys.IDENTITY_CONTACTDETAILS.vdxfid,
+    data: [
+      identitykeys.IDENTITY_EMAIL.vdxfid,
+      identitykeys.IDENTITY_PHONENUMBER.vdxfid
+    ],
+    category: "Contact",
+    details: "Email, phone number"
+  },
+  {
+    vdxfid: identitykeys.IDENTITY_LOCATION.vdxfid,
+    data: [
+      identitykeys.IDENTITY_HOMEADDRESS_STREET1.vdxfid,
+      identitykeys.IDENTITY_HOMEADDRESS_STREET2.vdxfid,
+      identitykeys.IDENTITY_HOMEADDRESS_CITY.vdxfid,
+      identitykeys.IDENTITY_HOMEADDRESS_REGION.vdxfid,
+      identitykeys.IDENTITY_HOMEADDRESS_POSTCODE.vdxfid,
+      identitykeys.IDENTITY_HOMEADDRESS_COUNTRY.vdxfid,
+    ],
+    category: "Locations",
+    details: "Tax residency, home address"
+  },
+  {
+    vdxfid: identitykeys.IDENTITY_BANKINGDETAILS.vdxfid,
+    data: [
+      identitykeys.IDENTITY_BANKACCOUNT.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_CURRENCY.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_COUNTRY.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_STREET1.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_STREET2.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_CITY.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_REGION.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_POSTALCODE.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_TAXNUMBER.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_TAXCOUNTRY.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_FIRSTNAME.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_LASTNAME.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_PHONENUMBER.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_NUMBER.vdxfid,
+      identitykeys.IDENTITY_BANKINGDETAILS_TYPE.vdxfid
+    ],
+    category: "Banking Information",
+    details: "Bank accounts"
+  },
+  {
+    vdxfid: identitykeys.IDENTITY_DOCUMENTS.vdxfid,
+    data: [
+      identitykeys.IDENTITY_PASSPORT.vdxfid,
+      identitykeys.IDENTITY_DRIVINGLICENCE.vdxfid,
+      identitykeys.IDENTITY_RESIDENCEPERMIT.vdxfid,
+      identitykeys.IDENTITY_RESIDENTCARD.vdxfid,
+      identitykeys.IDENTITY_VISA.vdxfid,
+      identitykeys.IDENTITY_IDCARD.vdxfid,
+      identitykeys.IDENTITY_SELFIECHECK_IMAGE.vdxfid,
+    ],
+    category: "Documents",
+    details: "Passport, ID, driving license"
+  }
+
+]

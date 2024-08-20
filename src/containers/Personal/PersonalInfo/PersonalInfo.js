@@ -11,17 +11,17 @@ import { requestPersonalData } from "../../../utils/auth/authBox";
 import { PERSONAL_ATTRIBUTES } from "../../../utils/constants/personal";
 import { PersonalInfoRender } from "./PersonalInfo.render"
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_MIDDLENAME, IDENTITYDATA_FIRSTNAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_DATEOFBIRTH } = primitives;
+const { IDENTITY_MIDDLENAME, IDENTITY_FIRSTNAME, IDENTITY_LASTNAME, IDENTITY_DATEOFBIRTH } = primitives;
 
 class PersonalInfo extends Component {
   constructor(props) {
     super(props);
     this.state = {
       attributes: {
-        [IDENTITYDATA_FIRSTNAME.vdxfid]: "John",
-        [IDENTITYDATA_MIDDLENAME.vdxfid]: "",
-        [IDENTITYDATA_LASTNAME.vdxfid]: "Doe",
-        [IDENTITYDATA_DATEOFBIRTH.vdxfid]: {},
+        [IDENTITY_FIRSTNAME.vdxfid]: "John",
+        [IDENTITY_MIDDLENAME.vdxfid]: "",
+        [IDENTITY_LASTNAME.vdxfid]: "Doe",
+        [IDENTITY_DATEOFBIRTH.vdxfid]: {},
       },
       loading: false
     };

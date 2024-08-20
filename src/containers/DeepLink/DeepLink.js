@@ -26,6 +26,7 @@ const authorizedPermissions = [primitives.IDENTITY_VIEW.vdxfid,
   primitives.ATTESTATION_READ_REQUEST.vdxfid, 
   primitives.PROFILE_DATA_VIEW_REQUEST.vdxfid,
   primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid,
+  primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid,
 ]
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import BigNumber from 'bignumber.js';

@@ -1,6 +1,6 @@
 
 const Colors = {
-    primaryColor: '#3165d4', // verus blue
+    primaryColor: '#009bbd', // verus blue
     secondaryColor: '#FFFFFF', // white
     tertiaryColor: '#D6D6D6', //grey white
     verusDarkGray: '#959595',

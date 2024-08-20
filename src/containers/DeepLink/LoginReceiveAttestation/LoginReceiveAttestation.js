@@ -9,7 +9,7 @@ import { SignatureData } from "verus-typescript-primitives/dist/vdxf/classes/Sig
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
 const { ATTESTATION_NAME } = primitives;
-import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/vdxf/classes/IdentityData";
+import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { ATTESTATIONS_PROVISIONED } from "../../../utils/constants/attestations";
 import { modifyAttestationDataForUser } from "../../../actions/actions/attestations/dispatchers/attestations";
 
@@ -39,7 +39,7 @@ class LoginReceiveAttestation extends Component {
     }
   }
 
-  validateAttestation = async (signatureData) => {
+  validateAttestation = async (signatureData, mmrData) => {
 
     const sigObject = SignatureData.fromJson(signatureData);
 
@@ -49,7 +49,13 @@ class LoginReceiveAttestation extends Component {
       sigObject.signatureAsVch.toString('base64'),
     );
 
-    return await verifyHash(sigObject.systemID, sigObject.identityID, sigObject.signatureAsVch.toString('base64'), sigObject.getIdentityHash(sigInfo));
+    const hashVerified = await verifyHash(sigObject.systemID, sigObject.identityID, sigObject.signatureAsVch.toString('base64'), sigObject.getIdentityHash(sigInfo));
+
+    const mmrObject = await signData(mmrData)
+
+    const mmrMatched = mmrObject.mmrroot == sigObject.getIdentityHash(sigInfo);
+
+    return (hashVerified && mmrMatched);
 
   }
 

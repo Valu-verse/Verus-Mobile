@@ -29,7 +29,7 @@ class VerusIdServiceIntroSlider extends Component {
     return (
       <View
         style={{
-          backgroundColor: "#3165D4",
+          backgroundColor: "#009bbd",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -64,7 +64,7 @@ class VerusIdServiceIntroSlider extends Component {
     return (
       <View
         style={{
-          backgroundColor: "#3165D4",
+          backgroundColor: "#009bbd",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",

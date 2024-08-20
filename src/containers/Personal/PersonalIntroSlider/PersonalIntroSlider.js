@@ -17,7 +17,7 @@ import { modifyPersonalDataForUser } from "../../../actions/actionDispatchers";
 import { PERSONAL_ATTRIBUTES } from "../../../utils/constants/personal";
 import { createAlert } from "../../../actions/actions/alert/dispatchers/alert";
 import { primitives } from "verusid-ts-client"
-const { IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_FIRSTNAME, IDENTITYDATA_MIDDLENAME, IDENTITYDATA_LASTNAME, IDENTITYDATA_DATEOFBIRTH, IDENTITYDATA_NATIONALITY } = primitives;
+const { IDENTITY_PERSONALDETAILS, IDENTITY_FIRSTNAME, IDENTITY_MIDDLENAME, IDENTITY_LASTNAME, IDENTITY_DATEOFBIRTH, IDENTITY_NATIONALITY } = primitives;
 
 const slides = [
   {
@@ -50,7 +50,7 @@ const NameForm = (props) => {
   const [last, setLast] = React.useState('');
 
   useEffect(() => {
-    onChange({ [IDENTITYDATA_FIRSTNAME.vdxfid]: first.trim(), [IDENTITYDATA_MIDDLENAME.vdxfid]: middle.trim(), [IDENTITYDATA_LASTNAME.vdxfid]: last.trim() });
+    onChange({ [IDENTITY_FIRSTNAME.vdxfid]: first.trim(), [IDENTITY_MIDDLENAME.vdxfid]: middle.trim(), [IDENTITY_LASTNAME.vdxfid]: last.trim() });
   }, [first, middle, last]);
 
   return (
@@ -106,9 +106,9 @@ class PersonalIntroSlider extends Component {
     super();
     this.state = {
       name: {
-        [IDENTITYDATA_FIRSTNAME.vdxfid]: '',
-        [IDENTITYDATA_MIDDLENAME.vdxfid]: '',
-        [IDENTITYDATA_LASTNAME.vdxfid]: ''
+        [IDENTITY_FIRSTNAME.vdxfid]: '',
+        [IDENTITY_MIDDLENAME.vdxfid]: '',
+        [IDENTITY_LASTNAME.vdxfid]: ''
       },
       loading: false,
       currentSlide: 0

@@ -10,19 +10,19 @@ import { PersonalSelectDataRender } from "./PersonalSelectData.render"
 import { checkPersonalDataCatagories } from "../../../utils/personal/displayUtils";
 import { handlePersonalDataSend } from "../../../utils/deeplink/handlePersonalDataSend";
 import { primitives } from "verusid-ts-client"
+import { defaultPersonalProfileDataTemplate } from "../../../utils/constants/personal.js";
 
-const { IDENTITYDATA_CONTACT, IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_LOCATIONS, IDENTITYDATA_DOCUMENTS_AND_IMAGES, IDENTITYDATA_BANKING_INFORMATION} = primitives;
+const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS} = primitives;
 
 
-//const { defaultPersonalProfileDataTemplate } = primitives;
 const EDIT = 'edit'
 const REMOVE = 'remove'
 const PERSONALDATACATAGORIES = [
-  IDENTITYDATA_CONTACT.vdxfid,
-  IDENTITYDATA_LOCATIONS.vdxfid,
-  IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid,
-  IDENTITYDATA_PERSONAL_DETAILS.vdxfid,
-  IDENTITYDATA_BANKING_INFORMATION.vdxfid
+  IDENTITY_CONTACTDETAILS.vdxfid,
+  IDENTITY_LOCATION.vdxfid,
+  IDENTITY_DOCUMENTS.vdxfid,
+  IDENTITY_PERSONALDETAILS.vdxfid,
+  IDENTITY_BANKINGDETAILS.vdxfid
 ];
 
 const PERSONALDATALINKS = [
@@ -83,7 +83,7 @@ class PersonalSelectData extends Component {
     requestedPersonalData.forEach((permission) => {
       PERSONALDATACATAGORIES.forEach((category, idx) => {
         if (category === permission.data) {
-          primitives.defaultPersonalProfileDataTemplate.forEach((templateCategory) => {
+          defaultPersonalProfileDataTemplate.forEach((templateCategory) => {
             if (templateCategory.vdxfid === permission.data) {
               catagoriesRequested[permission.data] = { title: templateCategory.category, 
                 details: templateCategory.details, navigateTo: PERSONALDATALINKS[idx], color: "black" };
@@ -143,20 +143,20 @@ class PersonalSelectData extends Component {
 
     await Promise.all(Object.keys(this.state.catagoriesRequested).map(async (categoryVdxfkey) => {
       switch (categoryVdxfkey) {
-        case IDENTITYDATA_PERSONAL_DETAILS.vdxfid:
-          personalData[IDENTITYDATA_PERSONAL_DETAILS.vdxfid] = await requestPersonalData(PERSONAL_ATTRIBUTES);
+        case IDENTITY_PERSONALDETAILS.vdxfid:
+          personalData[IDENTITY_PERSONALDETAILS.vdxfid] = await requestPersonalData(PERSONAL_ATTRIBUTES);
           break;
-        case IDENTITYDATA_CONTACT.vdxfid:
-          personalData[IDENTITYDATA_CONTACT.vdxfid] = await requestPersonalData(PERSONAL_CONTACT);
+        case IDENTITY_CONTACTDETAILS.vdxfid:
+          personalData[IDENTITY_CONTACTDETAILS.vdxfid] = await requestPersonalData(PERSONAL_CONTACT);
           break;
-        case IDENTITYDATA_LOCATIONS.vdxfid:
-          personalData[IDENTITYDATA_LOCATIONS.vdxfid] = await requestPersonalData(PERSONAL_LOCATIONS);
+        case IDENTITY_LOCATION.vdxfid:
+          personalData[IDENTITY_LOCATION.vdxfid] = await requestPersonalData(PERSONAL_LOCATIONS);
           break;
-        case IDENTITYDATA_BANKING_INFORMATION.vdxfid:
-          personalData[IDENTITYDATA_BANKING_INFORMATION.vdxfid] = await requestPersonalData(PERSONAL_PAYMENT_METHODS);
+        case IDENTITY_BANKINGDETAILS.vdxfid:
+          personalData[IDENTITY_BANKINGDETAILS.vdxfid] = await requestPersonalData(PERSONAL_PAYMENT_METHODS);
           break;
-        case IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid:
-          personalData[IDENTITYDATA_DOCUMENTS_AND_IMAGES.vdxfid] = await requestPersonalData(PERSONAL_IMAGES);
+        case IDENTITY_DOCUMENTS.vdxfid:
+          personalData[IDENTITY_DOCUMENTS.vdxfid] = await requestPersonalData(PERSONAL_IMAGES);
           break;
         default:
           break;

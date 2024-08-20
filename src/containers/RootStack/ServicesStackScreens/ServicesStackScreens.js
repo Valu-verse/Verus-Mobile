@@ -7,6 +7,7 @@ import WyreServiceAccountData from '../../Services/ServiceComponents/WyreService
 import WyreServiceAddPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceAddPaymentMethod/WyreServiceAddPaymentMethod';
 import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceEditPaymentMethod/WyreServiceEditPaymentMethod';
 import ViewAttestation from '../../Services/ServiceComponents/AttestationService/ViewAttestation/ViewAttestation';
+import ValuOnRamp from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRamp';
 const ServicesStack = createStackNavigator();
 
 const ServicesStackScreens = props => {
@@ -48,6 +49,13 @@ const ServicesStackScreens = props => {
         component={ViewAttestation}
         options={{
           title: "Attestation Details",
+        }}
+      />
+      <ServicesStack.Screen
+        name="ValuOnRamp"
+        component={ValuOnRamp}
+        options={{
+          title: "VALU",
         }}
       />
     </ServicesStack.Navigator>

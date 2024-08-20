@@ -176,6 +176,10 @@ const LoginRequestInfo = props => {
         });
       return;
     }
+    else if (request.signmessage) {
+     if (!signedIn) return;
+
+    }
 
     return createAlert(
       request.title,
@@ -220,6 +224,8 @@ const LoginRequestInfo = props => {
             tempdata = { data: "Agree to share profile data", title: "Personal Data Input Request", openProfile: true }
           } else if (req.challenge.requested_access[i].vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid) {
             continue;
+          } else if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) {
+            tempdata = { data: req.challenge.requested_access[i].toJson().data, title: "Message sign request", signmessage: true }
           }
           loginTemp.push({ vdxfkey: req.challenge.requested_access[i].vdxfkey, ...tempdata, agreed: false })
         }

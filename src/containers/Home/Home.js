@@ -19,7 +19,7 @@ import {
   saveGeneralSettings,
 } from '../../actions/actionCreators';
 import {connect} from 'react-redux';
-import {Animated} from 'react-native';
+import {Animated, Linking} from 'react-native';
 import {CommonActions} from '@react-navigation/native';
 import {
   API_GET_FIATPRICE,
@@ -49,6 +49,9 @@ import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
+  VALU_WIDGET_TYPE,
+  ATTESTATION_WIDGET_TYPE,
+  VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
 import {VERUSID_SERVICE_ID} from '../../utils/constants/services';
@@ -170,6 +173,22 @@ class Home extends Component {
           dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
         }
 
+         // Add the valu widget if not present
+         if (!widgets.includes(VALU_WIDGET_TYPE)) {
+          widgets.push(VALU_WIDGET_TYPE);
+          dispatchAddWidget(VALU_WIDGET_TYPE, activeAccount.accountHash);
+        }
+
+        if (!widgets.includes(ATTESTATION_WIDGET_TYPE)) {
+          widgets.push(ATTESTATION_WIDGET_TYPE);
+          dispatchAddWidget(ATTESTATION_WIDGET_TYPE, activeAccount.accountHash);
+        }
+
+        if (!widgets.includes(VALU_ACCOUNT_TYPE)) {
+          widgets.push(VALU_ACCOUNT_TYPE);
+          dispatchAddWidget(VALU_ACCOUNT_TYPE, activeAccount.accountHash);
+        }
+
         this.setState({
           widgets,
         });
@@ -209,6 +228,11 @@ class Home extends Component {
           service: VERUSID_SERVICE_ID,
         });
       },
+      [VALU_WIDGET_TYPE]  : () => {
+        this.props.navigation.navigate('ServicesHome', {
+          screen: 'ValuOnRamp',
+        });
+      }
     };
 
     if (widgetOnPress[widgetType]) {

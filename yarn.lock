@@ -960,9 +960,9 @@
     "@bitgo/blake2b-wasm" "^3.0.1"
     nanoassert "^2.0.0"
 
-"@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#7c754d4a5920198d9fe6827d3e23bd5cf431f264", "@bitgo/utxo-lib@https://github.com/VerusCoin/BitGoJS.git#f8723bcc2bf4052de171ca8654de23fc06a03337":
+"@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#c674cc555ec8bbb10c93e43b7c72ca267a22ffc3", "@bitgo/utxo-lib@https://github.com/VerusCoin/BitGoJS.git#f8723bcc2bf4052de171ca8654de23fc06a03337":
   version "1.9.6"
-  resolved "git+https://github.com/VerusCoin/BitGoJS.git#7c754d4a5920198d9fe6827d3e23bd5cf431f264"
+  resolved "git+https://github.com/VerusCoin/BitGoJS.git#c674cc555ec8bbb10c93e43b7c72ca267a22ffc3"
   dependencies:
     "@bitgo/blake2b" "3.0.1"
     bech32 "0.0.3"
@@ -981,7 +981,7 @@
     safe-buffer "5.0.1"
     typeforce "1.11.3"
     varuint-bitcoin "1.0.4"
-    verus-typescript-primitives "https://github.com/VerusCoin/verus-typescript-primitives.git"
+    verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
     wif "2.0.1"
   optionalDependencies:
     secp256k1 "3.5.2"
@@ -11555,7 +11555,7 @@ version_compare@0.0.3:
     bs58check "https://github.com/bitcoinjs/bs58check"
     create-hash "1.2.0"
 
-"verus-typescript-primitives@file:d:/dev/verus-typescript-primitives", "verus-typescript-primitives@https://github.com/VerusCoin/verus-typescript-primitives.git":
+"verus-typescript-primitives@file:i:/dev2/verus-typescript-primitives", "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@https://github.com/VerusCoin/verus-typescript-primitives.git":
   version "1.0.1"
   dependencies:
     base64url "3.0.1"

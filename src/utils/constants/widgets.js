@@ -1,3 +1,6 @@
 export const CURRENCY_WIDGET_TYPE = 'currency'
 export const TOTAL_UNI_BALANCE_WIDGET_TYPE = 'totalunibalance'
 export const VERUSID_WIDGET_TYPE = 'verusid'
+export const VALU_WIDGET_TYPE = 'valu'
+export const ATTESTATION_WIDGET_TYPE = 'attestation'
+export const VALU_ACCOUNT_TYPE = 'valu_account'

@@ -12,11 +12,11 @@ import { handleAttestationDataSend } from "../../../utils/deeplink/handlePersona
 import { primitives } from "verusid-ts-client"
 import { ATTESTATIONS_PROVISIONED } from "../../../utils/constants/attestations";
 import { requestAttestationData } from "../../../utils/auth/authBox";
-import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/vdxf/classes/IdentityData';
+import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { createAttestationResponse } from "../../../utils/attestations/createAttestationResponse";
 
-const { IDENTITYDATA_CONTACT, IDENTITYDATA_PERSONAL_DETAILS, IDENTITYDATA_LOCATIONS, IDENTITYDATA_DOCUMENTS_AND_IMAGES, IDENTITYDATA_BANKING_INFORMATION } = primitives;
+const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS } = primitives;
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
 
