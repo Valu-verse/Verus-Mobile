@@ -99,7 +99,7 @@ export const coinsList = {
     compatible_channels: [VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
-    vrpc_endpoints: ['http://192.168.1.121:8010'],
+    vrpc_endpoints: ['https://rpc.vrsctest.komodefi.com'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',

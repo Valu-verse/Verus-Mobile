@@ -166,6 +166,15 @@ class ValuService {
 
   };
 
+  getAttestationPaymentURL = async () => {
+
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-payment`);
+    });
+
+
+  };
+
   createAccount = async (wyreAccount) => {
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/v3/accounts`, wyreAccount);

@@ -232,7 +232,12 @@ class Home extends Component {
         this.props.navigation.navigate('ServicesHome', {
           screen: 'ValuOnRamp',
         });
-      }
+      },
+      [ATTESTATION_WIDGET_TYPE]: () => {
+        this.props.navigation.navigate('ServicesHome', {
+          screen: 'ValuAttestation',
+        });
+      },
     };
 
     if (widgetOnPress[widgetType]) {

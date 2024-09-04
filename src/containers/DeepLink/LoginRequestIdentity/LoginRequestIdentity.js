@@ -20,7 +20,7 @@ import { coinsList } from '../../../utils/CoinData/CoinsList';
 import { requestSeeds } from '../../../utils/auth/authBox';
 import { deriveKeyPair } from '../../../utils/keys';
 import { signMessage } from '../../../utils/api/channels/vrpc/requests/signMessage';
-import { signMessage } from '../../../utils/api/channels/vrpc/requests/signMessage';
+
 
 const LoginRequestIdentity = props => {
   const { deeplinkData } = props.route.params
