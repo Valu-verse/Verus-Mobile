@@ -231,6 +231,7 @@ class Home extends Component {
       [VALU_WIDGET_TYPE]  : () => {
         this.props.navigation.navigate('ServicesHome', {
           screen: 'ValuOnRamp',
+          initial: false,
         });
       },
       [ATTESTATION_WIDGET_TYPE]: () => {

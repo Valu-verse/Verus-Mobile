@@ -25,6 +25,18 @@ class ValuAttestation extends Component {
     }
 
     componentDidMount() {
+               
+        // Check for data in the wallet that says there is an attestation present.
+        // If there is, then take the user to the attestation page.
+        // If there is not, then display the 
+        requestAttestationData(ATTESTATIONS_PROVISIONED).then((attestations) => {
+
+                        
+            if (attestations[VALU_ATTESTATION]) {
+                this.props.navigation.navigate('Attestation', {attestations: attestations});
+            }
+
+        })
         this.updateDisplay();
     }
 

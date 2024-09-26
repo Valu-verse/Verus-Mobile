@@ -57,14 +57,14 @@ const AttestationWidget = props => {
                             resizeMode: "contain",
                             marginBottom: 20,
                             marginLeft: -5,
-                            marginRight: 5
+                            marginRight: 0
                         }} />
                         <Paragraph style={{ fontSize: 16, color: Colors.primaryColor, fontWeight: 'bold' }}>
                             {'Valu Attestations'}
                         </Paragraph>
                     </View>
                     <Paragraph style={{ fontSize: 12, color: Colors.primaryColor, marginTop:20 }}>
-                        {'Get your attestations here'}
+                        {'Get your proof of Life'}
                     </Paragraph>
 
                 </View>

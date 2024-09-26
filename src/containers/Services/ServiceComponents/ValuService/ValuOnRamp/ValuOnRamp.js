@@ -14,6 +14,7 @@ import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { ValuOnRamp as ValuOnRampIcon, VUSDC } from "../../../../../images/customIcons";
 import ValuService from '../../../../../utils/services/ValuService';
+import { provideCustomBackButton } from "../../../../../utils/navigation/customBack";
 
 class ValuOnRamp extends Component {
     constructor(props) {
@@ -25,6 +26,7 @@ class ValuOnRamp extends Component {
     }
 
     componentDidMount() {
+          
         this.updateDisplay();
     }
 

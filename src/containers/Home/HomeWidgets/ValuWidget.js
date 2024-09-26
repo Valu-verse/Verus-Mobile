@@ -64,7 +64,7 @@ const ValuWidget = props => {
                         </Paragraph>
                     </View>
                     <Paragraph style={{ fontSize: 12, color: 'white', marginTop:20 }}>
-                        {'Get Started with Valu on/off ramp'}
+                        {"Use Valu's on/off ramp"}
                     </Paragraph>
 
                 </View>
