@@ -10,10 +10,12 @@ import {
   NOTIFICATION_ICON_TX,
   NOTIFICATION_ICON_VERUSID,
   NOTIFICATION_ICON_ERROR,
-  NOTIFICATION_TYPE_VERUS_ID_PROVISIONING
+  NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
+  NOTIFICATION_ICON_VALU,
+  NOTIFICATION_TYPE_NAVIGATION
 } from '../../../utils/constants/notifications';
-import { VerusIdAtIcon, ReceivedIcon, VerusIdErrorIcon } from "../../../images/customIcons";
-import { DeeplinkNotification, BasicNotification, LoadingNotification, VerusIdProvisioningNotification } from '../../../utils/notification';
+import { VerusIdAtIcon, ReceivedIcon, VerusIdErrorIcon, ValuIcon } from "../../../images/customIcons";
+import { DeeplinkNotification, BasicNotification, LoadingNotification, VerusIdProvisioningNotification, NavigationNotification } from '../../../utils/notification';
 import { processVerusId } from '../../../containers/Services/ServiceComponents/VerusIdService/VerusIdLogin';
 import { dispatchRemoveNotification, dispatchClearNotifications } from '../../../actions/actions/notifications/dispatchers/notifications';
 // has the state changed hook
@@ -83,6 +85,15 @@ const getIcon = (type, index) => {
         style={{
           alignSelf: 'center',
         }} />);
+    case NOTIFICATION_ICON_VALU:
+      return (<ValuIcon
+        index={index}
+        width={20}
+        height={20}
+        marginLeft={7}
+        style={{
+          alignSelf: 'center',
+        }} />);
     case NOTIFICATION_ICON_TX:
     default:
       return (<ReceivedIcon
@@ -103,7 +114,6 @@ const getNotifications = (notifications, acchash) => {
   const keys = Object.keys(directory || {});
 
   keys.forEach((uid, index) => {
-
     if (directory[uid].acchash === acchash) {
       if (directory[uid].type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING) {
         const tempVerusIdNotification = VerusIdProvisioningNotification.fromJson(directory[uid], processVerusId);
@@ -117,6 +127,10 @@ const getNotifications = (notifications, acchash) => {
         const tempLoadingNotification = LoadingNotification.fromJson(directory[uid]);
         tempLoadingNotification.icon = getIcon(directory[uid].icon, index);
         tempNotificaions.push(tempLoadingNotification);
+      } else if (directory[uid].type === NOTIFICATION_TYPE_NAVIGATION) {
+        const tempNavigationNotification = NavigationNotification.fromJson(directory[uid], directory[uid].navigate);
+        tempNavigationNotification.icon = getIcon(directory[uid].icon, index);
+        tempNotificaions.push(tempNavigationNotification);
       }
       //TODO: add deeplink notification type 
     }

@@ -31,6 +31,7 @@
     "@react-navigation/stack": "6.3.4",
     "@tradle/react-native-http": "2.0.0",
     "@xmldom/xmldom": "0.8.6",
+    "android": "^0.0.8",
     "assert": "1.1.1",
     "axios": "1.6.5",
     "base-64": "1.0.0",

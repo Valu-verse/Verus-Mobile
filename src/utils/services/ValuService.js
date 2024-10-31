@@ -166,14 +166,39 @@ class ValuService {
 
   };
 
-  getAttestationPaymentURL = async () => {
+  getAttestationPaymentStatus = async (signedRequest) => {
+    
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-status`,signedRequest);
+    });
+  };
+
+  getAttestationPaymentSessionId = async (address) => {
 
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/attestation-payment`);
+      return this.service.post(`${this.url}/attestation-session:${address}`);
     });
-
-
   };
+
+  getAttestationPaymentURL = async (signedRequest) => {
+
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-payment`,signedRequest);
+    });
+  };
+
+  retryAttestationPayment = async (signedRequest) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-retry-new-payment`,signedRequest);
+    });
+  };
+
+  getValuIdDeepLink = async (valuId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/valu-id-deeplink`,valuId);
+    });
+  };
+
 
   createAccount = async (wyreAccount) => {
     return await ValuService.formatCall(() => {

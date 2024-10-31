@@ -17,7 +17,7 @@ import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { createAttestationResponse } from "../../../utils/attestations/createAttestationResponse";
 
 const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS } = primitives;
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
+import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { DrawerContentScrollView } from "@react-navigation/drawer";
 
 class LoginShareAttestation extends Component {

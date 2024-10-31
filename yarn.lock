@@ -2686,6 +2686,11 @@ ajv@6.12.3, ajv@^6.10.0, ajv@^6.12.3, ajv@^6.12.4, ajv@^8.0.1:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
+android@^0.0.8:
+  version "0.0.8"
+  resolved "https://registry.yarnpkg.com/android/-/android-0.0.8.tgz#a5b03de920d7437a34ccecee5ee127ef1e4495a9"
+  integrity sha512-cMasrXpHR6APDMSTu5JNMTL37GjYbcC9Uz2cyExSnr0f6XanNhPW3+iavHqRmfNW0QlM4kjZQa2epTjpyZcdjQ==
+
 anser@^1.4.9:
   version "1.4.10"
   resolved "https://registry.yarnpkg.com/anser/-/anser-1.4.10.tgz#befa3eddf282684bd03b63dcda3927aef8c2e35b"
@@ -3494,7 +3499,7 @@ bs58@^4.0.0:
   dependencies:
     base-x "^3.0.2"
 
-bs58check@2.0.0, bs58check@2.1.2, bs58check@<3.0.0, bs58check@^1.0.6, bs58check@^2.0.0, bs58check@^2.1.1, bs58check@^2.1.2, "bs58check@https://github.com/bitcoinjs/bs58check":
+bs58check@2.0.0, bs58check@2.1.2, bs58check@<3.0.0, bs58check@^1.0.6, bs58check@^2.0.0, bs58check@^2.1.1, bs58check@^2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/bs58check/-/bs58check-2.1.2.tgz#53b018291228d82a5aa08e7d796fdafda54aebfc"
   integrity sha512-0TS1jicxdU09dwJMNZtVAfzPi6Q6QeN0pM1Fkzrjn+XYHvzMKPU3pHVpva+769iNVSfIYWf7LJ6WR+BuuMf8cA==
@@ -11546,23 +11551,23 @@ version_compare@0.0.3:
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
 "verus-typescript-primitives@file:../../verus-typescript-primitives":
-  version "1.0.1"
+  version "1.0.0"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
     blake2b "https://github.com/VerusCoin/blake2b"
     bn.js "5.2.1"
-    bs58check "https://github.com/bitcoinjs/bs58check"
+    bs58check "2.0.0"
     create-hash "1.2.0"
 
 "verus-typescript-primitives@file:i:/dev2/verus-typescript-primitives", "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@https://github.com/VerusCoin/verus-typescript-primitives.git":
-  version "1.0.1"
+  version "1.0.0"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
     blake2b "https://github.com/VerusCoin/blake2b"
     bn.js "5.2.1"
-    bs58check "https://github.com/bitcoinjs/bs58check"
+    bs58check "2.0.0"
     create-hash "1.2.0"
 
 "verus-zkedid-utils@git+https://github.com/michaeltout/verus-zkedid-utils.git":

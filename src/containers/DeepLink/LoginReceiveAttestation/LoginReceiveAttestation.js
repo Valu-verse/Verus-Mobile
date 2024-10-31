@@ -3,9 +3,9 @@ import { connect } from 'react-redux'
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import { LoginReceiveAttestationRender } from "./LoginReceiveAttestation.render"
 import { primitives } from "verusid-ts-client"
-import { VDXFDataToUniValueArray } from "verus-typescript-primitives/dist/vdxf/classes/DataDescriptor.js";
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
-import { SignatureData } from "verus-typescript-primitives/dist/vdxf/classes/SignatureData";
+import { VdxfUniValue } from "verus-typescript-primitives/dist/pbaas/VdxfUniValue";
+import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
+import { SignatureData } from "verus-typescript-primitives/dist/pbaas/SignatureData";
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
 const { ATTESTATION_NAME } = primitives;
@@ -26,7 +26,6 @@ class LoginReceiveAttestation extends Component {
       attestationData: {},
       completeAttestaton: {},
     };
-    const dfg = 2111111
   }
 
   componentDidMount() {
@@ -100,7 +99,7 @@ class LoginReceiveAttestation extends Component {
 
     if (checkAttestation.vdxfkey === primitives.ATTESTATION_PROVISION_OBJECT.vdxfid) {
 
-      const dataDescriptorObject = VDXFDataToUniValueArray(Buffer.from(checkAttestation.data, "hex"));
+      const dataDescriptorObject = VdxfUniValue.VDXFDataToUniValueArray(Buffer.from(checkAttestation.data, "hex"));
 
       if (!Array.isArray(dataDescriptorObject)) {
         createAlert("Error", "Invalid data descriptor object in Attestation.");

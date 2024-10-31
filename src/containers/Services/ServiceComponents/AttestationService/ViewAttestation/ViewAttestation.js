@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 
 import { primitives } from "verusid-ts-client"
 
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
+import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 
 const { ATTESTATION_NAME } = primitives;
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";

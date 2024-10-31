@@ -21,8 +21,10 @@ function* handleDeeplinkUrl(action) {
       const url = new URL(urlstring);
   
       if (url.host !== CALLBACK_HOST) throw new Error('Unsupported host url.');
-  
+      
       const id = url.pathname.split('/')[1];
+
+      if (!id) return;
   
       if (!SUPPORTED_DLS.includes(id)) throw new Error('Unsupported url path.');
 

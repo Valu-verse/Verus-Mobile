@@ -44,6 +44,7 @@ import VerusIdWallet from './verusid-wallet-bg-blue.svg'
 import ValuLogo from './ValuBrand.png'
 import ValuSeperator from './partingline.png'
 import Valu from './Valu.png';
+import ValuIcon from './valu.svg';
 import AttesationBadge from './attestation.png';
 import ValuOnRamp from './ValuOnRamp.png';
 import VUSDC from './vUSDC.png';
@@ -93,7 +94,8 @@ export {
   ValuSeperator,
   AttesationBadge,
   ValuOnRamp,
-  VUSDC
+  VUSDC,
+  ValuIcon
 };
 
 export default Open;

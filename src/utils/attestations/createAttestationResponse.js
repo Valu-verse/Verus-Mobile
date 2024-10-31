@@ -1,6 +1,6 @@
 import { requestAttestationData } from "../../utils/auth/authBox";
 import { ATTESTATIONS_PROVISIONED } from "../../utils/constants/attestations";
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfDataKeys";
+import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 
 export const createAttestationResponse = async (attestationID, requiredKeys) => {
 
