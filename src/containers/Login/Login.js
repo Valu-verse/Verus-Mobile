@@ -22,6 +22,7 @@ import {
 } from '../../utils/constants/sendModal';
 import {useSelector} from 'react-redux';
 import TallButton from '../../components/LargerButton';
+import SignedOutDropdown from '../SignedOutDropdown/SignedOutDropdown';
 
 const {height} = Dimensions.get('window');
 
@@ -31,6 +32,9 @@ const Login = props => {
   );
   const authModalUsed = useSelector(
     state => state.authentication.authModalUsed,
+  );
+  const modalVisible = useSelector(
+    state => state.sendModal.visible,
   );
   const accounts = useSelector(state => state.authentication.accounts);
 
@@ -65,6 +69,14 @@ const Login = props => {
 
   handleAddUser = () => {
     props.navigation.navigate('CreateProfile');
+  };
+
+  handleRevokeRecover = () => {
+    props.navigation.navigate('RevokeRecover');
+  }
+
+  handleRecoverSeed = () => {
+    props.navigation.navigate('RecoverSeeds');
   };
 
   return (

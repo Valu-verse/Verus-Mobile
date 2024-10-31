@@ -7,7 +7,8 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Dimensions
 } from "react-native";
 import { Text, TextInput } from 'react-native-paper'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -16,6 +17,7 @@ import { useEffect } from "react";
 import { modifyPersonalDataForUser } from "../../../actions/actionDispatchers";
 import { PERSONAL_ATTRIBUTES } from "../../../utils/constants/personal";
 import { createAlert } from "../../../actions/actions/alert/dispatchers/alert";
+import { SMALL_DEVICE_HEGHT } from "../../../utils/constants/constants";
 import { primitives } from "verusid-ts-client"
 const { IDENTITY_PERSONALDETAILS, IDENTITY_FIRSTNAME, IDENTITY_MIDDLENAME, IDENTITY_LASTNAME, IDENTITY_DATEOFBIRTH, IDENTITY_NATIONALITY } = primitives;
 
@@ -113,6 +115,8 @@ class PersonalIntroSlider extends Component {
       loading: false,
       currentSlide: 0
     };
+
+    this.height = Dimensions.get('window').height;
   }
 
   renderInfoItem = (item) => {
@@ -127,14 +131,15 @@ class PersonalIntroSlider extends Component {
           alignItems: "center",
         }}
       >
-        <MaterialCommunityIcons name={item.icon} color={"white"} size={104} />
+        {this.height >= SMALL_DEVICE_HEGHT && <MaterialCommunityIcons name={item.icon} color={"white"} size={104} />}
         <Text
           style={{
             fontSize: 32,
             fontWeight: "bold",
             textAlign: "center",
             color: "white",
-            marginVertical: 40
+            marginBottom: this.height < SMALL_DEVICE_HEGHT ? 20 : 40,
+            marginTop: this.height < SMALL_DEVICE_HEGHT ? 0 : 40,
           }}
         >
           {item.title}

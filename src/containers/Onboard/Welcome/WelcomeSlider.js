@@ -11,9 +11,22 @@ import {
   MyWalletLight,
   VerusLogo,
 } from '../../../images/customIcons';
+import { useState } from 'react';
+import { useEffect } from 'react';
+import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 
 export default function WelcomeSlider(props) {
   const {height} = Dimensions.get('window');
+
+  const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
+
+  useEffect(() => {
+    if (height > SMALL_DEVICE_HEGHT) {
+      setShowIcons(true);
+    } else {
+      setShowIcons(false);
+    }
+  })
 
   const renderSlide = (key, Graphic, text, title) => {
     return (
@@ -87,19 +100,19 @@ export default function WelcomeSlider(props) {
         data={[
           {
             key: 0,
-            graphic: MyProfile,
+            graphic: showIcons ? MyProfile : () => null,
             title: 'My Profile',
             text: 'Lets start with the creation of a personal, locally stored profile.',
           },
           {
             key: 1,
-            graphic: EncryptLocally,
+            graphic: showIcons ? EncryptLocally : () => null,
             title: 'Encrypt Locally',
             text: 'Your profile stores and encrypts your wallet addresses locally.',
           },
           {
             key: 2,
-            graphic: MyWalletLight,
+            graphic: showIcons ? MyWalletLight : () => null,
             title: 'My Wallet',
             text: 'Every profile is linked to a wallet. You can have multiple profiles containing different wallets.',
           },
