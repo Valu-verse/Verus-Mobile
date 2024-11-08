@@ -150,11 +150,12 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
       return false;
     }
 
-    const { dlight_private, electrum, wyre_service } = users[userIndex].encryptedKeys;
+    const { dlight_private, electrum, wyre_service, valu_service } = users[userIndex].encryptedKeys;
     const decryptedKeys = {
       electrum: electrum ? decryptkey(oldPwd, electrum) : null,
       dlight_private: dlight_private ? decryptkey(oldPwd, dlight_private) : null,
-      wyre_service: wyre_service ? decryptkey(oldPwd, wyre_service) : null
+      wyre_service: wyre_service ? decryptkey(oldPwd, wyre_service) : null,
+      valu_service: valu_service ? decryptkey(oldPwd, valu_service) : null
     };
 
     if ((electrum && !decryptedKeys.electrum) || (dlight_private && !decryptedKeys.dlight_private)) {
@@ -165,7 +166,8 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
     users[userIndex].encryptedKeys = {
       [ELECTRUM]: electrum ? await encryptkey(newPwd, decryptedKeys.electrum) : null,
       [DLIGHT_PRIVATE]: dlight_private ? await encryptkey(newPwd, decryptedKeys.dlight_private) : null,
-      [WYRE_SERVICE]: wyre_service ? await encryptkey(newPwd, decryptedKeys.wyre_service) : null
+      [WYRE_SERVICE]: wyre_service ? await encryptkey(newPwd, decryptedKeys.wyre_service) : null,
+      [VALU_SERVICE]: valu_service ? await encryptkey(newPwd, decryptedKeys.valu_service) : null
     };
 
     // Reset the session password

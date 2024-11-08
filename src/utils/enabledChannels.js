@@ -2,7 +2,8 @@ import {
   ENABLE_DLIGHT,
   ENABLE_WYRE_COIN,
   DISABLED_CHANNELS,
-  ENABLE_VRPC
+  ENABLE_VRPC,
+  ENABLE_VALU
 } from '../../env/index';
 import store from '../store';
 import {DLIGHT_PRIVATE} from './constants/intervalConstants';
@@ -17,6 +18,10 @@ export const dlightEnabled = () => {
 
 export const wyreCoinChannelEnabled = () => {
   return ENABLE_WYRE_COIN;
+};
+
+export const valuChannelEnabled = () => {
+  return ENABLE_VALU;
 };
 
 export const vrpcChannelEnabled = () => {

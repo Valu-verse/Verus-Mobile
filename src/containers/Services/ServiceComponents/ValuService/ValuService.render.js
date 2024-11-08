@@ -31,6 +31,7 @@ export const ValuServiceRender = function () {
       {this.props.encryptedSeeds[VALU_SERVICE] != null ? (
         <ValuServiceAccount
         navigation={this.props.navigation}
+        subScreen={this.state.subScreen}
         />
       ) : (
         <ValuServiceIntroSlider

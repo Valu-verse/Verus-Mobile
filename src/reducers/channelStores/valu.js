@@ -21,7 +21,6 @@ import {
     serviceChannelOpen: true,
     authenticated: false,
     accountId: null,
-    KYCState: 0,
     accountLogin: null,
     currentAccountDataScreenParams: null,
     amountFunded: 0
@@ -57,9 +56,7 @@ import {
         return {
           ...state,
           authenticated: true,
-          accountId: action.payload.accountId,
-          KYCState: action.payload.KYCState,
-          email: action.payload.email
+          accountId: action.payload.accountId
         }
       case DEAUTHENTICATE_VALU_SERVICE:
         return {

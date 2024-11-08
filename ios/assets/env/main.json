@@ -21,6 +21,7 @@
   "ENABLE_WYRE_COIN": true,
   "ENABLE_VRPC": true,
   "ENABLE_VERUSID": true,
+  "ENABLE_VALU": true,
 
   "SERVICES_DISABLED_DEFAULT": {
     "wyre_service": true,

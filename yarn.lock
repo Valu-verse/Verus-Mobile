@@ -946,7 +946,7 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
-"@bitgo/blake2b-wasm@^3.0.1", "@bitgo/blake2b-wasm@https://github.com/VerusCoin/blake2b-wasm/", "blake2b-wasm@https://github.com/BitGo/blake2b-wasm#193cdb71656c1a6c7f89b05d0327bb9b758d071b", "blake2b-wasm@https://github.com/VerusCoin/blake2b-wasm/":
+"@bitgo/blake2b-wasm@^3.0.1", "@bitgo/blake2b-wasm@https://github.com/VerusCoin/blake2b-wasm/":
   version "2.0.0"
   resolved "https://github.com/VerusCoin/blake2b-wasm/#a16070b30bb8d8aee670f0c69b642913eca79998"
   dependencies:
@@ -960,9 +960,10 @@
     "@bitgo/blake2b-wasm" "^3.0.1"
     nanoassert "^2.0.0"
 
-"@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#c674cc555ec8bbb10c93e43b7c72ca267a22ffc3", "@bitgo/utxo-lib@https://github.com/VerusCoin/BitGoJS.git#f8723bcc2bf4052de171ca8654de23fc06a03337":
+"@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#3c6efada45b6a4fc2a1065951c307016dca7f953", "@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus":
   version "1.9.6"
-  resolved "git+https://github.com/VerusCoin/BitGoJS.git#c674cc555ec8bbb10c93e43b7c72ca267a22ffc3"
+  uid "3c6efada45b6a4fc2a1065951c307016dca7f953"
+  resolved "git+https://github.com/VerusCoin/BitGoJS.git#3c6efada45b6a4fc2a1065951c307016dca7f953"
   dependencies:
     "@bitgo/blake2b" "3.0.1"
     bech32 "0.0.3"
@@ -3298,9 +3299,9 @@ bl@^4.1.0:
     inherits "^2.0.4"
     readable-stream "^3.4.0"
 
-blake2b-wasm@^2.4.0, "blake2b-wasm@https://github.com/BitGo/blake2b-wasm#193cdb71656c1a6c7f89b05d0327bb9b758d071b", "blake2b-wasm@https://github.com/michaeltout/blake2b-wasm/":
+blake2b-wasm@^2.4.0, "blake2b-wasm@https://github.com/BitGo/blake2b-wasm#193cdb71656c1a6c7f89b05d0327bb9b758d071b", "blake2b-wasm@https://github.com/VerusCoin/blake2b-wasm/":
   version "2.0.0"
-  resolved "https://github.com/michaeltout/blake2b-wasm/#a16070b30bb8d8aee670f0c69b642913eca79998"
+  resolved "https://github.com/VerusCoin/blake2b-wasm/#a16070b30bb8d8aee670f0c69b642913eca79998"
   dependencies:
     nanoassert "1.0.0"
 
@@ -11464,13 +11465,21 @@ version_compare@0.0.3:
 
 "verus-typescript-primitives@file:../../verus-typescript-primitives":
   version "1.0.0"
-  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#ca149bcef98d226ffc6eccfd4bd089620ca2c965"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
     blake2b "https://github.com/VerusCoin/blake2b"
     bn.js "5.2.1"
     bs58check "2.0.0"
+    create-hash "1.2.0"
+
+"verus-typescript-primitives@file:i:/dev2/verus-typescript-primitives", "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git":
+  version "1.0.0"
+  dependencies:
+    base64url "3.0.1"
+    bech32 "2.0.0"
+    blake2b "https://github.com/VerusCoin/blake2b"
+    bn.js "5.2.1"
     bs58check "2.0.0"
     create-hash "1.2.0"
 

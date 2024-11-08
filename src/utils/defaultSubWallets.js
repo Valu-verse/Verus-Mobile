@@ -31,7 +31,7 @@ import {
   WYRE_SERVICE,
 } from "./constants/intervalConstants";
 import { SEND_MODAL, TRADITIONAL_CRYPTO_SEND_MODAL } from "./constants/sendModal";
-import { dlightEnabled, vrpcChannelEnabled, wyreCoinChannelEnabled } from "./enabledChannels";
+import { dlightEnabled, vrpcChannelEnabled, wyreCoinChannelEnabled, valuChannelEnabled } from "./enabledChannels";
 
 const getMainSubwallet = (dominantChannel = ELECTRUM) => {
   return {

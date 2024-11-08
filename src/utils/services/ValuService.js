@@ -5,9 +5,8 @@ import { Platform } from 'react-native'
 import RNFS from "react-native-fs"
 
 import { VALU_URL } from '../constants/constants';
-import { WYRE_SERVICE_ID } from '../constants/services';
+import { VALU_SERVICE_ID } from '../constants/services';
 import { Buffer } from 'buffer'
-import { mapWyreDocumentIds } from '../../actions/actions/services/dispatchers/wyre/wyre';
 
 const parseError = (error) => (
   error.response ? error.response.data.message : error.toString()
@@ -18,7 +17,7 @@ class ValuService {
     this.url = url;
     this.service = service;
     this.authInterceptor = null;
-    this.wyreToken = null;
+    this.valuToken = null;
     this.apiKey = null;
 
     this.cache = {
@@ -84,11 +83,11 @@ class ValuService {
     var ripemd160 = crypto.createHash("ripemd160");
     var sha256 = crypto.createHash("sha256");
 
-    const WYRE_SERVICE_CANONICAL = Buffer.from(WYRE_SERVICE_ID, "utf8");
+    const VALU_SERVICE_CANONICAL = Buffer.from(VALU_SERVICE_ID, "utf8");
 
     const sha256Hash = sha256
       .update(await mnemonicToSeed(seed))
-      .update(WYRE_SERVICE_CANONICAL)
+      .update(VALU_SERVICE_CANONICAL)
       .digest();
 
     return ripemd160.update(sha256Hash).digest().toString("hex");
@@ -98,10 +97,10 @@ class ValuService {
     return Platform.OS === "android" ? uri : uri.replace("file://", "");
   };
 
-  authenticate(wyreToken, apiKey) {
-    if (this.wyreToken == null) {
+  authenticate(valuToken, apiKey) {
+    if (this.valuToken == null) {
       this.apiKey = apiKey;
-      this.wyreToken = wyreToken;
+      this.valuToken = valuToken;
 
       this.authInterceptor = this.service.interceptors.request.use(
         (config) => {
@@ -110,9 +109,9 @@ class ValuService {
             : config.url + `?timestamp=${Date.now()}`;
 
           if (config.method === "get") {
-            config.headers.common["X-Api-Signature"] = ValuService.signUrlString(
+            config.headers["x-api-signature"] = ValuService.signUrlString(
               axios.getUri(config),
-              wyreToken
+              valuToken
             );
           } else {
             let uri = axios.getUri(config);
@@ -120,14 +119,14 @@ class ValuService {
             if (uri.substr(0, 4) !== "http") {
               uri = config.baseURL.replace(/\/+$/, "") + uri;
             }
-
-            config.headers.common["X-Api-Signature"] = ValuService.signUrlString(
+            console.log("uri", config.data == null ? uri : uri + JSON.stringify(config.data) );
+            config.headers["x-api-signature"] = ValuService.signUrlString(
               config.data == null ? uri : uri + JSON.stringify(config.data),
-              wyreToken
+              valuToken
             );
           }
-
-          config.headers.common["X-Api-Key"] = apiKey;
+          config.headers["x-payload-digest-alg"] = "sha256";
+          config.headers["x-api-key"] = apiKey;
 
           return config;
         },
@@ -139,7 +138,7 @@ class ValuService {
   }
 
   deauthenticate() {
-    this.wyreToken = null;
+    this.valuToken = null;
     this.apiKey = null;
     this.service.interceptors.request.eject(this.authInterceptor);
     this.authInterceptor = null;
@@ -151,19 +150,16 @@ class ValuService {
 
   submitAuthToken = async (secretKey) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v2/sessions/auth/key`, {
+      return this.service.post(`${this.url}/sessions/auth/key`, {
         secretKey,
       });
     });
   };
 
   getOnRampURL = async () => {
-
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/create-paybis-onramp-session`);
     });
-
-
   };
 
   getAttestationPaymentStatus = async (signedRequest) => {
@@ -180,10 +176,10 @@ class ValuService {
     });
   };
 
-  getAttestationPaymentURL = async (signedRequest) => {
+  getAttestationPaymentURL = async () => {
 
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/attestation-payment`,signedRequest);
+      return this.service.post(`${this.url}/attestation-payment`);
     });
   };
 
@@ -200,15 +196,15 @@ class ValuService {
   };
 
 
-  createAccount = async (wyreAccount) => {
+  createAccount = async (valuAccount) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v3/accounts`, wyreAccount);
+      return this.service.post(`${this.url}/accounts`, valuAccount);
     }, true);
   };
 
   getAccount = async (id) => {   
     const account = await ValuService.formatCall(() => {
-      return this.service.get(`/v3/accounts/${id}`);
+      return this.service.get(`/accounts/${id}`);
     }, true);
 
     return account
@@ -216,96 +212,16 @@ class ValuService {
 
   getPaymentMethod = async (id) => {
     return await ValuService.formatCall(() => {
-      return this.service.get(`/v2/paymentMethod/${id}`);
+      return this.service.get(`/paymentMethod/${id}`);
     }, true);
   };
 
   updateAccount = async (id, updateObj) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v3/accounts/${id}`, updateObj);
+      return this.service.post(`${this.url}/accounts/${id}`, updateObj);
     }, true);
   };
 
-  uploadDocument = async (
-    accountId,
-    field,
-    uris,
-    documentType,
-    documentSubTypes,
-    format = "image/jpeg"
-  ) => {
-    return await ValuService.formatCall(async () => {
-      let index = 0;
-
-      const accountBefore = await this.getAccount(accountId);
-      let hashes = [];
-
-      for (const uri of uris) {
-        const url = `${VALU_URL}/v3/accounts/${accountId}/${field}?${
-          documentType != null ? `documentType=${documentType}&` : ""
-        }${
-          documentSubTypes[uri] != null ? `documentSubType=${documentSubTypes[uri]}&` : ""
-        }timestamp=${Date.now()}`;
-
-        const { buffer } = await this.uploadFile(uri, url, format);
-
-        hashes.push(crypto.createHash("sha256").update(buffer).digest().toString("hex"));
-
-        index++;
-      }
-
-      const res = { data: await this.getAccount(accountId) };
-
-      const beforeDocument = accountBefore.profileFields.find(
-        (profileField) => profileField.fieldId === field
-      );
-      const afterDocument = res.data.profileFields.find(
-        (profileField) => profileField.fieldId === field
-      );
-
-      if (beforeDocument != null && afterDocument != null) {
-        const submittedDocumentDifference = afterDocument.value
-          .filter((x) => !beforeDocument.value.includes(x))
-          .concat(beforeDocument.value.filter((x) => !afterDocument.value.includes(x)));
-
-        await mapWyreDocumentIds(field, submittedDocumentDifference, uris, hashes);
-      }
-
-      return res;
-    }, true);
-  };
-
-  followupPaymentMethod = async (paymentMethod, uris, format = "image/jpeg") => {
-    return await ValuService.formatCall(async () => {
-      let index = 0;
-      let hashes = [];
-
-      for (const uri of uris) {
-        const url = `${this.url}/v2/paymentMethod/${
-          paymentMethod.id
-        }/followup?timestamp=${Date.now()}`;
-        const { buffer } = await this.uploadFile(uri, url, format);
-        hashes.push(crypto.createHash("sha256").update(buffer).digest().toString("hex"));
-
-        index++;
-      }
-
-      const res = { data: await this.getPaymentMethod(paymentMethod.id) };
-
-      const beforeDocuments = paymentMethod.documents;
-      const afterDocuments = res.data.documents;
-
-      if (beforeDocuments != null && afterDocuments != null) {
-        const submittedDocumentDifference = afterDocuments
-          .filter((x) => !beforeDocuments.includes(x))
-          .concat(beforeDocuments.filter((x) => !afterDocuments.includes(x)));
-
-        await mapWyreDocumentIds(paymentMethod.id, submittedDocumentDifference, uris, hashes);
-      }
-
-      return res;
-    }, true);
-  };
 
   uploadFile = async (uri, url, format = "image/jpeg") => {
     return await ValuService.formatCall(async () => {
@@ -316,7 +232,7 @@ class ValuService {
         headers: {
           "Content-Type": `${format}; charset=utf-8`,
           "X-Api-Key": this.apiKey,
-          "X-Api-Signature": ValuService.signUrlBuffer(url, buffer, this.wyreToken),
+          "X-Api-Signature": ValuService.signUrlBuffer(url, buffer, this.valuToken),
         },
       });
 
@@ -328,7 +244,7 @@ class ValuService {
       //     "X-Api-Signature": ValuService.signUrlBuffer(
       //       url,
       //       buffer,
-      //       this.wyreToken
+      //       this.valuToken
       //     ),
       //   },
       //   body: buffer,
@@ -340,19 +256,19 @@ class ValuService {
 
   createPaymentMethod = async (paymentMethod) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v2/paymentMethods`, paymentMethod);
+      return this.service.post(`${this.url}/paymentMethods`, paymentMethod);
     }, true);
   };
 
   deletePaymentMethod = async (paymentMethod) => {
     return await ValuService.formatCall(() => {
-      return this.service.delete(`${this.url}/v2/paymentMethod/${paymentMethod.id}`);
+      return this.service.delete(`${this.url}/paymentMethod/${paymentMethod.id}`);
     }, true);
   };
 
   listPaymentMethods = async () => {
     return await ValuService.formatCall(() => {
-      return this.service.get("/v2/paymentMethods");
+      return this.service.get("/paymentMethods");
     }, true);
   };
 
@@ -367,7 +283,7 @@ class ValuService {
     amountIncludesFees = false
   ) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v3/transfers`, {
+      return this.service.post(`${this.url}/transfers`, {
         source,
         sourceCurrency,
         sourceAmount,
@@ -382,25 +298,25 @@ class ValuService {
 
   confirmTransfer = async (transferId) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/v3/transfers/${transferId}/confirm`);
+      return this.service.post(`${this.url}/transfers/${transferId}/confirm`);
     }, true);
   };
 
   getTransferInstructions = async (transferId) => {
     return await ValuService.formatCall(() => {
-      return this.service.get(`/v2/transfer/${transferId}`);
+      return this.service.get(`/transfer/${transferId}`);
     }, true);
   }
 
   getTransferHistory = async () => {
     return await ValuService.formatCall(() => {
-      return this.service.get("/v3/transfers");
+      return this.service.get("/transfers");
     }, true);
   };
 
   getTransfer = async (transferId) => {
     return await ValuService.formatCall(() => {
-      return this.service.get(`/v3/transfers/${transferId}`);
+      return this.service.get(`/transfers/${transferId}`);
     }, true);
   };
 
@@ -413,7 +329,7 @@ class ValuService {
     });
 
     return await ValuService.formatCall(() => {
-      return oneTimeService.get(`/v3/rates?as=${mode}`);
+      return oneTimeService.get(`/rates?as=${mode}`);
     });
   };
 
@@ -426,7 +342,7 @@ class ValuService {
     });
 
     return await ValuService.formatCall(() => {
-      return oneTimeService.get("/v3/widget/supportedCountries");
+      return oneTimeService.get("/widget/supportedCountries");
     });
   };
 }

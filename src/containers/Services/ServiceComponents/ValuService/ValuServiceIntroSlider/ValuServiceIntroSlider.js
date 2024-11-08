@@ -43,19 +43,20 @@ class ValuServiceIntroSlider extends Component {
       linkedIds: null,
       addressSelectModalOpen: false
     };
-
+    this.VALU_SEED_PHRASE_LENGTH = 24;
   }
   async getLinkedIds() {
 
-    this.props.dispatch(setServiceLoading(true, VERUSID_SERVICE_ID));
+    this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID));
 
     try {
-      const verusIdServiceData = await requestServiceStoredData(
-        VERUSID_SERVICE_ID,
+      const valuServiceData = await requestServiceStoredData(
+        VALU_SERVICE_ID,
       );
-      if (verusIdServiceData.linked_ids) {
+      console.log("verusIdServiceData", valuServiceData);
+      if (valuServiceData.linked_ids) {
         this.setState({
-          linkedIds: verusIdServiceData.linked_ids,
+          linkedIds: valuServiceData.linked_ids,
         });
       } else {
         this.setState({
@@ -63,9 +64,9 @@ class ValuServiceIntroSlider extends Component {
         });
       }
     } catch (e) {
-      createAlert('Error Loading Linked VerusIDs', e.message);
+      createAlert('Error Loading Valu data', e.message);
     }
-    this.props.dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));
+    this.props.dispatch(setServiceLoading(false, VALU_SERVICE_ID));
   }
 
   
@@ -75,7 +76,7 @@ class ValuServiceIntroSlider extends Component {
   }
   
   async initValuSeedStatus() {
-    this.props.dispatch(setServiceLoading(true, VERUSID_SERVICE_ID))
+    this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
 
     try {
       const accountSeeds = await requestSeeds();
@@ -83,15 +84,15 @@ class ValuServiceIntroSlider extends Component {
 
       if (
         accountSeeds[ELECTRUM] != null &&
-        isSeedPhrase(accountSeeds[ELECTRUM], this.WYRE_SEED_PHRASE_LENGTH)
+        isSeedPhrase(accountSeeds[ELECTRUM], this.VALU_SEED_PHRASE_LENGTH)
       )
         hasElectrum24WordSeed = true;
-
+    
       this.setState(
         {
           hasElectrum24WordSeed,
         },
-        () => this.props.dispatch(setServiceLoading(false, VERUSID_SERVICE_ID))
+        () => this.props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
       );
     } catch (e) {
       console.warn(e);

@@ -54,7 +54,7 @@ import {
   VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
 import {createAlert} from '../../actions/actions/alert/dispatchers/alert';
-import {VERUSID_SERVICE_ID} from '../../utils/constants/services';
+import {VERUSID_SERVICE_ID, VALU_SERVICE_ID} from '../../utils/constants/services';
 import {dragDetectionEnabled} from '../../utils/dragDetection';
 import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
 import {
@@ -229,14 +229,15 @@ class Home extends Component {
         });
       },
       [VALU_WIDGET_TYPE]  : () => {
-        this.props.navigation.navigate('ServicesHome', {
-          screen: 'ValuOnRamp',
-          initial: false,
+        this.props.navigation.navigate('Service', {
+          service: VALU_SERVICE_ID,
+          subScreen: 'onOffRamp'
         });
       },
       [ATTESTATION_WIDGET_TYPE]: () => {
-        this.props.navigation.navigate('ServicesHome', {
-          screen: 'ValuAttestation',
+        this.props.navigation.navigate('Service', {
+          service: VALU_SERVICE_ID,
+          subScreen: 'attestation'
         });
       },
     };

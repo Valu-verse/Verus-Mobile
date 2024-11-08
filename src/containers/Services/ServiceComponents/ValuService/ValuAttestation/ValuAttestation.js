@@ -13,8 +13,7 @@ import { Divider, List, Button, Text } from 'react-native-paper';
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { AttesationBadge, VUSDC } from "../../../../../images/customIcons";
-import ValuService from '../../../../../utils/services/ValuService';
-import { requestAttestationData } from "../../../../../utils/auth/authBox";
+import { requestAttestationData, requestSeeds } from "../../../../../utils/auth/authBox";
 import { ATTESTATIONS_PROVISIONED } from "../../../../../utils/constants/attestations";
 import { signIdProvisioningRequest } from '../../../../../utils/api/channels/vrpc/requests/signIdProvisioningRequest';
 import { NavigationNotification } from '../../../../../utils/notification';
@@ -23,10 +22,15 @@ import { NOTIFICATION_ICON_VALU } from '../../../../../utils/constants/notificat
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
+import ValuProvider from "../../../../../utils/services/ValuProvider";
+import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
+import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
+import { setServiceLoading } from "../../../../../actions/actionCreators";
 
 
-const ValuAttestation = ({ navigation }) => {
-    const activeAccount = useSelector(state => state.authentication.activeAccount)
+const ValuAttestation = ({ props } = props) => {
+    const activeAccount = useSelector(state => state.authentication.activeAccount);
+    const valuAuthenticated = useSelector(state => state.channelStore_valu_service.authenticated);
     const verusNetwork = Object.keys(activeAccount.testnetOverrides).length > 0 ? 'VRSCTEST' : 'VRSC';
     const [attestationData, setAttestationData] = useState({});
     const [signer, setSigner] = useState("");
@@ -36,20 +40,21 @@ const ValuAttestation = ({ navigation }) => {
     const [mainButtonText, setMainButtonText] = useState("START");
     const [signedRequest, setSignedRequest] = useState({});
     const [appState, setAppState] = useState(AppState.currentState);
-    const asdf=234
 
-    const fetchData = useCallback(() => {
+    const fetchData = useCallback(async () => {
         // Check for data in the wallet that says there is an attestation present.
         // If there is, then take the user to the attestation page.
         // If there is not, then display the 
-        const VALU_ATTESTATION = "isdffds"
-        requestAttestationData(ATTESTATIONS_PROVISIONED).then((attestations) => {
-            if (attestations[VALU_ATTESTATION]) {
-                navigation.navigate('Attestation', { attestations: attestations });
-                return;
-            }
-        }).then(() => {
-            setLoading(true);
+        const VALU_ATTESTATION = "isdffds" //TODO: make a function to check whether POL is provisioned
+        const attestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+
+        if (attestations[VALU_ATTESTATION]) {
+            props.navigation.navigate('Attestation', { attestations: attestations });
+            return;
+        }
+
+        setLoading(true);
+        try {
 
             const provisionRequest = new primitives.LoginConsentProvisioningRequest({
                 signing_address: activeAccount.keys[verusNetwork].vrpc.addresses[0],
@@ -60,73 +65,104 @@ const ValuAttestation = ({ navigation }) => {
                 }),
             });
 
-            signIdProvisioningRequest({ id: verusNetwork }, provisionRequest).then((signedRequestReply) => {
-                setSignedRequest(signedRequestReply);
-                ValuService.build().getAttestationPaymentStatus({ request: signedRequestReply.toBuffer().toString('base64') }).then((reply) => {
+            const signedRequestReply = await signIdProvisioningRequest({ id: verusNetwork }, provisionRequest);
 
-                    let POLStatus = reply.data.status;
-                    console.log("state set1vcfd", reply);
-                    setMainButtonText(POLStatus === VALU_POL_PAYMENT_PENDING ? "RESUME" : POLStatus === VALU_POL_PAYMENT_RECEIVED ? "CONTINUE" : "START");
-                    setLoading(false);
-                    setValuReply(reply);
-                    setStatus(POLStatus);
+            setSignedRequest(signedRequestReply);
+            const reply = await ValuProvider.getAttestationPaymentStatus({ request: signedRequestReply.toBuffer().toString('base64') })
 
-                    if (reply.success === false) {
-                        throw new Error(reply.error);
-                    }
-
-                    if (POLStatus === VALU_POL_PAYMENT_FAILED) {
-                        createAlertDialog(
-                            `Your previous payment attempt failed, would you like to try again?`, "RETRY", () => {
-                                ValuService.build().retryAttestationPayment({ request: signedRequestReply.toBuffer().toString('base64') }).then((innerreply) => {
-                                    setValuReply(innerreply);
-                                    setStatus(POLStatus);
-                                    Linking.openURL(innerreply.data.url)});
-                                })
-                    } else if (POLStatus === VALU_POL_PAYMENT_RECEIVED) {
-                        // maybe add notification.
-                    }
-
-                }).catch((e) => {
-                    console.log("stateg set4x4a", e)
-                    setLoading(false);
-                    setStatus("error");
-                    createAlert(
-                        `Valu Proof of Life Attestation`,
-                        `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e.message}`)
-                })
-
-            });
-
-        })
-    }, [navigation]);
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchData();
-        }, [fetchData])
-    );
-
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    useEffect(() => {
-        // make sure teh screen reloads when the app is brought back to the foreground
-        const handleAppStateChange = (nextAppState) => {
-            if (appState.match(/inactive|background/) && nextAppState === 'active') {
-                setLoading(true);
-                fetchData();
+            if (reply.success === false) {
+                throw new Error(reply.error);
             }
-            setAppState(nextAppState);
-        };
+            let POLStatus = reply.data.status;
+            console.log("state set1vcfd", reply);
+            setMainButtonText(POLStatus === VALU_POL_PAYMENT_PENDING ? "RESUME" : POLStatus === VALU_POL_PAYMENT_RECEIVED ? "CONTINUE" : "START");
+            setLoading(false);
+            setValuReply(reply);
+            setStatus(POLStatus);
 
-        const subscription = AppState.addEventListener('change', handleAppStateChange);
+            if (reply.success === false) {
+                throw new Error(reply.error);
+            }
 
-        return () => {
-            subscription.remove();
-        };
-    }, [appState, fetchData]);
+            if (POLStatus === VALU_POL_PAYMENT_FAILED) {
+                createAlertDialog(
+                    `Your previous payment attempt failed, would you like to try again?`, "RETRY", () => {
+                        ValuProvider.retryAttestationPayment({ request: signedRequestReply.toBuffer().toString('base64') }).then((innerreply) => {
+                            setValuReply(innerreply);
+                            setStatus(POLStatus);
+                            Linking.openURL(innerreply.data.url)
+                        });
+                    })
+            } else if (POLStatus === VALU_POL_PAYMENT_RECEIVED) {
+                // maybe add notification.
+            }
+
+        } catch (e) {
+            console.log("stateg set4x4a", e)
+            setLoading(false);
+            setStatus("error");
+            createAlertDialog(
+                `Valu Proof of Life Attestation`,
+                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e.message}`)
+        }
+
+    }, [props.navigation]);
+
+    // useFocusEffect(fetchData);
+
+    useEffect(() => {
+        initAccountStatus().then(() => {
+            fetchData();
+        });
+    }, []);
+
+    const checkAccountCreationStatus = async () => {
+        if (!valuAuthenticated) {
+            ValuProvider.reset();
+            const seed = (await requestSeeds())[VALU_SERVICE];
+            if (seed == null) throw new Error("No Valu seed present");
+            await ValuProvider.authenticate(seed);
+        }
+    }
+
+    const initAccountStatus = async () => {
+        props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
+        setLoading(true);
+        try {
+            await checkAccountCreationStatus();
+            props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
+            setLoading(false);
+        } catch (e) {
+            setLoading(false);
+            console.log(e)
+
+            createAlertDialog(
+                "Error",
+                "Failed to retrieve Valu account status from server.",
+                () => { resolveAlert(); setLoading(false); });
+        }
+    };
+
+    // useEffect(() => {
+    //     fetchData();
+    // }, [fetchData]);
+
+    // useEffect(() => {
+    //     // make sure teh screen reloads when the app is brought back to the foreground
+    //     const handleAppStateChange = (nextAppState) => {
+    //         if (appState.match(/inactive|background/) && nextAppState === 'active') {
+    //             setLoading(true);
+    //             fetchData();
+    //         }
+    //         setAppState(nextAppState);
+    //     };
+
+    //     const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    //     return () => {
+    //         subscription.remove();
+    //     };
+    // }, [appState, fetchData]);
 
     const createAlertDialog = (message, button, func = ()=>{}) => {
         createAlert(
@@ -144,16 +180,17 @@ const ValuAttestation = ({ navigation }) => {
                 }
             },
         ],
-            { cancelable: true })
+            { cancelable: false }
+        );
     }
 
     const startOnRamp = async () => {
 
         try {
-            console.log("state set2", status, valuReply)
+            console.log("state set2222222222", status, valuReply)
             if (status === VALU_POL_PAYMENT_STARTED) {
-                const newRep = await ValuService.build().getAttestationPaymentURL({ request: signedRequest.toBuffer().toString('base64') })
-               
+                const newRep = await ValuProvider.getAttestationPaymentURL()
+
                 Linking.openURL(newRep.data.url);
                 setLoading(true);
                 const newLoadingNotification = new NavigationNotification();
@@ -163,7 +200,7 @@ const ValuAttestation = ({ navigation }) => {
                 newLoadingNotification.acchash = activeAccount.accountHash;
                 newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
                 newLoadingNotification.navigate = () => {
-                    navigation.navigate('ServicesHome', {
+                    props.navigation.navigate('ServicesHome', {
                         screen: 'ValuAttestation',
                     });
                 };
@@ -172,13 +209,13 @@ const ValuAttestation = ({ navigation }) => {
 
             } else if (status === VALU_POL_PAYMENT_PENDING) {
                 createAlertDialog(
-                    `You already have a Valu Proof of Life Attestation in progress.`, "RESUME", () => {Linking.openURL(valuReply.data.url)});
+                    `You already have a Valu Proof of Life Attestation in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
 
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
-            } else if (status === VALU_POL_PAYMENT_RECEIVED) { 
-                const newRep = await ValuService.build().getValuIdDeepLink({ request: signedRequest.toBuffer().toString('base64') });
+            } else if (status === VALU_POL_PAYMENT_RECEIVED) {
+                const newRep = await ValuProvider.getValuIdDeepLink();
                 if (newRep.success === false) {
                     throw new Error(newRep.error);
                 }
@@ -191,9 +228,8 @@ const ValuAttestation = ({ navigation }) => {
             //  console.log(newLoadingNotification)
         } catch (e) {
             console.log("state set4", e)
-            createAlert(
-                `Valu Proof of Life Attestation`,
-                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e}`
+            createAlertDialog(
+                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e}`, "OK"
             )
 
         }
@@ -201,21 +237,18 @@ const ValuAttestation = ({ navigation }) => {
     }
 
     const stageMessages = {
-        [VALU_POL_PAYMENT_RECEIVED] :(<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+        [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Payment received for Valu Proof of Life Attestation. Proceed to get your ValuID.
         </Text>),
-        [VALU_POL_PAYMENT_PENDING] : (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+        [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             You already have a Valu Proof of Life Attestation in progress.
         </Text>),
-        [VALU_POL_PAYMENT_STARTED] : (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+        [VALU_POL_PAYMENT_STARTED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
-        "" : (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+        "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
-        </Text>),
-
-
-
+        </Text>)
     }
 
     return (<SafeAreaView style={Styles.defaultRoot}>

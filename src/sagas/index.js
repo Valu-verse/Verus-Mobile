@@ -9,6 +9,7 @@ import electrumSaga from './channels/electrum';
 import dlightSaga from './channels/dlight';
 import generalSaga from './channels/general';
 import wyreCoinSaga from './channels/wyre';
+import valuCoinSaga from './channels/valu';
 import authenticationSaga from './authentication';
 import verusidSaga from './channels/verusid';
 import coinsSaga from './coins';
@@ -25,7 +26,8 @@ import {
   ENABLE_ELECTRUM,
   ENABLE_ETH,
   ENABLE_GENERAL,
-  ENABLE_WYRE_COIN
+  ENABLE_WYRE_COIN,
+  ENABLE_VALU
 } from "../../env/index";
 
 const generateSagas = () => {
@@ -45,6 +47,7 @@ const generateSagas = () => {
   if (ENABLE_WYRE_COIN) sagas.push(wyreCoinSaga)
   if (ENABLE_VRPC) sagas.push(vrpcSaga)
   if (ENABLE_VERUSID) sagas.push(verusidSaga)
+  if (ENABLE_VALU) sagas.push(valuCoinSaga)
 
   return sagas
 }

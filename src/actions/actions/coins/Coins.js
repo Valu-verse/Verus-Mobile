@@ -14,7 +14,8 @@ import {
   GENERAL,
   WYRE_SERVICE,
   VRPC,
-  VERUSID
+  VERUSID,
+  VALU_SERVICE
 } from "../../../utils/constants/intervalConstants";
 import { initDlightWallet, closeDlightWallet } from '../channels/dlight/dispatchers/LightWalletReduxManager';
 import { initEthWallet, closeEthWallet } from '../channels/eth/dispatchers/EthWalletReduxManager';
@@ -28,8 +29,9 @@ import { throwError } from '../../../utils/errors';
 import { INACTIVE_COIN } from '../../../utils/constants/errors';
 import {
   closeWyreCoinWallet,
-  initWyreCoinChannel,
+  initWyreCoinChannel
 } from "../channels/wyre/dispatchers/WyreWalletReduxManager";
+import { initValuCoinChannel, closeValuCoinWallet } from '../channels/valu/dispatchers/ValuWalletReduxManager';
 import { closeVerusIdWallet, initVerusIdWallet } from '../channels/verusid/dispatchers/VerusidWalletReduxManager';
 
 export const COIN_MANAGER_MAP = {
@@ -41,7 +43,8 @@ export const COIN_MANAGER_MAP = {
     [ELECTRUM]: initElectrumWallet,
     [DLIGHT_PRIVATE]: initDlightWallet,
     [GENERAL]: initGeneralWallet,
-    [WYRE_SERVICE]: initWyreCoinChannel
+    [WYRE_SERVICE]: initWyreCoinChannel,
+    [VALU_SERVICE]: initValuCoinChannel
   },
   closers: {
     [ETH]: closeEthWallet,
@@ -51,7 +54,8 @@ export const COIN_MANAGER_MAP = {
     [ELECTRUM]: closeElectrumWallet,
     [DLIGHT_PRIVATE]: closeDlightWallet,
     [GENERAL]: closeGeneralWallet,
-    [WYRE_SERVICE]: closeWyreCoinWallet
+    [WYRE_SERVICE]: closeWyreCoinWallet,
+    [VALU_SERVICE]: closeValuCoinWallet
   }
 }
 
