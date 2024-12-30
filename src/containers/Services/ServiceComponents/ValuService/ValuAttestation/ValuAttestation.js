@@ -37,9 +37,25 @@ const ValuAttestation = ({ props } = props) => {
     const [valuReply, setValuReply] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("");
+    const [attestationStatus, setAttestationStatus] = useState("");
     const [mainButtonText, setMainButtonText] = useState("START");
     const [signedRequest, setSignedRequest] = useState({});
     const [appState, setAppState] = useState(AppState.currentState);
+    const acchash = useSelector(state =>
+        state.authentication.activeAccount
+    ).accountHash;
+    const notifications = useSelector(state =>
+        state.notifications
+    );
+
+    const buttonMessages = {
+        [VALU_POL_PAYMENT_RECEIVED]: "CONTINUE",
+        [VALU_POL_PAYMENT_PENDING]: "RESUME",
+        [VALU_POL_PAYMENT_STARTED]: "START",
+        [VALU_POL_PAYMENT_FAILED]: "RETRY",
+        ["VALU_POL_READY"]: "CONTINUE"
+
+    }
 
     const fetchData = useCallback(async () => {
         // Check for data in the wallet that says there is an attestation present.
@@ -74,15 +90,11 @@ const ValuAttestation = ({ props } = props) => {
                 throw new Error(reply.error);
             }
             let POLStatus = reply.data.status;
-            console.log("state set1vcfd", reply);
-            setMainButtonText(POLStatus === VALU_POL_PAYMENT_PENDING ? "RESUME" : POLStatus === VALU_POL_PAYMENT_RECEIVED ? "CONTINUE" : "START");
-            setLoading(false);
+            let POLAttestationStatus = reply.data?.attestation_status;
+             setMainButtonText(buttonMessages[POLStatus]);
             setValuReply(reply);
             setStatus(POLStatus);
-
-            if (reply.success === false) {
-                throw new Error(reply.error);
-            }
+            setAttestationStatus(POLAttestationStatus);
 
             if (POLStatus === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
@@ -96,14 +108,14 @@ const ValuAttestation = ({ props } = props) => {
             } else if (POLStatus === VALU_POL_PAYMENT_RECEIVED) {
                 // maybe add notification.
             }
+            setLoading(false);
 
         } catch (e) {
-            console.log("stateg set4x4a", e)
+            console.log("Error from check status of POL: ", e.message ? e.message : e)
             setLoading(false);
             setStatus("error");
             createAlertDialog(
-                `Valu Proof of Life Attestation`,
-                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e.message}`)
+                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e.message}`,"RETRY")
         }
 
     }, [props.navigation]);
@@ -137,8 +149,7 @@ const ValuAttestation = ({ props } = props) => {
             console.log(e)
 
             createAlertDialog(
-                "Error",
-                "Failed to retrieve Valu account status from server.",
+                "Failed to retrieve Valu account status from server.","RETRY",
                 () => { resolveAlert(); setLoading(false); });
         }
     };
@@ -147,24 +158,24 @@ const ValuAttestation = ({ props } = props) => {
     //     fetchData();
     // }, [fetchData]);
 
-    // useEffect(() => {
-    //     // make sure teh screen reloads when the app is brought back to the foreground
-    //     const handleAppStateChange = (nextAppState) => {
-    //         if (appState.match(/inactive|background/) && nextAppState === 'active') {
-    //             setLoading(true);
-    //             fetchData();
-    //         }
-    //         setAppState(nextAppState);
-    //     };
+    useEffect(() => {
+        // make sure teh screen reloads when the app is brought back to the foreground
+        const handleAppStateChange = (nextAppState) => {
+            if (appState.match(/inactive|background/) && nextAppState === 'active') {
+                setLoading(true);
+                fetchData();
+            }
+            setAppState(nextAppState);
+        };
 
-    //     const subscription = AppState.addEventListener('change', handleAppStateChange);
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
 
-    //     return () => {
-    //         subscription.remove();
-    //     };
-    // }, [appState, fetchData]);
+        return () => {
+            subscription.remove();
+        };
+    }, [appState, fetchData]);
 
-    const createAlertDialog = (message, button, func = ()=>{}) => {
+    const createAlertDialog = (message, button, func = () => { }) => {
         createAlert(
             `Valu Proof of Life Attestation`,
             message, [
@@ -188,24 +199,35 @@ const ValuAttestation = ({ props } = props) => {
 
         try {
             console.log("state set2222222222", status, valuReply)
+            setLoading(true);
             if (status === VALU_POL_PAYMENT_STARTED) {
-                const newRep = await ValuProvider.getAttestationPaymentURL()
+
+                const { directory } = notifications;
+                let skipDispatchNotification = false;
+                const keys = Object.keys(directory || {});
+                keys.forEach((uid, index) => {
+                    if (directory[uid].acchash === acchash && directory[uid].type === NOTIFICATION_TYPE_NAVIGATION) {
+                        skipDispatchNotification = true;
+                    }
+                });
+
+                const newRep = await ValuProvider.getAttestationPaymentURL();
 
                 Linking.openURL(newRep.data.url);
-                setLoading(true);
-                const newLoadingNotification = new NavigationNotification();
+                if (skipDispatchNotification) {
+                    const newLoadingNotification = new NavigationNotification();
+                    newLoadingNotification.body = "Continue";
+                    newLoadingNotification.title = [`Complete Valu Proof of Life Attestation`]
+                    newLoadingNotification.acchash = activeAccount.accountHash;
+                    newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
+                    newLoadingNotification.navigate = () => {
+                        props.navigation.navigate('ServicesHome', {
+                            screen: 'ValuAttestation',
+                        });
+                    };
 
-                newLoadingNotification.body = "Continue";
-                newLoadingNotification.title = [`Complete Valu Proof of Life Attestation`]
-                newLoadingNotification.acchash = activeAccount.accountHash;
-                newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
-                newLoadingNotification.navigate = () => {
-                    props.navigation.navigate('ServicesHome', {
-                        screen: 'ValuAttestation',
-                    });
-                };
-
-                dispatchAddNotification(newLoadingNotification);
+                    dispatchAddNotification(newLoadingNotification);
+                }
 
             } else if (status === VALU_POL_PAYMENT_PENDING) {
                 createAlertDialog(
@@ -214,8 +236,14 @@ const ValuAttestation = ({ props } = props) => {
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
-            } else if (status === VALU_POL_PAYMENT_RECEIVED) {
+            } else if (status === VALU_POL_PAYMENT_RECEIVED)  {
                 const newRep = await ValuProvider.getValuIdDeepLink();
+                if (newRep.success === false) {
+                    throw new Error(newRep.error);
+                }
+                Linking.openURL(newRep.data);
+            } else if (status === "VALU_POL_READY") {
+                const newRep = await ValuProvider.getValuAttestationStatus();
                 if (newRep.success === false) {
                     throw new Error(newRep.error);
                 }
@@ -224,10 +252,11 @@ const ValuAttestation = ({ props } = props) => {
 
             //    throw new Error(reply.error);
 
-
+            
             //  console.log(newLoadingNotification)
         } catch (e) {
             console.log("state set4", e)
+            setLoading(false);
             createAlertDialog(
                 `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e}`, "OK"
             )
@@ -248,6 +277,9 @@ const ValuAttestation = ({ props } = props) => {
         </Text>),
         "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+        </Text>),
+        ["VALU_POL_READY"]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            Your Valu Proof of Life is ready to retrieve.
         </Text>)
     }
 

@@ -82,8 +82,8 @@ class VerusPay extends Component {
   }
 
   tryProcessDeeplink(urlstring) {
+    console.log(urlstring)
     const url = new URL(urlstring);
-
     if (url.host !== CALLBACK_HOST)
       throw new Error('Unsupported deeplink host url.');
 

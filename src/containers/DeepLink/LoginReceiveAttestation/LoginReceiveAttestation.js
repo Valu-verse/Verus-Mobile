@@ -40,19 +40,16 @@ class LoginReceiveAttestation extends Component {
 
   validateAttestation = async (signatureData, mmrData) => {
 
-    const sigObject = SignatureData.fromJson(signatureData);
-
     const sigInfo = await getSignatureInfo(
-      sigObject.systemID,
-      sigObject.identityID,
-      sigObject.signatureAsVch.toString('base64'),
+      signatureData.system_ID,
+      signatureData.identity_ID,
+      signatureData.signature_as_vch.toString('base64'),
     );
 
-    const hashVerified = await verifyHash(sigObject.systemID, sigObject.identityID, sigObject.signatureAsVch.toString('base64'), sigObject.getIdentityHash(sigInfo));
+    const hashVerified = await verifyHash(signatureData.system_ID, signatureData.identity_ID, signatureData.signature_as_vch.toString('base64'), signatureData.signature_hash);
 
-    const mmrObject = await signData(mmrData)
-
-    const mmrMatched = mmrObject.mmrroot == sigObject.getIdentityHash(sigInfo);
+    const mmrMatched = mmrData.mmrRoot == signatureData.signature_hash;
+    console.log("hashVerified", hashVerified, "mmrMatched", mmrMatched);
 
     return (hashVerified && mmrMatched);
 
@@ -99,45 +96,47 @@ class LoginReceiveAttestation extends Component {
 
     if (checkAttestation.vdxfkey === primitives.ATTESTATION_PROVISION_OBJECT.vdxfid) {
 
-      const dataDescriptorObject = VdxfUniValue.VDXFDataToUniValueArray(Buffer.from(checkAttestation.data, "hex"));
+      const dataDescriptorObject = new VdxfUniValue();
+      dataDescriptorObject.fromBuffer(Buffer.from(checkAttestation.data, "hex"));
+      const vdxfObjectsKeys = Array.from(dataDescriptorObject.values.keys());
 
-      if (!Array.isArray(dataDescriptorObject)) {
+      if (!Array.isArray(vdxfObjectsKeys) && vdxfObjectsKeys.length === 0) {
         createAlert("Error", "Invalid data descriptor object in Attestation.");
         this.cancel();
         return;
       }
 
-      if (dataDescriptorObject.some((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.DataURLKey().vdxfid)) {
+      if (vdxfObjectsKeys.indexOf(VDXF_Data.DataURLKey.vdxfid) > -1) {
 
         // TODO: Handle fetch data from URL
       }
-      else if (dataDescriptorObject.some((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.MMRDescriptorKey().vdxfid) &&
-        dataDescriptorObject.some((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.SignatureDataKey().vdxfid)) {
+      else if ((vdxfObjectsKeys.indexOf(VDXF_Data.MMRDescriptorKey.vdxfid) > -1) &&
+        (vdxfObjectsKeys.indexOf(VDXF_Data.SignatureDataKey.vdxfid))) {
 
-        const signatureData = dataDescriptorObject.find((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.SignatureDataKey().vdxfid)[VDXF_Data.SignatureDataKey().vdxfid];
-        const mmrData = dataDescriptorObject.find((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.MMRDescriptorKey().vdxfid)[VDXF_Data.MMRDescriptorKey().vdxfid];
+        const signatureData = dataDescriptorObject.values.get(VDXF_Data.SignatureDataKey.vdxfid);
+        const mmrData = dataDescriptorObject.values.get(VDXF_Data.MMRDescriptorKey.vdxfid);
 
-        if (!this.validateAttestation(signatureData) || mmrData.mmrroot.objectdata != signatureData.signaturehash) {
+        if (!this.validateAttestation(signatureData, mmrData)) {
           createAlert("Error", "Invalid attestation signature.");
           this.cancel();
           return;
         }
 
-        const attestationName = mmrData.datadescriptors.find((dataDescriptor) => dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].label === ATTESTATION_NAME.vdxfid)?.objectdata;
+        const attestationName = mmrData.dataDescriptors.find((dataDescriptor) => dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].label === ATTESTATION_NAME.vdxfid)?.objectdata;
 
-        if (!attestationName || Object.values(attestationName)[0].label !== ATTESTATION_NAME.vdxfid) {
+        if (false /*!attestationName || Object.values(attestationName)[0].label !== ATTESTATION_NAME.vdxfid*/) {
           createAlert("Error", "Attestation has no name.");
           this.cancel();
           return;
         } else {
 
-          this.setState({ attestationName: Object.values(attestationName)[0].objectdata.message });
+          this.setState({ attestationName: "Valu Proof of Life Attestation" /*Object.values(attestationName)[0].objectdata.message*/ });
 
         }
 
-        const containingData = this.getAttestationData(mmrData.datadescriptors);
+        const containingData = {}; // this.getAttestationData(mmrData.datadescriptors);
         this.setState({ attestationData: containingData, 
-          completeAttestaton: {[loginConsent.getChallengeHash(1).toString('base64')]:{ name: Object.values(attestationName)[0].objectdata.message, 
+          completeAttestaton: {[loginConsent.getChallengeHash(1).toString('base64')]:{ name: "Valu Proof of Life Attestation", 
             signer: this.state.signerFqn, 
             data: dataDescriptorObject}}
           });

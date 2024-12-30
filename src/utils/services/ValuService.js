@@ -31,6 +31,7 @@ class ValuService {
       headers: {
         "Content-Type": "application/json",
       },
+      timeout: 7000,
     });
 
     return new ValuService(VALU_URL, service);
@@ -156,9 +157,9 @@ class ValuService {
     });
   };
 
-  getOnRampURL = async () => {
+  getOnRampURL = async (payload) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/create-paybis-onramp-session`);
+      return this.service.post(`${this.url}/onramp/getonrampsession`, payload);
     });
   };
 
@@ -192,6 +193,18 @@ class ValuService {
   getValuIdDeepLink = async (valuId) => {
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/valu-id-deeplink`,valuId);
+    });
+  };
+
+  getValuAttestationStatus = async (address) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/get-attestation`,address);
+    });
+  };
+
+  getOnRampOptions = async (taxCountry) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/onramp/getonrampoptions`, taxCountry);
     });
   };
 

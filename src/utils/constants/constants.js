@@ -78,7 +78,7 @@ export const TOTAL = 'total'
 
 // Payment Methods
 export const WYRE_URL = 'https://api.sendwyre.com';
-export const VALU_URL = 'http://192.168.1.121:8000';
+export const VALU_URL = 'https://redfish-inviting-blatantly.ngrok-free.app';
 export const WYRE_REFERRER_ACCOUNT_ID = 'verus-valu';
 
 // Biometry
