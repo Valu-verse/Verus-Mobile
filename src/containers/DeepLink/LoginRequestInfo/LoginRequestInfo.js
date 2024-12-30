@@ -1,5 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
+import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import { Button, Divider, List, Portal, Text } from 'react-native-paper';
@@ -18,6 +19,7 @@ import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreators';
 import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
+import { useObjectSelector } from '../../../hooks/useObjectSelector';
 
 const LoginRequestInfo = props => {
   const { deeplinkData, sigtime, cancel, signerFqn } = props
@@ -26,7 +28,7 @@ const LoginRequestInfo = props => {
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null)
   const [sigDateString, setSigDateString] = useState(unixToDate(sigtime))
   const [waitingForSignin, setWaitingForSignin] = useState(false)
-  const accounts = useSelector(state => state.authentication.accounts)
+  const accounts = useObjectSelector(state => state.authentication.accounts)
   const signedIn = useSelector(state => state.authentication.signedIn)
   const passthrough = useSelector((state) => state.deeplink.passthrough);
   const sendModalType = useSelector(state => state.sendModal.type)
@@ -46,12 +48,12 @@ const LoginRequestInfo = props => {
   );
   const [prevRootSystemAdded, setPrevRootSystemAdded] = useState(rootSystemAdded)
 
-  const activeAccount = useSelector(
+  const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
   );
 
   const isTestnet = activeAccount ? Object.keys(activeAccount.testnetOverrides).length > 0 : false;
-  const activeCoinList = useSelector(state => state.coins.activeCoinList);
+  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
 
   let mainLoginMessage = '';
 
@@ -451,14 +453,15 @@ const LoginRequestInfo = props => {
             display: 'flex',
           }}>
           <Button
-            color={Colors.warningButtonColor}
-            style={{ width: 148 }}
+            textColor={Colors.warningButtonColor}
+            style={{width: 148}}
             onPress={() => cancel()}>
             Cancel
           </Button>
           <Button
-            color={ready ? Colors.verusGreenColor : Colors.lightGrey}
-            style={{ width: 148 }}
+            buttonColor={Colors.verusGreenColor}
+            textColor={Colors.secondaryColor}
+            style={{width: 148}}
             onPress={() => handleContinue()}>
             Continue
           </Button>

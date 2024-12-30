@@ -6,7 +6,6 @@ import {
   Keyboard,
 } from 'react-native';
 import {Text, Paragraph, Button, TextInput} from 'react-native-paper';
-import {useSelector} from 'react-redux';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import TallButton from '../../../../components/LargerButton';
 import Colors from '../../../../globals/colors';
@@ -25,8 +24,6 @@ export default function CreatePassword({password, setPassword, navigation}) {
     color: Colors.tertiaryColor
   });
   
-  const isKeyboardActive = useSelector(state => state.keyboard.active);
-
   useEffect(() => {
     calculatePasswordAffix()
   }, [firstBox])
@@ -172,20 +169,18 @@ export default function CreatePassword({password, setPassword, navigation}) {
             secureTextEntry={true}
           />
         </View>
-        {!isKeyboardActive && (
-          <TallButton
-            onPress={next}
-            mode="contained"
-            labelStyle={{fontWeight: 'bold'}}
-            disabled={firstBox.length == 0 || secondBox.length == 0}
-            style={{
-              position: 'absolute',
-              bottom: 80,
-              width: 280,
-            }}>
-            {'Next'}
-          </TallButton>
-        )}
+        <TallButton
+          onPress={next}
+          mode="contained"
+          labelStyle={{fontWeight: 'bold'}}
+          disabled={firstBox.length == 0 || secondBox.length == 0}
+          style={{
+            position: 'absolute',
+            bottom: 80,
+            width: 280,
+          }}>
+          {'Next'}
+        </TallButton>
       </View>
     </TouchableWithoutFeedback>
   );

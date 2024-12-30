@@ -14,9 +14,22 @@ import {
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
+import { useState } from 'react';
+import { useEffect } from 'react';
+import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 
 export default function WelcomeSlider(props) {
   const {height} = Dimensions.get('window');
+
+  const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
+
+  useEffect(() => {
+    if (height > SMALL_DEVICE_HEGHT) {
+      setShowIcons(true);
+    } else {
+      setShowIcons(false);
+    }
+  })
 
   const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
 
@@ -90,6 +103,15 @@ export default function WelcomeSlider(props) {
           zIndex: -100
         }}
       />
+      {showIcons ? <View
+        style={{
+          height: 90,
+          backgroundColor: Colors.secondaryColor,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+        <VerusLogo width={180} height={'50%'} style={{}} />
+      </View> : null}
       <AppIntroSlider
         showSkipButton={true}
         renderItem={({item, index}) =>
@@ -101,17 +123,20 @@ export default function WelcomeSlider(props) {
           {
             key: 0,
             graphic: showIcons ? MyProfile : () => null,
+            graphic: showIcons ? MyProfile : () => null,
             title: 'My Profile',
             text: 'Lets start with the creation of a personal, locally stored profile.',
           },
           {
             key: 1,
             graphic: showIcons ? EncryptLocally : () => null,
+            graphic: showIcons ? EncryptLocally : () => null,
             title: 'Encrypt Locally',
             text: 'Your profile stores and encrypts your wallet addresses locally.',
           },
           {
             key: 2,
+            graphic: showIcons ? MyWalletLight : () => null,
             graphic: showIcons ? MyWalletLight : () => null,
             title: 'My Wallet',
             text: 'Every profile is linked to a wallet. You can have multiple profiles containing different wallets.',

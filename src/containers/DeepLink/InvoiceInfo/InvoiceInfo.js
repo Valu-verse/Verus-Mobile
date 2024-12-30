@@ -18,6 +18,7 @@ import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import BigNumber from 'bignumber.js';
+import { useObjectSelector } from '../../../hooks/useObjectSelector';
 
 const InvoiceInfo = props => {
   const { 
@@ -106,7 +107,8 @@ const InvoiceInfo = props => {
   const [sigDateString, setSigDateString] = useState(unixToDate(sigtime));
   const [waitingForSignin, setWaitingForSignin] = useState(false);
 
-  const accounts = useSelector(state => state.authentication.accounts);
+  const accounts = useObjectSelector(state => state.authentication.accounts);
+  
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
   const isWrongInvoiceType = useSelector(state => {
@@ -369,13 +371,14 @@ const InvoiceInfo = props => {
             backgroundColor: '#fff' // or any other background color
           }}>
           <Button
-            color={Colors.warningButtonColor}
+            textColor={Colors.warningButtonColor}
             style={{ width: 148 }}
             onPress={() => cancel()}>
             Cancel
           </Button>
           <Button
-            color={Colors.verusGreenColor}
+            buttonColor={Colors.verusGreenColor}
+            textColor={Colors.secondaryColor}
             style={{ width: 148 }}
             disabled={isWrongInvoiceType}
             onPress={() => handleContinue()}>

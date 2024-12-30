@@ -20,11 +20,14 @@ import { createRevokeIdentityTx } from '../../../../utils/api/channels/verusid/r
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { decryptkey } from '../../../../utils/seedCrypt';
 import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
+import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 
 const RevokeIdentityForm = (props) => {
   const { height } = Dimensions.get("window");
   const dispatch = useDispatch();
-  const sendModal = useSelector(state => state.sendModal);
+
+  const sendModal = useObjectSelector(state => state.sendModal);
+  
   const instanceKey = useSelector(state => state.authentication.instanceKey);
   const [networkName, setNetworkName] = useState(sendModal.data[SEND_MODAL_SYSTEM_ID]);
 
@@ -103,6 +106,14 @@ const RevokeIdentityForm = (props) => {
       }
 
       const revocation = tarRes.result.identity.revocationauthority;
+      const recovery = tarRes.result.identity.recoveryauthority;
+      const idaddr = tarRes.result.identity.identityaddress;
+
+      if (revocation === idaddr && revocation === recovery) {
+        throw new Error(
+          'Cannot revoke VerusID that has itself set as both revocation and recovery.',
+        );
+      }
 
       const revRes = await getIdentity(data[SEND_MODAL_SYSTEM_ID], revocation);
       if (revRes.error) {

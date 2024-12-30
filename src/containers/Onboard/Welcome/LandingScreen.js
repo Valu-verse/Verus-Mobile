@@ -23,6 +23,16 @@ export default function LandingScreen(props) {
     }
   })
 
+  const [normalDevice, setNormalDevice] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
+
+  useEffect(() => {
+    if (height > SMALL_DEVICE_HEGHT) {
+      setNormalDevice(true);
+    } else {
+      setNormalDevice(false);
+    }
+  })
+
   return (
     <View
       style={{

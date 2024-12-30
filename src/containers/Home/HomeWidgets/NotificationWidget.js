@@ -18,6 +18,7 @@ import { VerusIdAtIcon, ReceivedIcon, VerusIdErrorIcon, ValuIcon } from "../../.
 import { DeeplinkNotification, BasicNotification, LoadingNotification, VerusIdProvisioningNotification, NavigationNotification } from '../../../utils/notification';
 import { processVerusId } from '../../../containers/Services/ServiceComponents/VerusIdService/VerusIdLogin';
 import { dispatchRemoveNotification, dispatchClearNotifications } from '../../../actions/actions/notifications/dispatchers/notifications';
+import { useObjectSelector } from '../../../hooks/useObjectSelector';
 // has the state changed hook
 const useCompare = (val) => {
   const prevVal = usePrevious(val)
@@ -34,7 +35,6 @@ const usePrevious = (value) => {
 }
 
 const createNotificationText = (text, icon, index) => {
-
   return (
     <View
       style={{
@@ -65,7 +65,6 @@ const createNotificationText = (text, icon, index) => {
 }
 
 const getIcon = (type, index) => {
-
   switch (type) {
     case NOTIFICATION_ICON_VERUSID:
       return (<VerusIdAtIcon
@@ -108,7 +107,6 @@ const getIcon = (type, index) => {
 }
 
 const getNotifications = (notifications, acchash) => {
-
   const { directory } = notifications;
   let tempNotificaions = [];
   const keys = Object.keys(directory || {});
@@ -138,11 +136,11 @@ const getNotifications = (notifications, acchash) => {
   return tempNotificaions;
 }
 
-const NotificationWidget = ({ props } = props) => {
+const NotificationWidget = (props) => {
   const { width } = Dimensions.get('window');
   const [collapsed, setCollapsed] = useState(false);
   const [traynotifications, setTrayNotifications] = useState([]);
-  const notifications = useSelector(state =>
+  const notifications = useObjectSelector(state =>
     state.notifications
   );
   const acchash = useSelector(state =>
@@ -207,7 +205,7 @@ const NotificationWidget = ({ props } = props) => {
                 }}>
                 <IconButton
                   icon="bell"
-                  color="white"
+                  iconColor="white"
                   size={15}
                   style={{ marginRight: 3 }}
                 />
@@ -239,7 +237,7 @@ const NotificationWidget = ({ props } = props) => {
                 onPress={() => { setCollapsed(!collapsed) }}>
                 <IconButton
                   icon={collapsed ? "chevron-down" : "chevron-up"}
-                  color="grey"
+                  iconColor="grey"
                   size={28}
                   style={{ marginRight: 10 }}
                 />
@@ -277,7 +275,7 @@ const NotificationWidget = ({ props } = props) => {
                   }}>
                     <IconButton
                       icon="close"
-                      color="grey"
+                      iconColor="grey"
                       size={20}
                       style={{ marginRight: 16, marginLeft: 12 }}
                     />

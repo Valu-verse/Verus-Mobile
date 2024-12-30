@@ -8,11 +8,11 @@ import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
 import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
 import AnimatedSuccessCheckmark from "../../../AnimatedSuccessCheckmark";
-import { useSelector } from "react-redux";
 import { SEND_MODAL_SEND_COMPLETED } from "../../../../utils/constants/sendModal";
+import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 
 const ConvertOrCrossChainSendResult = (props) => {
-  const coinObj = useSelector(state => state.sendModal.coinObj);
+  const coinObj = useObjectSelector(state => state.sendModal.coinObj);
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params);
   const { updateSendFormData } = props;
 
@@ -103,7 +103,7 @@ const ConvertOrCrossChainSendResult = (props) => {
         }}>
         {explorers[coinObj.id] != null && (
           <Button
-            color={Colors.primaryColor}
+            textColor={Colors.primaryColor}
             style={{width: 148}}
             labelStyle={{fontSize: 18}}
             onPress={() => openExplorer()}>
@@ -111,7 +111,8 @@ const ConvertOrCrossChainSendResult = (props) => {
           </Button>
         )}
         <Button
-          color={Colors.verusGreenColor}
+          buttonColor={Colors.verusGreenColor}
+          textColor={Colors.secondaryColor}
           style={{width: 148}}
           labelStyle={{fontSize: 18}}
           onPress={() => finishSend()}>

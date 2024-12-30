@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import {useSelector, useDispatch} from 'react-redux';
+import {useDispatch} from 'react-redux';
 import Styles from '../../../../styles/index';
 import Colors from '../../../../globals/colors';
 import {
@@ -27,16 +27,17 @@ import {saveGeneralSettings} from '../../../../actions/actionCreators';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import {NavigationActions} from '@react-navigation/compat';
 import { ADDRESS_BLOCKLIST_FROM_WEBSERVER } from '../../../../utils/constants/constants';
+import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 
 const NO_DEFAULT = 'None';
 
 const WalletSettings = props => {
   const isMounted = useRef(false);
-  const generalWalletSettings = useSelector(
+  const generalWalletSettings = useObjectSelector(
     state => state.settings.generalWalletSettings,
   );
-  const accounts = useSelector(state => state.authentication.accounts);
-  const activeAccount = useSelector(
+  const accounts = useObjectSelector(state => state.authentication.accounts);
+  const activeAccount = useObjectSelector(
     state => state.authentication.activeAccount,
   );
   const dispatch = useDispatch();
@@ -49,6 +50,9 @@ const WalletSettings = props => {
   );
   const [allowSettingVerusPaySlippage, setAllowSettingVerusPaySlippage] = useState(
     !!generalWalletSettings.allowSettingVerusPaySlippage
+  );
+  const [enableSendCoinCameraToggle, setEnableSendCoinCameraToggle] = useState(
+    !!generalWalletSettings.enableSendCoinCameraToggle
   );
 
   const [errors, setErrors] = useState({
@@ -79,13 +83,14 @@ const WalletSettings = props => {
       setSettings({
         ...settings,
         homeCardDragDetection,
-        allowSettingVerusPaySlippage
+        allowSettingVerusPaySlippage,
+        enableSendCoinCameraToggle
       });
       setHasChanges(true);
     } else {
       isMounted.current = true;
     }
-  }, [homeCardDragDetection, allowSettingVerusPaySlippage]);
+  }, [homeCardDragDetection, allowSettingVerusPaySlippage, enableSendCoinCameraToggle]);
 
   const describeSlippage = () => {
     createAlert(
@@ -107,6 +112,10 @@ const WalletSettings = props => {
     setAllowSettingVerusPaySlippage(!allowSettingVerusPaySlippage);
   }
 
+  const toggleEnableSendCoinCameraToggle = () => {
+    setEnableSendCoinCameraToggle(!enableSendCoinCameraToggle);
+  }
+
   const saveSettings = async () => {
     setLoading(true);
     try {
@@ -117,6 +126,7 @@ const WalletSettings = props => {
           settings.defaultAccount === NO_DEFAULT ? null : settings.defaultAccount,
         homeCardDragDetection,
         allowSettingVerusPaySlippage,
+        enableSendCoinCameraToggle,
         ackedCurrencyDisclaimer: settings.ackedCurrencyDisclaimer,
         addressBlocklistDefinition:
           settings.addressBlocklistDefinition == null
@@ -326,6 +336,30 @@ const WalletSettings = props => {
           />
           <Divider />
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={toggleEnableSendCoinCameraToggle}
+        >
+          <List.Item
+            title="Add toggle button for QR scanner"
+            description="Keep the QR scanner under the send tab off by default, and add a button to toggle it"
+            right={() => (
+              <View
+                style={{
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                }}
+              >
+                <Switch
+                  value={enableSendCoinCameraToggle}
+                  onValueChange={toggleEnableSendCoinCameraToggle}
+                  color={Colors.primaryColor}
+                />
+              </View>
+            )}
+          />
+          <Divider />
+        </TouchableOpacity>
         <List.Subheader>{'Start Settings'}</List.Subheader>
         <TouchableOpacity
           onPress={() => openDefaultProfileModal()}
@@ -354,11 +388,14 @@ const WalletSettings = props => {
           />
         ) : (
           <View style={Styles.standardWidthSpaceBetweenBlock}>
-            <Button color={Colors.warningButtonColor} onPress={back}>
+            <Button
+              textColor={Colors.warningButtonColor}
+              onPress={back}
+            >
               {"Back"}
             </Button>
             <Button
-              color={Colors.primaryColor}
+              mode='contained'
               onPress={handleSubmit}
               disabled={!hasChanges}
             >

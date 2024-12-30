@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
-import { useSelector } from 'react-redux';
 import { Card, Button, List, IconButton } from 'react-native-paper';
 import styles from '../../styles';
 import Colors from '../../globals/colors';
@@ -10,9 +9,10 @@ import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { checkPinForUser } from '../../utils/asyncStore/authDataStorage';
 import { canShowSeed } from '../../actions/actions/channels/dlight/dispatchers/AlertManager';
 import { CommonActions } from '@react-navigation/native';
+import { useObjectSelector } from '../../hooks/useObjectSelector';
 
 const RecoverSeedsSelectAccount = ({ navigation }) => {
-  const accounts = useSelector(state => state.authentication.accounts);
+  const accounts = useObjectSelector(state => state.authentication.accounts);
   const [numSeeds, setNumSeeds] = useState({});
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [passwordDialogTitle, setPasswordDialogTitle] = useState('');
@@ -72,7 +72,7 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
             left={() => <List.Icon color={Colors.secondaryColor} icon="account-circle" />}
             descriptionStyle={{ color: Colors.secondaryColor }}
             right={() => (
-              <IconButton name="chevron-right" color={Colors.secondaryColor} size={20} />
+              <IconButton name="chevron-right" iconColor={Colors.secondaryColor} size={20} />
             )}
           />
         </Card>
@@ -98,7 +98,8 @@ const RecoverSeedsSelectAccount = ({ navigation }) => {
         {renderAccountCards()}
       </ScrollView>
       <TallButton 
-        color={Colors.warningButtonColor} 
+        buttonColor={Colors.warningButtonColor} 
+        textColor={Colors.secondaryColor}
         onPress={() => navigation.goBack()}
         mode="outlined"
         style={{ marginHorizontal: 8 }}

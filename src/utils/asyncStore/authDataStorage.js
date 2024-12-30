@@ -11,6 +11,7 @@ import { CHANNELS_NULL_TEMPLATE, DLIGHT_PRIVATE, ELECTRUM, WYRE_SERVICE, VALU_SE
 import { createAlert } from "../../actions/actions/alert/dispatchers/alert";
 import store from '../../store';
 import { setAccounts, updateSessionKey } from '../../actions/actionCreators';
+import { setAccounts, updateSessionKey } from '../../actions/actionCreators';
 import { USER_DATA_STORAGE_INTERNAL_KEY } from '../../../env/index';
 import { VALU_SERVICE_ID, WYRE_SERVICE_ID } from '../constants/services';
 import { resetPersonalDataEncryptionForUser, resetServicesStoredEncryptionForUser } from '../../actions/actionDispatchers';
@@ -189,10 +190,13 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
 };
 
 const setUserSetting = (accountHash, settingKey, setting) => {
+const setUserSetting = (accountHash, settingKey, setting) => {
   return new Promise((resolve, reject) => {
     AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(async (res) => {
         let _users = res ? JSON.parse(res).users : [];
+        if(accountHash !== null) {
+          let userIndex = _users.findIndex(n => n.accountHash === accountHash);
         if(accountHash !== null) {
           let userIndex = _users.findIndex(n => n.accountHash === accountHash);
 
@@ -201,6 +205,7 @@ const setUserSetting = (accountHash, settingKey, setting) => {
             await AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: _users}))
             resolve(_users)
           } else {
+            throw new Error("User with hash " + accountHash + " not found")
             throw new Error("User with hash " + accountHash + " not found")
           }
         } else {
@@ -216,16 +221,24 @@ const setUserSetting = (accountHash, settingKey, setting) => {
 
 export const setUserBiometry = (accountHash, biometry) => {
   return setUserSetting(accountHash, "biometry", biometry)
+export const setUserBiometry = (accountHash, biometry) => {
+  return setUserSetting(accountHash, "biometry", biometry)
 };
 
+export const setUserKeyDerivationVersion = (accountHash, keyDerivationVersion) => {
+  return setUserSetting(accountHash, "keyDerivationVersion", keyDerivationVersion)
 export const setUserKeyDerivationVersion = (accountHash, keyDerivationVersion) => {
   return setUserSetting(accountHash, "keyDerivationVersion", keyDerivationVersion)
 };
 
 export const setUserDisabledServices = (accountHash, disabledServices) => {
   return setUserSetting(accountHash, "disabledServices", disabledServices)
+export const setUserDisabledServices = (accountHash, disabledServices) => {
+  return setUserSetting(accountHash, "disabledServices", disabledServices)
 };
 
+export const setUserTestnetOverrides = (accountHash, testnetOverrides) => {
+  return setUserSetting(accountHash, "testnetOverrides", testnetOverrides)
 export const setUserTestnetOverrides = (accountHash, testnetOverrides) => {
   return setUserSetting(accountHash, "testnetOverrides", testnetOverrides)
 }
