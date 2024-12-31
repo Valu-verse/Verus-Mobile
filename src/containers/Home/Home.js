@@ -51,7 +51,7 @@ import {
   VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
-import { VERUSID_SERVICE_ID } from '../../utils/constants/services';
+import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
 import { dragDetectionEnabled } from '../../utils/dragDetection';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import {
@@ -165,6 +165,22 @@ const Home = () => {
       dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
     }
 
+    // Add the valu widget if not present
+    if (!widgetsList.includes(VALU_WIDGET_TYPE)) {
+      widgetsList.push(VALU_WIDGET_TYPE);
+      dispatchAddWidget(VALU_WIDGET_TYPE, activeAccount.accountHash);
+    }
+
+    if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
+      widgetsList.push(ATTESTATION_WIDGET_TYPE);
+      dispatchAddWidget(ATTESTATION_WIDGET_TYPE, activeAccount.accountHash);
+    }
+
+    if (!widgetsList.includes(VALU_ACCOUNT_TYPE)) {
+      widgetsList.push(VALU_ACCOUNT_TYPE);
+      dispatchAddWidget(VALU_ACCOUNT_TYPE, activeAccount.accountHash);
+    }
+
     setWidgets(widgetsList);
   }, [activeAccount.accountHash, activeCoinsForUser, widgetOrder]);
 
@@ -195,13 +211,13 @@ const Home = () => {
         });
       },
       [VALU_WIDGET_TYPE]  : () => {
-        this.props.navigation.navigate('Service', {
+        navigation.navigate('Service', {
           service: VALU_SERVICE_ID,
           subScreen: 'onOffRamp'
         });
       },
       [ATTESTATION_WIDGET_TYPE]: () => {
-        this.props.navigation.navigate('Service', {
+        navigation.navigate('Service', {
           service: VALU_SERVICE_ID,
           subScreen: 'attestation'
         });

@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import BigNumber from "bignumber.js";
 import { Alert, View, TouchableWithoutFeedback, Keyboard, FlatList, Animated, TouchableOpacity, Dimensions } from "react-native";
-import { Alert, View, TouchableWithoutFeedback, Keyboard, FlatList, Animated, TouchableOpacity, Dimensions } from "react-native";
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { TextInput, Button, Divider, Checkbox, List, Text, IconButton } from "react-native-paper";
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
@@ -50,7 +49,6 @@ import { ETH_CONTRACT_ADDRESS, VETH } from "../../../../utils/constants/web3Cons
 import { preflightConvertOrCrossChain } from "../../../../utils/api/routers/preflightConvertOrCrossChain";
 import { getIdentity } from "../../../../utils/api/routers/getIdentity";
 import { addressIsBlocked } from "../../../../utils/addressBlocklist";
-import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../utils/constants/constants";
 import { getWeb3ProviderForNetwork } from "../../../../utils/web3/provider";

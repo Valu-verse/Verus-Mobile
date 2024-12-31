@@ -9,8 +9,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions
-  Platform,
-  Dimensions
 } from "react-native";
 import { Text, TextInput } from 'react-native-paper'
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';

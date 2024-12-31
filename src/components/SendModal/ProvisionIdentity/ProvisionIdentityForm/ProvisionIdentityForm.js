@@ -14,7 +14,6 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   Dimensions,
-  Dimensions,
 } from "react-native";
 import { TextInput, Button, Paragraph } from "react-native-paper";
 import Styles from "../../../../styles";

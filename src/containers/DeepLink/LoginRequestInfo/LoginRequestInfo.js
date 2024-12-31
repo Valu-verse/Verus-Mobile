@@ -1,6 +1,5 @@
 import React, {useState, useEffect} from 'react';
 import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
-import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import { Button, Divider, List, Portal, Text } from 'react-native-paper';

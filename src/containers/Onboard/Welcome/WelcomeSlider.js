@@ -14,22 +14,9 @@ import {
 import { useState } from 'react';
 import { useEffect } from 'react';
 import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 
 export default function WelcomeSlider(props) {
   const {height} = Dimensions.get('window');
-
-  const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
-
-  useEffect(() => {
-    if (height > SMALL_DEVICE_HEGHT) {
-      setShowIcons(true);
-    } else {
-      setShowIcons(false);
-    }
-  })
 
   const [showIcons, setShowIcons] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
 
