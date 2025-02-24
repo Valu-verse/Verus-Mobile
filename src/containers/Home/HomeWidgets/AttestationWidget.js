@@ -64,7 +64,7 @@ const AttestationWidget = props => {
                         </Paragraph>
                     </View>
                     <Paragraph style={{ fontSize: 12, color: Colors.primaryColor, marginTop:20 }}>
-                        {'Get your proof of Life'}
+                        {'Get your Proof of Humanity'}
                     </Paragraph>
 
                 </View>

@@ -112,7 +112,7 @@ loadPersonalLocations() {
         const location = await requestPersonalData(PERSONAL_LOCATIONS);
         this.setState({
             locations: location,
-            taxCountry: location.tax_countries[0] || [],
+            taxCountry: location?.tax_countries ? location?.tax_countries[0] :  [],
             loading: false,
         });
 

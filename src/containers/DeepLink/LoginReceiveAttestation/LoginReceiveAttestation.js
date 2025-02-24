@@ -130,13 +130,13 @@ class LoginReceiveAttestation extends Component {
           return;
         } else {
 
-          this.setState({ attestationName: "Valu Proof of Life Attestation" /*Object.values(attestationName)[0].objectdata.message*/ });
+          this.setState({ attestationName: "Valu Proof of Humanity" /*Object.values(attestationName)[0].objectdata.message*/ });
 
         }
 
         const containingData = {}; // this.getAttestationData(mmrData.datadescriptors);
         this.setState({ attestationData: containingData, 
-          completeAttestaton: {[loginConsent.getChallengeHash(1).toString('base64')]:{ name: "Valu Proof of Life Attestation", 
+          completeAttestaton: {[loginConsent.getChallengeHash(1).toString('base64')]:{ name: "Valu Proof of Humanity", 
             signer: this.state.signerFqn, 
             data: dataDescriptorObject}}
           });

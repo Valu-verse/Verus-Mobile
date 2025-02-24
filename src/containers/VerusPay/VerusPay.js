@@ -135,6 +135,11 @@ const VerusPay = (props) => {
       );
     } else if (id === primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid) {
       dl = primitives.VerusPayInvoice.fromWalletDeeplinkUri(urlstring);
+    } else if (id === primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid) {
+      const id = new primitives.PartialIdentity();
+      dl = id.fromBuffer(base64url.toBuffer(
+        url.searchParams.get(primitives.IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid),
+      ));
     }
 
     dispatch({

@@ -27,7 +27,7 @@ export const CONNECTED_SERVICE_DISPLAY_INFO = {
     decentralized: true
   },
   [VALU_SERVICE_ID]: {
-    title: "Valu",
+    title: "VALU",
     description: "Connect to Valu's Fiat On-ramps, ValuVerse and KYC Attesation Services."
   }
 }

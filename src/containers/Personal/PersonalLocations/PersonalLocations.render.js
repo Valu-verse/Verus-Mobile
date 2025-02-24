@@ -37,7 +37,7 @@ export const PersonalLocationsRender = function () {
                     key={index}
                     title={nationality == null ? "Unknown Country" : `${nationality.emoji} ${nationality.name}`}
                     description={
-                      taxCountry.tin.length > 2
+                      taxCountry?.tin.length > 2
                         ? `Tax ID: ${renderPersonalTaxId(taxCountry).title}`
                         : null
                     }

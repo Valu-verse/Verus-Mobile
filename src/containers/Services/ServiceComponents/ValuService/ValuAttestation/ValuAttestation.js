@@ -37,9 +37,7 @@ const ValuAttestation = ({ props } = props) => {
     const [valuReply, setValuReply] = useState(null);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState("");
-    const [attestationStatus, setAttestationStatus] = useState("");
     const [mainButtonText, setMainButtonText] = useState("START");
-    const [signedRequest, setSignedRequest] = useState({});
     const [appState, setAppState] = useState(AppState.currentState);
     const acchash = useSelector(state =>
         state.authentication.activeAccount
@@ -82,19 +80,16 @@ const ValuAttestation = ({ props } = props) => {
             });
 
             const signedRequestReply = await signIdProvisioningRequest({ id: verusNetwork }, provisionRequest);
-
-            setSignedRequest(signedRequestReply);
             const reply = await ValuProvider.getAttestationPaymentStatus({ request: signedRequestReply.toBuffer().toString('base64') })
 
             if (reply.success === false) {
                 throw new Error(reply.error);
             }
             let POLStatus = reply.data.status;
-            let POLAttestationStatus = reply.data?.attestation_status;
-             setMainButtonText(buttonMessages[POLStatus]);
+
+            setMainButtonText(buttonMessages[POLStatus]);
             setValuReply(reply);
             setStatus(POLStatus);
-            setAttestationStatus(POLAttestationStatus);
 
             if (POLStatus === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
@@ -115,7 +110,7 @@ const ValuAttestation = ({ props } = props) => {
             setLoading(false);
             setStatus("error");
             createAlertDialog(
-                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e.message}`,"RETRY")
+                `An error occurred while trying to start the Valu Proof of Humanity process. ${e.message}`,"RETRY")
         }
 
     }, [props.navigation]);
@@ -177,7 +172,7 @@ const ValuAttestation = ({ props } = props) => {
 
     const createAlertDialog = (message, button, func = () => { }) => {
         createAlert(
-            `Valu Proof of Life Attestation`,
+            `Valu Proof of Humanity Attestation`,
             message, [
             {
                 text: 'CANCEL',
@@ -217,7 +212,7 @@ const ValuAttestation = ({ props } = props) => {
                 if (skipDispatchNotification) {
                     const newLoadingNotification = new NavigationNotification();
                     newLoadingNotification.body = "Continue";
-                    newLoadingNotification.title = [`Complete Valu Proof of Life Attestation`]
+                    newLoadingNotification.title = [`Complete Valu Proof of Humanity`]
                     newLoadingNotification.acchash = activeAccount.accountHash;
                     newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
                     newLoadingNotification.navigate = () => {
@@ -231,7 +226,7 @@ const ValuAttestation = ({ props } = props) => {
 
             } else if (status === VALU_POL_PAYMENT_PENDING) {
                 createAlertDialog(
-                    `You already have a Valu Proof of Life Attestation in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
+                    `You already have a Valu Proof of Humanity in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
 
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
@@ -258,7 +253,7 @@ const ValuAttestation = ({ props } = props) => {
             console.log("state set4", e)
             setLoading(false);
             createAlertDialog(
-                `An error occurred while trying to start the Valu Proof of Life Attestation process. ${e}`, "OK"
+                `An error occurred while trying to start the Valu Proof of Humanity process. ${e}`, "OK"
             )
 
         }
@@ -267,19 +262,19 @@ const ValuAttestation = ({ props } = props) => {
 
     const stageMessages = {
         [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Payment received for Valu Proof of Life Attestation. Proceed to get your ValuID.
+            Payment received for Valu Proof of Humanity. Proceed to get your ValuID.
         </Text>),
         [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            You already have a Valu Proof of Life Attestation in progress.
+            You already have a Valu Proof of Humanity in progress.
         </Text>),
         [VALU_POL_PAYMENT_STARTED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+            Purchase a ValuID and Valu Proof of Humanity for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         ["VALU_POL_READY"]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Your Valu Proof of Life is ready to retrieve.
+            Your Valu Proof of Humanity is ready to retrieve.
         </Text>)
     }
 
