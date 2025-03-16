@@ -11,6 +11,7 @@ import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
 import { requestServiceStoredData } from "../../../../../utils/auth/authBox";
 import { ValuOnRamp as ValuOnRampIcon, VUSDC } from "../../../../../images/customIcons";
 import ValuOnRampChooseSource from "../ValuOnRamp/ValuOnRampChooseSource";
+import ValuOffRampChooseSource from "../ValuOffRamp/ValuOffRampChooseSource";
 import ValuAttestation from "../ValuAttestation/ValuAttestation";
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
@@ -224,7 +225,7 @@ updateTaxCountry() {
                         </Button>
 
                         <Button
-                            onPress={() => { /* Your second button action */ }}
+                            onPress={() => { this.setSubScreen("offRamp")  }}
                             uppercase={false}
                             mode="contained"
                             labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
@@ -261,6 +262,8 @@ updateTaxCountry() {
         </SafeAreaView>);
     else if (this.state.subScreen == "onRamp")
       return (<ValuOnRampChooseSource navigation={this.props.navigation} props={this.props}/>);
+    else if (this.state.subScreen == "offRamp")
+      return (<ValuOffRampChooseSource navigation={this.props.navigation} props={this.props}/>);
     else
       return (
         <SafeAreaView style={Styles.defaultRoot}>

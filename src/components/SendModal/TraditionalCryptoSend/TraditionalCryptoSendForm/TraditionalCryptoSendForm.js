@@ -8,7 +8,7 @@ import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert
 import { getRecommendedBTCFees } from "../../../../utils/api/channels/general/callCreators";
 import { USD } from "../../../../utils/constants/currencies";
 import { API_GET_BALANCES, API_GET_FIATPRICE, API_SEND, DLIGHT_PRIVATE, ELECTRUM } from "../../../../utils/constants/intervalConstants";
-import { SEND_MODAL_AMOUNT_FIELD, SEND_MODAL_FORM_STEP_CONFIRM, SEND_MODAL_MEMO_FIELD, SEND_MODAL_TO_ADDRESS_FIELD } from "../../../../utils/constants/sendModal";
+import { SEND_MODAL_AMOUNT_FIELD, SEND_MODAL_FORM_STEP_CONFIRM, SEND_MODAL_MEMO_FIELD, SEND_MODAL_TO_ADDRESS_FIELD, SEND_MODAL_LOCK_FIELDS } from "../../../../utils/constants/sendModal";
 import { isNumber, truncateDecimal } from "../../../../utils/math";
 import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
@@ -22,6 +22,7 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
   const { height } = Dimensions.get("window");
   const [amountFiat, setAmountFiat] = useState(false);
   const sendModal = useObjectSelector(state => state.sendModal);
+  const lockFields = !!sendModal.data[SEND_MODAL_LOCK_FIELDS];
   const addressBlocklist = useObjectSelector(selectAddressBlocklist);
   const balances = useObjectSelector(state => {
     const chainTicker = state.sendModal.coinObj.id;
@@ -263,6 +264,7 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
             returnKeyType="done"
             label="Recipient address"
             value={sendModal.data[SEND_MODAL_TO_ADDRESS_FIELD]}
+            disabled={lockFields}
             mode="outlined"
             onChangeText={text =>
               updateSendFormData(SEND_MODAL_TO_ADDRESS_FIELD, text)
@@ -285,6 +287,7 @@ const TraditionalCryptoSendForm = ({ setLoading, setModalHeight, updateSendFormD
               keyboardType={'decimal-pad'}
               autoCapitalize={'none'}
               autoCorrect={false}
+              disabled={lockFields}
               value={sendModal.data[SEND_MODAL_AMOUNT_FIELD]}
               mode="outlined"
               onChangeText={text =>

@@ -38,13 +38,19 @@ import { requestPersonalData } from "../../../../../utils/auth/authBox";
 import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import { add } from "lodash";
+import { openSubwalletSendModal } from '../../../../../actions/actions/sendModal/dispatchers/sendModal';
+import {
+  SEND_MODAL_AMOUNT_FIELD,
+  SEND_MODAL_MEMO_FIELD,
+  SEND_MODAL_TO_ADDRESS_FIELD,
+  SEND_MODAL_LOCK_FIELDS
+} from '../../../../../utils/constants/sendModal';
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
-class ValuOnRampChooseSource extends Component {
+class ValuOffRampChooseSource extends Component {
   constructor(props) {
     super(props);
 
@@ -54,7 +60,7 @@ class ValuOnRampChooseSource extends Component {
     this.state = {
       radioValue: 0,
       amount: "100",
-      converted: 0,
+      converted: "0",
       taxCountry: null,
       currency: "USD",
       countryModalOpen: false,
@@ -83,13 +89,13 @@ class ValuOnRampChooseSource extends Component {
       const countryCode = location?.tax_countries?.[0]?.country || "US";
       const amount = this.state.amount;
       
-      const valuReply = await ValuProvider.getOnRampOptions({ 
+      const valuReply = await ValuProvider.getOffRampOptions({ 
         countryCode, 
         amount 
       });
       
-      const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || 0;
-      const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || 0;
+      const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || "0";
+      const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || "0";
       const formattedValue = formatCurrency({ 
         amount: Number(cryptoReceived).toFixed(2), 
         code: 'USD' 
@@ -131,7 +137,7 @@ class ValuOnRampChooseSource extends Component {
     });
   }
 
-  resetToScreen = (route, title, data) => {
+  resetToScreen = () => {
       const resetAction = CommonActions.reset({
               index: 0,
               routes: [{name: 'SignedInStack'}],
@@ -143,7 +149,7 @@ class ValuOnRampChooseSource extends Component {
   async startOnRamp() {
     createAlert(
       "Terms and Conditions",
-      "By proceeding with this transaction, you acknowledge and agree that the Polygon tokens you are purchasing will be automatically converted into vUSDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
+      "By proceeding with this transaction, you acknowledge and agree that the vUSDC you send will be automatically converted to Polygon USDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
       [
         {
           text: 'Cancel',
@@ -155,7 +161,23 @@ class ValuOnRampChooseSource extends Component {
           onPress: async () => {
             try {
               const { options, radioValue, amount, taxCountry } = this.state;
-              const reply = await ValuProvider.getOnRampURL({ 
+
+              const coinObj = this.props.activeCoin.find((coin) => coin.id === "iFMqivtShssEpViJbVtqVz53rsXvjqndQn"  || coin.id === "iFMqivtShssEpViJbVtqVz53rsXvjqndQn");
+
+              const sendAddress = this.state.chosenAddress.id;
+              const sendAmount = this.state.amount;
+
+              const chainTicker = this.state.mainVerusNetwork;
+              const subWallet =  this.props.allSubWallets[chainTicker].filter((w) => w.id === sendAddress)[0];
+
+              // openSubwalletSendModal(coinObj, subWallet, {
+              //   [SEND_MODAL_TO_ADDRESS_FIELD]: "Valu.VRSCTEST@",
+              //   [SEND_MODAL_AMOUNT_FIELD]: sendAmount,
+              //   [SEND_MODAL_MEMO_FIELD]: '',
+              //   [SEND_MODAL_LOCK_FIELDS]: true
+              // });
+            
+              const reply = await ValuProvider.getOffRampURL({ 
                 option: options[radioValue], 
                 amount, 
                 countryCode: taxCountry.country,
@@ -240,7 +262,7 @@ class ValuOnRampChooseSource extends Component {
         const radioValue = this.state.radioValue;
         const selectedCountry = countryCode || this.state.taxCountry.country;
         
-        const valuReply = await ValuProvider.getOnRampOptions({ 
+        const valuReply = await ValuProvider.getOffRampOptions({ 
           countryCode: selectedCountry, 
           amount: youPay 
         });
@@ -305,7 +327,7 @@ class ValuOnRampChooseSource extends Component {
           style={styles.textInput}
           mode="outlined"
           value={this.state.amount}
-          right={<TextInput.Affix text={this.state.currency} />}
+          right={<TextInput.Affix text={"vUSDC"} />}
           onChangeText={this.handleChange}
           keyboardType="numeric"
           label={`You Pay${this.state.error || ""}`}
@@ -315,9 +337,9 @@ class ValuOnRampChooseSource extends Component {
         <TextInput
           style={[styles.textInput, { marginTop: 20 }]}
           mode="outlined"
-          placeholder={`Enter amount in ${this.state.currency}`}
+          placeholder={`Enter amount in vUSDC`}
           value={this.state.loading ? "-" : this.state.converted}
-          right={<TextInput.Affix text={"vUSDC"} />}
+          right={<TextInput.Affix text={this.state.currency} />}
           onChangeText={() => {}}
           keyboardType="numeric"
           label={`You Receive${this.state.error || ""}`}
@@ -330,7 +352,7 @@ class ValuOnRampChooseSource extends Component {
   renderAddressSelector() {
     return (
       <View style={{ marginTop: 20, width: 300 }}>
-        <Text style={{ fontSize: 14, marginBottom: 5 }}>Select Receiving Address</Text>
+        <Text style={{ fontSize: 14, marginBottom: 5 }}>Select Payment Address</Text>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={this.openAddressModal}
@@ -339,11 +361,11 @@ class ValuOnRampChooseSource extends Component {
           <TextInput
             style={[styles.textInput, { height: 35, fontSize: 15 }]}
             mode="outlined"
-            value={this.state.chosenAddress?.name || "Select an address"}
+            value={this.state.chosenAddress?.name }
             right={<TextInput.Icon icon="menu-down" size={20} />}
             editable={false}
             pointerEvents="none"
-            label={`To the ${this.state.mainVerusNetwork} Network`}
+            label={`${this.state.mainVerusNetwork} Network`}
           />
         </TouchableOpacity>
       </View>
@@ -406,7 +428,7 @@ class ValuOnRampChooseSource extends Component {
                           {route.destinationNetworkName}
                         </Text>
                         <Text style={styles.tableCellValue}>
-                          {route.destinationCurrency.toUpperCase()}
+                          {route.sourceCurrency.toUpperCase()}
                         </Text>
                       </View>
                       
@@ -491,7 +513,7 @@ class ValuOnRampChooseSource extends Component {
           <View style={styles.container}>
             {this.renderModals()}
             
-            <Text style={styles.headerText}>Buy Crypto</Text>
+            <Text style={styles.headerText}>Sell Crypto</Text>
             
             {this.renderCurrencyInputs()}
             {this.renderAddressSelector()}
@@ -505,7 +527,7 @@ class ValuOnRampChooseSource extends Component {
               labelStyle={styles.buttonLabel}
               style={styles.actionButton}
             >
-              Buy vUSDC
+              Sell vUSDC
             </Button>
             
             <React.Fragment>
@@ -607,7 +629,8 @@ const styles = StyleSheet.create({
 const mapStateToProps = (state) => ({
   activeAccount: state.authentication.activeAccount,
   encryptedPersonalData: state.personal,
-  allSubWallets: state.coinMenus.allSubWallets
+  allSubWallets: state.coinMenus.allSubWallets,
+  activeCoin: state.coins.activeCoinList,
 });
 
-export default connect(mapStateToProps)(ValuOnRampChooseSource);
+export default connect(mapStateToProps)(ValuOffRampChooseSource);

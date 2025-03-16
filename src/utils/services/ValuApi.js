@@ -186,4 +186,12 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.getOnRampURL(payload);
   } 
 
+  getOffRampOptions = async (payload) => {
+    return await this.service.getOffRampOptions(payload);
+  }
+
+  getOffRampURL = async (payload) => {
+    return await this.service.getOffRampURL(payload);
+  } 
+
 }

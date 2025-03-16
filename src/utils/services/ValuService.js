@@ -163,6 +163,12 @@ class ValuService {
     });
   };
 
+  getOffRampURL = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/offramp/getofframpsession`, payload);
+    });
+  };
+
   getAttestationPaymentStatus = async (signedRequest) => {
     
     return await ValuService.formatCall(() => {
@@ -205,6 +211,12 @@ class ValuService {
   getOnRampOptions = async (taxCountry) => {
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/onramp/getonrampoptions`, taxCountry);
+    });
+  };
+
+  getOffRampOptions = async (taxCountry) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/offramp/getofframpoptions`, taxCountry);
     });
   };
 
