@@ -2,6 +2,7 @@
   The coin reducer contains general channel specific information
 */
 
+import { off } from 'process'
 import {
     INIT_VALU_COIN_CHANNEL_FINISH,
     CLOSE_VALU_COIN_CHANNEL,
@@ -13,7 +14,13 @@ import {
     SET_VALU_ACCOUNT_ID,
     SET_CURRENT_VALU_ACCOUNT_DATA,
     SET_VALU_ACCOUNT_STAGE,
-    SET_VALU_AMOUNT_FUNDED
+    SET_VALU_AMOUNT_FUNDED,
+    OPEN_OFFRAMP,
+    RESET_OFFRAMP,
+    INITIATE_OFFRAMP_REQUEST,
+    COMPLETE_OFFRAMP_REQUEST,
+    SET_OFFRAMP_STATUS,
+    INITIATE_VALU_PARTNER_USER_ID
   } from '../../utils/constants/storeType'
 
   export const channelStore_valu_service = (state = {
@@ -23,7 +30,10 @@ import {
     accountId: null,
     accountLogin: null,
     currentAccountDataScreenParams: null,
-    amountFunded: 0
+    amountFunded: 0,
+    onrampRequests: {},
+    offRampRequest: {},
+    openOffRamp: false,
   }, action) => {
     switch (action.type) {
       case INIT_VALU_COIN_CHANNEL_FINISH:
@@ -94,6 +104,39 @@ import {
           ...state,
           amountFunded: action.payload.amountFunded
         }
+      case INITIATE_VALU_PARTNER_USER_ID:
+        return {
+          ...state,
+          partnerUserId: action.payload.partnerUserId
+        }
+      case INITIATE_OFFRAMP_REQUEST:
+        return {
+          ...state,
+          offRampRequest: action.payload.details
+        }
+      case COMPLETE_OFFRAMP_REQUEST:
+        return {
+          ...state,
+          offRampRequest: {}
+        }
+      case SET_OFFRAMP_STATUS:
+        return {
+          ...state,
+          offRampRequest: {
+            ...state.offRampRequest,
+            status: action.payload.status
+          }
+        }
+      case OPEN_OFFRAMP:
+        return {
+          ...state,
+          openOffRamp: true
+        }
+      case RESET_OFFRAMP:
+        return {
+          ...state,
+          openOffRamp: false
+        }  
       default:
         return state;
     }

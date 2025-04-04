@@ -1,4 +1,4 @@
-package com.verusmobile;
+package com.valumobile;
 
 import android.app.Application;
 import com.facebook.react.PackageList;

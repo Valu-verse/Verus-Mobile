@@ -85,9 +85,9 @@ export const updateValuAccount = async channelStore => {
 
     if (!channelStore.authenticated) {
       const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Wyre seed present');
+      if (seed == null) throw new Error('No Valu seed present');
       accountId = (await ValuInterface.authenticate(seed)).authenticatedAs;
-      console.log(1)
+      console.log("updateValuAccount",1)
     }
 
     if (accountId == null) return {channel: VALU_SERVICE, body: null};
@@ -107,7 +107,7 @@ export const updateValuPaymentMethods = async channelStore => {
   try {
     if (!channelStore.authenticated) {
       const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Wyre seed present');
+      if (seed == null) throw new Error('No Valu seed present');
       await ValuInterface.authenticate(seed);
       console.log(2)
     }

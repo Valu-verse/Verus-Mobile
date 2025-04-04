@@ -1,5 +1,5 @@
 import React from 'react';
-import {View, Dimensions} from 'react-native';
+import {View, Dimensions, Image} from 'react-native';
 import AppIntroSlider from 'react-native-app-intro-slider';
 import {Text, Paragraph, Button} from 'react-native-paper';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import {
   EncryptLocally,
   MyProfile,
   MyWalletLight,
-  VerusLogo,
+  ValuLogo,
 } from '../../../images/customIcons';
 import { useState } from 'react';
 import { useEffect } from 'react';
@@ -97,7 +97,11 @@ export default function WelcomeSlider(props) {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <VerusLogo width={180} height={'50%'} style={{}} />
+                <Image source={ValuLogo} style={{
+                  width: '60%',
+                  height: '60%',
+                  resizeMode: 'contain',
+                }} />
       </View> : null}
       <AppIntroSlider
         showSkipButton={true}

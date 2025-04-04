@@ -13,6 +13,7 @@ import { ValuOnRamp as ValuOnRampIcon, VUSDC } from "../../../../../images/custo
 import ValuOnRampChooseSource from "../ValuOnRamp/ValuOnRampChooseSource";
 import ValuOffRampChooseSource from "../ValuOffRamp/ValuOffRampChooseSource";
 import ValuAttestation from "../ValuAttestation/ValuAttestation";
+import ValuOffRampReview from "../ValuOffRamp/ValuOffRampReview";
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { ISO_3166_COUNTRIES } from "../../../../../utils/constants/iso3166";
@@ -172,6 +173,8 @@ updateTaxCountry() {
 
     if (this.state.subScreen == "attestation")
       return (<ValuAttestation props={this.props} />);
+    if (this.state.subScreen == "ValuOffRampReview")
+      return (<ValuOffRampReview navigation={this.props.navigation} props={this.props} />);
     else if (this.state.subScreen == "onOffRamp")
       return (
         <SafeAreaView style={Styles.defaultRoot}>
@@ -282,7 +285,7 @@ updateTaxCountry() {
             <Button
               color={Colors.primaryColor}
               mode="contained"
-              onPress={() => this.setSubScreen("onOffRamp")}
+              onPress={() => this.setSubScreen("onRamp")}
               style={{marginTop:40}}
             >
               Valu OnRamp
@@ -290,7 +293,7 @@ updateTaxCountry() {
             <Button
               color={Colors.primaryColor}
               mode="contained"
-              onPress={() => this.setSubScreen("onRamp")}
+              onPress={() => this.setSubScreen("offRamp")}
               style={{marginTop:40}}
             >
               Valu OffRamp

@@ -1,4 +1,4 @@
-package com.verusmobile;
+package com.valumobile;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;

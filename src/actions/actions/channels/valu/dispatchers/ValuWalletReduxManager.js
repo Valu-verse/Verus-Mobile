@@ -2,6 +2,15 @@ import Store from '../../../../../store/index'
 import {
   INIT_VALU_COIN_CHANNEL_START,
   CLOSE_VALU_COIN_CHANNEL,
+  INITIATE_ONRAMP_REQUEST,
+  COMPLETE_ONRAMP_REQUEST,
+  SET_ONRAMP_STATUS,
+  INITIATE_OFFRAMP_REQUEST,
+  COMPLETE_OFFRAMP_REQUEST,
+  RESET_OFFRAMP,
+  OPEN_OFFRAMP,
+  INITIATE_VALU_PARTNER_USER_ID,
+  CHECK_FOR_ACTIVE_OFFRAMP_PROCESS
 } from "../../../../../utils/constants/storeType";
 import ValuProvider from '../../../../../utils/services/ValuProvider';
 
@@ -24,5 +33,79 @@ export const closeValuCoinWallet = async (coinObj) => {
     payload: { chainTicker: coinObj.id }
   })
 
+  return
+}
+
+export const initiatePartnerUserId = async (seed) => {
+  const bearer = await ValuProvider.bearerFromSeed(seed);
+  Store.dispatch({
+  type: INITIATE_VALU_PARTNER_USER_ID,
+    payload: { partnerUserId: bearer }
+  })
+  return
+}
+
+export const initiateOnrampRequest = (requestId, details) => {
+  Store.dispatch({
+    type: INITIATE_ONRAMP_REQUEST,
+    payload: { requestId, details }
+  })
+  return
+}
+
+export const completeOnrampRequest = (requestId) => {
+  Store.dispatch({
+    type: COMPLETE_ONRAMP_REQUEST,
+    payload: { requestId }
+  })
+  return
+}
+
+export const checkOnrampStatus = (requestId, status) => {
+  Store.dispatch({
+    type: SET_ONRAMP_STATUS,
+    payload: { requestId, status }
+  })
+  return
+}
+
+export const initiateOfframpRequest = (details) => {
+  Store.dispatch({
+    type: INITIATE_OFFRAMP_REQUEST,
+    payload: { details }
+  })
+  return
+}
+
+export const completeOfframpRequest = () => {
+  Store.dispatch({
+    type: COMPLETE_OFFRAMP_REQUEST,
+    payload: { }
+  })
+  return
+}
+
+
+export const checkForActiveOffRampProcess = (params) => {
+  Store.dispatch({
+    type: CHECK_FOR_ACTIVE_OFFRAMP_PROCESS,
+    payload: { params }
+  })
+  return
+}
+
+export const openOffRamp = () => {
+  Store.dispatch({
+    type: OPEN_OFFRAMP,
+    payload: {}
+  })
+  return
+}
+
+export const closeOffRamp = () => {
+  Store.dispatch({
+    type: RESET_OFFRAMP,
+    payload: {}
+  })
   return
 }

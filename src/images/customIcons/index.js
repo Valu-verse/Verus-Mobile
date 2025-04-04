@@ -41,7 +41,7 @@ import VerusIdAtIcon from './verusid-at-icon.svg'
 import VerusIdErrorIcon from './verusid-error-icon.svg'
 import VerusIdWallet from './verusid-wallet-bg-blue.svg'
 
-import ValuLogo from './VALUS.svg'
+import ValuLogo from './ValuBrand.png'
 import ValuSeperator from './partingline.png'
 import Valu from './Valu.png';
 import ValuIcon from './valu.svg';

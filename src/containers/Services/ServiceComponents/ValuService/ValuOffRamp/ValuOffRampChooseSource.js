@@ -1,31 +1,33 @@
 import React, { Component } from "react";
 import { connect } from 'react-redux';
 import { primitives } from "verusid-ts-client";
-import { 
-  SafeAreaView, 
-  ScrollView, 
-  View, 
-  TouchableWithoutFeedback, 
-  Linking, 
-  StyleSheet, 
-  Alert, 
-  Keyboard, 
-  TouchableOpacity 
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  TouchableWithoutFeedback,
+  Linking,
+  StyleSheet,
+  Alert,
+  Keyboard,
+  TouchableOpacity
 } from 'react-native';
-import { 
-  Divider, 
-  List, 
-  Button, 
-  Text, 
-  RadioButton, 
-  Portal, 
-  TextInput, 
-  IconButton, 
-  ActivityIndicator 
+import {
+  Divider,
+  List,
+  Button,
+  Text,
+  RadioButton,
+  Portal,
+  TextInput,
+  IconButton,
+  ActivityIndicator
 } from 'react-native-paper';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { formatCurrency } from "react-native-format-currency";
-import {CommonActions} from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
+
+import { VALU_URL } from "../../../../../utils/constants/constants";
 
 // Local imports
 import Styles from "../../../../../styles";
@@ -38,16 +40,10 @@ import { requestPersonalData } from "../../../../../utils/auth/authBox";
 import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import { openSubwalletSendModal } from '../../../../../actions/actions/sendModal/dispatchers/sendModal';
-import {
-  SEND_MODAL_AMOUNT_FIELD,
-  SEND_MODAL_MEMO_FIELD,
-  SEND_MODAL_TO_ADDRESS_FIELD,
-  SEND_MODAL_LOCK_FIELDS
-} from '../../../../../utils/constants/sendModal';
+import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 
 // Constants
-const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
+const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE",
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
 class ValuOffRampChooseSource extends Component {
@@ -56,6 +52,12 @@ class ValuOffRampChooseSource extends Component {
 
     const Ticker = Object.keys(props.activeAccount.testnetOverrides).length > 0 ? "VRSCTEST" : "VRSC";
     const addresses = props.allSubWallets[Ticker] || [];
+
+    const partnerUserId = props.valuService.partnerUserId || null;
+
+    if (partnerUserId == null) {
+      throw new Error("No partner user ID found for Valu service");
+    }
 
     this.state = {
       radioValue: 0,
@@ -74,8 +76,9 @@ class ValuOffRampChooseSource extends Component {
       addresses,
       chosenAddress: addresses[0] || {},
       locations: {},
+      partnerUserId: partnerUserId
     };
-    
+
     this.handleChange = this.handleChange.bind(this);
     this.openAddressModal = this.openAddressModal.bind(this);
     this.startOnRamp = this.startOnRamp.bind(this);
@@ -83,22 +86,23 @@ class ValuOffRampChooseSource extends Component {
 
   async componentDidMount() {
     this.setState({ loading: true });
-    
+
     try {
       const location = await requestPersonalData(PERSONAL_LOCATIONS);
       const countryCode = location?.tax_countries?.[0]?.country || "US";
       const amount = this.state.amount;
-      
-      const valuReply = await ValuProvider.getOffRampOptions({ 
-        countryCode, 
-        amount 
+
+      const valuReply = await ValuProvider.getOffRampOptions({
+        countryCode,
+        amount,
+        partnerUserId: this.state.partnerUserId
       });
-      
+
       const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || "0";
       const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || "0";
-      const formattedValue = formatCurrency({ 
-        amount: Number(cryptoReceived).toFixed(2), 
-        code: 'USD' 
+      const formattedValue = formatCurrency({
+        amount: Number(cryptoReceived).toFixed(2),
+        code: 'USD'
       });
 
       this.setState({
@@ -112,7 +116,7 @@ class ValuOffRampChooseSource extends Component {
       });
     } catch (error) {
       console.error("Error loading initial data:", error);
-      this.setState({ 
+      this.setState({
         loading: false,
         error: " - Failed to load data"
       });
@@ -123,7 +127,7 @@ class ValuOffRampChooseSource extends Component {
     this.setState({ loading: true }, async () => {
       try {
         const taxCountries = [this.state.taxCountry];
-        
+
         await modifyPersonalDataForUser(
           { ...this.state.locations, tax_countries: taxCountries },
           PERSONAL_LOCATIONS,
@@ -138,13 +142,13 @@ class ValuOffRampChooseSource extends Component {
   }
 
   resetToScreen = () => {
-      const resetAction = CommonActions.reset({
-              index: 0,
-              routes: [{name: 'SignedInStack'}],
-            });
+    const resetAction = CommonActions.reset({
+      index: 0,
+      routes: [{ name: 'SignedInStack' }],
+    });
 
-      this.props.navigation.dispatch(resetAction);
-    };
+    this.props.navigation.dispatch(resetAction);
+  };
 
   async startOnRamp() {
     createAlert(
@@ -157,32 +161,21 @@ class ValuOffRampChooseSource extends Component {
           style: 'cancel',
         },
         {
-          text: 'Accept & Proceed', 
+          text: 'Accept & Proceed',
           onPress: async () => {
             try {
               const { options, radioValue, amount, taxCountry } = this.state;
 
-              const coinObj = this.props.activeCoin.find((coin) => coin.id === "iFMqivtShssEpViJbVtqVz53rsXvjqndQn"  || coin.id === "iFMqivtShssEpViJbVtqVz53rsXvjqndQn");
-
-              const sendAddress = this.state.chosenAddress.id;
-              const sendAmount = this.state.amount;
-
-              const chainTicker = this.state.mainVerusNetwork;
-              const subWallet =  this.props.allSubWallets[chainTicker].filter((w) => w.id === sendAddress)[0];
-
-              // openSubwalletSendModal(coinObj, subWallet, {
-              //   [SEND_MODAL_TO_ADDRESS_FIELD]: "Valu.VRSCTEST@",
-              //   [SEND_MODAL_AMOUNT_FIELD]: sendAmount,
-              //   [SEND_MODAL_MEMO_FIELD]: '',
-              //   [SEND_MODAL_LOCK_FIELDS]: true
-              // });
-            
-              const reply = await ValuProvider.getOffRampURL({ 
-                option: options[radioValue], 
-                amount, 
+              const reply = await ValuProvider.getOffRampURL({
+                option: options[radioValue],
+                amount,
                 countryCode: taxCountry.country,
-                address: this.state.chosenAddress.id
+                address: this.state.chosenAddress.id,
+                partnerUserId: this.state.partnerUserId
               });
+
+              initiateOfframpRequest({requestId: reply.requestId, status: 'AWAITING_PAYMENT', 
+                url: `${VALU_URL}/offramp/userpaymentcheck?requestId=${reply.requestId}&OffRampLastStep=true` });
 
               if (await InAppBrowser.isAvailable()) {
                 InAppBrowser.open(reply.url, {
@@ -213,6 +206,7 @@ class ValuOffRampChooseSource extends Component {
                   }
                 });
                 this.resetToScreen('CoinMenus', 'Overview');
+                console.log("InAppBrowser opened successfully");
               } else {
                 Linking.openURL(reply.url);
               }
@@ -253,33 +247,34 @@ class ValuOffRampChooseSource extends Component {
   handleChange(value = null, countryCode = null) {
     const youPay = value || this.state.amount;
 
-    this.setState({ 
-      loading: true, 
-      updatingfee: true, 
-      amount: youPay 
+    this.setState({
+      loading: true,
+      updatingfee: true,
+      amount: youPay
     }, async () => {
       try {
         const radioValue = this.state.radioValue;
         const selectedCountry = countryCode || this.state.taxCountry.country;
-        
-        const valuReply = await ValuProvider.getOffRampOptions({ 
-          countryCode: selectedCountry, 
-          amount: youPay 
+
+        const valuReply = await ValuProvider.getOffRampOptions({
+          countryCode: selectedCountry,
+          amount: youPay,
+          partnerUserId: this.state.partnerUserId
         });
 
         // Validate amount against min/max
         if (valuReply.options && valuReply.options[radioValue]) {
           this.validateAmount(
-            youPay, 
-            valuReply.options[radioValue].minAmount, 
+            youPay,
+            valuReply.options[radioValue].minAmount,
             valuReply.options[radioValue].maxAmount
           );
 
           const fee = valuReply.options[radioValue].feePercentage || 0;
           const cryptoReceived = valuReply.options[radioValue].amountReceived || 0;
-          const formattedValue = formatCurrency({ 
-            amount: Number(cryptoReceived).toFixed(2), 
-            code: 'USD' 
+          const formattedValue = formatCurrency({
+            amount: Number(cryptoReceived).toFixed(2),
+            code: 'USD'
           });
 
           const updates = {
@@ -306,10 +301,10 @@ class ValuOffRampChooseSource extends Component {
         }
       } catch (error) {
         console.error("Error handling change:", error);
-        this.setState({ 
-          loading: false, 
+        this.setState({
+          loading: false,
           updatingfee: false,
-          error: " - Failed to update values" 
+          error: " - Failed to update values"
         });
       }
     });
@@ -333,14 +328,14 @@ class ValuOffRampChooseSource extends Component {
           label={`You Pay${this.state.error || ""}`}
           error={this.state.error != null}
         />
-        
+
         <TextInput
           style={[styles.textInput, { marginTop: 20 }]}
           mode="outlined"
           placeholder={`Enter amount in vUSDC`}
           value={this.state.loading ? "-" : this.state.converted}
           right={<TextInput.Affix text={this.state.currency} />}
-          onChangeText={() => {}}
+          onChangeText={() => { }}
           keyboardType="numeric"
           label={`You Receive${this.state.error || ""}`}
           error={this.state.error != null}
@@ -361,7 +356,7 @@ class ValuOffRampChooseSource extends Component {
           <TextInput
             style={[styles.textInput, { height: 35, fontSize: 15 }]}
             mode="outlined"
-            value={this.state.chosenAddress?.name }
+            value={this.state.chosenAddress?.name}
             right={<TextInput.Icon icon="menu-down" size={20} />}
             editable={false}
             pointerEvents="none"
@@ -375,7 +370,7 @@ class ValuOffRampChooseSource extends Component {
   renderPaymentMethodSelector() {
     const feeoptions = "Please select the payment method you would like to use to purchase vUSDC tokens. \n\n" +
       "Polygon: We use the Polygon network to provide the cheapest on-ramp prices.\n";
-      
+
     return (
       <View style={{ alignContent: 'center', alignItems: 'center' }}>
         <List.Section title=" " style={{ width: 380, marginTop: -30, marginBottom: 20 }}>
@@ -388,20 +383,20 @@ class ValuOffRampChooseSource extends Component {
               onPress={() => Alert.alert("Purchase Options", feeoptions)}
             />
           </View>
-          
+
           <View style={{ maxHeight: 300 }}>
             <ScrollView style={{ flexGrow: 0 }}>
               {(this.state.loading && !this.state.updatingfee) ? (
-                <ActivityIndicator 
+                <ActivityIndicator
                   animating={true}
                   size={100}
-                  style={styles.loadingIndicator} 
+                  style={styles.loadingIndicator}
                 />
               ) : (
                 <RadioButton.Group
                   value={this.state.radioValue}
                   onValueChange={(value) => {
-                    this.setState({ radioValue: value }, 
+                    this.setState({ radioValue: value },
                       () => this.handleChange(this.state.amount)
                     );
                   }}
@@ -411,7 +406,7 @@ class ValuOffRampChooseSource extends Component {
                     <Text style={[styles.tableHeaderCell, { flex: 4 }]}>via</Text>
                     <Text style={[styles.tableHeaderCell, { flex: 3 }]}>Fee</Text>
                   </View>
-                  
+
                   {this.state.options.map((route, index) => (
                     <View key={index} style={[styles.tableRow, { marginRight: 20 }]}>
                       <View style={[styles.tableCell, { flex: 4 }]}>
@@ -431,14 +426,14 @@ class ValuOffRampChooseSource extends Component {
                           {route.sourceCurrency.toUpperCase()}
                         </Text>
                       </View>
-                      
+
                       <View style={[styles.tableCell, { flex: 2 }]}>
                         {this.state.updatingfee ? (
-                          <ActivityIndicator 
-                            animating={true} 
-                            color='#aaa' 
-                            size={20} 
-                            style={{ flex: 3 }} 
+                          <ActivityIndicator
+                            animating={true}
+                            color='#aaa'
+                            size={20}
+                            style={{ flex: 3 }}
                           />
                         ) : (
                           <Text style={{ textAlign: "left" }}>
@@ -446,7 +441,7 @@ class ValuOffRampChooseSource extends Component {
                           </Text>
                         )}
                       </View>
-                      
+
                       <RadioButton value={index} style={{ flex: 1 }} />
                     </View>
                   ))}
@@ -455,7 +450,7 @@ class ValuOffRampChooseSource extends Component {
             </ScrollView>
           </View>
         </List.Section>
-        
+
         <Text style={{ color: '#888' }}>
           {`Total fee ${this.state.loading ? "-" : isNaN(this.state.totalFee) ? 0 : this.state.totalFee} ${this.state.currency}`}
         </Text>
@@ -482,7 +477,7 @@ class ValuOffRampChooseSource extends Component {
             cancel={() => this.setState({ countryModalOpen: false })}
           />
         )}
-        
+
         {this.state.addressModalOpen && (
           <ListSelectionModal
             title={`Select a ${this.state.mainVerusNetwork} address`}
@@ -512,13 +507,13 @@ class ValuOffRampChooseSource extends Component {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.container}>
             {this.renderModals()}
-            
+
             <Text style={styles.headerText}>Sell Crypto</Text>
-            
+
             {this.renderCurrencyInputs()}
             {this.renderAddressSelector()}
             {this.renderPaymentMethodSelector()}
-            
+
             <Button
               onPress={this.startOnRamp}
               uppercase={false}
@@ -529,7 +524,7 @@ class ValuOffRampChooseSource extends Component {
             >
               Sell vUSDC
             </Button>
-            
+
             <React.Fragment>
               <Divider style={{ marginVertical: 5 }} />
               <List.Item
@@ -545,7 +540,7 @@ class ValuOffRampChooseSource extends Component {
                 )}
                 onPress={
                   this.state.loading
-                    ? () => {}
+                    ? () => { }
                     : () => this.setState({ countryModalOpen: true })
                 }
               />
@@ -558,15 +553,15 @@ class ValuOffRampChooseSource extends Component {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    alignContent: 'center', 
-    alignItems: 'center' 
+  container: {
+    alignContent: 'center',
+    alignItems: 'center'
   },
-  headerText: { 
-    fontSize: 18, 
-    textAlign: 'center', 
-    paddingVertical: 5, 
-    fontWeight: 'bold' 
+  headerText: {
+    fontSize: 18,
+    textAlign: 'center',
+    paddingVertical: 5,
+    fontWeight: 'bold'
   },
   textInput: {
     paddingHorizontal: 10,
@@ -576,8 +571,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   loadingIndicator: {
-    width: 200, 
-    height: 200, 
+    width: 200,
+    height: 200,
     flex: 1,
     alignSelf: 'center',
     justifyContent: 'center',
@@ -595,26 +590,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tableHeaderCell: {
-    fontWeight: "bold", 
+    fontWeight: "bold",
     textAlign: "left"
   },
-  tableCellLabel: { 
-    fontSize: 12, 
-    color: '#888', 
-    textAlign: "left" 
+  tableCellLabel: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: "left"
   },
-  tableCellValue: { 
-    fontSize: 14, 
-    textAlign: "left" 
+  tableCellValue: {
+    fontSize: 14,
+    textAlign: "left"
   },
-  buttonLabel: { 
-    fontWeight: 'bold', 
-    fontSize: 16 
+  buttonLabel: {
+    fontWeight: 'bold',
+    fontSize: 16
   },
-  actionButton: { 
-    height: 41, 
-    marginTop: 6, 
-    width: 180 
+  actionButton: {
+    height: 41,
+    marginTop: 6,
+    width: 180
   },
   countrySelector: {
     width: 200,
@@ -626,11 +621,15 @@ const styles = StyleSheet.create({
   }
 });
 
-const mapStateToProps = (state) => ({
-  activeAccount: state.authentication.activeAccount,
-  encryptedPersonalData: state.personal,
-  allSubWallets: state.coinMenus.allSubWallets,
-  activeCoin: state.coins.activeCoinList,
-});
+const mapStateToProps = (state) => {
+
+  return {
+    activeAccount: state.authentication.activeAccount,
+    encryptedPersonalData: state.personal,
+    allSubWallets: state.coinMenus.allSubWallets,
+    activeCoin: state.coins.activeCoinList,
+    valuService: state.channelStore_valu_service
+  };
+};
 
 export default connect(mapStateToProps)(ValuOffRampChooseSource);

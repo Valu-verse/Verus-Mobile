@@ -107,7 +107,7 @@ const Login = props => {
             fontSize: 28,
             fontWeight: 'bold',
           }}>
-          {'Welcome to Valu'}
+          {'Welcome to\nThe Internet of VALU'}
         </Text>
         <Text
           style={{

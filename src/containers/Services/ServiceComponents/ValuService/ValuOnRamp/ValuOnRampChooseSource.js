@@ -38,7 +38,7 @@ import { requestPersonalData } from "../../../../../utils/auth/authBox";
 import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import { add } from "lodash";
+import { initiateOnrampRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
@@ -50,6 +50,12 @@ class ValuOnRampChooseSource extends Component {
 
     const Ticker = Object.keys(props.activeAccount.testnetOverrides).length > 0 ? "VRSCTEST" : "VRSC";
     const addresses = props.allSubWallets[Ticker] || [];
+
+    const partnerUserId = props.valuService.partnerUserId || null;
+
+    if (partnerUserId == null) {
+      throw new Error("No partner user ID found for Valu service");
+    }
 
     this.state = {
       radioValue: 0,
@@ -68,6 +74,7 @@ class ValuOnRampChooseSource extends Component {
       addresses,
       chosenAddress: addresses[0] || {},
       locations: {},
+      partnerUserId: partnerUserId
     };
     
     this.handleChange = this.handleChange.bind(this);
@@ -76,6 +83,40 @@ class ValuOnRampChooseSource extends Component {
   }
 
   async componentDidMount() {
+      this.initialize();
+  }
+
+  async connectionError() {
+    createAlert(
+      "Failed to Connect to Valu",
+      "Please try again soon.  We apologise for the inconvenience",
+      [
+        {
+          text: 'back',
+          onPress: () => {resolveAlert(false); this.props.navigation.goBack()},
+          style: 'cancel',
+        },
+        {
+          text: 'TRY AGAIN', 
+          onPress: async () => {
+            try {
+              await this.initialize();
+  
+              resolveAlert(true);
+            } catch (error) {
+              console.error("Error starting on-ramp:", error);
+              connectionError();
+              resolveAlert(false);
+            }
+          }
+        },
+      ],
+      { cancelable: false }
+    );
+  }
+  
+  async initialize() {
+
     this.setState({ loading: true });
     
     try {
@@ -85,7 +126,8 @@ class ValuOnRampChooseSource extends Component {
       
       const valuReply = await ValuProvider.getOnRampOptions({ 
         countryCode, 
-        amount 
+        amount,
+        partnerUserId: this.state.partnerUserId 
       });
       
       const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || 0;
@@ -105,11 +147,7 @@ class ValuOnRampChooseSource extends Component {
         loading: false,
       });
     } catch (error) {
-      console.error("Error loading initial data:", error);
-      this.setState({ 
-        loading: false,
-        error: " - Failed to load data"
-      });
+      this.connectionError();
     }
   }
 
@@ -131,7 +169,7 @@ class ValuOnRampChooseSource extends Component {
     });
   }
 
-  resetToScreen = (route, title, data) => {
+  resetToScreen = () => {
       const resetAction = CommonActions.reset({
               index: 0,
               routes: [{name: 'SignedInStack'}],
@@ -159,8 +197,11 @@ class ValuOnRampChooseSource extends Component {
                 option: options[radioValue], 
                 amount, 
                 countryCode: taxCountry.country,
-                address: this.state.chosenAddress.id
+                address: this.state.chosenAddress.id,
+                partnerUserId: this.state.partnerUserId
               });
+
+              initiateOnrampRequest(reply.requestId, reply.details);
 
               if (await InAppBrowser.isAvailable()) {
                 InAppBrowser.open(reply.url, {
@@ -190,7 +231,7 @@ class ValuOnRampChooseSource extends Component {
                     endExit: 'slide_out_right'
                   }
                 });
-                this.resetToScreen('CoinMenus', 'Overview');
+                this.resetToScreen();
               } else {
                 Linking.openURL(reply.url);
               }
@@ -231,6 +272,10 @@ class ValuOnRampChooseSource extends Component {
   handleChange(value = null, countryCode = null) {
     const youPay = value || this.state.amount;
 
+    if (youPay.includes('.') && youPay.split('.')[1].length > 2) {
+      return;
+    }
+
     this.setState({ 
       loading: true, 
       updatingfee: true, 
@@ -242,7 +287,8 @@ class ValuOnRampChooseSource extends Component {
         
         const valuReply = await ValuProvider.getOnRampOptions({ 
           countryCode: selectedCountry, 
-          amount: youPay 
+          amount: youPay,
+          partnerUserId: this.state.partnerUserId
         });
 
         // Validate amount against min/max
@@ -316,7 +362,7 @@ class ValuOnRampChooseSource extends Component {
           style={[styles.textInput, { marginTop: 20 }]}
           mode="outlined"
           placeholder={`Enter amount in ${this.state.currency}`}
-          value={this.state.loading ? "-" : this.state.converted}
+          value={this.state.loading ? "-" : String(this.state.converted)}
           right={<TextInput.Affix text={"vUSDC"} />}
           onChangeText={() => {}}
           keyboardType="numeric"
@@ -607,7 +653,8 @@ const styles = StyleSheet.create({
 const mapStateToProps = (state) => ({
   activeAccount: state.authentication.activeAccount,
   encryptedPersonalData: state.personal,
-  allSubWallets: state.coinMenus.allSubWallets
+  allSubWallets: state.coinMenus.allSubWallets,
+  valuService: state.channelStore_valu_service
 });
 
 export default connect(mapStateToProps)(ValuOnRampChooseSource);

@@ -4,12 +4,18 @@ import SideMenu from '../../SideMenu/SideMenu';
 import MainStackScreens from '../MainStackScreens/MainStackScreens';
 import { useDispatch, useSelector } from 'react-redux';
 import { setDeeplinkUrl } from '../../../actions/actionCreators';
+import { closeOffRamp } from '../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
+import { VALU_SERVICE_ID } from '../../../utils/constants/services';
+import { useNavigation } from '@react-navigation/native';
 
 const MainDrawer = createDrawerNavigator()
 
 const SignedInStackScreens = props => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkUrl = useSelector((state) => state.deeplink.url)
+  const offRampRequest = useSelector((state) => state.channelStore_valu_service.offRampRequest)
+  const openOffRamp = useSelector((state) => state.channelStore_valu_service.openOffRamp)
+  const navigation = useNavigation();
   const dispatch = useDispatch()
 
   useEffect(() => {
@@ -18,6 +24,20 @@ const SignedInStackScreens = props => {
       props.navigation.navigate('DeepLink');
     }
   }, [deeplinkId, deeplinkUrl]);
+  
+  useEffect(() => {
+    if (!!offRampRequest && openOffRamp) {
+      closeOffRamp();
+      new Promise(resolve => setTimeout(resolve, 3000))
+        .then(() => {
+          console.log(" props.navigation.navigate('Service',");
+          navigation.navigate('Service', {
+            service: VALU_SERVICE_ID,
+            subScreen: 'ValuOffRampReview'
+          });
+        });
+    }
+  }, [offRampRequest, openOffRamp]);
 
   return (
     <MainDrawer.Navigator

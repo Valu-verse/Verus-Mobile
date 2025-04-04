@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { closeSendModal } from "../../../../actions/actions/sendModal/dispatchers/sendModal";
+import { openOffRamp } from "../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import { explorers } from "../../../../utils/CoinData/CoinData";
 import { openUrl } from "../../../../utils/linking";
 import { ScrollView, View, TouchableOpacity } from "react-native";
@@ -10,14 +11,29 @@ import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
 import AnimatedSuccessCheckmark from "../../../AnimatedSuccessCheckmark";
 import { SEND_MODAL_SEND_COMPLETED } from "../../../../utils/constants/sendModal";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
+import { VerusPayInvoice } from "verus-typescript-primitives"
+import { ValuOffRampCheck } from "../../../../containers/Services/ServiceComponents/ValuService/ValuOffRamp/ValuOffRampCheck";
+import store from "../../../../store";
 
 const ConvertOrCrossChainSendResult = (props) => {
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
+  const deeplinkData = useObjectSelector((state) => state.deeplink.data);
+  const offRampRequest = useObjectSelector((state) => state.channelStore_valu_service.offRampRequest);
+  const invoice = VerusPayInvoice.fromJson(deeplinkData);
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params);
   const { updateSendFormData } = props;
 
-  const finishSend = () => {
+  const finishSend = async () => {
     closeSendModal();
+
+    if (invoice.isSigned() && invoice.signing_id === 'iBAkjbAzw9ruR4nRbud9UGzrPftmkpU4GQ' && offRampRequest != {}) {
+      console.log("checking for active offramp process");
+      const proceedToValu = ValuOffRampCheck();
+      console.log("proceedToValu", proceedToValu);
+      if (proceedToValu) {
+        openOffRamp();
+      }
+    }
   }
 
   const openExplorer = () => {
@@ -34,7 +50,7 @@ const ConvertOrCrossChainSendResult = (props) => {
 
   return (
     <ScrollView
-      style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
+      style={{ ...Styles.fullWidth, ...Styles.backgroundColorWhite }}
       contentContainerStyle={{
         ...Styles.focalCenter,
         justifyContent: 'space-between'
@@ -55,7 +71,7 @@ const ConvertOrCrossChainSendResult = (props) => {
           {output.convertto ? "Conversion initiated" : output.exportto ? "Off-chain send initiated" : "Send initiated"}
         </Text>
       </TouchableOpacity>
-      <View style={{paddingVertical: 16}}>
+      <View style={{ paddingVertical: 16 }}>
         <AnimatedSuccessCheckmark
           style={{
             width: 128,
@@ -80,12 +96,12 @@ const ConvertOrCrossChainSendResult = (props) => {
             color: Colors.verusDarkGray,
           }}>
           {'to '}
-          <Text style={{color: Colors.basicButtonColor, textAlign: 'center'}}>
+          <Text style={{ color: Colors.basicButtonColor, textAlign: 'center' }}>
             {destination}
           </Text>
         </Text>
       </TouchableOpacity>
-      <View style={{paddingVertical: 16, width: '75%'}}>
+      <View style={{ paddingVertical: 16, width: '75%' }}>
         <Text
           style={{
             textAlign: 'center',
@@ -104,8 +120,8 @@ const ConvertOrCrossChainSendResult = (props) => {
         {explorers[coinObj.id] != null && (
           <Button
             textColor={Colors.primaryColor}
-            style={{width: 148}}
-            labelStyle={{fontSize: 18}}
+            style={{ width: 148 }}
+            labelStyle={{ fontSize: 18 }}
             onPress={() => openExplorer()}>
             Details
           </Button>
@@ -113,8 +129,8 @@ const ConvertOrCrossChainSendResult = (props) => {
         <Button
           buttonColor={Colors.verusGreenColor}
           textColor={Colors.secondaryColor}
-          style={{width: 148}}
-          labelStyle={{fontSize: 18}}
+          style={{ width: 148 }}
+          labelStyle={{ fontSize: 18 }}
           onPress={() => finishSend()}>
           Done
         </Button>

@@ -7,7 +7,7 @@ const SERVER_NAME = `${INTERNAL_APP_ID}_Session`
 
 export const getBiometricPassword = async (accountHash, title = "Authenticate to retreive password") => {
   const credentials = await Keychain.getGenericPassword(INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     authenticationPrompt: { title }
   } : {
     authenticationPrompt: { title }
@@ -19,7 +19,7 @@ export const getBiometricPassword = async (accountHash, title = "Authenticate to
 
 export const getSessionPassword = async (title = "Authenticate Profile") => {
   const credentials = await Keychain.getInternetCredentials(SERVER_NAME, INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     authenticationPrompt: { title }
   } : {
     authenticationPrompt: { title }
@@ -51,7 +51,7 @@ export const storeBiometricPassword = async (accountHash, password) => {
     const unparsedCredentials = await Keychain.getGenericPassword(
       INCLUDE_SERVICE
         ? {
-            service: "com.verus.verusmobile",
+            service: "com.verus.valumobile",
             authenticationPrompt: {
               title: "Authenticate to store password in biometric keychain",
             },
@@ -72,7 +72,7 @@ export const storeBiometricPassword = async (accountHash, password) => {
   }
 
   await Keychain.setGenericPassword(INTERNAL_APP_ID, JSON.stringify({ ...credentials, [accountHash]: password }), INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
     accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
   } : {
@@ -86,7 +86,7 @@ export const removeBiometricPassword = async (accountHash) => {
 
   try {
     const unparsedCredentials = await Keychain.getGenericPassword(INCLUDE_SERVICE ? {
-      service: 'com.verus.verusmobile',
+      service: 'com.verus.valumobile',
       authenticationPrompt: { title: "Authenticate to remove password in biometric keychain" }
     } : {
       authenticationPrompt: { title: "Authenticate to remove password in biometric keychain" }
@@ -100,7 +100,7 @@ export const removeBiometricPassword = async (accountHash) => {
   delete credentials[accountHash]
 
   await Keychain.setGenericPassword(INTERNAL_APP_ID, JSON.stringify(credentials), INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
     accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
   } : {

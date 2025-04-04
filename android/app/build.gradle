@@ -100,9 +100,9 @@ android {
 
     compileSdkVersion rootProject.ext.compileSdkVersion
 
-    namespace "com.verusmobile"
+    namespace "com.valumobile"
     defaultConfig {
-        applicationId "com.verusmobile"
+        applicationId "com.valumobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         missingDimensionStrategy 'react-native-camera', 'general'
@@ -172,7 +172,7 @@ android {
                 output.versionCodeOverride =
                         defaultConfig.versionCode * 1000 + versionCodes.get(abi)
             }
-            output.outputFileName = "VerusWallet-${defaultConfig.versionName}.apk"
+            output.outputFileName = "ValuWallet-${defaultConfig.versionName}.apk"
         }
     }
 }
