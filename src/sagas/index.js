@@ -47,6 +47,7 @@ const generateSagas = () => {
   if (ENABLE_WYRE_COIN) sagas.push(wyreCoinSaga)
   if (ENABLE_VRPC) sagas.push(vrpcSaga)
   if (ENABLE_VERUSID) sagas.push(verusidSaga)
+    console.log('ENABLE_VALU', ENABLE_VALU)
   if (ENABLE_VALU) sagas.push(valuCoinSaga)
 
   return sagas
