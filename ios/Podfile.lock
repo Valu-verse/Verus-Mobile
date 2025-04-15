@@ -402,6 +402,8 @@ PODS:
     - React
   - RNGestureHandler (2.9.0):
     - React-Core
+  - RNInAppBrowser (3.7.0):
+    - React-Core
   - RNKeychain (8.1.3):
     - React-Core
   - RNOS (1.2.7):
@@ -579,11 +581,11 @@ PODS:
   - SwiftProtobuf (1.25.1)
   - TcpSockets (4.0.0):
     - React
-  - VisionCamera (4.3.1):
-    - VisionCamera/Core (= 4.3.1)
-    - VisionCamera/React (= 4.3.1)
-  - VisionCamera/Core (4.3.1)
-  - VisionCamera/React (4.3.1):
+  - VisionCamera (4.5.1):
+    - VisionCamera/Core (= 4.5.1)
+    - VisionCamera/React (= 4.5.1)
+  - VisionCamera/Core (4.5.1)
+  - VisionCamera/React (4.5.1):
     - React-Core
   - Yoga (1.14.0)
   - ZcashLightClientKit (0.9.1):
@@ -643,6 +645,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNInAppBrowser (from `../node_modules/react-native-inappbrowser-reborn`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNOS (from `../node_modules/react-native-os`)
   - RNPermissions (from `../node_modules/react-native-permissions`)
@@ -783,6 +786,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-fs"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNInAppBrowser:
+    :path: "../node_modules/react-native-inappbrowser-reborn"
   RNKeychain:
     :path: "../node_modules/react-native-keychain"
   RNOS:
@@ -876,6 +881,7 @@ SPEC CHECKSUMS:
   RNDateTimePicker: e073697ac3e8a378968d68ab0581fef542b8af8a
   RNFS: 3ab21fa6c56d65566d1fb26c2228e2b6132e5e32
   RNGestureHandler: 071d7a9ad81e8b83fe7663b303d132406a7d8f39
+  RNInAppBrowser: e36d6935517101ccba0e875bac8ad7b0cb655364
   RNKeychain: f1b48665a4646f61191eb048c4c05c58d9a7596f
   RNOS: 728cdea6d232de48cfede274443dbe3f669b86e9
   RNPermissions: 0ea6720dfe344d6ec160a4aed36f7d1ca54a0428
@@ -900,10 +906,10 @@ SPEC CHECKSUMS:
   SwiftNIOTransportServices: 0b2b407819d82eb63af558c5396e33c945759503
   SwiftProtobuf: 69f02cd54fb03201c5e6bf8b76f687c5ef7541a3
   TcpSockets: 4ef55305239923b343ed0a378b1fac188b1373b0
-  VisionCamera: 58d2120e6e23c155b25f4702b7912dc2b1e5e8c2
+  VisionCamera: 104de00dce2e04dec51bfb6027eff0312fa3174e
   Yoga: d4f5b037672e6b68ba484c7cf7fe6790122df792
   ZcashLightClientKit: 4e4273f2e841e982fedad461a9008cca19089f5c
 
 PODFILE CHECKSUM: 6484296297e28f08e0a87b93c87d210ae1b20317
 
-COCOAPODS: 1.13.0
+COCOAPODS: 1.16.2
