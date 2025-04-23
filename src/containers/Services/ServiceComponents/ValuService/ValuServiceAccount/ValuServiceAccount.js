@@ -112,6 +112,11 @@ class ValuServiceAccount extends Component {
 loadPersonalLocations() {
     this.setState({ loading: true }, async () => {
         const location = await requestPersonalData(PERSONAL_LOCATIONS);
+
+        const taxCountries = location?.tax_countries ? location?.tax_countries[0] : null;
+        if (!taxCountries?.country) {
+            this.setState({ countryModalOpen: true });
+        }
         this.setState({
             locations: location,
             taxCountry: location?.tax_countries ? location?.tax_countries[0] :  [],
@@ -197,7 +202,28 @@ updateTaxCountry() {
                                     title: `${item.emoji} ${item.name}`,
                                 };
                             })}
-                            cancel={() => this.setState({ countryModalOpen: false })}
+                            cancel={() => {
+                              if (this.state.taxCountry?.country) {
+                                  this.setState({ countryModalOpen: false });
+                              } else {
+                                  // Close the modal first
+                                  this.setState({ countryModalOpen: false }, () => {
+                                      // Then show the alert
+                                      createAlert(
+                                          "Country Selection Required",
+                                          "You must select a country to continue.",
+                                          [{ 
+                                              text: "OK", 
+                                              onPress: () => {
+                                                  // After user acknowledges, reopen the modal
+                                                  resolveAlert();
+                                                  this.setState({ countryModalOpen: true });
+                                              } 
+                                          }]
+                                      );
+                                  });
+                              }
+                          }}
                         />
                     )}
                 </Portal>

@@ -224,6 +224,10 @@ class ValuOnRampChooseSource extends Component {
                   enableUrlBarHiding: true,
                   enableDefaultShare: false,
                   forceCloseOnRedirection: false,
+                  hasBackButton: false,  // Prevent back button from closing the browser
+                  waitForRedirectDelay: 500, // Give redirects more time to process
+                  showInRecents: true,   // Keep in Android recents
+                  ephemeralWebSession: false, // Maintain cookies and session data
                   animations: {
                     startEnter: 'slide_in_right',
                     startExit: 'slide_out_left',
