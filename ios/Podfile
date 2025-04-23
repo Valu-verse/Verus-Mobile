@@ -131,7 +131,7 @@ pre_install do |installer|
   end
 end
 
-target 'valumobile' do
+target 'verusmobile' do
   config = use_native_modules!
   use_modular_headers!
   permissions_path = '../node_modules/react-native-permissions/ios'

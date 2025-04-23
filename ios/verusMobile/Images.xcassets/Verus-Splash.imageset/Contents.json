@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "Verus-Splash-2.png",
+      "filename" : "ValuBrand.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "Verus-Splash-1.png",
+      "filename" : "ValuBrand 1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "Verus-Splash.png",
+      "filename" : "ValuBrand 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
