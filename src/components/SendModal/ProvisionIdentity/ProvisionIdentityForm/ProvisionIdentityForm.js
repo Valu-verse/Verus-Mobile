@@ -1,5 +1,6 @@
 import { fromBase58Check } from "@bitgo/utxo-lib/dist/src/address";
 import React, { useState, useEffect } from "react";
+import {useSelector} from 'react-redux';
 import { primitives } from "verusid-ts-client";
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { getIdentity } from "../../../../utils/api/channels/verusid/callCreators";

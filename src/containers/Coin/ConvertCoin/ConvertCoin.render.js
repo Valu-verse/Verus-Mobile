@@ -65,6 +65,7 @@ export const ConvertCoinRender = function () {
                     <List.Item
                       left={(props) => (
                         <View
+                        key={index}
                           style={{
                             display: "flex",
                             flexDirection: "row",
