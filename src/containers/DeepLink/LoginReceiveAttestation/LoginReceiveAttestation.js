@@ -93,12 +93,13 @@ class LoginReceiveAttestation extends Component {
     }
 
     const checkAttestation = loginConsent.challenge.attestations[0];
-
+    
     if (checkAttestation.vdxfkey === primitives.ATTESTATION_PROVISION_OBJECT.vdxfid) {
-
+      
       const dataDescriptorObject = new VdxfUniValue();
       dataDescriptorObject.fromBuffer(Buffer.from(checkAttestation.data, "hex"));
-      const vdxfObjectsKeys = Array.from(dataDescriptorObject.values.keys());
+      const vdxfObjectsKeys = dataDescriptorObject.values.map((value) => Object.keys(value)[0]);
+      console.log("vdxfObjectsKeys", JSON.stringify(vdxfObjectsKeys, null, 2));
 
       if (!Array.isArray(vdxfObjectsKeys) && vdxfObjectsKeys.length === 0) {
         createAlert("Error", "Invalid data descriptor object in Attestation.");
