@@ -9,6 +9,8 @@ import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreS
 import ViewAttestation from '../../Services/ServiceComponents/AttestationService/ViewAttestation/ViewAttestation';
 import ValuAttestation from '../../Services/ServiceComponents/ValuService/ValuAttestation/ValuAttestation';
 import ValuOnRampChooseSource from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRampChooseSource';
+import ValuAttestationAccept from '../../Services/ServiceComponents/ValuService/ValuAttestationAccept/ValuAttestationAccept';
+
 const ServicesStack = createStackNavigator();
 
 const ServicesStackScreens = props => {
@@ -64,6 +66,13 @@ const ServicesStackScreens = props => {
         component={ValuOnRampChooseSource}
         options={{
           title: "VALU On Ramp",
+        }}
+      />
+      <ServicesStack.Screen
+        name="ValuAttestationAccept"
+        component={ValuAttestationAccept}
+        options={{
+          title: "Accept KYC Attestation",
         }}
       />
     </ServicesStack.Navigator>

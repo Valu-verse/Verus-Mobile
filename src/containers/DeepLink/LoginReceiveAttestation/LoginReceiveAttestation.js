@@ -8,11 +8,11 @@ import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { SignatureData } from "verus-typescript-primitives/dist/pbaas/SignatureData";
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
-const { ATTESTATION_NAME } = primitives;
+const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { ATTESTATIONS_PROVISIONED } from "../../../utils/constants/attestations";
 import { modifyAttestationDataForUser } from "../../../actions/actions/attestations/dispatchers/attestations";
-
+import { validateMMRfromMmrDatadescriptor } from "../../../utils/attestations/validateMmr"
 class LoginReceiveAttestation extends Component {
   constructor(props) {
     super(props);
@@ -38,6 +38,7 @@ class LoginReceiveAttestation extends Component {
     }
   }
 
+
   validateAttestation = async (signatureData, mmrData) => {
 
     const sigInfo = await getSignatureInfo(
@@ -46,34 +47,36 @@ class LoginReceiveAttestation extends Component {
       signatureData.signature_as_vch.toString('base64'),
     );
 
-    const hashVerified = await verifyHash(signatureData.system_ID, signatureData.identity_ID, signatureData.signature_as_vch.toString('base64'), signatureData.signature_hash);
+    const hashVerified = await verifyHash(signatureData.system_ID, signatureData.identity_ID, signatureData.signature_as_vch.toString('base64'),
+      signatureData.getIdentityHash({ ...sigInfo, hash_type: sigInfo.hashtype }));
 
-    const mmrMatched = mmrData.mmrRoot == signatureData.signature_hash;
-    console.log("hashVerified", hashVerified, "mmrMatched", mmrMatched);
+    const mmrMatched = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex') == signatureData.toJson().signaturehash;
+    const dataDescriptorsHashCorrect = await validateMMRfromMmrDatadescriptor(mmrData);
 
-    return (hashVerified && mmrMatched);
-
+    console.log("hashVerified", hashVerified, "mmrMatched", mmrMatched, "dataDescriptorsHashCorrect", dataDescriptorsHashCorrect);
+  
+    return (!!hashVerified && !!mmrMatched && !!dataDescriptorsHashCorrect);
   }
 
   getAttestationData = (dataDescriptors) => {
 
     const data = {};
     dataDescriptors.forEach((dataDescriptor) => {
-      const label = dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].label;
+      const label = dataDescriptor[DataDescriptorKey.vdxfid].label;
       let key = "";
 
       if (label === ATTESTATION_NAME.vdxfid) {
         key = `Attestation name`
       } else {
-        key = IdentityVdxfidMap[label]?.name || label;
+        key = IdentityVdxfidMap[label]?.EN || label;
       }
 
-      const mime = dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].mimetype || "";
+      const mime = dataDescriptor[DataDescriptorKey.vdxfid].mimetype || "";
       if (mime.startsWith("text/")) {
-        data[key] = { "message": dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].objectdata.message };
+        data[key] = { "message": dataDescriptor[DataDescriptorKey.vdxfid].objectdata.message };
       } else if (mime.startsWith("image/")) {
         if (mime === "image/jpeg" || mime === "image/png") {
-          data[key] = { "image": `data:${mime};base64,${Buffer.from(dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].objectdata, "hex").toString("base64")}` };
+          data[key] = { "image": `data:${mime};base64,${Buffer.from(dataDescriptor[DataDescriptorKey.vdxfid].objectdata, "hex").toString("base64")}` };
         }
       }
     });
@@ -82,7 +85,7 @@ class LoginReceiveAttestation extends Component {
 
   }
 
-  updateDisplay() {
+  updateDisplay = async () => {
     const { deeplinkData } = this.props.route.params
     const loginConsent = new primitives.LoginConsentRequest(deeplinkData);
 
@@ -93,54 +96,67 @@ class LoginReceiveAttestation extends Component {
     }
 
     const checkAttestation = loginConsent.challenge.attestations[0];
-    
-    if (checkAttestation.vdxfkey === primitives.ATTESTATION_PROVISION_OBJECT.vdxfid) {
-      
-      const dataDescriptorObject = new VdxfUniValue();
-      dataDescriptorObject.fromBuffer(Buffer.from(checkAttestation.data, "hex"));
-      const vdxfObjectsKeys = dataDescriptorObject.values.map((value) => Object.keys(value)[0]);
-      console.log("vdxfObjectsKeys", JSON.stringify(vdxfObjectsKeys, null, 2));
 
-      if (!Array.isArray(vdxfObjectsKeys) && vdxfObjectsKeys.length === 0) {
+    if (checkAttestation.vdxfkey === primitives.ATTESTATION_PROVISION_OBJECT.vdxfid) {
+
+      const dataDescriptorObject = new VdxfUniValue();
+
+      dataDescriptorObject.fromBuffer(Buffer.from(checkAttestation.data, "hex"));
+      const vdxfObjectsKeys = {};
+
+      dataDescriptorObject.values.map((value) => vdxfObjectsKeys[Object.keys(value)[0]] = Object.values(value)[0]);
+
+      if (!Object.keys(vdxfObjectsKeys)) {
         createAlert("Error", "Invalid data descriptor object in Attestation.");
         this.cancel();
         return;
       }
 
-      if (vdxfObjectsKeys.indexOf(VDXF_Data.DataURLKey.vdxfid) > -1) {
+
+
+      if (vdxfObjectsKeys[VDXF_Data.DataURLKey.vdxfid]) {
 
         // TODO: Handle fetch data from URL
       }
-      else if ((vdxfObjectsKeys.indexOf(VDXF_Data.MMRDescriptorKey.vdxfid) > -1) &&
-        (vdxfObjectsKeys.indexOf(VDXF_Data.SignatureDataKey.vdxfid))) {
+      else if (vdxfObjectsKeys[VDXF_Data.SignatureDataKey.vdxfid] &&
+        vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid]) {
 
-        const signatureData = dataDescriptorObject.values.get(VDXF_Data.SignatureDataKey.vdxfid);
-        const mmrData = dataDescriptorObject.values.get(VDXF_Data.MMRDescriptorKey.vdxfid);
-
-        if (!this.validateAttestation(signatureData, mmrData)) {
+        const validatedOk = await this.validateAttestation(vdxfObjectsKeys[VDXF_Data.SignatureDataKey.vdxfid],
+          vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid]);
+      
+        if (!validatedOk) {
           createAlert("Error", "Invalid attestation signature.");
           this.cancel();
           return;
         }
 
-        const attestationName = mmrData.dataDescriptors.find((dataDescriptor) => dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].label === ATTESTATION_NAME.vdxfid)?.objectdata;
+        const attestationItems = vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid].dataDescriptors;
+        const attestationDataDescriptors = attestationItems.map((dataDescriptor) => dataDescriptor.toJson().objectdata);
 
-        if (false /*!attestationName || Object.values(attestationName)[0].label !== ATTESTATION_NAME.vdxfid*/) {
+        let attestationName = attestationDataDescriptors.find((dataDescriptor) => dataDescriptor[DataDescriptorKey.vdxfid].label === ATTESTATION_NAME.vdxfid);
+
+        if (attestationName && attestationName[DataDescriptorKey.vdxfid]) {
+          attestationName = attestationName[DataDescriptorKey.vdxfid].objectdata.message;
+          this.setState({ attestationName: attestationName });
+        }
+        else {
           createAlert("Error", "Attestation has no name.");
           this.cancel();
           return;
-        } else {
+        } 
 
-          this.setState({ attestationName: "Valu Proof of Humanity" /*Object.values(attestationName)[0].objectdata.message*/ });
+        const containingData = this.getAttestationData(attestationDataDescriptors);
 
-        }
-
-        const containingData = {}; // this.getAttestationData(mmrData.datadescriptors);
-        this.setState({ attestationData: containingData, 
-          completeAttestaton: {[loginConsent.getChallengeHash(1).toString('base64')]:{ name: "Valu Proof of Humanity", 
-            signer: this.state.signerFqn, 
-            data: dataDescriptorObject}}
-          });
+        this.setState({
+          attestationData: containingData,
+          completeAttestaton: {
+            [loginConsent.getChallengeHash(1).toString('base64')]: {
+              name: "Valu Proof of Humanity",
+              signer: this.state.signerFqn,
+              data: checkAttestation.data
+            }
+          }
+        });
 
       } else {
         createAlert("Error", "Invalid attestation type.");

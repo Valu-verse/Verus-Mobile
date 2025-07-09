@@ -15,6 +15,7 @@ import { requestAttestationData } from "../../../utils/auth/authBox";
 import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { createAttestationResponse } from "../../../utils/attestations/createAttestationResponse";
+import { VdxfUniValue } from "verus-typescript-primitives";
 
 const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS } = primitives;
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
@@ -27,7 +28,7 @@ class LoginShareAttestation extends Component {
       attestationName: "",
       attestationAcceptedAttestors: [],
       attestationRequestedFields: [],
-      attestationRequestedVdxfKeys:[],
+      attestationRequestedVdxfKeys: [],
       attestationID: "",
       loading: false,
       ready: false,
@@ -106,48 +107,49 @@ class LoginShareAttestation extends Component {
       .map((permission) => permission.data);
 
     for (let i = 0; i < attestationDataKeys.length; i++) {
+      const vdxfObjects = new VdxfUniValue();
 
-      for (let j = 0; j < attestationDataValues[i].data.length; j++) {
+      vdxfObjects.fromBuffer(Buffer.from(attestationDataValues[i].data, "hex"));
 
-        const vdxfobjKey = Object.keys(attestationDataValues[i].data[j])[0];
-        const vdxfobjValue = attestationDataValues[i].data[j][vdxfobjKey];
+      const mmrDescriptorInfo = vdxfObjects.toJson().find((item) => {
+        return item[VDXF_Data.MMRDescriptorKey.vdxfid];
+      })[VDXF_Data.MMRDescriptorKey.vdxfid];
 
-        if (vdxfobjKey === VDXF_Data.MMRDescriptorKey().vdxfid) {
-          
-          for (let k = 0; k < vdxfobjValue.datadescriptors.length; k++) {
+      for (let j = 0; j < mmrDescriptorInfo.datadescriptors.length; j++) {
 
-            const item = vdxfobjValue.datadescriptors[k].objectdata[VDXF_Data.DataDescriptorKey().vdxfid];
+        const item = mmrDescriptorInfo.datadescriptors[j].objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
 
-            if (item.label === primitives.ATTESTATION_NAME.vdxfid) {
-              if (item.objectdata.message !== attestationName) {
-                continue;
-              }
-            } else if (item.label === primitives.ATTESTATION_VIEW_REQUEST_ATTESTOR.vdxfid) {
-              if (attestationAcceptedAttestors.indexOf(item.objectdata.message) === -1) {
-                continue;
-              } 
-            } else if (subjectKeys[item.label]) {
-              let name;
-       
-              if (name = IdentityVdxfidMap[item.label]?.name) {
-                attestationRequestedFields.push(name);
-              } else {
-                attestationRequestedFields.push(item.label);
-              }
-            }
+        if (item.label === primitives.ATTESTATION_NAME.vdxfid) {
+          if (item.objectdata.message !== attestationName) {
+            continue;
           }
+        } else if (item.label === primitives.ATTESTATION_VIEW_REQUEST_ATTESTOR.vdxfid) {
+          if (attestationAcceptedAttestors.indexOf(item.objectdata.message) === -1) {
+            continue;
+          }
+        } else if (subjectKeys[item.label]) {
+          let name;
+
+          if (name = IdentityVdxfidMap[item.label]?.EN) {
+            attestationRequestedFields.push(name);
+          } else {
+            attestationRequestedFields.push(item.label);
+          }
+
           if (attestationRequestedFields && attestationAcceptedAttestors) {
-               attestationID = attestationDataKeys[0];
+            attestationID = attestationDataKeys[0];
           }
         }
       }
     }
-    this.setState({ attestationRequestedFields, 
-      attestationAcceptedAttestors, 
-      attestationName, 
-      attestationID, 
+    this.setState({
+      attestationRequestedFields,
+      attestationAcceptedAttestors,
+      attestationName,
+      attestationID,
       attestationDataURL: { vdxfkey: attestationDataURL[0].vdxfkey, uri: attestationDataURL[0].data },
-      attestationRequestedVdxfKeys });
+      attestationRequestedVdxfKeys
+    });
   }
 
   async handleContinue() {
@@ -157,7 +159,7 @@ class LoginShareAttestation extends Component {
 
     createAlert(
       "Send Selected Attestation info",
-      "Are you sure you want to send your attestation data to: \n" + `${this.state.signerFqn}`,
+      "Are you sure you want to send your selected attestation data to: \n\n" + `${this.state.signerFqn}`,
       [
         {
           text: "No",
@@ -181,17 +183,14 @@ class LoginShareAttestation extends Component {
                 createAlert("Error, Failed to Send Attestation, server may be unavailable.", e.message);
 
               })
-          },
+          }, 
         },
       ],
       {
         cancelable: false,
       }
     );
-
-
   };
-
   render() {
     return LoginShareAttestationRender.call(this);
   }

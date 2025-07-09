@@ -2,10 +2,10 @@ import React, { Component } from "react"
 import { connect } from 'react-redux'
 
 import { primitives } from "verusid-ts-client"
-
+import { VdxfUniValue } from "verus-typescript-primitives/dist/pbaas/VdxfUniValue";
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 
-const { ATTESTATION_NAME } = primitives;
+const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { SafeAreaView, ScrollView, View, Image } from 'react-native'
 
@@ -26,40 +26,50 @@ class ViewAttestation extends Component {
         this.updateDisplay();
     }
 
-    getAttestationData = (dataDescriptors) => {
 
-        const data = {};
-        dataDescriptors.forEach((dataDescriptor) => {
-            const label = dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].label;
-            let key = "";
+  getAttestationData = (dataDescriptors) => {
 
-            if (label === ATTESTATION_NAME.vdxfid) {
-                key = `Attestation name`
-            } else {
-                key = IdentityVdxfidMap[label]?.name || label;
-            }
+    const data = {};
+    dataDescriptors.forEach((dataDescriptor) => {
+      const label = dataDescriptor[DataDescriptorKey.vdxfid].label;
+      let key = "";
 
-            const mime = dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].mimetype || "";
-            if (mime.startsWith("text/")) {
-                data[key] = { "message": dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].objectdata.message };
-            } else if (mime.startsWith("image/")) {
-                if (mime === "image/jpeg" || mime === "image/png") {
-                    data[key] = { "image": `data:${mime};base64,${Buffer.from(dataDescriptor.objectdata[Object.keys(dataDescriptor.objectdata)[0]].objectdata, "hex").toString("base64")}` };
-                }
-            }
-        });
+      if (label === ATTESTATION_NAME.vdxfid) {
+        key = `Attestation name`
+      } else {
+        key = IdentityVdxfidMap[label]?.EN || label;
+      }
 
-        return data;
+      const mime = dataDescriptor[DataDescriptorKey.vdxfid].mimetype || "";
+      if (mime.startsWith("text/")) {
+        data[key] = { "message": dataDescriptor[DataDescriptorKey.vdxfid].objectdata.message };
+      } else if (mime.startsWith("image/")) {
+        if (mime === "image/jpeg" || mime === "image/png") {
+          data[key] = { "image": `data:${mime};base64,${Buffer.from(dataDescriptor[DataDescriptorKey.vdxfid].objectdata, "hex").toString("base64")}` };
+        }
+      }
+    });
 
-    }
+    return data;
+
+  }
 
     updateDisplay() {
         const { attestation } = this.props.route.params
+        const dataDescriptorObject = new VdxfUniValue();
 
-        const signatureData = attestation.data.find((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.SignatureDataKey().vdxfid)[VDXF_Data.SignatureDataKey().vdxfid];
-        const mmrData = attestation.data.find((dataDescriptor) => Object.keys(dataDescriptor)[0] === VDXF_Data.MMRDescriptorKey().vdxfid)[VDXF_Data.MMRDescriptorKey().vdxfid];
+        dataDescriptorObject.fromBuffer(Buffer.from(attestation.data, "hex"));
+        
+        const vdxfObjectsKeys = {};
 
-        const containingData = this.getAttestationData(mmrData.datadescriptors);
+        dataDescriptorObject.values.map((value) => vdxfObjectsKeys[Object.keys(value)[0]] = Object.values(value)[0]);
+
+        const attestationItems = vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid].dataDescriptors;
+        
+
+        const attestationDataDescriptors = attestationItems.map((dataDescriptor) => dataDescriptor.toJson().objectdata);
+        const containingData = this.getAttestationData(attestationDataDescriptors);
+        
         this.setState({ attestationData: containingData, signer:attestation.signer });
 
     }

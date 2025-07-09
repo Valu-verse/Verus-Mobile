@@ -13,6 +13,7 @@ import { ValuOnRamp as ValuOnRampIcon, VUSDC } from "../../../../../images/custo
 import ValuOnRampChooseSource from "../ValuOnRamp/ValuOnRampChooseSource";
 import ValuOffRampChooseSource from "../ValuOffRamp/ValuOffRampChooseSource";
 import ValuAttestation from "../ValuAttestation/ValuAttestation";
+import ValuAttestationAccept from "../ValuAttestationAccept/ValuAttestationAccept";
 import ValuOffRampReview from "../ValuOffRamp/ValuOffRampReview";
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
@@ -57,6 +58,7 @@ class ValuServiceAccount extends Component {
       KYCState: null,
       email: null,
       subScreen: this.props.subScreen || null,
+      subScreenData: null,
       attestationData: {},
       signer: "",
       taxCountry: null,
@@ -169,9 +171,11 @@ updateTaxCountry() {
 
   }
 
-  setSubScreen = (subScreen) => {
-
-    this.setState({ subScreen });
+  setSubScreen = (subScreen, additionalData = null) => {
+    this.setState({ 
+      subScreen,
+      subScreenData: additionalData 
+    });
   };
 
   render() {
@@ -290,9 +294,20 @@ updateTaxCountry() {
             </ScrollView>
         </SafeAreaView>);
     else if (this.state.subScreen == "onRamp")
-      return (<ValuOnRampChooseSource navigation={this.props.navigation} props={this.props}/>);
+      return (<ValuOnRampChooseSource 
+        navigation={this.props.navigation} 
+        props={this.props}
+        setSubScreen={this.setSubScreen}
+      />);
     else if (this.state.subScreen == "offRamp")
       return (<ValuOffRampChooseSource navigation={this.props.navigation} props={this.props}/>);
+    else if (this.state.subScreen == "attestationAccept")
+      return (<ValuAttestationAccept 
+        navigation={this.props.navigation} 
+        props={this.props}
+        route={{ params: this.state.subScreenData || {} }}
+        setSubScreen={this.setSubScreen}
+      />);
     else
       return (
         <SafeAreaView style={Styles.defaultRoot}>

@@ -63,7 +63,9 @@ const LoginRequestInfo = props => {
       mainLoginMessage = `VerusID from ${signerFqn} now ready to link`
     } else if (challenge.attestations && challenge.attestations.length > 0) {
       mainLoginMessage = `Would you like to accept an attestation from ${signerFqn}?`
-    } else {
+    } else if (challenge.requested_access && challenge.requested_access.length > 0) {
+      mainLoginMessage = `Would you like to share Attestation information from ${signerFqn} ?`
+    }else {
       mainLoginMessage = `Would you like to request a VerusID from ${signerFqn}?`
     }
   }

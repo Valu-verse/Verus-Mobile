@@ -16,15 +16,21 @@ export const LoginShareAttestationRender = function (props) {
         <View style={Styles.fullWidth}>
 
           <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-            Agree to share the following attestation data.
+            {"Agree to share the following\nattestation data."}
           </Text>
           <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-            {`Attestation Name: `}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationName}`}</Text>
+            {"Attestation Name:\n" }<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationName}`}</Text>
           </Text>
           {this.state.attestationAcceptedAttestors && <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-            {`From: `}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationAcceptedAttestors[0]}`}</Text>
+            {"From:\n"}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationAcceptedAttestors[0]}`}</Text>
           </Text>}
-
+              <List.Item
+                  title={"Requested information:"}
+                   key={"Requested information:"}
+                  titleStyle={{
+    fontWeight: 'bold',
+  }}
+                />    
 
           {this.state.attestationRequestedFields.map(request => {
             return (

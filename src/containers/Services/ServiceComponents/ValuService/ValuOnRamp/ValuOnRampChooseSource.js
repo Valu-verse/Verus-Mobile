@@ -178,6 +178,57 @@ class ValuOnRampChooseSource extends Component {
       this.props.navigation.dispatch(resetAction);
     };
 
+  // Handle navigation to attestation acceptance screen
+  navigateToAttestationAccept = (attestation, transactionData) => {
+    console.log('Attempting to navigate to ValuAttestationAccept');
+    
+    if (this.props.setSubScreen) {
+      // Use the setSubScreen method from parent ValuServiceAccount
+      console.log('Using setSubScreen method');
+      this.props.setSubScreen('attestationAccept', {
+        attestation: attestation,
+        transactionData: transactionData
+      });
+    } else {
+      // Fallback to direct navigation if setSubScreen is not available
+      console.log('Navigation object:', this.props.navigation);
+      
+      try {
+        // Try using push instead of navigate to ensure a new screen instance
+        this.props.navigation.push('ValuAttestationAccept', {
+          attestation: attestation,
+          transactionData: transactionData
+        });
+      } catch (error) {
+        console.error('Navigation error:', error);
+        // Fallback: try standard navigate
+        this.props.navigation.navigate('ValuAttestationAccept', {
+          attestation: attestation,
+          transactionData: transactionData
+        });
+      }
+    }
+  };
+
+  // Method to be called when transaction completes and attestation is available
+  handleTransactionComplete = (transactionResult, attestation = null) => {
+    const transactionData = {
+      amount: this.state.amount,
+      currency: this.state.currency,
+      received: this.state.converted,
+      address: this.state.chosenAddress?.name || 'Your Wallet',
+      provider: this.state.options[this.state.radioValue]?.provider || 'Payment Provider'
+    };
+
+    if (attestation) {
+      // Navigate to attestation acceptance screen
+      this.navigateToAttestationAccept(attestation, transactionData);
+    } else {
+      // No attestation available, just go back to main screen
+      this.resetToScreen();
+    }
+  };
+
   async startOnRamp() {
     createAlert(
       "Terms and Conditions",
@@ -534,6 +585,32 @@ class ValuOnRampChooseSource extends Component {
     );
   }
 
+  // Demo method for testing attestation flow - Remove in production
+  demoAttestationFlow = () => {
+    // Create mock transaction data
+    const mockTransactionResult = {
+      success: true,
+      transactionId: "demo_12345"
+    };
+
+    // Create mock attestation data
+    const mockAttestation = {
+      data: "demo_mock_data", // Special flag for demo data
+      signer: "VALU"
+    };
+
+    const transactionData = {
+      amount: this.state.amount,
+      currency: this.state.currency,
+      received: this.state.converted,
+      address: this.state.chosenAddress?.name || 'Your Wallet',
+      provider: this.state.options[this.state.radioValue]?.provider || 'Payment Provider'
+    };
+
+    // Navigate to attestation acceptance screen
+    this.navigateToAttestationAccept(mockAttestation, transactionData);
+  };
+
   render() {
     return (
       <SafeAreaView style={Styles.defaultRoot}>
@@ -556,6 +633,17 @@ class ValuOnRampChooseSource extends Component {
               style={styles.actionButton}
             >
               Buy vUSDC
+            </Button>
+            
+            {/* Demo button for testing attestation flow - Remove in production */}
+            <Button
+              onPress={this.demoAttestationFlow}
+              uppercase={false}
+              mode="outlined"
+              style={[styles.actionButton, { marginTop: 10 }]}
+              labelStyle={[styles.buttonLabel, { color: Colors.primaryColor }]}
+            >
+              Demo: Test Attestation Flow
             </Button>
             
             <React.Fragment>
