@@ -13,6 +13,7 @@ import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/Identi
 import { ATTESTATIONS_PROVISIONED } from "../../../utils/constants/attestations";
 import { modifyAttestationDataForUser } from "../../../actions/actions/attestations/dispatchers/attestations";
 import { validateMMRfromMmrDatadescriptor } from "../../../utils/attestations/validateMmr"
+import { requestAttestationData } from "../../../utils/auth/authBox"
 class LoginReceiveAttestation extends Component {
   constructor(props) {
     super(props);
@@ -32,9 +33,25 @@ class LoginReceiveAttestation extends Component {
     this.updateDisplay();
   }
 
+
   cancel = () => {
     if (this.props.route.params.cancel) {
       this.props.route.params.cancel.cancel()
+    }
+  }
+
+  checkIfAttestationExists = async (attestationHash) => {
+    try {
+      const existingAttestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+      
+      if (existingAttestations && typeof existingAttestations === 'object') {
+        return existingAttestations.hasOwnProperty(attestationHash);
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking existing attestations:', error);
+      return false;
     }
   }
 
@@ -54,7 +71,7 @@ class LoginReceiveAttestation extends Component {
     const dataDescriptorsHashCorrect = await validateMMRfromMmrDatadescriptor(mmrData);
 
     console.log("hashVerified", hashVerified, "mmrMatched", mmrMatched, "dataDescriptorsHashCorrect", dataDescriptorsHashCorrect);
-  
+
     return (!!hashVerified && !!mmrMatched && !!dataDescriptorsHashCorrect);
   }
 
@@ -82,6 +99,7 @@ class LoginReceiveAttestation extends Component {
     });
 
     return data;
+
 
   }
 
@@ -123,7 +141,7 @@ class LoginReceiveAttestation extends Component {
 
         const validatedOk = await this.validateAttestation(vdxfObjectsKeys[VDXF_Data.SignatureDataKey.vdxfid],
           vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid]);
-      
+          
         if (!validatedOk) {
           createAlert("Error", "Invalid attestation signature.");
           this.cancel();
@@ -143,14 +161,34 @@ class LoginReceiveAttestation extends Component {
           createAlert("Error", "Attestation has no name.");
           this.cancel();
           return;
-        } 
+        }
 
         const containingData = this.getAttestationData(attestationDataDescriptors);
+
+        // Generate the hash for this attestation to check if it already exists
+        const attestationHash = loginConsent.getChallengeHash(1).toString('base64');
+        
+        // Check if this attestation already exists
+        const attestationExists = await this.checkIfAttestationExists(attestationHash);
+        
+        if (attestationExists) {
+          createAlert("Error", "You already have this attestation stored", [
+            {
+              text: "Cancel",
+              onPress: () => {
+                this.setState({ loading: false });             
+                resolveAlert(true);
+                this.cancel();
+              }
+            }
+          ]);
+          return;
+        }
 
         this.setState({
           attestationData: containingData,
           completeAttestaton: {
-            [loginConsent.getChallengeHash(1).toString('base64')]: {
+            [attestationHash]: {
               name: "Valu Proof of Humanity",
               signer: this.state.signerFqn,
               data: checkAttestation.data
@@ -167,20 +205,26 @@ class LoginReceiveAttestation extends Component {
     }
   }
 
-  handleContinue() {
+  handleContinue = () => {
     this.setState(
       { loading: true },
       async () => {
-        await modifyAttestationDataForUser(
-          this.state.completeAttestaton,
-          ATTESTATIONS_PROVISIONED,
-          this.props.activeAccount.accountHash
-        );
+        try {
+          await modifyAttestationDataForUser(
+            this.state.completeAttestaton,
+            ATTESTATIONS_PROVISIONED,
+            this.props.activeAccount.accountHash
+          );
 
-        this.setState({ loading: false });
-        this.props.route.params.onGoBack(true);
-        this.props.navigation.goBack();
-        this.cancel();
+          this.setState({ loading: false });
+          this.props.route.params.onGoBack(true);
+          this.props.navigation.goBack();
+          this.cancel();
+        } catch (error) {
+          console.error('Error saving attestation:', error);
+          this.setState({ loading: false });
+          createAlert("Error", "Failed to save attestation. Please try again.");
+        }
       }
     );
   };

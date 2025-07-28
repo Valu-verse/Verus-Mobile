@@ -206,10 +206,12 @@ export const requestAttestationData = async (dataType) => {
       try {
         return JSON.parse(data)
       } catch(e) {
-        throw new Error("Unable to parse attestation data")
+        console.error('Failed to parse decrypted attestation data:', e.message);
+        console.error('Decrypted data preview:', data.substring(0, 500) + '...');
+        throw new Error(`Unable to parse attestation data: ${e.message}`)
       }
     } else {
-      throw new Error("Unable to decrypt attestation data");
+      throw new Error("Unable to decrypt attestation data - incorrect password or corrupted data");
     }
   }
 }

@@ -5,13 +5,18 @@ export const storeAttestationData = (data) => {
   if (typeof data !== 'object') throw new Error(`Attestation data store function expected object, received ${typeof data}`)
 
   return new Promise((resolve, reject) => {
-    RNFS.writeFile(RNFS.DocumentDirectoryPath + `/${ATTESTATION_DATA_STORAGE_INTERNAL_KEY}.txt`, JSON.stringify(data), 'utf8')
-      .then((success) => {
-        resolve(data);
-      })
-      .catch(err => {
-        reject(err)
-      })
+    try {
+      const jsonString = JSON.stringify(data);
+      RNFS.writeFile(RNFS.DocumentDirectoryPath + `/${ATTESTATION_DATA_STORAGE_INTERNAL_KEY}.txt`, jsonString, 'utf8')
+        .then((success) => {
+          resolve(data);
+        })
+        .catch(err => {
+          reject(err)
+        })
+    } catch (stringifyError) {
+      reject(new Error(`Failed to stringify attestation data: ${stringifyError.message}`))
+    }
   })
 };
 
@@ -22,8 +27,14 @@ export const loadAttestationData = () => {
         if (!res) {
           resolve({});
         } else {
-          _res = JSON.parse(res);
-          resolve(_res);
+          try {
+            const _res = JSON.parse(res);
+            resolve(_res);
+          } catch (parseError) {
+            console.error('Failed to parse attestation data JSON:', parseError.message);
+            console.error('Corrupted data:', res.substring(0, 500) + '...');
+            reject(new Error(`Failed to parse attestation data: ${parseError.message}`));
+          }
         }
       })
       .catch(err => {
@@ -59,11 +70,31 @@ export const deleteAttestationDataForUser = async (accountHash) => {
 }
 
 export const loadAttestationDataForUser = async (accountHash) => {
-  const allAttestationData = await loadAttestationData()
+  try {
+    const allAttestationData = await loadAttestationData()
 
-  if (allAttestationData[accountHash] == null)
+    if (allAttestationData[accountHash] == null)
+      return {
+        attestations_provisioned: null
+      };
+    else return allAttestationData[accountHash];
+  } catch (error) {
+    console.error('Failed to load attestation data for user, returning default:', error.message);
     return {
       attestations_provisioned: null
     };
-  else return allAttestationData[accountHash];
+  }
+};
+
+export const clearCorruptedAttestationDataForUser = async (accountHash) => {
+  try {
+    let allAttestationData = { ...(await loadAttestationData()) }
+    delete allAttestationData[accountHash]
+    await storeAttestationData(allAttestationData)
+    console.log(`Cleared corrupted attestation data for user: ${accountHash}`);
+    return true;
+  } catch (error) {
+    console.error('Failed to clear corrupted attestation data:', error.message);
+    return false;
+  }
 };

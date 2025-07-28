@@ -5,15 +5,15 @@
   qr.
 */
 
-import React, {useState, useEffect} from 'react';
-import {FlatList, TouchableOpacity, View} from 'react-native';
-import {List, Portal, Searchbar} from 'react-native-paper';
-import {useSelector} from 'react-redux';
+import React, { useState, useEffect } from 'react';
+import { FlatList, TouchableOpacity, View } from 'react-native';
+import { List, Portal, Searchbar } from 'react-native-paper';
+import { useSelector } from 'react-redux';
 import Styles from '../../styles/index';
-import {RenderSquareCoinLogo} from '../../utils/CoinData/Graphics';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import CoinDetailsModal from '../../components/CoinDetailsModal/CoinDetailsModal';
-import {WYRE_SERVICE} from '../../utils/constants/intervalConstants';
-import {CoinDirectory} from '../../utils/CoinData/CoinDirectory';
+import { WYRE_SERVICE } from '../../utils/constants/intervalConstants';
+import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 
 const AddCoin = props => {
@@ -53,8 +53,8 @@ const AddCoin = props => {
     const displayedCoinList = testAccount
       ? CoinDirectory.testCoinList
       : activeAccount.disabledServices[WYRE_SERVICE]
-      ? CoinDirectory.enabledNameList
-      : CoinDirectory.supportedCoinList;
+        ? CoinDirectory.enabledNameList
+        : CoinDirectory.supportedCoinList;
     const activeCoinIds = activeCoinsForUser.map(coinObj => coinObj.id);
 
     // Define the order of priority for currency IDs
@@ -126,7 +126,7 @@ const AddCoin = props => {
   const activeCoinIds = activeCoinsForUser.map(coinObj => coinObj.id);
 
   return (
-    <View style={{...Styles.root, padding: 0}}>
+    <View style={{ ...Styles.root, padding: 0 }}>
       <Portal>
         <CoinDetailsModal
           navigation={props.navigation}
@@ -151,19 +151,23 @@ const AddCoin = props => {
             autoCorrect={false}
           />
         }
-        style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
+        style={{ ...Styles.fullWidth, ...Styles.backgroundColorWhite }}
         data={coinList}
         onEndReached={onEndReached}
         onEndReachedThreshold={50}
-        renderItem={({item}) => {
-          const {added, coinObj} = item;
-          const {display_name, display_ticker} = coinObj;
+        renderItem={({ item }) => {
+          const { added, coinObj } = item;
+          const { display_name, display_ticker } = coinObj;
 
           return (
             <TouchableOpacity onPress={() => setFullCoinDetails(item.coinObj)}>
               <List.Item
                 title={`${display_name} (${display_ticker})`}
-                left={props => RenderSquareCoinLogo(coinObj.id)}
+                left={props => (
+                  <View style={{ paddingLeft: 8, paddingRight: 8 }}>
+                    {RenderSquareCoinLogo(coinObj.id)}
+                  </View>
+                )}
                 right={props => {
                   return added ? (
                     <List.Icon {...props} icon={'check'} size={20} />
@@ -176,7 +180,7 @@ const AddCoin = props => {
             </TouchableOpacity>
           );
         }}
-        keyExtractor={item => item.coinObj.id}
+        keyExtractor={item => item.coinObj.id}        
       />
     </View>
   );

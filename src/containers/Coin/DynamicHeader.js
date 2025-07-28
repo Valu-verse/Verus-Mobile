@@ -625,11 +625,15 @@ const DynamicHeader = ({ switchTab }) => {
             {loadingCarouselItems
               ? null
               : carouselItems.slice(0, 2).map((x, index) => {
-                  return renderCarouselItem({
-                    item: carouselItems[index],
-                    index,
-                    alone: carouselItems.length === 1,
-                  });
+                  return (
+                    <React.Fragment key={carouselItems[index].id}>
+                      {renderCarouselItem({
+                        item: carouselItems[index],
+                        index,
+                        alone: carouselItems.length === 1,
+                      })}
+                    </React.Fragment>
+                  );
                 })}
           </View>
         </View>

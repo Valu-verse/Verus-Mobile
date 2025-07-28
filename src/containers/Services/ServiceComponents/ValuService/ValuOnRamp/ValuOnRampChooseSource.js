@@ -137,6 +137,14 @@ class ValuOnRampChooseSource extends Component {
         code: 'USD' 
       });
 
+      const attestationStatus = valuReply.attestationStatus || null;
+
+      if (attestationStatus && attestationStatus.data === "demo_mock_data") {
+        // If demo data, show a mock attestation ready
+        this.handleTransactionComplete({ success: true }, attestationStatus);
+  
+      }
+
       this.setState({
         locations: location,
         taxCountry: location?.tax_countries?.[0] || {},
@@ -180,18 +188,16 @@ class ValuOnRampChooseSource extends Component {
 
   // Handle navigation to attestation acceptance screen
   navigateToAttestationAccept = (attestation, transactionData) => {
-    console.log('Attempting to navigate to ValuAttestationAccept');
     
     if (this.props.setSubScreen) {
       // Use the setSubScreen method from parent ValuServiceAccount
-      console.log('Using setSubScreen method');
+  
       this.props.setSubScreen('attestationAccept', {
         attestation: attestation,
         transactionData: transactionData
       });
     } else {
       // Fallback to direct navigation if setSubScreen is not available
-      console.log('Navigation object:', this.props.navigation);
       
       try {
         // Try using push instead of navigate to ensure a new screen instance
@@ -435,7 +441,7 @@ class ValuOnRampChooseSource extends Component {
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={this.openAddressModal}
-          style={{ width: '100%' }}
+          style={{ width: '100%',  alignSelf: 'center' }}
         >
           <TextInput
             style={[styles.textInput, { height: 35, fontSize: 15 }]}
@@ -457,7 +463,7 @@ class ValuOnRampChooseSource extends Component {
       
     return (
       <View style={{ alignContent: 'center', alignItems: 'center' }}>
-        <List.Section title=" " style={{ width: 380, marginTop: -30, marginBottom: 20 }}>
+        <List.Section style={{ width: 380}}>
           <View style={{ flexDirection: 'row', alignItems: 'center', height: 40 }}>
             <Text>Choose Payment Method</Text>
             <IconButton
