@@ -4,22 +4,34 @@ import { Divider, List, Button, Text, Card } from "react-native-paper";
 import Styles from "../../../styles";
 import Colors from '../../../globals/colors';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
+import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import { getIdentity } from "../../../utils/api/channels/verusid/callCreators";
 
 export const LoginReceiveAttestationRender = function () {
-  const { attestationName, signerFqn, attestationData } = this.state;
+  const { attestationName, signerFqn, attestationData, isDownloadedAttestation, downloadedAttestations, ready, loading, attestationFqns } = this.state;
+  const { attestationMetadata } = this.props.route.params || {};
+
+  // Show loading spinner until data is ready
+  if (!ready || loading) {
+    return <AnimatedActivityIndicatorBox />;
+  }
 
   return (
-    <SafeAreaView style={[Styles.defaultRoot, { flex: 1 }]}>
+    <SafeAreaView style={{ 
+      flex: 1, 
+      backgroundColor: Colors.secondaryColor 
+    }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          padding: 16,
+          paddingHorizontal: 16,
+          paddingVertical: 8,
         }}
         showsVerticalScrollIndicator={true}>
         
         {/* Header Section */}
-        <Card style={{ marginBottom: 24, elevation: 2 }}>
+        <Card style={{ marginBottom: 16, elevation: 2 }}>
           <Card.Content style={{ paddingVertical: 20 }}>
             <Text variant="headlineSmall" style={{ 
               textAlign: 'center', 
@@ -27,7 +39,7 @@ export const LoginReceiveAttestationRender = function () {
               color: Colors.primaryColor,
               fontWeight: '600'
             }}>
-              Receive Attestation
+              {isDownloadedAttestation ? 'Downloaded Attestation' : 'Receive Attestation'}
             </Text>
             
             <Text variant="titleLarge" style={{ 
@@ -52,8 +64,8 @@ export const LoginReceiveAttestationRender = function () {
         </Card>
 
         {/* Attestation Data Section */}
-        {attestationData && Object.keys(attestationData).length > 0 && (
-          <Card style={{ marginBottom: 24, elevation: 2 }}>
+        {!isDownloadedAttestation && attestationData && Object.keys(attestationData).length > 0 && (
+          <Card style={{ marginBottom: 16, elevation: 2 }}>
             <Card.Content>
               <Text variant="titleMedium" style={{ 
                 marginBottom: 16, 
@@ -91,6 +103,113 @@ export const LoginReceiveAttestationRender = function () {
             </Card.Content>
           </Card>
         )}
+
+        {/* Additional info for downloaded attestations */}
+        {isDownloadedAttestation && downloadedAttestations && (
+          <Card style={{ marginBottom: 16, elevation: 2 }}>
+            <Card.Content>
+              <Text variant="titleMedium" style={{ 
+                marginBottom: 16, 
+                fontWeight: '600',
+                color: '#1a1a1a'
+              }}>
+                Download Information
+              </Text>
+              
+              <List.Item
+                title="Count"
+                description={`${downloadedAttestations.attestations ? downloadedAttestations.attestations.length : 1} attestation(s)`}
+                titleStyle={{ fontWeight: '500', fontSize: 14 }}
+                descriptionStyle={{ color: '#666', fontSize: 12 }}
+                left={() => (
+                  <List.Icon 
+                    icon="counter" 
+                    color={Colors.primaryColor}
+                    size={20}
+                  />
+                )}
+                style={{ paddingHorizontal: 0, paddingVertical: 4 }}
+              />
+              
+              <List.Item
+                title="Attestation Validated"
+                description="Yes"
+                titleStyle={{ fontWeight: '500', fontSize: 14 }}
+                descriptionStyle={{ color: Colors.verusGreenColor, fontSize: 12 }}
+                left={() => (
+                  <List.Icon 
+                    icon="check-circle" 
+                    color={Colors.verusGreenColor}
+                    size={20}
+                  />
+                )}
+                style={{ paddingHorizontal: 0, paddingVertical: 4 }}
+              />
+              
+              {downloadedAttestations.timestamp && (
+                <List.Item
+                  title="Generated"
+                  description={new Date(downloadedAttestations.timestamp).toLocaleDateString()}
+                  titleStyle={{ fontWeight: '500', fontSize: 14 }}
+                  descriptionStyle={{ color: '#666', fontSize: 12 }}
+                  left={() => (
+                    <List.Icon 
+                      icon="calendar" 
+                      color={Colors.primaryColor}
+                      size={20}
+                    />
+                  )}
+                  style={{ paddingHorizontal: 0, paddingVertical: 4 }}
+                />
+              )}
+            </Card.Content>
+          </Card>
+        )}
+
+        {/* Multiple attestations detail */}
+        {isDownloadedAttestation && downloadedAttestations && downloadedAttestations.attestations && Array.isArray(downloadedAttestations.attestations) && downloadedAttestations.attestations.length > 1 && (
+          <Card style={{ marginBottom: 16, elevation: 2 }}>
+            <Card.Content>
+              <Text variant="titleMedium" style={{ 
+                marginBottom: 16, 
+                fontWeight: '600',
+                color: '#1a1a1a'
+              }}>
+                Multiple Attestations ({downloadedAttestations.attestations.length})
+              </Text>
+              
+              {Object.entries(attestationData).map(([key, data], index) => (
+                <View key={index}>
+                  <List.Item
+                    title={data.attestationName || key}
+                    titleStyle={{ fontWeight: '500', fontSize: 14 }}
+                    description={`From: ${attestationFqns?.[key] || signerFqn}`}
+                    descriptionStyle={{ color: '#666', fontSize: 12 }}
+                    left={() => (
+                      <List.Icon 
+                        icon="file-document" 
+                        color={Colors.primaryColor}
+                        size={20}
+                      />
+                    )}
+                    right={() => (
+                      <Text style={{ fontSize: 10, color: '#999', alignSelf: 'center' }}>
+                        {data.validated ? 'Validated' : 'Invalid'}
+                      </Text>
+                    )}
+                    style={{ 
+                      paddingHorizontal: 0,
+                      paddingVertical: 8
+                    }}
+                  />
+                  {index < Object.entries(attestationData).length - 1 && (
+                    <Divider style={{ marginVertical: 4 }} />
+                  )}
+                </View>
+              ))}
+            </Card.Content>
+          </Card>
+        )}
         
         {/* Spacer to push buttons to bottom */}
         <View style={{ flex: 1, minHeight: 50 }} />
@@ -115,7 +234,7 @@ export const LoginReceiveAttestationRender = function () {
             color={Colors.verusGreenColor}
             style={{ width: 148 }}
             onPress={() => this.handleContinue()}>
-            Accept
+            {isDownloadedAttestation ? 'Save' : 'Accept'}
           </Button>
         </View>
     </SafeAreaView>

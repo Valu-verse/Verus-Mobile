@@ -1,10 +1,10 @@
-import React, {useState, useEffect} from 'react';
-import {Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Dimensions, SafeAreaView, ScrollView, TouchableOpacity, View } from 'react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import { Button, Divider, List, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
-import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
+import { getIdentity, getFriendlyNameMap } from '../../../utils/api/channels/verusid/callCreators';
 import { unixToDate } from '../../../utils/math';
 import { useDispatch, useSelector } from 'react-redux';
 import Colors from '../../../globals/colors';
@@ -19,6 +19,7 @@ import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreat
 import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
+import { checkIfAttestationProvision as checkAttestationProvision } from '../../../utils/attestations/downloadAttestation';
 
 const LoginRequestInfo = props => {
   const { deeplinkData, sigtime, cancel, signerFqn } = props
@@ -27,48 +28,30 @@ const LoginRequestInfo = props => {
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null)
   const [sigDateString, setSigDateString] = useState(unixToDate(sigtime))
   const [waitingForSignin, setWaitingForSignin] = useState(false)
+  
+  // Redux state
   const accounts = useObjectSelector(state => state.authentication.accounts)
   const signedIn = useSelector(state => state.authentication.signedIn)
   const passthrough = useSelector((state) => state.deeplink.passthrough);
   const sendModalType = useSelector(state => state.sendModal.type)
-  const { height } = Dimensions.get('window');
-  const [permissions, setExtraPermissions] = useState(null);
-  const [ready, setReady] = useState(false);
-
-  const dispatch = useDispatch()
-
-  const { system_id, signing_id, challenge } = req
-  const chain_id = getSystemNameFromSystemId(system_id)
-
+  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
   const rootSystemAdded = useSelector(
     state =>
       state.coins.activeCoinsForUser &&
       state.coins.activeCoinsForUser.find(x => x.id === chain_id) != null,
   );
-  const [prevRootSystemAdded, setPrevRootSystemAdded] = useState(rootSystemAdded)
-
-  const activeAccount = useObjectSelector(
-    state => state.authentication.activeAccount,
-  );
-
+  
+  // Component state
+  const [permissions, setExtraPermissions] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [isAttestationProvision, setIsAttestationProvision] = useState(false);
+  
+  const dispatch = useDispatch()
+  const { height } = Dimensions.get('window');
+  const { system_id, signing_id, challenge } = req
+  const chain_id = getSystemNameFromSystemId(system_id)
   const isTestnet = activeAccount ? Object.keys(activeAccount.testnetOverrides).length > 0 : false;
-  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
-
-  let mainLoginMessage = '';
-
-  if (challenge.redirect_uris && challenge.redirect_uris.length > 0) {
-    mainLoginMessage = `${signerFqn} is requesting login with VerusID`
-  } else {
-    if (passthrough?.fqnToAutoLink) {
-      mainLoginMessage = `VerusID from ${signerFqn} now ready to link`
-    } else if (challenge.attestations && challenge.attestations.length > 0) {
-      mainLoginMessage = `Would you like to accept an attestation from ${signerFqn}?`
-    } else if (challenge.requested_access && challenge.requested_access.length > 0) {
-      mainLoginMessage = `Would you like to share Attestation information from ${signerFqn} ?`
-    }else {
-      mainLoginMessage = `Would you like to request a VerusID from ${signerFqn}?`
-    }
-  }
 
   const getVerusId = async (chain, iAddrOrName) => {
     const identity = await getIdentity(CoinDirectory.getBasicCoinObj(chain).system_id, iAddrOrName);
@@ -86,7 +69,6 @@ const LoginRequestInfo = props => {
       loadFriendlyNames: async () => {
         try {
           const identityObj = await getVerusId(chain, iAddress);
-    
           return getFriendlyNameMap(CoinDirectory.getBasicCoinObj(chain).system_id, identityObj);
         } catch (e) {
           return {
@@ -108,17 +90,10 @@ const LoginRequestInfo = props => {
   }, [signedIn, waitingForSignin]);
 
   useEffect(() => {
-    if (
-      prevRootSystemAdded != rootSystemAdded &&
-      prevRootSystemAdded === false &&
-      rootSystemAdded === true
-    ) {
-      handleContinue()
-    }
-  }, [rootSystemAdded]);
-
-  useEffect(() => {
     setReq(new primitives.LoginConsentRequest(deeplinkData))
+    // Reset state when deeplink data changes
+    setIsAttestationProvision(false)
+    setExtraPermissions(null)
   }, [deeplinkData]);
 
   useEffect(() => {
@@ -127,12 +102,11 @@ const LoginRequestInfo = props => {
 
   useEffect(() => {
     if (sendModalType != AUTHENTICATE_USER_SEND_MODAL) {
-      setLoading(false)
+      setLoading(false);
     } else setLoading(true)
   }, [sendModalType]);
 
   const buildAlert = (request) => {
-
     const setPermission = () => {
       const _permissions = permissions.map(permission => {
         if (permission.vdxfkey === request.vdxfkey) {
@@ -145,45 +119,48 @@ const LoginRequestInfo = props => {
 
     if (request.agreed) return;
 
-    if (request.viewAttestation) {
-      if (!signedIn) return;
-      props.navigation.navigate("LoginShareAttestation",
-        {
-          deeplinkData,
-          fromService: false,
-          cancel: { cancel },
-          onGoBack: (data) => data ? setPermission(data) : () => { },
-          signerFqn
-        });
+    if (request.downloadRequired && !request.downloaded) {
+      // Handle download case - navigate to LoginReceiveAttestation with download URL
+      props.navigation.navigate("LoginReceiveAttestation", {
+        deeplinkData,
+        fromService: false,
+        cancel: { cancel },
+        downloadUrl: req.challenge.redirect_uris.find(
+          uri => uri.vdxfkey === primitives.ATTESTATION_PROVISION_URL.vdxfid
+        )?.uri,
+        onGoBack: (data) => {
+          if (data) {
+            setPermission();
+          }
+        },
+        signerFqn
+      });
       return;
     }
-    else if (request.attestationToAccept) {
-      if (!signedIn) return;
-      props.navigation.navigate("LoginReceiveAttestation",
-        {
-          deeplinkData,
-          fromService: false,
-          cancel: { cancel },
-          onGoBack: (data) => data ? setPermission(data) : () => { },
-          signerFqn
-        });
-      return;
-    }
-    else if (request.openProfile) {
-      if (!signedIn) return;
-      props.navigation.navigate("PersonalSelectData",
-        {
-          deeplinkData,
-          fromService: false,
-          cancel: { cancel },
-          onGoBack: (data) => data ? setPermission(data) : () => { },
-          signerFqn
-        });
-      return;
-    }
-    else if (request.signmessage) {
-     if (!signedIn) return;
 
+    // Handle other navigation cases
+    const navigationConfigs = {
+      viewAttestation: "LoginShareAttestation",
+      attestationToAccept: "LoginReceiveAttestation", 
+      openProfile: "PersonalSelectData"
+    };
+
+    for (const [key, screenName] of Object.entries(navigationConfigs)) {
+      if (request[key]) {
+        if (!signedIn) return;
+        props.navigation.navigate(screenName, {
+          deeplinkData,
+          fromService: false,
+          cancel: { cancel },
+          onGoBack: (data) => data ? setPermission(data) : () => { },
+          signerFqn
+        });
+        return;
+      }
+    }
+
+    if (request.signmessage) {
+      if (!signedIn) return;
     }
 
     return createAlert(
@@ -206,33 +183,82 @@ const LoginRequestInfo = props => {
   }
 
   useEffect(() => {
-
     if (req && req.challenge && req.challenge.requested_access) {
-      var loginTemp = [];
-      if (req.challenge.requested_access.length === 1 && req.challenge.requested_access.some(value => value.vdxfkey === primitives.IDENTITY_VIEW.vdxfid)) {
-        if (req.challenge.attestations && req.challenge.attestations.length > 0) {
-          loginTemp.push({ data: "Accept attestation", title: "Attestation Provisioning Request", attestationToAccept: true, agreed: false });
+      // Check if this is an attestation provision request (download scenario)
+      if (checkAttestationProvision(req.challenge)) {
+        setIsAttestationProvision(true);
+
+        // Create a permission for the attestation download
+        const provisioningTitle = req.challenge.provisioning_info[0].data;
+        const downloadPermission = [{
+          data: `Download ${provisioningTitle}`,
+          title: provisioningTitle,
+          downloadRequired: true,
+          downloaded: false,
+          agreed: false,
+          vdxfkey: 'attestation_download'
+        }];
+
+        setExtraPermissions(downloadPermission);
+        setReady(false);
+        return;
+      }
+
+      // Handle regular login permissions
+      const loginTemp = [];
+      const { requested_access, attestations } = req.challenge;
+
+      if (requested_access.length === 1 && requested_access.some(value => value.vdxfkey === primitives.IDENTITY_VIEW.vdxfid)) {
+        if (attestations && attestations.length > 0) {
+          loginTemp.push({ 
+            data: "Accept attestation", 
+            title: "Attestation Provisioning Request", 
+            attestationToAccept: true, 
+            agreed: false 
+          });
         } else {
           setReady(true);
         }
       } else {
-        for (let i = 0; i < req.challenge.requested_access.length; i++) {
-          var tempdata = {};
+        // Process each requested access
+        for (const access of requested_access) {
+          const { vdxfkey } = access;
+          let tempdata = {};
 
-          if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_VIEW.vdxfid) {
+          // Skip IDENTITY_VIEW and LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY
+          if (vdxfkey === primitives.IDENTITY_VIEW.vdxfid || 
+              vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid) {
             continue;
-          } else if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_AGREEMENT.vdxfid) {
-            tempdata = { data: req.challenge.requested_access[i].toJson().data, title: "Agreement to accept" }
-          } else if (req.challenge.requested_access[i].vdxfkey === primitives.ATTESTATION_READ_REQUEST.vdxfid) {
-            tempdata = { data: "Agree to share attestation data", title: "Attestation View Request", viewAttestation: true }
-          } else if (req.challenge.requested_access[i].vdxfkey === primitives.PROFILE_DATA_VIEW_REQUEST.vdxfid) {
-            tempdata = { data: "Agree to share profile data", title: "Personal Data Input Request", openProfile: true }
-          } else if (req.challenge.requested_access[i].vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid) {
-            continue;
-          } else if (req.challenge.requested_access[i].vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) {
-            tempdata = { data: req.challenge.requested_access[i].toJson().data, title: "Message sign request", signmessage: true }
           }
-          loginTemp.push({ vdxfkey: req.challenge.requested_access[i].vdxfkey, ...tempdata, agreed: false })
+
+          // Map different access types to permissions
+          const accessTypeMap = {
+            [primitives.IDENTITY_AGREEMENT.vdxfid]: {
+              data: access.toJson().data,
+              title: "Agreement to accept"
+            },
+            [primitives.ATTESTATION_READ_REQUEST.vdxfid]: {
+              data: "Agree to share attestation data",
+              title: "Attestation View Request",
+              viewAttestation: true
+            },
+            [primitives.PROFILE_DATA_VIEW_REQUEST.vdxfid]: {
+              data: "Agree to share profile data",
+              title: "Personal Data Input Request",
+              openProfile: true
+            },
+            [primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid]: {
+              data: access.toJson().data,
+              title: "Message sign request",
+              signmessage: true
+            }
+          };
+
+          tempdata = accessTypeMap[vdxfkey] || {};
+          
+          if (Object.keys(tempdata).length > 0) {
+            loginTemp.push({ vdxfkey, ...tempdata, agreed: false });
+          }
         }
       }
 
@@ -242,15 +268,10 @@ const LoginRequestInfo = props => {
 
   useEffect(() => {
     if (permissions) {
-      for (let i = 0; i < permissions.length; i++) {
-        if (!permissions[i].agreed)
-          return;
-      }
-      setReady(true);
+      const allAgreed = permissions.every(permission => permission.agreed);
+      setReady(allAgreed);
     }
   }, [permissions]);
-
-
 
   const addRootSystem = async () => {
     setLoading(true)
@@ -307,9 +328,7 @@ const LoginRequestInfo = props => {
         },
         { text: 'Yes', onPress: () => resolveAlert(true) },
       ],
-      {
-        cancelable: true,
-      },
+      { cancelable: true }
     )
   }
 
@@ -327,56 +346,39 @@ const LoginRequestInfo = props => {
           if (!result) return;
         }
       }
+      
       const coinObj = CoinDirectory.findCoinObj(chain_id);
+      
       if (!!coinObj.testnet != isTestnet) {
         createAlert(
           "Incorrect profile type",
-          `Please login to a ${coinObj.testnet ? 'testnet' : 'mainnet'
-          } profile to use this login request.`,);
+          `Please login to a ${coinObj.testnet ? 'testnet' : 'mainnet'} profile to use this login request.`
+        );
         return;
       }
-      else if (!rootSystemAdded) {
+      
+      if (!rootSystemAdded) {
         tryAddRootSystem()
       } else {
-        props.navigation.navigate('LoginRequestIdentity', {
-          deeplinkData,
-        });
+        props.navigation.navigate('LoginRequestIdentity', { deeplinkData });
       }
     } else {
       setWaitingForSignin(true);
       const coinObj = CoinDirectory.findCoinObj(chain_id);
-      const allowList = coinObj.testnet ? accounts.filter(x => {
-        if (
-          x.testnetOverrides &&
-          x.testnetOverrides[coinObj.mainnet_id] === coinObj.id
-        ) {
-          return true;
-        } else {
-          return false;
-        }
-      }) : accounts.filter(x => {
-        if (
-          x.testnetOverrides &&
-          x.testnetOverrides[coinObj.id] != null
-        ) {
-          return false;
-        } else {
-          return true;
-        }
-      })
+      
+      const allowList = coinObj.testnet 
+        ? accounts.filter(x => x.testnetOverrides && x.testnetOverrides[coinObj.mainnet_id] === coinObj.id)
+        : accounts.filter(x => !(x.testnetOverrides && x.testnetOverrides[coinObj.id] != null));
 
       if (allowList.length > 0) {
         const data = {
           [SEND_MODAL_USER_ALLOWLIST]: allowList
         }
-
         openAuthenticateUserModal(data);
       } else {
         createAlert(
           "Cannot continue",
-          `No ${coinObj.testnet ? 'testnet' : 'mainnet'
-          } profiles found, cannot respond to ${coinObj.testnet ? 'testnet' : 'mainnet'
-          } login request.`,
+          `No ${coinObj.testnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to ${coinObj.testnet ? 'testnet' : 'mainnet'} login request.`
         );
       }
     }
@@ -396,9 +398,82 @@ const LoginRequestInfo = props => {
         contentContainerStyle={Styles.focalCenter}>
         {height >= SMALL_DEVICE_HEGHT && <VerusIdLogo width={'55%'} height={'10%'} />}
         <View style={Styles.wideBlock}>
-          <Text style={{ fontSize: 20, textAlign: 'center' }}>
-            {mainLoginMessage}
-          </Text>
+          {isAttestationProvision ? (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="cloud-download" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8, color: Colors.verusGreenColor }}>
+                  Download Available
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center', marginBottom: 4 }}>
+                {signerFqn} has shared content with you
+              </Text>
+              <Text style={{ fontSize: 14, textAlign: 'center', color: 'gray' }}>
+                Tap the download icon below to view {req.challenge.provisioning_info[0].data}
+              </Text>
+            </View>
+          ) : challenge.redirect_uris && challenge.redirect_uris.length > 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="account-key" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+                  Login Request
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>
+                {signerFqn} is requesting login with VerusID
+              </Text>
+            </View>
+          ) : passthrough?.fqnToAutoLink ? (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="link" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+                  Ready to Link
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>
+                VerusID from {signerFqn} now ready to link
+              </Text>
+            </View>
+          ) : challenge.attestations && challenge.attestations.length > 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="certificate" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+                  Attestation Request
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>
+                Would you like to accept an attestation from {signerFqn}?
+              </Text>
+            </View>
+          ) : challenge.requested_access && challenge.requested_access.length > 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="share-variant" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+                  Share Request
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>
+                Would you like to share attestation information from {signerFqn}?
+              </Text>
+            </View>
+          ) : (
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <List.Icon icon="account-plus" size={24} color={Colors.verusGreenColor} />
+                <Text style={{ fontSize: 18, fontWeight: 'bold', marginLeft: 8 }}>
+                  VerusID Request
+                </Text>
+              </View>
+              <Text style={{ fontSize: 16, textAlign: 'center' }}>
+                Would you like to request a VerusID from {signerFqn}?
+              </Text>
+            </View>
+          )}
         </View>
         <View style={Styles.fullWidth}>
           <TouchableOpacity
@@ -428,16 +503,54 @@ const LoginRequestInfo = props => {
             <Divider />
           </TouchableOpacity>
           {permissions && permissions.map((request, index) => {
+            let iconName, iconColor, iconBackgroundColor;
+
+            if (request.downloadRequired && !request.downloaded) {
+              iconName = "download";
+              iconColor = 'white';
+              iconBackgroundColor = Colors.verusGreenColor;
+            } else if (request.downloadRequired && request.downloaded && request.agreed) {
+              iconName = "check";
+              iconColor = Colors.secondaryColor;
+              iconBackgroundColor = Colors.verusGreenColor;
+            } else if (request.agreed) {
+              iconName = "check";
+              iconColor = Colors.secondaryColor;
+              iconBackgroundColor = Colors.verusGreenColor;
+            } else {
+              iconName = "check";
+              iconColor = Colors.secondaryColor;
+              iconBackgroundColor = 'grey';
+            }
+
             return (
               <TouchableOpacity key={index} onPress={() => buildAlert(request)}>
-                <List.Item title={request.title} description={`View the ${request.title} Details.`}
+                <List.Item
+                  title={request.title}
+                  description={request.downloadRequired && !request.downloaded ? `Download the ${request.title} Details.` : `View the ${request.title} Details.`}
+                  style={request.downloadRequired && !request.downloaded ? {
+                    backgroundColor: '#f0f0f0',
+                    borderLeftWidth: 4,
+                    borderLeftColor: Colors.verusGreenColor,
+                    marginVertical: 2
+                  } : {}}
                   right={props => (
                     <List.Icon
-                      key={request}
                       {...props}
-                      icon="check"
-                      style={{ borderRadius: 90, backgroundColor: request.agreed ? Colors.verusGreenColor : 'grey' }}
-                      color={Colors.secondaryColor}
+                      icon={iconName}
+                      size={20}
+                      style={{
+                        borderRadius: 90,
+                        backgroundColor: iconBackgroundColor,
+                        ...(request.downloadRequired && !request.downloaded ? {
+                          shadowColor: '#ccc',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 4,
+                          elevation: 4
+                        } : {})
+                      }}
+                      color={iconColor}
                     />
                   )} />
                 <Divider />
@@ -455,14 +568,14 @@ const LoginRequestInfo = props => {
           }}>
           <Button
             textColor={Colors.warningButtonColor}
-            style={{width: 148}}
+            style={{ width: 148 }}
             onPress={() => cancel()}>
             Cancel
           </Button>
           <Button
             buttonColor={Colors.verusGreenColor}
             textColor={Colors.secondaryColor}
-            style={{width: 148}}
+            style={{ width: 148 }}
             onPress={() => handleContinue()}>
             Continue
           </Button>

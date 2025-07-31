@@ -262,13 +262,13 @@ const ValuAttestation = ({ props } = props) => {
 
     const stageMessages = {
         [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Payment received for Valu Proof of Humanity. Proceed to get your ValuID.
+            Payment received. Proceed to get your Valu Identity.
         </Text>),
         [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            You already have a Valu Proof of Humanity in progress.
+            You already have a Valu Identity in progress.
         </Text>),
         [VALU_POL_PAYMENT_STARTED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Purchase a ValuID and Valu Proof of Humanity for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+            Purchase a ValuID and Valu Identity for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
