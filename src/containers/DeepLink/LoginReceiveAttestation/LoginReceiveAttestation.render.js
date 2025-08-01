@@ -1,6 +1,6 @@
 import React from "react";
-import { SafeAreaView, ScrollView, View, Image } from "react-native";
-import { Divider, List, Button, Text, Card } from "react-native-paper";
+import { SafeAreaView, ScrollView, View, Image, TouchableOpacity } from "react-native";
+import { Divider, List, Button, Text, Card, IconButton } from "react-native-paper";
 import Styles from "../../../styles";
 import Colors from '../../../globals/colors';
 import {convertFqnToDisplayFormat} from '../../../utils/fullyqualifiedname';
@@ -78,9 +78,9 @@ export const LoginReceiveAttestationRender = function () {
               {Object.keys(attestationData).map((request, index) => (
                 <View key={request}>
                   <List.Item
-                    title={request}
+                    title={ attestationData[request]?.message}
                     titleStyle={{ fontWeight: '500', fontSize: 16 }}
-                    description={attestationData[request]?.message}
+                    description={request}
                     descriptionStyle={{ color: '#666', marginTop: 4 }}
                     right={() => 
                       attestationData[request]?.image ? (
@@ -119,8 +119,8 @@ export const LoginReceiveAttestationRender = function () {
               <List.Item
                 title="Count"
                 description={`${downloadedAttestations.attestations ? downloadedAttestations.attestations.length : 1} attestation(s)`}
-                titleStyle={{ fontWeight: '500', fontSize: 14 }}
-                descriptionStyle={{ color: '#666', fontSize: 12 }}
+                titleStyle={{  color: '#666', fontSize: 12 }}
+                descriptionStyle={{ fontSize: 14, color: 'black' }}
                 left={() => (
                   <List.Icon 
                     icon="counter" 
@@ -134,8 +134,8 @@ export const LoginReceiveAttestationRender = function () {
               <List.Item
                 title="Attestation Validated"
                 description="Yes"
-                titleStyle={{ fontWeight: '500', fontSize: 14 }}
-                descriptionStyle={{ color: Colors.verusGreenColor, fontSize: 12 }}
+                titleStyle={{  color: '#666', fontSize: 12 }}
+                descriptionStyle={{ fontSize: 14, color: 'black' }}
                 left={() => (
                   <List.Icon 
                     icon="check-circle" 
@@ -150,8 +150,8 @@ export const LoginReceiveAttestationRender = function () {
                 <List.Item
                   title="Generated"
                   description={new Date(downloadedAttestations.timestamp).toLocaleDateString()}
-                  titleStyle={{ fontWeight: '500', fontSize: 14 }}
-                  descriptionStyle={{ color: '#666', fontSize: 12 }}
+                titleStyle={{  color: '#666', fontSize: 12 }}
+                descriptionStyle={{ fontSize: 14, color: 'black' }}
                   left={() => (
                     <List.Icon 
                       icon="calendar" 
@@ -181,9 +181,9 @@ export const LoginReceiveAttestationRender = function () {
               {Object.entries(attestationData).map(([key, data], index) => (
                 <View key={index}>
                   <List.Item
-                    title={data.attestationName || key}
+                    title={`From: ${attestationFqns?.[key] || signerFqn}`}
+                    description={data.attestationName || key}
                     titleStyle={{ fontWeight: '500', fontSize: 14 }}
-                    description={`From: ${attestationFqns?.[key] || signerFqn}`}
                     descriptionStyle={{ color: '#666', fontSize: 12 }}
                     left={() => (
                       <List.Icon 
@@ -193,9 +193,30 @@ export const LoginReceiveAttestationRender = function () {
                       />
                     )}
                     right={() => (
-                      <Text style={{ fontSize: 10, color: '#999', alignSelf: 'center' }}>
-                        {data.validated ? 'Validated' : 'Invalid'}
-                      </Text>
+                      <TouchableOpacity 
+                        style={{ 
+                          height: 48,
+                          width: 48,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          backgroundColor: Colors.primaryColor,
+                          borderRadius: 24,
+                          elevation: 2,
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 2,
+                        }}
+                        onPress={() => this.viewAttestation(key, data)}
+                        activeOpacity={0.7}
+                      >
+                        <IconButton
+                          icon="magnify"
+                          iconColor="white"
+                          size={28}
+                          style={{ margin: 0 }}
+                        />
+                      </TouchableOpacity>
                     )}
                     style={{ 
                       paddingHorizontal: 0,

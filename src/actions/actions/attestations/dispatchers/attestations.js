@@ -1,7 +1,7 @@
 import store from "../../../../store"
 import { deleteAttestationDataForUser, loadAttestationDataForUser, storeAttestationDataForUser, clearCorruptedAttestationDataForUser } from "../../../../utils/nativeStore/attestationDataStorage"
 import { requestPassword } from "../../../../utils/auth/authBox"
-import { encryptkey } from "../../../../utils/seedCrypt"
+import { encryptkey, decryptkey } from "../../../../utils/seedCrypt"
 import { setAttestationData } from "../creators/attestations"
 
 export const saveEncryptedAttestationDataForUser = async (encryptedData = {}, accountHash) => {  
@@ -18,18 +18,57 @@ export const clearEncryptedAttestationDataForUser = async (accountHash) => {
 
 export const modifyAttestationDataForUser = async (data = {}, dataType, accountHash) => {
   try {
+    if (!accountHash) {
+      throw new Error('Account hash is required');
+    }
+    
+    if (!dataType) {
+      throw new Error('Data type is required');
+    }
+    
     let attestationData = {...(await loadAttestationDataForUser(accountHash))}
     
     // Validate data before stringifying
-    const jsonString = JSON.stringify(data);
-    if (!jsonString) {
-      throw new Error('Failed to stringify attestation data');
+    if (data === null || data === undefined) {
+      throw new Error('Data cannot be null or undefined');
     }
     
-    attestationData[dataType] = await encryptkey(await requestPassword(), jsonString)
+    // Get password once and reuse it
+    const password = await requestPassword();
+    
+    // Get existing data for this dataType and merge with new data
+    let existingTypeData = {};
+    if (attestationData[dataType]) {
+      try {
+        const decryptedExisting = decryptkey(password, attestationData[dataType]);
+        if (decryptedExisting !== false) {
+          existingTypeData = JSON.parse(decryptedExisting);
+        }
+      } catch (decryptError) {
+        console.warn(`Failed to decrypt/parse existing ${dataType} data, starting fresh:`, decryptError.message);
+        existingTypeData = {};
+      }
+    }
+    
+    // Merge new data with existing data (new data takes precedence for duplicate keys)
+    const mergedData = { ...existingTypeData, ...data };
+    
+    const jsonString = JSON.stringify(mergedData);
+    if (!jsonString || jsonString === 'undefined' || jsonString === 'null') {
+      throw new Error('Failed to stringify attestation data or resulted in invalid JSON');
+    }
+    
+    // Verify we can parse it back
+    try {
+      JSON.parse(jsonString);
+    } catch (parseError) {
+      throw new Error(`Data produces invalid JSON: ${parseError.message}`);
+    }
+    
+    attestationData[dataType] = await encryptkey(password, jsonString)
     await saveEncryptedAttestationDataForUser(attestationData, accountHash)
 
-    return data
+    return mergedData
   } catch (error) {
     console.error('Error in modifyAttestationDataForUser:', error.message);
     throw new Error(`Failed to modify attestation data: ${error.message}`);

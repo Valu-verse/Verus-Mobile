@@ -2,23 +2,23 @@ import React, { Component } from "react"
 import { connect } from 'react-redux'
 
 import { primitives } from "verusid-ts-client"
-import { VdxfUniValue } from "verus-typescript-primitives/dist/pbaas/VdxfUniValue";
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 
 const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
 import { SafeAreaView, ScrollView, View, Image } from 'react-native'
 
-import { Divider, List, Button, Text } from 'react-native-paper';
+import { Divider, List, Button, Text, Card, Avatar } from 'react-native-paper';
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
+import { Valu } from '../../../../../images/customIcons';
 
 class ViewAttestation extends Component {
     constructor(props) {
         super(props);
         this.state = {
             attestationData: {},
-            signer: ""
+            signer: "",
+            attestationName: ""
         };
     }
 
@@ -33,10 +33,11 @@ class ViewAttestation extends Component {
 
   getAttestationData = (dataDescriptors) => {
     const data = {};
+    let attestationName = "";
     
     if (!dataDescriptors || !Array.isArray(dataDescriptors)) {
       console.error('Invalid dataDescriptors provided');
-      return data;
+      return { data, attestationName };
     }
 
     dataDescriptors.forEach((dataDescriptor) => {
@@ -48,6 +49,11 @@ class ViewAttestation extends Component {
 
         if (label === ATTESTATION_NAME.vdxfid) {
           key = `Attestation name`;
+          // Extract attestation name for top display
+          const objectdata = dataDescriptor[DataDescriptorKey.vdxfid]?.objectdata;
+          if (objectdata && objectdata.message) {
+            attestationName = objectdata.message;
+          }
         } else {
           key = IdentityVdxfidMap[label]?.EN || label;
         }
@@ -73,7 +79,7 @@ class ViewAttestation extends Component {
       }
     });
 
-    return data;
+    return { data, attestationName };
   }
 
     updateDisplay = () => {
@@ -84,31 +90,38 @@ class ViewAttestation extends Component {
                 console.error('No attestation data provided');
                 return;
             }
-
-            const dataDescriptorObject = new VdxfUniValue();
-            dataDescriptorObject.fromBuffer(Buffer.from(attestation.data, "hex"));
+         
+            // The data is a hex string representing an AttestationPair buffer
+            const attestationPairBuffer = Buffer.from(attestation.data, "hex");
             
-            const vdxfObjectsKeys = {};
-            dataDescriptorObject.values.map((value) => vdxfObjectsKeys[Object.keys(value)[0]] = Object.values(value)[0]);
+            // Import AttestationPair from the correct location
+            const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+            
+            // Create AttestationPair from the buffer using the constructor and fromBuffer method
+            const attestationPair = new AttestationPair();
+            attestationPair.fromBuffer(attestationPairBuffer);
 
-            if (!vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid]) {
+            if (!attestationPair || !attestationPair.mmrDescriptor) {
                 console.error('No MMR descriptor found in attestation data');
                 return;
             }
 
-            const attestationItems = vdxfObjectsKeys[VDXF_Data.MMRDescriptorKey.vdxfid].dataDescriptors;
+            const attestationItems = attestationPair.mmrDescriptor.dataDescriptors;
             const attestationDataDescriptors = attestationItems.map((dataDescriptor) => dataDescriptor.toJson().objectdata);
-            const containingData = this.getAttestationData(attestationDataDescriptors);
+            const { data: containingData, attestationName } = this.getAttestationData(attestationDataDescriptors);
             
             this.setState({ 
                 attestationData: containingData, 
-                signer: attestation.signer || 'Unknown' 
+                signer: attestation.signer || 'Unknown',
+                attestationName: attestationName || attestation.name || 'Attestation'
             });
         } catch (error) {
             console.error('Error updating display:', error);
+            console.error('Error details:', error.stack);
             this.setState({ 
                 attestationData: {}, 
-                signer: 'Error loading attestation' 
+                signer: 'Error loading attestation',
+                attestationName: ''
             });
         }
     }
@@ -122,30 +135,258 @@ class ViewAttestation extends Component {
                         contentContainerStyle={{ flexGrow: 1, paddingVertical: 20, paddingHorizontal: 16 }}
                         showsVerticalScrollIndicator={true}>
                         <View style={Styles.fullWidth}>
-
-                            <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-                                {`From: `}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.signer}`}</Text>
-                            </Text>
-                            {this.state.attestationData && Object.keys(this.state.attestationData).length > 0 ? (
-                                Object.keys(this.state.attestationData).map(request => {
-                                    const item = this.state.attestationData[request];
-                                    return (
-                                        <React.Fragment key={request}>
-                                            <List.Item
-                                                title={request}
-                                                description={item?.message || 'No description available'}
-                                                right={() => item?.image ? (
+                            {this.state.attestationName && (
+                                <View style={{
+                                    marginBottom: 28,
+                                    backgroundColor: '#ffffff',
+                                    borderRadius: 20,
+                                    elevation: 6,
+                                    shadowColor: '#000',
+                                    shadowOffset: { width: 0, height: 6 },
+                                    shadowOpacity: 0.15,
+                                    shadowRadius: 12,
+                                    borderWidth: 0.5,
+                                    borderColor: '#e0e0e0',
+                                    overflow: 'hidden'
+                                }}>
+                                    {/* Header Gradient Strip */}
+                                    <View style={{
+                                        height: 4,                                        
+                                        opacity: 0.8
+                                    }} />
+                                    
+                                    <View style={{ padding: 24 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+                                            {this.state.signer === 'ValuID.VRSCTEST@' ? (
+                                                <View style={{
+                                                    width: 56,
+                                                    height: 56,
+                                                    borderRadius: 28,
+                                                    backgroundColor: '#f8f9fa',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    marginRight: 16,
+                                                    borderWidth: 2,
+                                                    borderColor: Colors.primaryColor + '20'
+                                                }}>
                                                     <Image 
-                                                        source={{ uri: item.image }} 
-                                                        style={{ width: 50, height: 50, borderRadius: 25 }}
-                                                        onError={(error) => console.error('Image load error:', error)}
+                                                        source={Valu} 
+                                                        style={{ width: 32, height: 32 }}
+                                                        resizeMode="contain"
                                                     />
-                                                ) : null}
-                                            />
-                                            <Divider />
-                                        </React.Fragment>
-                                    );
-                                })
+                                                </View>
+                                            ) : (
+                                                <View style={{
+                                                    width: 56,
+                                                    height: 56,
+                                                    borderRadius: 28,
+                                                    backgroundColor: Colors.primaryColor + '10',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    marginRight: 16,
+                                                    borderWidth: 2,
+                                                    borderColor: Colors.primaryColor + '20'
+                                                }}>
+                                                    <Avatar.Icon 
+                                                        size={28} 
+                                                        icon="certificate" 
+                                                        style={{ 
+                                                            backgroundColor: Colors.primaryColor,
+                                                            elevation: 0
+                                                        }}
+                                                    />
+                                                </View>
+                                            )}
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ 
+                                                    fontSize: 10, 
+                                                    color: '#9ca3af',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: 1.2,
+                                                    fontWeight: '700',
+                                                    marginBottom: 4
+                                                }}>
+                                                    Attestation
+                                                </Text>
+                                                <Text style={{ 
+                                                    fontSize: 22, 
+                                                    fontWeight: '800', 
+                                                    color: '#111827',
+                                                    lineHeight: 28,
+                                                    letterSpacing: -0.5
+                                                }}>
+                                                    {this.state.attestationName}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        
+                                        {/* Issuer Section */}
+                                        <View style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            paddingTop: 16,
+                                            borderTopWidth: 1,
+                                            borderTopColor: '#f3f4f6'
+                                        }}>
+                                            <View style={{
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: 4,
+                                                backgroundColor: '#10b981',
+                                                marginRight: 12
+                                            }} />
+                                            <Text style={{ 
+                                                fontSize: 14, 
+                                                color: '#6b7280',
+                                                fontWeight: '500',
+                                                marginRight: 8
+                                            }}>
+                                                Issued by
+                                            </Text>
+                                            <Text style={{ 
+                                                fontSize: 14, 
+                                                color: '#111827',
+                                                fontWeight: '700',
+                                                flex: 1
+                                            }}>
+                                                {this.state.signer}
+                                            </Text>
+                                            {/* <View style={{
+                                                paddingHorizontal: 8,
+                                                paddingVertical: 4,
+                                                backgroundColor: '#10b981',
+                                                borderRadius: 6
+                                            }}>
+                                                <Text style={{
+                                                    fontSize: 10,
+                                                    color: '#ffffff',
+                                                    fontWeight: '600',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: 0.5
+                                                }}>
+                                                    Verified
+                                                </Text>
+                                            </View> */}
+                                        </View>
+                                    </View>
+                                </View>
+                            )}
+                            {this.state.attestationData && Object.keys(this.state.attestationData).length > 0 ? (
+                                <View style={{ marginTop: 8 }}>
+                                    <Text style={{ 
+                                        fontSize: 16, 
+                                        fontWeight: '600', 
+                                        color: '#1d1d1f',
+                                        marginBottom: 20,
+                                        paddingLeft: 4
+                                    }}>
+                                        Attestation Details
+                                    </Text>
+                                    <View style={{
+                                        backgroundColor: '#ffffff',
+                                        borderRadius: 16,
+                                        overflow: 'hidden',
+                                        elevation: 2,
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 2 },
+                                        shadowOpacity: 0.06,
+                                        shadowRadius: 6,
+                                        borderWidth: 1,
+                                        borderColor: '#f0f0f0'
+                                    }}>
+                                        {Object.keys(this.state.attestationData).map((request, index) => {
+                                            const item = this.state.attestationData[request];
+                                            const isLast = index === Object.keys(this.state.attestationData).length - 1;
+                                            
+                                            return (
+                                                <View key={request}>
+                                                    <View style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        paddingVertical: 16,
+                                                        paddingHorizontal: 20,
+                                                        backgroundColor: index % 2 === 0 ? '#ffffff' : '#fafbfc'
+                                                    }}>
+                                                        {item?.image ? (
+                                                            <View style={{
+                                                                width: 44,
+                                                                height: 44,
+                                                                borderRadius: 22,
+                                                                overflow: 'hidden',
+                                                                marginRight: 16,
+                                                                backgroundColor: '#f8f8f8',
+                                                                elevation: 1,
+                                                                shadowColor: '#000',
+                                                                shadowOffset: { width: 0, height: 1 },
+                                                                shadowOpacity: 0.1,
+                                                                shadowRadius: 2,
+                                                            }}>
+                                                                <Image 
+                                                                    source={{ uri: item.image }} 
+                                                                    style={{ width: '100%', height: '100%' }}
+                                                                    onError={(error) => console.error('Image load error:', error)}
+                                                                />
+                                                            </View>
+                                                        ) : (
+                                                            <View style={{
+                                                                width: 44,
+                                                                height: 44,
+                                                                borderRadius: 22,
+                                                                backgroundColor: Colors.primaryColor + '15',
+                                                                justifyContent: 'center',
+                                                                alignItems: 'center',
+                                                                marginRight: 16
+                                                            }}>
+                                                                <Avatar.Icon 
+                                                                    size={24} 
+                                                                    icon="shield-check" 
+                                                                    style={{ 
+                                                                        backgroundColor: Colors.primaryColor,
+                                                                        elevation: 0
+                                                                    }}
+                                                                />
+                                                            </View>
+                                                        )}
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={{ 
+                                                                fontSize: 11, 
+                                                                color: '#8e8e93',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: 0.8,
+                                                                fontWeight: '600',
+                                                                marginBottom: 3
+                                                            }}>
+                                                                {request}
+                                                            </Text>
+                                                            <Text style={{ 
+                                                                fontSize: 16, 
+                                                                color: '#1d1d1f',
+                                                                fontWeight: '500',
+                                                                lineHeight: 22
+                                                            }}>
+                                                                {item?.message || 'No description available'}
+                                                            </Text>
+                                                        </View>
+                                                        <View style={{
+                                                            width: 6,
+                                                            height: 6,
+                                                            borderRadius: 3,
+                                                            backgroundColor: Colors.primaryColor + '40',
+                                                            marginLeft: 12
+                                                        }} />
+                                                    </View>
+                                                    {!isLast && (
+                                                        <View style={{
+                                                            height: 1,
+                                                            backgroundColor: '#f0f0f0',
+                                                            marginLeft: 76
+                                                        }} />
+                                                    )}
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
                             ) : (
                                 <Text style={{ textAlign: 'center', padding: 20, color: Colors.secondaryColor }}>
                                     No attestation data available

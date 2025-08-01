@@ -106,6 +106,28 @@ const LoginRequestInfo = props => {
     } else setLoading(true)
   }, [sendModalType]);
 
+  // Helper function to handle authentication for unauthenticated users
+  const authenticateUser = (actionDescription) => {
+    setWaitingForSignin(true);
+    const coinObj = CoinDirectory.findCoinObj(chain_id);
+    
+    const allowList = coinObj.testnet 
+      ? accounts.filter(x => x.testnetOverrides && x.testnetOverrides[coinObj.mainnet_id] === coinObj.id)
+      : accounts.filter(x => !(x.testnetOverrides && x.testnetOverrides[coinObj.id] != null));
+
+    if (allowList.length > 0) {
+      const data = {
+        [SEND_MODAL_USER_ALLOWLIST]: allowList
+      }
+      openAuthenticateUserModal(data);
+    } else {
+      createAlert(
+        "Cannot continue",
+        `No ${coinObj.testnet ? 'testnet' : 'mainnet'} profiles found, cannot ${actionDescription}.`
+      );
+    }
+  };
+
   const buildAlert = (request) => {
     const setPermission = () => {
       const _permissions = permissions.map(permission => {
@@ -118,6 +140,25 @@ const LoginRequestInfo = props => {
     }
 
     if (request.agreed) return;
+
+    // Check if user needs to be authenticated for any action
+    const requiresAuth = request.downloadRequired || request.viewAttestation || 
+                        request.attestationToAccept || request.openProfile || request.signmessage;
+
+    if (requiresAuth && !signedIn) {
+      const actionMap = {
+        downloadRequired: 'download attestation',
+        viewAttestation: 'view attestation',
+        attestationToAccept: 'accept attestation',
+        openProfile: 'access profile data',
+        signmessage: 'sign message'
+      };
+      
+      // Find the specific action requiring authentication
+      const action = Object.keys(actionMap).find(key => request[key]);
+      authenticateUser(actionMap[action] || 'proceed');
+      return;
+    }
 
     if (request.downloadRequired && !request.downloaded) {
       // Handle download case - navigate to LoginReceiveAttestation with download URL
@@ -147,7 +188,6 @@ const LoginRequestInfo = props => {
 
     for (const [key, screenName] of Object.entries(navigationConfigs)) {
       if (request[key]) {
-        if (!signedIn) return;
         props.navigation.navigate(screenName, {
           deeplinkData,
           fromService: false,
@@ -160,7 +200,8 @@ const LoginRequestInfo = props => {
     }
 
     if (request.signmessage) {
-      if (!signedIn) return;
+      // Handle message signing logic here if needed
+      return;
     }
 
     return createAlert(

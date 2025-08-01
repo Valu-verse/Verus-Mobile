@@ -236,7 +236,6 @@ class LoginReceiveAttestation extends Component {
     }
   }
 
-
   extractMmrHash = (mmrDescriptor) => {
     try {
       return Buffer.from(mmrDescriptor.mmrRoot.objectdata).reverse().toString('hex');
@@ -435,6 +434,31 @@ class LoginReceiveAttestation extends Component {
         createAlert("Error", "Failed to save attestation. Please try again.");
       }
     });
+  };
+
+  viewAttestation = (key, data) => {
+    try {
+      // Get the complete attestation data for this specific attestation
+      const attestationData = this.state.completeAttestaton[key];
+      
+      if (!attestationData) {
+        createAlert("Error", "Attestation data not found.");
+        return;
+      }
+
+      // Navigate to ViewAttestation screen with the individual attestation data
+      this.props.navigation.navigate('ViewAttestation', {
+        attestation: {
+          data: attestationData.data,
+          signer: attestationData.signer || this.state.signerFqn,
+          name: attestationData.name || data.attestationName,
+          timestamp: attestationData.timestamp
+        }
+      });
+    } catch (error) {
+      console.error('Error opening attestation view:', error);
+      createAlert("Error", "Failed to open attestation view.");
+    }
   };
 
   render() {
