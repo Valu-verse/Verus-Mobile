@@ -25,6 +25,5 @@ export const handlePersonalDataSend = (response, redirectinfo) => {
 
 export const handleAttestationDataSend = (response, redirectinfo) => {
   const { vdxfkey, uri } = redirectinfo
-
   return handlers[vdxfkey] == null ? null : handlers[vdxfkey](uri, response);
 }

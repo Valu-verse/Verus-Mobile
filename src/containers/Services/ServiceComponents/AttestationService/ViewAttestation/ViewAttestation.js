@@ -12,6 +12,77 @@ import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { Valu } from '../../../../../images/customIcons';
 
+// Claim type constants
+const CLAIM_EMPLOYMENT = {
+  "vdxfid": "i3bgiLuaxTr6smF8q6xLG4jvvhF1mmrkM2",
+  "indexid": "x8RoB9Lfon4mVw8AgncVETGTxMG2jfebR7",
+  "hash160result": "3efffa2be6e73fd7320b7c3d035266359fa85a01",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.employment"
+  }
+};
+
+const CLAIM_ACHIEVEMENT = {
+  "vdxfid": "i51jfK8wZrKa5LgF7pkbow8hV1Hv6nBm2K",
+  "indexid": "x9qr87a2RAYEhWZGyWQknKfEWfJw51yvxx",
+  "hash160result": "75c441fa22d809f7f213ac9476e2ed8d6b3adf10",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.achievement"
+  }
+};
+
+const CLAIM_CERTIFICATION = {
+  "vdxfid": "iPkJZJiwZSJrgnmunhQPnkWsyY28tngW2W",
+  "indexid": "xUaR27A2QkXXJxeweP4Ym93R1C39mLRF52",
+  "hash160result": "3bf5d779348c057ff91cd978418dd3ef5a6c5ede",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.certification"
+  }
+};
+
+const CLAIM_EDUCATION = {
+  "vdxfid": "iJ5sikvjEbSkijSxwWQ2J197XVTzunm6kP",
+  "indexid": "xNuzBZMp5ufRLuKzoC4BGPfeZ9V1nwEu4R",
+  "hash160result": "603c2e5af4e38e6270277a80393510d53f4141a0",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.education"
+  }
+};
+
+const CLAIM_SKILL = {
+  "vdxfid": "iEpYe4cC73H7i9ay3G8geAjD1tFAhWscvj",
+  "indexid": "xKef6s3GxMVnLuKTztwnqcZFk3YGBZqbnP7",
+  "hash160result": "53c4491d3168594da785eb6e3c7bbed4cab5727c",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.skill"
+  }
+};
+
+const CLAIM_EXPERIENCE = {
+  "vdxfid": "iFqtB6XGZmuUKW3Bzongrnum4QAf25Hgfu",
+  "indexid": "xLfzdtxMR688wfvDrVSqqBSJ64BfzAv3s9",
+  "hash160result": "4570c7949267c52bfdedd9d1147d91db148fab87",
+  "qualifiedname": {
+    "namespace": "iNQFA8jtYe9JYq6Qr49ZxAhvWErFurWjTa",
+    "name": "valu.vrsc::claim.experience"
+  }
+};
+
+// Claim type lookup map using vdxfid as key
+const ClaimTypeMap = {
+  [CLAIM_EMPLOYMENT.vdxfid]: "Employment Verification",
+  [CLAIM_ACHIEVEMENT.vdxfid]: "Achievement Recognition", 
+  [CLAIM_CERTIFICATION.vdxfid]: "Professional Certification",
+  [CLAIM_EDUCATION.vdxfid]: "Educational Qualification",
+  [CLAIM_SKILL.vdxfid]: "Skill Validation",
+  [CLAIM_EXPERIENCE.vdxfid]: "Professional Experience"
+};
+
 class ViewAttestation extends Component {
     constructor(props) {
         super(props);
@@ -73,6 +144,12 @@ class ViewAttestation extends Component {
               console.error('Error processing image data:', bufferError);
             }
           }
+        } else if (mime == ""){
+            // Check if this is a known claim type using the label as vdxfid
+            const claimDescription = ClaimTypeMap[label];
+            data[key] = { 
+              "message": claimDescription || objectdata.message || "No description available" 
+            };
         }
       } catch (error) {
         console.error('Error processing data descriptor:', error);
