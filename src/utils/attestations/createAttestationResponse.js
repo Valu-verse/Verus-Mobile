@@ -1,77 +1,80 @@
-import { requestAttestationData } from "../../utils/auth/authBox";
-import { ATTESTATIONS_PROVISIONED } from "../../utils/constants/attestations";
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
-import { VdxfUniValue } from "verus-typescript-primitives";
+const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
 
-export const createAttestationResponse = async (attestationIdentifier, requiredKeys, multipleAttestations = false) => {
-
-  const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
-
+export const createAttestationResponse = async (selectionOrSelections, requiredKeys, multipleAttestations = false) => {
   if (multipleAttestations) {
-    // Handle multiple attestations - return complete AttestationPairs for each
-    if (!Array.isArray(attestationIdentifier)) {
-      throw new Error('For multiple attestations, attestationIdentifier must be an array of attestation IDs');
+    // Expect an array of selected attestation objects with a `raw` property
+    if (!Array.isArray(selectionOrSelections)) {
+      throw new Error('For multiple attestations, pass an array of selected attestations');
     }
 
     const multipleAttestationResponse = [];
 
-    for (const attestationID of attestationIdentifier) {
-      if (!attestationData[attestationID]) {
-        console.warn(`Attestation ${attestationID} not found in attestation data, skipping`);
+    for (const sel of selectionOrSelections) {
+      const raw = sel && sel.raw ? sel.raw : null;
+      if (!raw) {
+        console.warn(`Selection missing raw attestation data, skipping`);
         continue;
       }
-
-      const attestation = { ...attestationData[attestationID] };
-      
-      // For multiple attestations, keep the complete AttestationPair data
-      // No filtering of keys - send the whole attestation
-      multipleAttestationResponse.push(attestation);
+      // Keep the complete stored attestation object as-is
+      multipleAttestationResponse.push({ ...raw });
     }
 
     return multipleAttestationResponse;
-
   } else {
-    // Handle single attestation - filter specific keys
-    if (!attestationData[attestationIdentifier]) {
-      throw new Error(`Attestation not found in attestation data`);
+    // Single attestation: expect a single selection object with `raw`
+    const sel = selectionOrSelections;
+    const raw = sel && sel.raw ? sel.raw : null;
+    if (!raw) throw new Error('Selected attestation is missing raw data');
+
+    const attestation = { ...raw };
+
+    // Parse AttestationPair and convert to JSON immediately
+    let attestationDetailsJson;
+    try {
+      const attestationDetails = new AttestationPair();
+      attestationDetails.fromBuffer(Buffer.from(attestation.data, 'hex'));
+      attestationDetailsJson = attestationDetails.toJson();
+
+    } catch (e) {
+      console.error("Failed to parse AttestationPair:", e);
+      throw new Error('Failed to parse attestation data');
     }
 
-    const attestation = attestationData[attestationIdentifier];
+    const mmrDescriptor = attestationDetailsJson?.mmrdescriptor;
+    if (!mmrDescriptor || !mmrDescriptor.datadescriptors) {
+      throw new Error('No MMR descriptor or data descriptors found in attestation');
+    }
 
-    const vdxfObjects = new VdxfUniValue();
-
-    vdxfObjects.fromBuffer(Buffer.from(attestation.data, "hex"));
-
-    attestation.data = {};
-
-    vdxfObjects.toJson().forEach((item) => {
-      const key = Object.keys(item)[0];
-      const value = Object.values(item)[0];
-      attestation.data[key] = value;
-    });
-
-    const attestataionKeysToRemove = [];
-    const indexedDatadescriptor = {}
-
-    for (let i = 0; i < attestation.data.length; i++) {
-      if (Object.keys(attestation.data[i])[0] === VDXF_Data.MMRDescriptorKey.vdxfid) {
-
-        for (let j = 0; j < attestation.data[i][VDXF_Data.MMRDescriptorKey.vdxfid].datadescriptors.length; j++) {
-
-          const item = attestation.data[i][VDXF_Data.MMRDescriptorKey.vdxfid].datadescriptors[j].objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
-
-          if (requiredKeys.indexOf(item.label) === -1) {
-            attestataionKeysToRemove.push(j)
-          } else {
-            indexedDatadescriptor[j] = attestation.data[i][VDXF_Data.MMRDescriptorKey.vdxfid].datadescriptors[j];
-          }
-
+    // Filter dataDescriptors by requiredKeys if provided
+    let filteredDataDescriptors = mmrDescriptor.datadescriptors;
+    
+    if (Array.isArray(requiredKeys) && requiredKeys.length > 0) {
+      filteredDataDescriptors = mmrDescriptor.datadescriptors.filter((dataDescriptor) => {
+        try {
+          const dd = dataDescriptor?.objectdata?.[VDXF_Data.DataDescriptorKey.vdxfid];
+          const label = dd?.label;
+          return label && requiredKeys.indexOf(label) !== -1;
+        } catch (e) {
+          console.warn("Error processing dataDescriptor:", e);
+          return false;
         }
-        delete attestation.data[i][VDXF_Data.MMRDescriptorKey.vdxfid].datadescriptors
-        attestation.data[i][VDXF_Data.MMRDescriptorKey.vdxfid].datadescriptors = indexedDatadescriptor
+      });
+
+    }
+
+    // Create filtered attestation JSON with only the filtered descriptors
+    const filteredAttestationJson = {
+      ...attestationDetailsJson,
+      mmrdescriptor: {
+        ...mmrDescriptor,
+        datadescriptors: filteredDataDescriptors
       }
     };
 
+    // Return as JSON
+    attestation.data = filteredAttestationJson;
+console.log("Created attestation response:", attestation);
     return attestation;
   }
 }

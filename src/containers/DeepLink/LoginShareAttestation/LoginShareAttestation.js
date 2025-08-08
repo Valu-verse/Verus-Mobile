@@ -19,6 +19,7 @@ import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { at } from "lodash";
 const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
+const { RequestInformation } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest");
 
 class LoginShareAttestation extends Component {
   constructor(props) {
@@ -53,185 +54,150 @@ class LoginShareAttestation extends Component {
 
   createAttestationReply = async () => {
     if (this.state.multipleAttestations) {
-      // For multiple attestations, send all selected attestation IDs and no key filtering
-      const attestationIds = this.state.selectedAttestations.map(attestation => attestation.id);
-      const reply = await createAttestationResponse(attestationIds, null, true);
+      // For multiple attestations, send all selected attestation objects as-is
+      const reply = await createAttestationResponse(this.state.selectedAttestations, null, true);
       return reply;
     } else {
-      // For single attestation, send single ID with key filtering
-      const reply = await createAttestationResponse(this.state.attestationID, this.state.attestationRequestedVdxfKeys, false);
+      // For single attestation, send the selected attestation object with key filtering
+
+      const selection = this.state.selectedAttestations && this.state.selectedAttestations[0];
+      const reply = await createAttestationResponse(selection, this.state.attestationRequestedVdxfKeys, false);
       return reply;
     }
   }
 
   /**
-   * Parse login consent request and extract attestation requirements
+   * Parse login consent request for ATTESTATION_READ_REQUEST and webhook URL
    */
   parseLoginConsentRequest = (deeplinkData) => {
     const loginConsent = new primitives.LoginConsentRequest(deeplinkData);
-    
-    let attestationName = "";
-    let attestationAcceptedAttestors = [];
-    let attestationAcceptedAttestorsFqns = [];
-    let requestedKey = "";
-    let multipleAttestations = false;
-    const subjectKeys = {};
 
-    const attestationDataURL = loginConsent.challenge.subject
-      .filter((permission) => permission.vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid);
- 
+    // Optional webhook URL
+    const webhookSubject = loginConsent.challenge.subject
+      .find((permission) => permission.vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid);
+    const attestationDataURL = webhookSubject ? { vdxfkey: webhookSubject.vdxfkey, uri: webhookSubject.data } : null;
 
-    // Check for multiple attestations flag in requested_access
-    for (const access of loginConsent.challenge.requested_access) {
-      if (access.vdxfkey === primitives.ATTESTATION_VIEW_REQUEST_MULTIPLEATTESTATIONS?.vdxfid) {
-        multipleAttestations = true;
-        break;
-      }
+    // Required ATTESTATION_READ_REQUEST
+    const readReqSubject = loginConsent.challenge.subject
+      .find((permission) => permission.vdxfkey === primitives.ATTESTATION_READ_REQUEST.vdxfid);
+
+    if (!readReqSubject) {
+      throw new Error("Missing ATTESTATION_READ_REQUEST in login consent subject");
     }
 
-    // Parse each permission in the subject
-    for (const permission of loginConsent.challenge.subject) {
-      if (permission.vdxfkey === primitives.ATTESTATION_VIEW_REQUEST_NAME.vdxfid) {
-        attestationName = permission.data;
-      } else if (permission.vdxfkey === primitives.ATTESTATION_VIEW_REQUEST_KEY?.vdxfid) {
-        requestedKey = permission.data;
-      } else if (permission.vdxfkey === primitives.ATTESTATION_VIEW_REQUEST_ATTESTOR.vdxfid) {
-        // This will be processed separately due to async nature
-        continue;
-      } else {
-        subjectKeys[permission.data] = true;
-      }
-    }
+    // Constructor requires a data object; then we overwrite with fromBuffer
+    const infoReq = new RequestInformation({ version: RequestInformation.DEFAULT_VERSION, items: [] });
 
-    return {
-      loginConsent,
-      attestationName,
-      requestedKey,
-      multipleAttestations,
-      subjectKeys,
-      attestationDataURL: attestationDataURL.length > 0 ? 
-        { vdxfkey: attestationDataURL[0].vdxfkey, uri: attestationDataURL[0].data } : null
-    };
+    infoReq.fromBuffer(Buffer.from(readReqSubject.data, 'base64'));
+    return { loginConsent, attestationDataURL, infoRequest: infoReq };
   };
 
   /**
-   * Process attestor permissions and get their friendly names
+   * Resolve signer FQNs for display
    */
-  processAttestors = async (loginConsent) => {
-    const attestationAcceptedAttestors = [];
-    const attestationAcceptedAttestorsFqns = [];
-
-    for (const permission of loginConsent.challenge.subject) {
-      if (permission.vdxfkey === primitives.ATTESTATION_VIEW_REQUEST_ATTESTOR.vdxfid) {
-        try {
-          const reply = await getIdentity(loginConsent.system_id, permission.data);
-          const attestorFqn = reply.result.friendlyname;
-          const attestorIdentityAddress = reply.result.identity.identityaddress;
-
-          attestationAcceptedAttestors.push(attestorIdentityAddress);
-          attestationAcceptedAttestorsFqns.push(attestorFqn);
-        } catch (e) {
-          console.log("Error getting attestation signer ", e);
-          throw new Error(`Failed to get attestor info: ${e.message}`);
-        }
+  resolveSignerFqns = async (system_id, signerIds = []) => {
+    const unique = Array.from(new Set(signerIds.filter(Boolean)));
+    const fqnList = [];
+    for (const signer of unique) {
+      try {
+        const reply = await getIdentity(system_id, signer);
+        fqnList.push(reply.result.friendlyname);
+      } catch (e) {
+        console.log("Error getting signer FQN", e);
       }
     }
-
-    return { attestationAcceptedAttestors, attestationAcceptedAttestorsFqns };
-  };
+    return fqnList;
+  }
 
   /**
-   * Parse a single attestation and check if it matches criteria
+   * Find attestations matching a RequestItem (by id key/value and signer)
    */
-  parseAttestation = (attestationBuffer, attestationId, criteria) => {
-    const { attestationName, requestedKey, subjectKeys, attestationAcceptedAttestors } = criteria;
-
-    try {
-      const attestationDetails = new AttestationPair();
-      attestationDetails.fromBuffer(Buffer.from(attestationBuffer.data, "hex"));
-
-      if (!attestationDetails || !attestationDetails.mmrDescriptor) {
-        console.warn("Invalid attestation details for attestation", attestationId);
-        return null;
-      }
-
-      const mmrDescriptor = attestationDetails.mmrDescriptor;
-      const signatureData = attestationDetails.signatureData;
-
-      // Check if the signer matches accepted attestors
-      if (attestationAcceptedAttestors.indexOf(signatureData.identity_ID) === -1) {
-        return null;
-      }
-
-      let hasMatchingName = false;
-      let hasRequestedKey = false;
-      let currentAttestationFields = [];
-
-      // Process data descriptors
-      for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
-        const item = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
-
-        // Check for attestation name match (Scenario 1)
-        if (item.label === primitives.ATTESTATION_NAME.vdxfid) {
-          if (attestationName && item.objectdata.message === attestationName) {
-            hasMatchingName = true;
-          }
-        }
-
-        // Check for requested key match (Scenario 2)
-        if (requestedKey && item.label === requestedKey) {
-          hasRequestedKey = true;
-        }
-
-        // Collect fields that match subject keys
-        if (subjectKeys[item.label]) {
-          const name = IdentityVdxfidMap[item.label]?.EN || item.label;
-          currentAttestationFields.push(name);
-        }
-      }
-
-      // Determine if this attestation matches criteria
-      const matchesCriteria = attestationName ? 
-        (hasMatchingName && currentAttestationFields.length > 0) : // Scenario 1: name-based
-        (hasRequestedKey); // Scenario 2: key-based
-
-      if (matchesCriteria) {
-        return {
-          fields: currentAttestationFields,
-          id: attestationId,
-          attestationDetails: attestationDetails,
-          name: attestationBuffer.name || "Unknown Attestation" // Add the name from the attestation object
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Error parsing attestation data for ID', attestationId, ':', error);
-      return null;
-    }
-  };
-  /**
-   * Find attestations that match the criteria
-   */
-  findMatchingAttestations = (attestationData, criteria) => {
-    const matchingAttestations = [];
+  findMatchesForRequestItem = (requestItem, attestationData) => {
+    const matches = [];
     const attestationDataKeys = Object.keys(attestationData);
     const attestationDataValues = Object.values(attestationData);
 
-    for (let i = 0; i < attestationDataKeys.length; i++) {
-      const parsedAttestation = this.parseAttestation(
-        attestationDataValues[i], 
-        attestationDataKeys[i], 
-        criteria
-      );
+    // id is an object with key/value pairs we need to match to datadescriptors
+    const idKeys = Object.keys(requestItem.id || {});
+    if (idKeys.length === 0) return matches;
 
-      if (parsedAttestation) {
-        matchingAttestations.push(parsedAttestation);
+    // Check if this is a COLLECTION request (format & 4)
+    const format = requestItem.format?.toNumber ? requestItem.format.toNumber() : requestItem.format;
+    const isCollection = (format & 4) !== 0; // COLLECTION
+
+    for (let i = 0; i < attestationDataKeys.length; i++) {
+      const attestationId = attestationDataKeys[i];
+      const att = attestationDataValues[i];
+      try {
+        const attestationDetails = new AttestationPair();
+        attestationDetails.fromBuffer(Buffer.from(att.data, 'hex'));
+        if (!attestationDetails || !attestationDetails.mmrDescriptor) continue;
+
+        const signatureData = attestationDetails.signatureData;
+        // Signer must match
+        if (requestItem.signer && signatureData.identity_ID !== requestItem.signer) continue;
+
+        // For COLLECTION, check if ANY of the id keys/values match
+        // For non-COLLECTION, check if ALL id keys/values match (original behavior)
+        let matchFound = false;
+        let matchingDescriptors = [];
+
+        if (isCollection) {
+          // COLLECTION: Match any of the id keys/values
+          for (const idKey of idKeys) {
+            const idValue = requestItem.id[idKey];
+            
+            for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
+              const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
+              
+              // Match by key only (when value is empty string) or by key-value pair
+              const keyMatches = dd?.label === idKey;
+              const valueMatches = idValue === "" || dd?.objectdata?.message === idValue;
+              
+              if (keyMatches && valueMatches) {
+                matchFound = true;
+                matchingDescriptors.push(dataDescriptor);
+                break; // Found match for this id key, move to next
+              }
+            }
+          }
+        } else {
+          // Non-COLLECTION: Original behavior - match first key/value pair
+          const idKey = idKeys[0];
+          const idValue = requestItem.id[idKey];
+          
+          for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
+            const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
+            if (dd?.label === idKey && dd?.objectdata?.message === idValue) {
+              matchFound = true;
+              break;
+            }
+          }
+        }
+
+        if (!matchFound) continue;
+
+        // Build fields list for UI: if PARTIAL, map requestedkeys; otherwise show whole attestation
+        const isPartial = (format & 2) !== 0; // RequestedFormatFlags.PARTIAL_DATA
+        const fields = isPartial && Array.isArray(requestItem.requestedkeys) && requestItem.requestedkeys.length > 0
+          ? requestItem.requestedkeys.map((k) => IdentityVdxfidMap[k]?.EN || k)
+          : ["Full attestation"];
+
+        matches.push({
+          id: attestationId,
+          name: att?.name || "Attestation",
+          fields,
+          attestationDetails,
+          raw: att, // keep the original stored attestation object for sending later
+          matchingDescriptors: isCollection ? matchingDescriptors : undefined, // Store which descriptors matched for COLLECTION
+        });
+      } catch (e) {
+        console.warn('Error parsing attestation while matching request item', e);
       }
     }
 
-    return matchingAttestations;
-  };
+    return matches;
+  }
 
   /**
    * Select the best attestation(s) based on height and scenario
@@ -257,8 +223,7 @@ class LoginShareAttestation extends Component {
           ...attestation,
           height: sigInfo.height
         });
-
-        console.log(`Attestation ${attestation.id} height: ${sigInfo.height}`);
+     
       } catch (error) {
         console.error(`Error getting height for attestation ${attestation.id}:`, error);
         // Skip attestations we can't get height for
@@ -274,7 +239,7 @@ class LoginShareAttestation extends Component {
 
     if (multipleAttestations) {
       // Scenario 2: Return all matching attestations
-      console.log(`Selected ${attestationsWithHeights.length} attestations for multiple attestation request`);
+   
          return {
         attestationRequestedFields: [], // Not used in multiple attestation scenario
         attestationID: "", // Not used in multiple attestation scenario
@@ -283,7 +248,7 @@ class LoginShareAttestation extends Component {
     } else {
       // Scenario 1: Return only the newest (highest height) attestation
       const bestAttestation = attestationsWithHeights[0];
-      console.log(`Selected attestation ${bestAttestation.id} with height ${bestAttestation.height}`);
+
       return {
         attestationRequestedFields: bestAttestation.fields,
         attestationID: bestAttestation.id,
@@ -295,25 +260,14 @@ class LoginShareAttestation extends Component {
 
 
   /**
-   * Main function to update display state based on deeplink data
+  * Main function to update display state based on deeplink data (new Subject flow)
    */
   updateDisplay = async () => {
     try {
       const { deeplinkData } = this.props.route.params;
 
-      // Parse the login consent request
-      const {
-        loginConsent,
-        attestationName,
-        requestedKey,
-        multipleAttestations,
-        subjectKeys,
-        attestationDataURL
-      } = this.parseLoginConsentRequest(deeplinkData);
-
-      // Process attestors
-      const { attestationAcceptedAttestors, attestationAcceptedAttestorsFqns } = 
-        await this.processAttestors(loginConsent);
+    // Parse the login consent request (new model)
+    const { loginConsent, attestationDataURL, infoRequest } = this.parseLoginConsentRequest(deeplinkData);
 
       // Load attestation data
       let attestationData;
@@ -324,41 +278,100 @@ class LoginShareAttestation extends Component {
         return;
       }
 
-      // Find matching attestations
-      const criteria = {
-        attestationName,
-        requestedKey,
-        subjectKeys,
-        attestationAcceptedAttestors
-      };
+      // Process RequestInformation items
+      let allSelected = [];
+      let singleSelected = null;
+      let isMultiple = false;
+      let singleRequestedKeys = [];
+      const signerIds = [];
 
-      const matchingAttestations = this.findMatchingAttestations(attestationData, criteria);
+      for (const item of infoRequest.items || []) {
+        // Determine if COLLECTION flag is set -> multiple; otherwise single
+        const format = item.format?.toNumber ? item.format.toNumber() : item.format;
+        const wantsCollection = (format & 4) !== 0; // COLLECTION
+        const isPartial = (format & 2) !== 0; // PARTIAL
 
-      // Select the best attestation(s) based on scenario
-      const { attestationRequestedFields, attestationID, selectedAttestations } = 
-        await this.selectBestAttestations(matchingAttestations, multipleAttestations);
+        // Find matches for this item
+        const matches = this.findMatchesForRequestItem(item, attestationData);
+        if (matches.length === 0) continue;
 
-      // Get requested VDXF keys for the response
-      const attestationRequestedVdxfKeys = loginConsent.challenge.subject
-        .map((permission) => permission.data);
+        // Collect signer for display
+        if (item.signer) signerIds.push(item.signer);
 
-      // Update component state
-      this.setState({
-        attestationRequestedFields,
-        attestationAcceptedAttestors,
-        attestationAcceptedAttestorsFqns,
-        attestationName,
-        attestationID,
-        attestationDataURL,
-        attestationRequestedVdxfKeys,
-        multipleAttestations,
-        selectedAttestations, // Store all selected attestations for scenario 2
-        requestedKey
-      });
+        // Choose best/newest or all, and annotate heights
+        const { attestationRequestedFields, attestationID, selectedAttestations } =
+          await this.selectBestAttestations(matches, wantsCollection);
+
+        if (wantsCollection) {
+          isMultiple = true;
+          allSelected = allSelected.concat(selectedAttestations);
+        } else {
+          // Single selection; per requirements, single case is for PARTIAL only
+          if (!isPartial) {
+            // If not partial, treat as collection of full attestation per requirements
+            isMultiple = true;
+            allSelected = allSelected.concat(selectedAttestations);
+          } else {
+            singleSelected = { attestationRequestedFields, attestationID, selectedAttestations };
+            singleRequestedKeys = Array.isArray(item.requestedkeys) ? item.requestedkeys : [];
+          }
+        }
+      }
+
+      // Resolve signer FQNs for display (first only shown in UI)
+      const attestationAcceptedAttestorsFqns = await this.resolveSignerFqns(loginConsent.system_id, signerIds);
+
+      // Update component state based on resolved selections
+      if (isMultiple) {
+        this.setState({
+          attestationRequestedFields: [],
+          attestationAcceptedAttestors: signerIds,
+          attestationAcceptedAttestorsFqns,
+          attestationName: '',
+          attestationID: '',
+          attestationDataURL,
+          attestationRequestedVdxfKeys: [],
+          multipleAttestations: true,
+          selectedAttestations: allSelected,
+          requestedKey: ''
+        });
+      } else if (singleSelected) {
+        // Populate attestation name for header
+        const selected = singleSelected.selectedAttestations?.[0];
+        const attestationName = selected?.name || '';
+        this.setState({
+          attestationRequestedFields: singleSelected.attestationRequestedFields,
+          attestationAcceptedAttestors: signerIds,
+          attestationAcceptedAttestorsFqns,
+          attestationName,
+          attestationID: singleSelected.attestationID,
+          attestationDataURL,
+          attestationRequestedVdxfKeys: singleRequestedKeys,
+          multipleAttestations: false,
+          selectedAttestations: singleSelected.selectedAttestations,
+          requestedKey: ''
+        });
+      } else {
+        throw new Error('No matching attestations found for the request');
+      }
 
     } catch (error) {
       console.error('Error in updateDisplay:', error);
-      createAlert('Error', `Failed to process attestation request: ${error.message}`);
+      createAlert(
+        'Error',
+        `Failed to process attestation request: ${error.message}` +
+          `\n\nMake sure your attestation is in this profile.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              resolveAlert();
+              this.props.navigation.goBack();
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     }
   }
 
