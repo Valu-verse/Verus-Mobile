@@ -120,6 +120,7 @@ class LoginReceiveAttestation extends Component {
         // Extract attestation name and MMR hash
         const attestationName = isValid ? this.extractAttestationName(recreatedPair.mmrDescriptor) : null;
         const mmrHash = this.extractMmrHash(recreatedPair.mmrDescriptor);
+        const extractedId = this.extractAttestationId(recreatedPair.mmrDescriptor);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -129,7 +130,8 @@ class LoginReceiveAttestation extends Component {
           timestamp: downloadedAttestations.timestamp || Date.now(),
           index: index,
           identityId: recreatedPair.signatureData.identity_ID,
-          systemId: recreatedPair.signatureData.system_ID
+          systemId: recreatedPair.signatureData.system_ID,
+          internal_id: extractedId
         };
 
         // Store complete attestation object if valid
@@ -264,6 +266,25 @@ class LoginReceiveAttestation extends Component {
     return null;
   }
 
+  extractAttestationId = (mmrDescriptor) => {
+    try {
+      const attestationItems = mmrDescriptor.dataDescriptors;
+      const attestationDataDescriptors = attestationItems.map((dataDescriptor) => dataDescriptor.toJson().objectdata);
+
+      const nameDescriptor = attestationDataDescriptors.find((dataDescriptor) =>
+        dataDescriptor[DataDescriptorKey.vdxfid].label === 'i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ' // CLAIM_ID
+      );
+
+      if (nameDescriptor && nameDescriptor[DataDescriptorKey.vdxfid]) {
+        return nameDescriptor[DataDescriptorKey.vdxfid].objectdata.message;
+      }
+    } catch (error) {
+      console.warn('Error extracting attestation id:', error);
+      return null;
+    }
+    return null;
+  }
+
   validateAttestation = async (signatureData, mmrData) => {
 
     const sigInfo = await getSignatureInfo(
@@ -362,6 +383,8 @@ class LoginReceiveAttestation extends Component {
           attestationName = extractedName;
         }
 
+        const extractedId = this.extractAttestationId(mmrData);
+
         // Generate MMR hash using helper method
         const mmrHash = this.extractMmrHash(mmrData);
 
@@ -389,7 +412,8 @@ class LoginReceiveAttestation extends Component {
           data: attestationPair.toBuffer().toString('hex'),
           timestamp: attestationDetails.timestamp ? attestationDetails.timestamp.toNumber() : Date.now(),
           id: attestationDetails.id || undefined,
-          validated: true
+          validated: true,
+          internal_id: extractedId
         };
       }
 
