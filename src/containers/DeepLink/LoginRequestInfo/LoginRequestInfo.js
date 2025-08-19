@@ -36,6 +36,9 @@ const LoginRequestInfo = props => {
   const sendModalType = useSelector(state => state.sendModal.type)
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
+  
+  const { system_id, signing_id, challenge } = req
+  const chain_id = getSystemNameFromSystemId(system_id)
   const rootSystemAdded = useSelector(
     state =>
       state.coins.activeCoinsForUser &&
@@ -49,8 +52,6 @@ const LoginRequestInfo = props => {
   
   const dispatch = useDispatch()
   const { height } = Dimensions.get('window');
-  const { system_id, signing_id, challenge } = req
-  const chain_id = getSystemNameFromSystemId(system_id)
   const isTestnet = activeAccount ? Object.keys(activeAccount.testnetOverrides).length > 0 : false;
 
   const getVerusId = async (chain, iAddrOrName) => {

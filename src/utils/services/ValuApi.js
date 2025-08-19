@@ -194,4 +194,8 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.getOffRampURL(payload);
   } 
 
+  authenticateRegisteredUser = async () => {
+    return await this.service.authenticateRegisteredUser();
+  }
+
 }

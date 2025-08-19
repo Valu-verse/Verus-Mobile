@@ -370,7 +370,13 @@ class ValuService {
       return oneTimeService.get("/widget/supportedCountries");
     });
   };
-}
+
+  authenticateRegisteredUser = async (email, password) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post("/authenticateRegisteredUser");
+    });
+  }
+  }
 
 
 export default ValuService;

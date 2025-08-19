@@ -124,12 +124,27 @@ const ValuAttestation = ({ props } = props) => {
     }, []);
 
     const checkAccountCreationStatus = async () => {
-        if (!valuAuthenticated) {
+
+        // First, try to authenticate with registered user
+        try {
+            const authResult = await ValuProvider.authenticateRegisteredUser();
+            
+            // If authentication is successful, user is already authenticated
+            if (authResult.success) {
+                console.log("User already authenticated with registered credentials");
+                return;
+            }
+        } catch (error) {
+            console.log("Registered user authentication failed:", error.message);
+        }
+
+        // If registered user authentication fails or user not authenticated, use fallback authentication
+  
             ValuProvider.reset();
             const seed = (await requestSeeds())[VALU_SERVICE];
             if (seed == null) throw new Error("No Valu seed present");
-            await ValuProvider.authenticate(seed);
-        }
+            await ValuProvider.authenticate(seed, true);
+        
     }
 
     const initAccountStatus = async () => {
