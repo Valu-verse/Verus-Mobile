@@ -10,6 +10,7 @@ import ViewAttestation from '../../Services/ServiceComponents/AttestationService
 import ValuAttestation from '../../Services/ServiceComponents/ValuService/ValuAttestation/ValuAttestation';
 import ValuOnRampChooseSource from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRampChooseSource';
 import ValuAttestationAccept from '../../Services/ServiceComponents/ValuService/ValuAttestationAccept/ValuAttestationAccept';
+import ValuChooseIdentity from '../../Services/ServiceComponents/ValuService/ValuChooseIdentity/ValuChooseIdentity';
 
 const ServicesStack = createStackNavigator();
 
@@ -73,6 +74,13 @@ const ServicesStackScreens = props => {
         component={ValuAttestationAccept}
         options={{
           title: "Accept KYC Attestation",
+        }}
+      />
+      <ServicesStack.Screen
+        name="ValuChooseIdentity"
+        component={ValuChooseIdentity}
+        options={{
+          title: "Choose Identity",
         }}
       />
     </ServicesStack.Navigator>

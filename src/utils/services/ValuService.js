@@ -196,9 +196,9 @@ class ValuService {
     });
   };
 
-  getValuIdDeepLink = async (valuId) => {
+  getValuIdDeepLink = async (payload = {}) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/valu-id-deeplink`,valuId);
+      return this.service.post(`${this.url}/valu-id-deeplink`, payload);
     });
   };
 
@@ -374,6 +374,14 @@ class ValuService {
   authenticateRegisteredUser = async (email, password) => {
     return await ValuService.formatCall(() => {
       return this.service.post("/authenticateRegisteredUser");
+    });
+  }
+
+  checkIdentityAvailable = async (identityName) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/check-identity-available`, {
+        identityName: identityName
+      });
     });
   }
   }

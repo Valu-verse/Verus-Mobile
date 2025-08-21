@@ -181,9 +181,9 @@ updateTaxCountry() {
   render() {
 
     if (this.state.subScreen == "attestation")
-      return (<ValuAttestation props={this.props} />);
+      return (<ValuAttestation {...this.props} />);
     if (this.state.subScreen == "ValuOffRampReview")
-      return (<ValuOffRampReview navigation={this.props.navigation} props={this.props} />);
+      return (<ValuOffRampReview {...this.props} />);
     else if (this.state.subScreen == "onOffRamp")
       return (
         <SafeAreaView style={Styles.defaultRoot}>
@@ -295,16 +295,14 @@ updateTaxCountry() {
         </SafeAreaView>);
     else if (this.state.subScreen == "onRamp")
       return (<ValuOnRampChooseSource 
-        navigation={this.props.navigation} 
-        props={this.props}
+        {...this.props}
         setSubScreen={this.setSubScreen}
       />);
     else if (this.state.subScreen == "offRamp")
-      return (<ValuOffRampChooseSource navigation={this.props.navigation} props={this.props}/>);
+      return (<ValuOffRampChooseSource {...this.props}/>);
     else if (this.state.subScreen == "attestationAccept")
       return (<ValuAttestationAccept 
-        navigation={this.props.navigation} 
-        props={this.props}
+        {...this.props}
         route={{ params: this.state.subScreenData || {} }}
         setSubScreen={this.setSubScreen}
       />);

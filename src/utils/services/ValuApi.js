@@ -32,6 +32,7 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
         getValuAttestationStatus: async (payload) => this.getValuAttestationStatus(payload),
         getOnRampOptions: async (payload) => this.getOnRampOptions(payload),
         getOnRampURL: async (payload) => this.getOnRampURL(payload),
+        checkIdentityAvailable: async (payload) => this.checkIdentityAvailable(payload),
     });
 
     this.service = ValuService.build();
@@ -170,8 +171,8 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.getAttestationPaymentURL();
   }
 
-  getValuIdDeepLink = async () => { 
-    return await this.service.getValuIdDeepLink();
+  getValuIdDeepLink = async (payload = {}) => { 
+    return await this.service.getValuIdDeepLink(payload);
   }
 
   getValuAttestationStatus = async () => {
@@ -196,6 +197,10 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
 
   authenticateRegisteredUser = async () => {
     return await this.service.authenticateRegisteredUser();
+  }
+
+  checkIdentityAvailable = async (identityName) => {
+    return await this.service.checkIdentityAvailable(identityName);
   }
 
 }
