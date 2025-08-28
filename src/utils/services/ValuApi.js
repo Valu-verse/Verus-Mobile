@@ -66,7 +66,10 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     if (authenticated && !reauthenticate)
       return { apiKey: this.apiKey, authenticatedAs: this.accountId };
     
-    const res = await this.service.submitAuthToken(key);
+    const isTestnet = Object.keys(Store.getState().authentication.activeAccount.testnetOverrides).length > 0;
+    const system = isTestnet ? "VRSCTEST" : "VRSC";
+
+    const res = await this.service.submitAuthToken(key, system);
 
     this.bearerToken = key;
     this.apiKey = res.apiKey;

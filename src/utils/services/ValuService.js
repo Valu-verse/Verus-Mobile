@@ -149,10 +149,11 @@ class ValuService {
     }
   }
 
-  submitAuthToken = async (secretKey) => {
+  submitAuthToken = async (secretKey, network) => {
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/sessions/auth/key`, {
         secretKey,
+        network,
       });
     });
   };
