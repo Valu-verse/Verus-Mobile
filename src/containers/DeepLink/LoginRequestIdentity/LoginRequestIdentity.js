@@ -59,7 +59,7 @@ const LoginRequestIdentity = props => {
     setCanProvision(canProvision)
 
     // Automatically open provision identity modal if canProvision is true
-    if (canProvision) {
+    if (canProvision && !passthrough && !passthrough.fqnToAutoLink) {
       openProvisionIdentityModalFromChain();
     }
   }, [linkedIds])
