@@ -1,6 +1,6 @@
 import { fromBase58Check } from "@bitgo/utxo-lib/dist/src/address";
 import React, { useState, useEffect } from "react";
-import {useSelector} from 'react-redux';
+import { useSelector } from 'react-redux';
 import { primitives } from "verusid-ts-client";
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
 import { getIdentity } from "../../../../utils/api/channels/verusid/callCreators";
@@ -52,18 +52,17 @@ const ProvisionIdentityForm = (props) => {
   useEffect(() => {
     const updateProvisioningInfoProcessedData = async () => {
       if (!hasProvisioningInfo) return;
-  
+
       const findProvisioningInfo = (key) =>
         sendModal.data.request.challenge.provisioning_info.find(
           (x) => x.vdxfkey === key.vdxfid
         );
-  
+
       const provAddress = findProvisioningInfo(primitives.ID_ADDRESS_VDXF_KEY);
       const provSystemId = findProvisioningInfo(primitives.ID_SYSTEMID_VDXF_KEY);
       const provFqn = findProvisioningInfo(primitives.ID_FULLYQUALIFIEDNAME_VDXF_KEY);
       const provParent = findProvisioningInfo(primitives.ID_PARENT_VDXF_KEY);
       const provWebhook = findProvisioningInfo(primitives.LOGIN_CONSENT_ID_PROVISIONING_WEBHOOK_VDXF_KEY);
-  
       setState((currentState) => ({
         ...currentState,
         provAddress,
@@ -75,14 +74,14 @@ const ProvisionIdentityForm = (props) => {
     };
     const initializeState = async () => {
       await updateProvisioningInfoProcessedData();
-    
+
       setState((currentState) => {
         const provIdKey = currentState.provAddress || currentState.provFqn || null;
-    
+
         const identitykeys = provIdKey == null ? [] : [provIdKey];
         if (currentState.provParent) identitykeys.push(currentState.provParent);
         if (currentState.provSystemId) identitykeys.push(currentState.provSystemId);
-    
+
         const fetchIdentities = async () => {
           let friendlyNameMap = currentState.friendlyNameMap;
           let assignedIdentity = null;
@@ -91,48 +90,69 @@ const ProvisionIdentityForm = (props) => {
           for (const idKey of identitykeys) {
             if (idKey != null) {
               const identity = await getIdentity(sendModal.coinObj.system_id, idKey.data);
-    
+
               if (identity.result) {
                 friendlyNameMap[identity.result.identity.identityaddress] =
                   identity.result.identity.name;
-    
+
                 if (provIdKey != null && idKey.data === provIdKey.data) {
                   assignedIdentity = identity.result.identity.identityaddress;
                   props.updateSendFormData(
                     SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
                     identity.result.identity.name
                   );
-
                 }
                 if (idKey.vdxfkey === primitives.ID_PARENT_VDXF_KEY.vdxfid) {
-                   parentname = `.${identity.result.fullyqualifiedname}`
-                } 
+                  parentname = `.${identity.result.fullyqualifiedname}`
+                }
+              } else if (provIdKey != null && idKey.data === provIdKey.data && currentState.provFqn) {
+                // Handle case where provFqn lookup fails but we want to pre-populate
+                if (currentState.provAddress && currentState.provFqn) {
+                  assignedIdentity = currentState.provAddress.data;
+
+                  // Extract the name part from the FQN (e.g., "ted" from "ted.someid@")
+                  const fqnString = currentState.provFqn.data;
+                  const nameMatch = fqnString.match(/^([^.@]+)/);
+                  if (nameMatch) {
+                    // Add to friendly name map
+                    friendlyNameMap[currentState.provAddress.data] = nameMatch[1];
+                    
+                    props.updateSendFormData(
+                      SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
+                      nameMatch[1]
+                    );
+                  }
+                } else if (currentState.provFqn && !currentState.provAddress) {
+                  throw new Error('Deeplink does not contain iaddress or name for provisioning of a potential ID.');
+                } else if (currentState.provAddress && !currentState.provFqn) {
+                  throw new Error('Deeplink does not contain iaddress or name for provisioning of a potential ID.');
+                }
               }
             }
           }
-    
+
           return { friendlyNameMap, assignedIdentity, parentname };
         };
-    
+
         fetchIdentities().then(({ parentname, friendlyNameMap, assignedIdentity }) => {
           setState({ ...currentState, friendlyNameMap, assignedIdentity, loading: false, parentname });
         });
-    
+
         return { ...currentState, loading: true };
       });
     };
-    
-    initializeState();    
-  }, []);  
-  
+
+    initializeState();
+  }, []);
+
   const formHasError = () => {
     const identity = sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]?.trim() || '';
-  
+
     if (!identity) {
       createAlert('Required Field', 'Identity is a required field.');
       return true;
     }
-  
+
     try {
       fromBase58Check(identity);
       if (state.parentname) {
@@ -152,15 +172,15 @@ const ProvisionIdentityForm = (props) => {
         return true;
       }
     }
-  
+
     return false;
   };
 
   const submitData = async () => {
     if (formHasError()) return;
-  
+
     props.setLoading(true);
-  
+
     const { coinObj, data } = sendModal;
     const identity = data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD];
 
@@ -168,19 +188,19 @@ const ProvisionIdentityForm = (props) => {
 
     try {
       formattedId = fromBase58Check(identity);
-    } catch(e) {
+    } catch (e) {
       formattedId = state.parentname ? `${identity}${state.parentname}` : `${identity}@`;
     }
 
     try {
       const res = await getIdentity(coinObj.system_id, formattedId);
-  
+
       if (res.error && res.error.code !== -5) {
         throw new Error(res.error.message);
       } else if (!state.assignedIdentity && !res.error && res.result != null) {
         throw new Error('Identity name taken, please select a different name');
       }
-  
+
       props.setModalHeight(height >= 496 ? 520 : height - 24);
 
       props.setModalHeight(height >= 496 ? 520 : height - 24);
@@ -197,7 +217,7 @@ const ProvisionIdentityForm = (props) => {
     } catch (e) {
       Alert.alert('Error', e.message);
     }
-  
+
     props.setLoading(false);
   };
 
@@ -214,36 +234,35 @@ const ProvisionIdentityForm = (props) => {
         }}
       >
         <View style={Styles.wideBlock}>
-        <TextInput
-          returnKeyType="done"
-          label={state.parentname ? "VerusID name" : "i-Address or VerusID name"}
-          value={state.assignedIdentity
-            ? state.friendlyNameMap[state.assignedIdentity]
-              ? `${state.friendlyNameMap[state.assignedIdentity]}`
-              : state.assignedIdentity
-            : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]}
-          mode="outlined"
-          disabled={state.assignedIdentity != null || state.loading}
-          onChangeText={text => {
-            if (state.assignedIdentity == null && !text.endsWith("@")) {
-              props.updateSendFormData(
-                SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
-                text
-              );
-            }
-          }}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-         <Paragraph style={{color: "grey"}}>{"Your Fully qualified name will be: \n\n"}{
+          <TextInput
+            returnKeyType="done"
+            label={state.parentname ? "VerusID name" : "i-Address or VerusID name"}
+            value={state.assignedIdentity
+              ? state.friendlyNameMap[state.assignedIdentity]
+                ? `${state.friendlyNameMap[state.assignedIdentity]}`
+                : state.assignedIdentity
+              : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]}
+            mode="outlined"
+            disabled={state.assignedIdentity != null || state.loading}
+            onChangeText={text => {
+              if (state.assignedIdentity == null && !text.endsWith("@")) {
+                props.updateSendFormData(
+                  SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
+                  text
+                );
+              }
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Paragraph style={{ color: "grey" }}>{"Your Fully qualified name will be: \n\n"}{
             state.assignedIdentity
-            ? state.friendlyNameMap[state.assignedIdentity]
-              ? `${
-                  state.friendlyNameMap[state.assignedIdentity]
+              ? state.friendlyNameMap[state.assignedIdentity]
+                ? `${state.friendlyNameMap[state.assignedIdentity]
                 }`
-              : state.assignedIdentity
-            : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]
-          }{state.parentname}</Paragraph> 
+                : state.assignedIdentity
+              : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]
+          }{state.parentname}</Paragraph>
         </View>
         <View style={{ ...Styles.wideBlock, paddingTop: 0 }}>
           <Button mode="contained" onPress={() => submitData()} disabled={state.loading}>

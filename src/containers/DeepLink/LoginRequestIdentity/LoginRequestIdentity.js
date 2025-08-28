@@ -55,7 +55,13 @@ const LoginRequestIdentity = props => {
         }
       }
     }
+
     setCanProvision(canProvision)
+
+    // Automatically open provision identity modal if canProvision is true
+    if (canProvision) {
+      openProvisionIdentityModalFromChain();
+    }
   }, [linkedIds])
 
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser)

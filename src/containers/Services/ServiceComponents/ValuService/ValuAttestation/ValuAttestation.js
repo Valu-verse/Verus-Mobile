@@ -27,13 +27,17 @@ import { NavigationNotification, LoadingNotification } from '../../../../../util
 import { dispatchAddNotification } from '../../../../../actions/actions/notifications/dispatchers/notifications';
 import { NOTIFICATION_ICON_VALU, NOTIFICATION_TYPE_NAVIGATION, NOTIFICATION_ICON_VERUSID } from '../../../../../utils/constants/notifications';
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import { VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED, 
-    VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY } from '../../../../../utils/constants/services';
+import {
+    VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
+    VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING
+} from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
 import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
 import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { setServiceLoading } from "../../../../../actions/actionCreators";
+import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
+import { setRequestedVerusId } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
 
 
 const ValuAttestation = (props) => {
@@ -44,8 +48,8 @@ const ValuAttestation = (props) => {
     const [attestationData, setAttestationData] = useState({});
     const [signer, setSigner] = useState("");
     const [valuReply, setValuReply] = useState(null);
-    const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState("");
+    const [loading, setLoading] = useState(true); // Start with loading true
+    const [status, setStatus] = useState(null); // Start with null instead of empty string
     const [mainButtonText, setMainButtonText] = useState("START");
     const [appState, setAppState] = useState(AppState.currentState);
     const [identityChoiceModalVisible, setIdentityChoiceModalVisible] = useState(false);
@@ -78,12 +82,12 @@ const ValuAttestation = (props) => {
         if (signedIn) {
             resetAction = CommonActions.reset({
                 index: 0,
-                routes: [{name: 'SignedInStack'}],
+                routes: [{ name: 'SignedInStack' }],
             });
         } else {
             resetAction = CommonActions.reset({
                 index: 0,
-                routes: [{name: 'SignedOutStack'}],
+                routes: [{ name: 'SignedOutStack' }],
             });
         }
         props.navigation.dispatch(resetAction);
@@ -94,30 +98,36 @@ const ValuAttestation = (props) => {
         setLoading(true);
         try {
             console.log(`Provisioning new identity from ${source}:`, identityName);
-            
-            // Call getValuIdDeepLink with the requested name
-            const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: true });
+
+            const mainRAddress = activeAccount.keys[verusNetwork].vrpc.addresses[0];
+            const newRep = await ValuProvider.provisionIdentityRequest({ identityName, isNew: true, address: mainRAddress });
             if (newRep.success === false) {
                 throw new Error(newRep.error);
             }
+
+            console.log("newRep", newRep.data);
+
+            const { data } = newRep;
+            // First create pending ID
             
             // Create loading notification for provisioning
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
-            
+            await handleProvisioningResponse(newLoadingNotification.uid, identityName, data.identity.vdxfid, data.uri);
+
             let formattedName = identityName;
             const lastDotIndex = identityName.lastIndexOf('.');
             if (lastDotIndex !== -1) {
                 formattedName = identityName.substring(0, lastDotIndex);
             }
-            
-            newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valu@'];
+
+            newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valuid@'];
             newLoadingNotification.acchash = activeAccount.accountHash;
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
-            
+
             dispatchAddNotification(newLoadingNotification);
             setLoading(false);
-            
+
             // Navigate home (reset stack)
             resetToHome();
         } catch (error) {
@@ -127,6 +137,36 @@ const ValuAttestation = (props) => {
                 'An error occurred while setting up your identity. ' + error.message, "OK"
             );
         }
+    };
+
+    const handleProvisioningResponse = async (        
+        notificationUid,
+        identityName,
+        identityID,
+        uri
+    ) => {
+
+        const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: false });
+        if (newRep.success === false) {
+            throw new Error(newRep.error);
+        }
+
+        const loginRequest = primitives.LoginConsentRequest.fromWalletDeeplinkUri(newRep.data);
+
+        const verusIdState = {
+            status: NOTIFICATION_TYPE_VERUSID_PENDING,
+            fqn: identityName,
+            loginRequest: loginRequest.toBuffer().toString('base64'),
+            fromService: false,
+            createdAt: Number((Date.now() / 1000).toFixed(0)),
+            infoUri: uri,
+            provisioningName: "Valuid",
+            notificationUid: notificationUid
+        }
+
+        await setRequestedVerusId(identityID, verusIdState, CoinDirectory.findCoinObj(verusNetwork).id);
+        await updatePendingVerusIds();
+
     };
 
     const fetchData = useCallback(async () => {
@@ -185,8 +225,9 @@ const ValuAttestation = (props) => {
             console.log("Error from check status of POL: ", e.message ? e.message : e)
             setLoading(false);
             setStatus("error");
+            setMainButtonText("RETRY");
             createAlertDialog(
-                `An error occurred while trying to start the Valu Proof of Humanity process. ${e.message}`,"RETRY")
+                `An error occurred while trying to start the Valu Proof of Humanity process. ${e.message}`, "RETRY")
         }
 
     }, [props.navigation]);
@@ -227,14 +268,14 @@ const ValuAttestation = (props) => {
     const loadLinkedIdentities = async () => {
         try {
             const verusIdServiceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
-            
+
             if (verusIdServiceData.linked_ids) {
                 setLinkedIds(verusIdServiceData.linked_ids);
-                
+
                 // Sort identities like in LoginRequestIdentity
                 const sortedIdKeysPerChain = {};
                 const chainIds = Object.keys(verusIdServiceData.linked_ids);
-                
+
                 for (const chainId of chainIds) {
                     sortedIdKeysPerChain[chainId] = verusIdServiceData.linked_ids[chainId]
                         ? Object.keys(verusIdServiceData.linked_ids[chainId]).sort(function (x, y) {
@@ -341,12 +382,12 @@ const ValuAttestation = (props) => {
         }
 
         // If registered user authentication fails or user not authenticated, use fallback authentication
-  
-            ValuProvider.reset();
-            const seed = (await requestSeeds())[VALU_SERVICE];
-            if (seed == null) throw new Error("No Valu seed present");
-            await ValuProvider.authenticate(seed, true);
-        
+
+        ValuProvider.reset();
+        const seed = (await requestSeeds())[VALU_SERVICE];
+        if (seed == null) throw new Error("No Valu seed present");
+        await ValuProvider.authenticate(seed, true);
+
     }
 
     const initAccountStatus = async () => {
@@ -361,7 +402,7 @@ const ValuAttestation = (props) => {
             console.log(e)
 
             createAlertDialog(
-                "Failed to retrieve Valu account status from server.","RETRY",
+                "Failed to retrieve Valu account status from server.", "RETRY",
                 () => { resolveAlert(); setLoading(false); });
         }
     };
@@ -448,7 +489,7 @@ const ValuAttestation = (props) => {
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
-            } else if (status === VALU_POL_PAYMENT_RECEIVED)  {
+            } else if (status === VALU_POL_PAYMENT_RECEIVED) {
                 // Show identity choice modal first instead of directly navigating
                 setLoading(false);
                 showIdentityChoiceModal();
@@ -463,7 +504,7 @@ const ValuAttestation = (props) => {
 
             //    throw new Error(reply.error);
 
-            
+
             //  console.log(newLoadingNotification)
         } catch (e) {
             console.log("state set4", e)
@@ -491,7 +532,12 @@ const ValuAttestation = (props) => {
         </Text>),
         ["VALU_POL_READY"]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Your Valu Proof of Humanity is ready to retrieve.
-        </Text>)
+        </Text>),
+        "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
+            An error occurred. Please try again.
+        </Text>),
+        // Add null case to prevent showing anything while loading
+        [null]: null
     }
 
     return (
@@ -500,7 +546,7 @@ const ValuAttestation = (props) => {
                 style={Styles.fullWidth}
                 contentContainerStyle={Styles.focalCenter}>
                 <View style={{ alignContent: 'center', alignItems: 'center' }}>
-                    {loading ? (
+                    {loading || status === null ? (
                         <AnimatedActivityIndicator
                             style={{
                                 width: 128,

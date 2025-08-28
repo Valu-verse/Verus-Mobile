@@ -384,7 +384,13 @@ class ValuService {
       });
     });
   }
-  }
 
+  // returns the login consent request
+  provisionIdentityRequest = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/provision-identity-request`, payload);
+    });
+  }
+}
 
 export default ValuService;

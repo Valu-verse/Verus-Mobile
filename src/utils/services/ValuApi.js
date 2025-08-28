@@ -203,4 +203,8 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.checkIdentityAvailable(identityName);
   }
 
+  provisionIdentityRequest = async (payload) => {
+    return await this.service.provisionIdentityRequest(payload);
+  }
+
 }
