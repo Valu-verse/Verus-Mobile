@@ -455,7 +455,8 @@ class LoginReceiveAttestation extends Component {
       } catch (error) {
         console.error('Error saving attestation:', error);
         this.setState({ loading: false });
-        createAlert("Error", "Failed to save attestation. Please try again.");
+        //TODO: remove error from message in release
+        createAlert("Error", `Failed to save attestation. Please try again. ${error}`);
       }
     });
   };
