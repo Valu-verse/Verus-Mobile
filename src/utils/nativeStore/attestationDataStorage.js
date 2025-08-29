@@ -22,6 +22,16 @@ const processWriteQueue = async () => {
     
     // Atomic move operation - this prevents corruption from incomplete writes
     try {
+      // On iOS, we need to remove the target file first if it exists
+      try {
+        await RNFS.unlink(finalFilePath);
+      } catch (unlinkError) {
+        // File might not exist, that's okay
+        if (unlinkError.code !== 'ENOENT') {
+          console.warn('Warning: Could not remove existing file:', unlinkError.message);
+        }
+      }
+      
       await RNFS.moveFile(tempFilePath, finalFilePath);
     } catch (moveError) {
       // If move fails, clean up temp file
