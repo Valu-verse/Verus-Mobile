@@ -27,6 +27,7 @@ import { NavigationNotification, LoadingNotification } from '../../../../../util
 import { dispatchAddNotification } from '../../../../../actions/actions/notifications/dispatchers/notifications';
 import { NOTIFICATION_ICON_VALU, NOTIFICATION_TYPE_NAVIGATION, NOTIFICATION_ICON_VERUSID } from '../../../../../utils/constants/notifications';
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
+import { updateDeeplinkUrl } from '../../../../../actions/actionDispatchers';
 import {
     VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
     VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING
@@ -316,7 +317,9 @@ const ValuAttestation = (props) => {
             if (newRep.success === false) {
                 throw new Error(newRep.error);
             }
-            Linking.openURL(newRep.data);
+            console.log("newRep", newRep.data);
+            // Trigger internal deeplink handler instead of opening externally
+            updateDeeplinkUrl(newRep.data);
             setLoading(false);
         } catch (error) {
             console.error("Error using existing identity:", error);
@@ -499,7 +502,8 @@ const ValuAttestation = (props) => {
                 if (newRep.success === false) {
                     throw new Error(newRep.error);
                 }
-                Linking.openURL(newRep.data);
+                // Trigger internal deeplink handler instead of opening externally
+                updateDeeplinkUrl(newRep.data);
             }
 
             //    throw new Error(reply.error);
