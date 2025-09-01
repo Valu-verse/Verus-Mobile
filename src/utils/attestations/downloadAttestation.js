@@ -51,8 +51,6 @@ export const downloadAndProcessAttestationData = async (req, setLoading, setIsDo
     );
 
     const attestationResponse = await downloadAttestationData(attestationProvisionUrl.uri);
-    console.log('Attestation response:', attestationResponse);
-
     const attestationDetails = AttestationDetails.fromJson(attestationResponse);
 
     if (!attestationResponse || !attestationDetails.isValid() || attestationDetails.attestations.length === 0) {

@@ -74,7 +74,7 @@ export const createAttestationResponse = async (selectionOrSelections, requiredK
 
     // Return as JSON
     attestation.data = filteredAttestationJson;
-console.log("Created attestation response:", attestation);
+
     return attestation;
   }
 }

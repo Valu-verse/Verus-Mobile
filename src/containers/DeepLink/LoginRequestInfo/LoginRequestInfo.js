@@ -13,6 +13,7 @@ import { closeSendModal, openAuthenticateUserModal } from '../../../actions/acti
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
+import { Buffer } from 'buffer';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreators';
@@ -184,7 +185,8 @@ const LoginRequestInfo = props => {
     const navigationConfigs = {
       viewAttestation: "LoginShareAttestation",
       attestationToAccept: "LoginReceiveAttestation", 
-      openProfile: "PersonalSelectData"
+      openProfile: "PersonalSelectData",
+      signmessage: "LoginSignDataRequest"
     };
 
     for (const [key, screenName] of Object.entries(navigationConfigs)) {
@@ -193,16 +195,15 @@ const LoginRequestInfo = props => {
           deeplinkData,
           fromService: false,
           cancel: { cancel },
-          onGoBack: (data) => data ? setPermission(data) : () => { },
+          onGoBack: (data) => {
+            if (data && data.accepted) {
+              setPermission();
+            }
+          },
           signerFqn
         });
         return;
       }
-    }
-
-    if (request.signmessage) {
-      // Handle message signing logic here if needed
-      return;
     }
 
     return createAlert(
@@ -289,11 +290,38 @@ const LoginRequestInfo = props => {
               title: "Personal Data Input Request",
               openProfile: true
             },
-            [primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid]: {
-              data: access.toJson().data,
-              title: "Message sign request",
-              signmessage: true
-            }
+            [primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid]: (() => {
+              try {
+                // Look for endorsement data in the subject array instead of access data
+                const subjectItem = req.challenge.subject.find(item => 
+                  item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
+                );
+                
+                if (!subjectItem) {
+                  return {
+                    data: "No endorsement data found",
+                    title: "Signature request",
+                    signmessage: true
+                  };
+                }
+                
+                const newEndorsement = new primitives.Endorsement();
+                newEndorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+                return {
+                  data: newEndorsement.message,
+                  endorsement: newEndorsement,
+                  title: "Signature request",
+                  signmessage: true
+                };
+              } catch (e) {
+                console.error('Failed to parse endorsement:', e);
+                return {
+                  data: "Invalid endorsement data",
+                  title: "Signature request",
+                  signmessage: true
+                };
+              }
+            })()
           };
 
           tempdata = accessTypeMap[vdxfkey] || {};

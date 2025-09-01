@@ -9,6 +9,7 @@ import PersonalSelectData from '../../DeepLink/PersonalSelectData/PersonalSelect
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import LoginReceiveAttestation from '../../DeepLink/LoginReceiveAttestation/LoginReceiveAttestation';
 import LoginShareAttestation from '../../DeepLink/LoginShareAttestation/LoginShareAttestation';
+import LoginSignDataRequest from '../../DeepLink/LoginSignDataRequest/LoginSignDataRequest';
 import ViewAttestation from '../../Services/ServiceComponents/AttestationService/ViewAttestation/ViewAttestation';
 
 const DeepLinkStack = createStackNavigator();
@@ -75,6 +76,14 @@ const DeepLinkStackScreens = props => {
         options={{
           headerRight: () => null,
           title: "Share Attestation data"
+        }}
+      />
+      <DeepLinkStack.Screen
+        name="LoginSignDataRequest"
+        component={LoginSignDataRequest}
+        options={{
+          headerRight: () => null,
+          title: "Sign Data Request"
         }}
       />
       <DeepLinkStack.Screen

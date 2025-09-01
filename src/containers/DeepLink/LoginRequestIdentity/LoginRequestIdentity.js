@@ -18,9 +18,12 @@ import { SEND_MODAL_IDENTITY_TO_LINK_FIELD } from '../../../utils/constants/send
 import { ELECTRUM } from '../../../utils/constants/intervalConstants';
 import { coinsList } from '../../../utils/CoinData/CoinsList';
 import { requestSeeds } from '../../../utils/auth/authBox';
-import { deriveKeyPair } from '../../../utils/keys';
+import crypto from 'crypto'
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { signMessage } from '../../../utils/api/channels/vrpc/requests/signMessage';
+import { Buffer } from 'buffer';
+import { BN } from 'bn.js';
+const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
 
 
 const LoginRequestIdentity = props => {
@@ -179,11 +182,33 @@ const LoginRequestIdentity = props => {
       let foundMessage = req.challenge.requested_access.filter(x => x.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) || [];
       let signedMessage = {};
       if(foundMessage.length > 0) {
-        const message = foundMessage[0].data;
-        if(typeof message != 'string' || string.length == 0) throw new Error("No message found to sign");
-        signedMessage = {signature: await signMessage(CoinDirectory.findCoinObj(system_id, null, true), iAddress, message)};
-        signedMessage.message = message;
-        signedMessage.iAddress = iAddress;
+        // Look for endorsement data in the subject array instead of requested_access
+        const subjectItem = req.challenge.subject.find(item => 
+          item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
+        );
+        
+        if(!subjectItem || !subjectItem.data) throw new Error("No endorsement data found to sign");
+        
+        // Create endorsement object from the base64 data
+        const endorsement = new primitives.Endorsement();
+        endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+
+        const signatureData = new primitives.SignatureData({version: new BN(1)});
+        
+        signatureData.identity_ID = iAddress;
+        signatureData.system_ID = system_id;
+        signatureData.signature = signature;
+        
+        signatureData.signature_hash = crypto.createHash('sha256').update(subjectItem.data).digest()
+       
+        const signature = await signMessage(CoinDirectory.findCoinObj(system_id, null, true), iAddress, signatureData.signature_hash);
+        signatureData.signature_as_vch = Buffer.from(signature, 'base64');
+
+        endorsement.signature = signatureData;
+        endorsement.flags = primitives.Endorsement.FLAGS_HAS_SIGNATURE;
+
+        signedMessage.endorsement = endorsement.toJson();        
+
        }
       props.navigation.navigate("LoginRequestComplete", {
         signedResponse,

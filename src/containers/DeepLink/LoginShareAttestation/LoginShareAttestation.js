@@ -1,6 +1,7 @@
 import moment from "moment";
 import { Component } from "react"
 import { connect } from 'react-redux'
+import { BN } from "bn.js";
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import { modifyPersonalDataForUser } from "../../../actions/actionDispatchers";
 import { requestPersonalData } from "../../../utils/auth/authBox";
@@ -19,7 +20,7 @@ import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { at } from "lodash";
 const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
-const { RequestInformation } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest");
+const { RequestInformation, RequestItem } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest");
 
 class LoginShareAttestation extends Component {
   constructor(props) {
@@ -122,8 +123,8 @@ class LoginShareAttestation extends Component {
     if (idKeys.length === 0) return matches;
 
     // Check if this is a COLLECTION request (format & 4)
-    const format = requestItem.format?.toNumber ? requestItem.format.toNumber() : requestItem.format;
-    const isCollection = (format & 4) !== 0; // COLLECTION
+    const format = requestItem.format || new BN(0);
+    const isCollection = format.and(RequestItem.COLLECTION).gt(new BN(0)); // COLLECTION
 
     for (let i = 0; i < attestationDataKeys.length; i++) {
       const attestationId = attestationDataKeys[i];
@@ -178,7 +179,7 @@ class LoginShareAttestation extends Component {
         if (!matchFound) continue;
 
         // Build fields list for UI: if PARTIAL, map requestedkeys; otherwise show whole attestation
-        const isPartial = (format & 2) !== 0; // RequestedFormatFlags.PARTIAL_DATA
+        const isPartial = format.and(RequestItem.PARTIAL_DATA).gt(new BN(0)); // RequestedFormatFlags.PARTIAL_DATA
         const fields = isPartial && Array.isArray(requestItem.requestedkeys) && requestItem.requestedkeys.length > 0
           ? requestItem.requestedkeys.map((k) => IdentityVdxfidMap[k]?.EN || k)
           : ["Full attestation"];
@@ -287,9 +288,9 @@ class LoginShareAttestation extends Component {
 
       for (const item of infoRequest.items || []) {
         // Determine if COLLECTION flag is set -> multiple; otherwise single
-        const format = item.format?.toNumber ? item.format.toNumber() : item.format;
-        const wantsCollection = (format & 4) !== 0; // COLLECTION
-        const isPartial = (format & 2) !== 0; // PARTIAL
+        const format = item.format || new BN(0);
+        const wantsCollection = format.and(RequestItem.COLLECTION).gt(new BN(0));
+        const isPartial = format.and(RequestItem.PARTIAL_DATA).gt(new BN(0)); 
 
         // Find matches for this item
         const matches = this.findMatchesForRequestItem(item, attestationData);

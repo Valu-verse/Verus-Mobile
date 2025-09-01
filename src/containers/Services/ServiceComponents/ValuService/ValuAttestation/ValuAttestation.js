@@ -147,7 +147,7 @@ const ValuAttestation = (props) => {
         uri
     ) => {
 
-        const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: false });
+        const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: true });
         if (newRep.success === false) {
             throw new Error(newRep.error);
         }
@@ -454,7 +454,6 @@ const ValuAttestation = (props) => {
     const startOnRamp = async () => {
 
         try {
-            console.log("state set2222222222", status, valuReply)
             setLoading(true);
             if (status === VALU_POL_PAYMENT_STARTED) {
 
