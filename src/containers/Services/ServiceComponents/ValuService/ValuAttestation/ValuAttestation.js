@@ -57,6 +57,8 @@ const ValuAttestation = (props) => {
     const [existingIdentityModalVisible, setExistingIdentityModalVisible] = useState(false);
     const [linkedIds, setLinkedIds] = useState({});
     const [sortedIds, setSortedIds] = useState({});
+    const [isProvisioningIdentity, setIsProvisioningIdentity] = useState(false);
+    const [showIdentityProvisioningProgress, setShowIdentityProvisioningProgress] = useState(false);
     const acchash = useSelector(state =>
         state.authentication.activeAccount
     ).accountHash;
@@ -96,25 +98,50 @@ const ValuAttestation = (props) => {
 
     // Shared function for new identity provisioning
     const provisionNewIdentity = async (identityName, source = 'identity request') => {
-        setLoading(true);
+        setIsProvisioningIdentity(true);
+        setShowIdentityProvisioningProgress(true);
         try {
             console.log(`Provisioning new identity from ${source}:`, identityName);
 
-            const mainRAddress = activeAccount.keys[verusNetwork].vrpc.addresses[0];
-            const newRep = await ValuProvider.provisionIdentityRequest({ identityName, isNew: true, address: mainRAddress });
-            if (newRep.success === false) {
-                throw new Error(newRep.error);
+            const valuDeepLink = await ValuProvider.getValuIdDeepLink({ identityName, isNew: true });
+            if (valuDeepLink.success === false) {
+                throw new Error(valuDeepLink.error);
             }
 
-            console.log("newRep", newRep.data);
+            const loginRequest = primitives.LoginConsentRequest.fromWalletDeeplinkUri(valuDeepLink.data);
 
-            const { data } = newRep;
-            // First create pending ID
+            const provisionRequest = new primitives.LoginConsentProvisioningRequest({
+                signing_address: activeAccount.keys[verusNetwork].vrpc.addresses[0],
+                challenge: new primitives.LoginConsentProvisioningChallenge({
+                    challenge_id: loginRequest.challenge.challenge_id,
+                    created_at: Number((Date.now() / 1000).toFixed(0)),
+                    name: identityName,
+                    system_id: loginRequest.system_id,
+                    parent: "iQ2TqQot9W7mLrcCRJKnAZmaPTTY6sx4S4" //TODO: change to a variable
+                }),
+            });
+
+            const signedRequest = await signIdProvisioningRequest(CoinDirectory.findCoinObj(verusNetwork), provisionRequest);
+
+            const valuProvisioningResponse = await ValuProvider.provisionIdentityRequest(signedRequest);
+
+            if (valuProvisioningResponse?.error) {
+                throw new Error(valuProvisioningResponse.error);
+            }
+
+            console.log("newRep", valuProvisioningResponse);
             
-            // Create loading notification for provisioning
+            const response = new primitives.LoginConsentProvisioningResponse(valuProvisioningResponse);
+
+            const {decision} = response;
+            const {result} = decision;
+
+            const identityAddress = result?.identity_address;
+            const url = result.info_uri;
+
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
-            await handleProvisioningResponse(newLoadingNotification.uid, identityName, data.identity.vdxfid, data.uri);
+            await handleProvisioningResponse(newLoadingNotification.uid, identityName, identityAddress, url, loginRequest);
 
             let formattedName = identityName;
             const lastDotIndex = identityName.lastIndexOf('.');
@@ -127,32 +154,41 @@ const ValuAttestation = (props) => {
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 
             dispatchAddNotification(newLoadingNotification);
-            setLoading(false);
+            setShowIdentityProvisioningProgress(false);
+            setIsProvisioningIdentity(false);
 
             // Navigate home (reset stack)
             resetToHome();
         } catch (error) {
             console.error(`Error provisioning identity from ${source}:`, error);
-            setLoading(false);
-            createAlertDialog(
-                'An error occurred while setting up your identity. ' + error.message, "OK"
+            setShowIdentityProvisioningProgress(false);
+            setIsProvisioningIdentity(false);
+            createAlert(
+                'Identity Registration Failed',
+                'An error occurred while setting up your identity. ' + error.message,
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            resolveAlert();
+                            resetToHome();
+                        }
+                    }
+                ],
+                { cancelable: false }
             );
         }
     };
 
-    const handleProvisioningResponse = async (        
+    const handleProvisioningResponse = async (
         notificationUid,
         identityName,
         identityID,
-        uri
+        uri,
+        loginRequest
     ) => {
 
-        const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: true });
-        if (newRep.success === false) {
-            throw new Error(newRep.error);
-        }
 
-        const loginRequest = primitives.LoginConsentRequest.fromWalletDeeplinkUri(newRep.data);
 
         const verusIdState = {
             status: NOTIFICATION_TYPE_VERUSID_PENDING,
@@ -171,6 +207,11 @@ const ValuAttestation = (props) => {
     };
 
     const fetchData = useCallback(async () => {
+        // Don't fetch data if we're currently provisioning an identity
+        if (isProvisioningIdentity) {
+            return;
+        }
+
         // Check for data in the wallet that says there is an attestation present.
         // If there is, then take the user to the attestation page.
         // If there is not, then display the 
@@ -231,7 +272,7 @@ const ValuAttestation = (props) => {
                 `An error occurred while trying to start the Valu Proof of Humanity process. ${e.message}`, "RETRY")
         }
 
-    }, [props.navigation]);
+    }, [props.navigation, isProvisioningIdentity]);
 
     // useFocusEffect(fetchData);
 
@@ -549,7 +590,22 @@ const ValuAttestation = (props) => {
                 style={Styles.fullWidth}
                 contentContainerStyle={Styles.focalCenter}>
                 <View style={{ alignContent: 'center', alignItems: 'center' }}>
-                    {loading || status === null ? (
+                    {showIdentityProvisioningProgress ? (
+                        <React.Fragment>
+                            <Text style={{ fontSize: 30, textAlign: 'center', paddingBottom: 20 }}>
+                                Registering Identity
+                            </Text>
+                            <AnimatedActivityIndicator
+                                style={{
+                                    width: 128,
+                                    marginBottom: 20
+                                }}
+                            />
+                            <Text style={{ fontSize: 18, textAlign: 'center', marginHorizontal: 50, color: Colors.BasicBlue }}>
+                                Please wait while we register your identity request...
+                            </Text>
+                        </React.Fragment>
+                    ) : loading || status === null ? (
                         <AnimatedActivityIndicator
                             style={{
                                 width: 128,

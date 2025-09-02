@@ -153,7 +153,7 @@ class ValuChooseIdentity extends Component {
                                     labelStyle={styles.buttonLabel}
                                     icon="check"
                                 >
-                                    {processing ? "Checking Availability..." : `Continue with This ${identityType}`}
+                                    {processing ? "Checking Availability..." : `Continue with this VerusID`}
                                 </Button>
                             </Card.Content>
                         </Card>
