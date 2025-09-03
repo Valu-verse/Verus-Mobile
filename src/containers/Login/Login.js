@@ -96,6 +96,23 @@ const Login = props => {
         ...Styles.focalCenter,
       }}>
       <Image source={ValuLogo} style={Styles.valuSplashLogo} />
+      
+      {/* Powered by Verus section */}
+      <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 20 }}>
+        <Text style={{ 
+          fontSize: 12, 
+          color: Colors.primaryColor, 
+          marginBottom: 5,
+          textAlign: 'center' 
+        }}>
+          Powered by
+        </Text>
+        <VerusLogo 
+          height={90} 
+          width={180} 
+        />
+      </View>
+      
       <View
         style={{
   
