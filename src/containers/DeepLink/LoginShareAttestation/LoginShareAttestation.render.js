@@ -1,9 +1,9 @@
 import React from "react";
 import { SafeAreaView, ScrollView, View } from "react-native";
 import { Divider, List, Button, Text, Card } from "react-native-paper";
+import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 
 import Styles from "../../../styles";
-
 import Colors from '../../../globals/colors';
 
 export const LoginShareAttestationRender = function (props) {
@@ -15,44 +15,131 @@ export const LoginShareAttestationRender = function (props) {
         contentContainerStyle={Styles.focalCenter}>
         <View style={Styles.fullWidth}>
 
-          <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-            {"Agree to share the following\nattestation data."}
-          </Text>
+          {/* Compact Header Section */}
+          <View style={{ 
+            backgroundColor: Colors.lightGray || '#f5f5f5', 
+            paddingVertical: 8, 
+            paddingHorizontal: 12, 
+            marginBottom: 16, 
+            borderRadius: 8,
+          }}>
+            <Text style={{ fontSize: 16, textAlign: 'center', fontWeight: 'bold', marginBottom: 4 }}>
+              Share Personal Data
+            </Text>
+            
+            {this.state.multipleAttestations ? (
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: Colors.primaryColor, fontWeight: 'bold' }}>
+                  {`${this.state.selectedAttestations.length} Item${this.state.selectedAttestations.length > 1 ? 's' : ''} of Personal Information Selected`}
+                </Text>
+                {this.state.attestationAcceptedAttestorsFqns && this.state.attestationAcceptedAttestorsFqns.length > 0 && (
+                  <Text style={{ fontSize: 12, color: Colors.primaryColor, marginTop: 2 }}>
+                    From: <Text style={{ fontWeight: 'bold', color: Colors.primaryColor }}>{this.state.attestationAcceptedAttestorsFqns[0]}</Text>
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 14, color: Colors.primaryColor, fontWeight: 'bold' }}>
+                  {this.state.attestationName}
+                </Text>
+                {this.state.attestationAcceptedAttestorsFqns && this.state.attestationAcceptedAttestorsFqns.length > 0 && (
+                  <Text style={{ fontSize: 12, color: Colors.primaryColor, marginTop: 2 }}>
+                    From: <Text style={{ fontWeight: 'bold' }}>{this.state.attestationAcceptedAttestorsFqns[0]}</Text>
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
 
           {this.state.multipleAttestations ? (
-            // Multiple attestations rendering
+            // Multiple attestations rendering - Compact cards
             <>
-              <Text style={{ fontSize: 18, textAlign: 'center', paddingBottom: 20, color: Colors.primaryColor, fontWeight: 'bold' }}>
-                {`${this.state.selectedAttestations.length} Attestation${this.state.selectedAttestations.length > 1 ? 's' : ''} Selected`}
-              </Text>
-              
-              {this.state.attestationAcceptedAttestorsFqns && this.state.attestationAcceptedAttestorsFqns.length > 0 && (
-                <Text style={{ fontSize: 16, textAlign: 'center', paddingBottom: 20 }}>
-                  {"From:\n"}<Text style={{ fontSize: 16, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationAcceptedAttestorsFqns[0]}`}</Text>
-                </Text>
-              )}
-
               {this.state.selectedAttestations.map((attestation, attestationIndex) => {
                 // Use the name from the attestation object instead of extracting from details
-                const attestationName = attestation.name || "Unknown Attestation";
+                const attestationName = attestation.name || "Unknown Personal Information";
+                
+                // Determine what fields to show based on request format
+                let fieldsToShow = [];
+                let requestTypeText = "";
+                
+                if (attestation.requestFormat) {
+                  if (attestation.requestFormat.isPartial) {
+                    // PARTIAL_DATA: Show only requested keys
+                    fieldsToShow = attestation.requestFormat.requestedKeys.map(k => {
+                      // Try to get human-readable name, fallback to key
+                      return IdentityVdxfidMap[k]?.EN || k;
+                    });
+                    requestTypeText = "Partial";
+                  } else if (attestation.requestFormat.isFullData) {
+                    // FULL_DATA: Show full attestation
+                    fieldsToShow = ["⚠️ All Information"];
+                    requestTypeText = "Full";
+                  } else if (attestation.requestFormat.isCollection) {
+                    // COLLECTION: Show all fields or specific descriptors
+                    fieldsToShow = attestation.fields || ["Collection"];
+                    requestTypeText = "Collection";
+                  }
+                } else {
+                  // Fallback to original fields
+                  fieldsToShow = attestation.fields || ["⚠️ All Information"];
+                  requestTypeText = "Standard";
+                }
                 
                 return (
-                  <Card key={attestation.id} style={{ marginBottom: 16, elevation: 2 }}>
-                    <Card.Content>
-                      <Text style={{ fontSize: 18, fontWeight: 'bold', color: Colors.primaryColor, marginBottom: 10, textAlign: 'center' }}>
-                        {attestationName}
+                  <Card key={attestation.id} style={{ 
+                    marginBottom: 8, 
+                    elevation: 2, 
+                    backgroundColor: '#fafafa'
+                  }}>
+                    <Card.Content style={{ paddingVertical: 8, paddingHorizontal: 12 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        {/* Green numbered tag on top left */}
+                        <View style={{ 
+                          backgroundColor: Colors.verusGreenColor || '#28a745', 
+                          paddingHorizontal: 6, 
+                          paddingVertical: 2, 
+                          borderRadius: 4,
+                          marginRight: 8,
+                          minWidth: 20,
+                          alignItems: 'center'
+                        }}>
+                          <Text style={{ fontSize: 10, color: 'white', fontWeight: 'bold' }}>
+                            {attestationIndex + 1}
+                          </Text>
+                        </View>
+                        
+                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: Colors.quaternaryColor, flex: 1 }}>
+                          {attestationName}
+                        </Text>
+                        
+                        {/* Request type tag on top right */}
+                        <View style={{ 
+                          backgroundColor: Colors.primaryColor + '20', 
+                          paddingHorizontal: 6, 
+                          paddingVertical: 2, 
+                          borderRadius: 4 
+                        }}>
+                          <Text style={{ fontSize: 10, color: Colors.primaryColor, fontWeight: 'bold' }}>
+                            {requestTypeText}
+                          </Text>
+                        </View>
+                      </View>
+                      
+                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.primaryColor || '#333', marginBottom: 8 }}>
+                        Personal Information Requested:
                       </Text>
                       
-                      <List.Item
-                        title={"Requested information:"}
-                        titleStyle={{ fontWeight: 'bold' }}
-                      />
-                      
-                      {attestation.fields.map((field, fieldIndex) => (
-                        <React.Fragment key={`${attestation.id}-${fieldIndex}`}>
-                          <List.Item title={field} />
-                          {fieldIndex < attestation.fields.length - 1 && <Divider />}
-                        </React.Fragment>
+                      {fieldsToShow.map((field, fieldIndex) => (
+                        <View key={`${attestation.id}-${fieldIndex}`} style={{ 
+                          paddingVertical: 3, 
+                          paddingLeft: 8,
+                          borderLeftWidth: 2,
+                          borderLeftColor: Colors.primaryColor + '40',
+                          marginBottom: 2
+                        }}>
+                          <Text style={{ fontSize: 12, color: Colors.textColor || '#333' }}>{field}</Text>
+                        </View>
                       ))}
                     </Card.Content>
                   </Card>
@@ -60,36 +147,31 @@ export const LoginShareAttestationRender = function (props) {
               })}
             </>
           ) : (
-            // Single attestation rendering (original behavior)
-            <>
-              <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-                {"Attestation Name:\n"}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationName}`}</Text>
-              </Text>
-              {this.state.attestationAcceptedAttestorsFqns && <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-                {"From:\n"}<Text style={{ fontSize: 20, color: Colors.primaryColor, fontWeight: 'bold', marginVertical: 5, }}>{`${this.state.attestationAcceptedAttestorsFqns[0]}`}</Text>
-              </Text>}
-              <List.Item
-                title={"Requested information:"}
-                key={"Requested information:"}
-                titleStyle={{
-                  fontWeight: 'bold',
-                }}
-              />
-
-              {this.state.attestationRequestedFields.map((request, index) => {
-                return (
-                  <React.Fragment key={request}>
-                    <List.Item
-                      title={request}
-                      key={index}
-                    />
-                    <Divider />
-                  </React.Fragment>
-                );
-              })}
-            </>
+            // Single attestation rendering - Compact version
+            <Card style={{ 
+              marginBottom: 8, 
+              elevation: 2, 
+              backgroundColor: '#fafafa'
+            }}>
+              <Card.Content style={{ paddingVertical: 8, paddingHorizontal: 12 }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: Colors.primaryColor || '#333', marginBottom: 8 }}>
+                  Personal Information Requested:
+                </Text>
+                
+                {this.state.attestationRequestedFields.map((request, index) => (
+                  <View key={`single-${index}`} style={{ 
+                    paddingVertical: 2, 
+                    paddingLeft: 8,
+                    borderLeftWidth: 2,
+                    borderLeftColor: Colors.primaryColor + '40',
+                    marginBottom: 2
+                  }}>
+                    <Text style={{ fontSize: 12, color: Colors.textColor || '#333' }}>{request}</Text>
+                  </View>
+                ))}
+              </Card.Content>
+            </Card>
           )}
-
 
         </View>
       </ScrollView>

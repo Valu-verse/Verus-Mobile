@@ -55,15 +55,40 @@ class LoginShareAttestation extends Component {
 
   createAttestationReply = async () => {
     if (this.state.multipleAttestations) {
-      // For multiple attestations, send all selected attestation objects as-is
-      const reply = await createAttestationResponse(this.state.selectedAttestations, null, true);
-      return reply;
+      // For multiple attestations or collections, process each one individually
+      const processedAttestations = [];
+      
+      for (const attestation of this.state.selectedAttestations) {
+        if (attestation.requestFormat && attestation.requestFormat.isPartial) {
+          // For partial data requests, apply key filtering
+          const reply = await createAttestationResponse(attestation, attestation.requestFormat.requestedKeys, false);
+          processedAttestations.push(reply);
+        } else if (attestation.requestFormat && attestation.requestFormat.isCollection) {
+          // For collection requests, send the full attestation without filtering
+          const reply = await createAttestationResponse(attestation, null, false);
+          processedAttestations.push(reply);
+        } else {
+          // For full data requests, send as single attestation without filtering
+          const reply = await createAttestationResponse(attestation, null, false);
+          processedAttestations.push(reply);
+        }
+      }
+      
+      // Return array if multiple attestations, single if only one
+      return processedAttestations.length === 1 ? processedAttestations[0] : processedAttestations;
     } else {
-      // For single attestation, send the selected attestation object with key filtering
-
+      // For single attestation, send the selected attestation object with appropriate formatting
       const selection = this.state.selectedAttestations && this.state.selectedAttestations[0];
-      const reply = await createAttestationResponse(selection, this.state.attestationRequestedVdxfKeys, false);
-      return reply;
+      
+      if (selection && selection.requestFormat && selection.requestFormat.isPartial) {
+        // Apply key filtering for partial requests
+        const reply = await createAttestationResponse(selection, selection.requestFormat.requestedKeys, false);
+        return reply;
+      } else {
+        // Send full attestation or collection as single attestation
+        const reply = await createAttestationResponse(selection, null, false);
+        return reply;
+      }
     }
   }
 
@@ -90,6 +115,7 @@ class LoginShareAttestation extends Component {
     const infoReq = new RequestInformation({ version: RequestInformation.DEFAULT_VERSION, items: [] });
 
     infoReq.fromBuffer(Buffer.from(readReqSubject.data, 'base64'));
+    console.log("Parsed RequestInformation:", JSON.stringify(infoReq, null, 2));
     return { loginConsent, attestationDataURL, infoRequest: infoReq };
   };
 
@@ -182,7 +208,7 @@ class LoginShareAttestation extends Component {
         const isPartial = format.and(RequestItem.PARTIAL_DATA).gt(new BN(0)); // RequestedFormatFlags.PARTIAL_DATA
         const fields = isPartial && Array.isArray(requestItem.requestedkeys) && requestItem.requestedkeys.length > 0
           ? requestItem.requestedkeys.map((k) => IdentityVdxfidMap[k]?.EN || k)
-          : ["Full attestation"];
+          : ["⚠️ All Information"];
 
         matches.push({
           id: attestationId,
@@ -281,16 +307,15 @@ class LoginShareAttestation extends Component {
 
       // Process RequestInformation items
       let allSelected = [];
-      let singleSelected = null;
-      let isMultiple = false;
-      let singleRequestedKeys = [];
-      const signerIds = [];
+      const signerIds = []; 
+      let combinedRequestedKeys = [];
 
       for (const item of infoRequest.items || []) {
-        // Determine if COLLECTION flag is set -> multiple; otherwise single
+        // Determine format flags
         const format = item.format || new BN(0);
         const wantsCollection = format.and(RequestItem.COLLECTION).gt(new BN(0));
-        const isPartial = format.and(RequestItem.PARTIAL_DATA).gt(new BN(0)); 
+        const isPartial = format.and(RequestItem.PARTIAL_DATA).gt(new BN(0));
+        const isFullData = format.and(RequestItem.FULL_DATA).gt(new BN(0));
 
         // Find matches for this item
         const matches = this.findMatchesForRequestItem(item, attestationData);
@@ -303,53 +328,70 @@ class LoginShareAttestation extends Component {
         const { attestationRequestedFields, attestationID, selectedAttestations } =
           await this.selectBestAttestations(matches, wantsCollection);
 
-        if (wantsCollection) {
-          isMultiple = true;
-          allSelected = allSelected.concat(selectedAttestations);
-        } else {
-          // Single selection; per requirements, single case is for PARTIAL only
-          if (!isPartial) {
-            // If not partial, treat as collection of full attestation per requirements
-            isMultiple = true;
-            allSelected = allSelected.concat(selectedAttestations);
-          } else {
-            singleSelected = { attestationRequestedFields, attestationID, selectedAttestations };
-            singleRequestedKeys = Array.isArray(item.requestedkeys) ? item.requestedkeys : [];
+        // Add format info to selected attestations for proper handling
+        const annotatedAttestations = selectedAttestations.map(attestation => ({
+          ...attestation,
+          requestFormat: { 
+            isPartial,
+            isFullData,
+            isCollection: wantsCollection,
+            requestedKeys: Array.isArray(item.requestedkeys) ? item.requestedkeys : []
           }
+        }));
+
+        allSelected = allSelected.concat(annotatedAttestations);
+
+        // Collect requested keys for partial data requests
+        if (isPartial && Array.isArray(item.requestedkeys)) {
+          combinedRequestedKeys = combinedRequestedKeys.concat(item.requestedkeys);
         }
       }
+
+      // Remove duplicate requested keys
+      const uniqueRequestedKeys = [...new Set(combinedRequestedKeys)];
 
       // Resolve signer FQNs for display (first only shown in UI)
       const attestationAcceptedAttestorsFqns = await this.resolveSignerFqns(loginConsent.system_id, signerIds);
 
-      // Update component state based on resolved selections
-      if (isMultiple) {
+      // Determine if we have multiple attestations or mixed request types
+      const hasMultipleAttestations = allSelected.length > 1;
+      const hasMixedRequestTypes = allSelected.some(a => a.requestFormat.isPartial) && 
+                                  allSelected.some(a => a.requestFormat.isFullData || a.requestFormat.isCollection);
+      const isMultipleScenario = hasMultipleAttestations || hasMixedRequestTypes;
+
+      // Update component state
+      if (isMultipleScenario) {
+        // Multiple attestations or mixed request types - show all
         this.setState({
           attestationRequestedFields: [],
           attestationAcceptedAttestors: signerIds,
           attestationAcceptedAttestorsFqns,
-          attestationName: '',
+          attestationName: `${allSelected.length} Attestation${allSelected.length > 1 ? 's' : ''}`,
           attestationID: '',
           attestationDataURL,
-          attestationRequestedVdxfKeys: [],
+          attestationRequestedVdxfKeys: uniqueRequestedKeys,
           multipleAttestations: true,
           selectedAttestations: allSelected,
           requestedKey: ''
         });
-      } else if (singleSelected) {
-        // Populate attestation name for header
-        const selected = singleSelected.selectedAttestations?.[0];
+      } else if (allSelected.length === 1) {
+        // Single attestation request
+        const selected = allSelected[0];
         const attestationName = selected?.name || '';
+        const fields = selected.requestFormat.isPartial ? 
+          (selected.requestFormat.requestedKeys.map(k => IdentityVdxfidMap[k]?.EN || k)) :
+          ["⚠️ All Information"];
+
         this.setState({
-          attestationRequestedFields: singleSelected.attestationRequestedFields,
+          attestationRequestedFields: fields,
           attestationAcceptedAttestors: signerIds,
           attestationAcceptedAttestorsFqns,
           attestationName,
-          attestationID: singleSelected.attestationID,
+          attestationID: selected.id,
           attestationDataURL,
-          attestationRequestedVdxfKeys: singleRequestedKeys,
+          attestationRequestedVdxfKeys: selected.requestFormat.requestedKeys,
           multipleAttestations: false,
-          selectedAttestations: singleSelected.selectedAttestations,
+          selectedAttestations: allSelected,
           requestedKey: ''
         });
       } else {
