@@ -450,9 +450,39 @@ class LoginShareAttestation extends Component {
             resolveAlert();
             
             // Add challenge_id to the attestation data before sending
-            const attestationDataWithChallenge = this.state.challengeId ? 
-              { ...createdAttestation, challenge_id: this.state.challengeId } : 
-              createdAttestation;
+            let attestationDataWithChallenge;
+            if (this.state.challengeId) {
+              if (Array.isArray(createdAttestation)) {
+                // Multiple attestations - format as array under attestations key
+                attestationDataWithChallenge = {
+                  challenge_id: this.state.challengeId,
+                  attestations: createdAttestation
+                };
+              } else if (this.state.multipleAttestations && typeof createdAttestation === 'object' && createdAttestation !== null) {
+                // Multiple attestations as object with numeric keys - convert to array format
+                const attestationsArray = Object.values(createdAttestation);
+                attestationDataWithChallenge = {
+                  challenge_id: this.state.challengeId,
+                  attestations: attestationsArray
+                };
+              } else {
+                // Single attestation - wrap in array under attestations key
+                attestationDataWithChallenge = {
+                  challenge_id: this.state.challengeId,
+                  attestations: [createdAttestation]
+                };
+              }
+            } else {
+              // No challenge_id - maintain original format but still use attestations array
+              if (Array.isArray(createdAttestation)) {
+                attestationDataWithChallenge = { attestations: createdAttestation };
+              } else if (this.state.multipleAttestations && typeof createdAttestation === 'object' && createdAttestation !== null) {
+                const attestationsArray = Object.values(createdAttestation);
+                attestationDataWithChallenge = { attestations: attestationsArray };
+              } else {
+                attestationDataWithChallenge = { attestations: [createdAttestation] };
+              }
+            }
             
             handleAttestationDataSend(attestationDataWithChallenge, this.state.attestationDataURL)
               .then(() => {
