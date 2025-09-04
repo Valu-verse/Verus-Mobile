@@ -38,7 +38,8 @@ class LoginShareAttestation extends Component {
       signerFqn: this.props.route.params.signerFqn,
       multipleAttestations: false,
       selectedAttestations: [],
-      requestedKey: ""
+      requestedKey: "",
+      challengeId: ""
     };
 
   }
@@ -116,7 +117,11 @@ class LoginShareAttestation extends Component {
 
     infoReq.fromBuffer(Buffer.from(readReqSubject.data, 'base64'));
     console.log("Parsed RequestInformation:", JSON.stringify(infoReq, null, 2));
-    return { loginConsent, attestationDataURL, infoRequest: infoReq };
+    
+    // Extract challenge_id from the login consent challenge
+    const challengeId = loginConsent.challenge.challenge_id;
+    
+    return { loginConsent, attestationDataURL, infoRequest: infoReq, challengeId };
   };
 
   /**
@@ -294,7 +299,7 @@ class LoginShareAttestation extends Component {
       const { deeplinkData } = this.props.route.params;
 
     // Parse the login consent request (new model)
-    const { loginConsent, attestationDataURL, infoRequest } = this.parseLoginConsentRequest(deeplinkData);
+    const { loginConsent, attestationDataURL, infoRequest, challengeId } = this.parseLoginConsentRequest(deeplinkData);
 
       // Load attestation data
       let attestationData;
@@ -372,7 +377,8 @@ class LoginShareAttestation extends Component {
           attestationRequestedVdxfKeys: uniqueRequestedKeys,
           multipleAttestations: true,
           selectedAttestations: allSelected,
-          requestedKey: ''
+          requestedKey: '',
+          challengeId
         });
       } else if (allSelected.length === 1) {
         // Single attestation request
@@ -392,7 +398,8 @@ class LoginShareAttestation extends Component {
           attestationRequestedVdxfKeys: selected.requestFormat.requestedKeys,
           multipleAttestations: false,
           selectedAttestations: allSelected,
-          requestedKey: ''
+          requestedKey: '',
+          challengeId
         });
       } else {
         throw new Error('No matching attestations found for the request');
@@ -441,7 +448,13 @@ class LoginShareAttestation extends Component {
           text: "Yes",
           onPress: () => {
             resolveAlert();
-            handleAttestationDataSend(createdAttestation, this.state.attestationDataURL)
+            
+            // Add challenge_id to the attestation data before sending
+            const attestationDataWithChallenge = this.state.challengeId ? 
+              { ...createdAttestation, challenge_id: this.state.challengeId } : 
+              createdAttestation;
+            
+            handleAttestationDataSend(attestationDataWithChallenge, this.state.attestationDataURL)
               .then(() => {
                 this.setState({ loading: false });
                 this.props.route.params.onGoBack(true);

@@ -75,6 +75,76 @@ export const modifyAttestationDataForUser = async (data = {}, dataType, accountH
   }
 }
 
+export const replaceAttestationDataForUser = async (data = {}, dataType, accountHash) => {
+  try {
+    if (!accountHash) {
+      throw new Error('Account hash is required');
+    }
+    
+    if (!dataType) {
+      throw new Error('Data type is required');
+    }
+    
+    let attestationData = {...(await loadAttestationDataForUser(accountHash))}
+    
+    // Validate data before stringifying
+    if (data === null || data === undefined) {
+      throw new Error('Data cannot be null or undefined');
+    }
+    
+    // Get password once and reuse it
+    const password = await requestPassword();
+    
+    // Add timestamps to attestations that don't have them
+    const dataWithTimestamps = {};
+    Object.keys(data).forEach(key => {
+      const attestation = data[key];
+      if (attestation && typeof attestation === 'object') {
+        // Check if attestation already has any timestamp field
+        const hasTimestamp = attestation.date || 
+                            attestation.timestamp || 
+                            attestation.created_at || 
+                            attestation.createdAt ||
+                            attestation.dateReceived;
+        
+        if (!hasTimestamp) {
+          // Add a timestamp with current date
+          dataWithTimestamps[key] = {
+            ...attestation,
+            dateReceived: new Date().toISOString(),
+            timestamp: Math.floor(Date.now() / 1000) // Unix timestamp
+          };
+        } else {
+          dataWithTimestamps[key] = attestation;
+        }
+      } else {
+        dataWithTimestamps[key] = attestation;
+      }
+    });
+    
+    // Replace the entire data for this dataType (no merging)
+    const jsonString = JSON.stringify(dataWithTimestamps);
+    if (!jsonString || jsonString === 'undefined' || jsonString === 'null') {
+      throw new Error('Failed to stringify attestation data or resulted in invalid JSON');
+    }
+    
+    // Verify we can parse it back
+    try {
+      JSON.parse(jsonString);
+    } catch (parseError) {
+      throw new Error(`Data produces invalid JSON: ${parseError.message}`);
+    }
+    
+    attestationData[dataType] = await encryptkey(password, jsonString)
+    await saveEncryptedAttestationDataForUser(attestationData, accountHash)
+
+    return dataWithTimestamps
+  } catch (error) {
+    console.error('Error in replaceAttestationDataForUser:', error.message);
+    throw new Error(`Failed to replace attestation data: ${error.message}`);
+  }
+}
+
 export const initAttestationDataForUser = async (accountHash) => {
   try {
     const attestationData = await loadAttestationDataForUser(accountHash)
