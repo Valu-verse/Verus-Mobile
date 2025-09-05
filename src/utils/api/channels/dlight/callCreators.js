@@ -1,4 +1,4 @@
-import VerusLightClient from 'react-native-verus-light-client'
+//import VerusLightClient from 'react-native-verus-light-client'
 import ApiException from '../../errors/apiError'
 import { DLIGHT_PRIVATE } from '../../../constants/intervalConstants'
 
@@ -26,19 +26,6 @@ export * from './requests/sendPrivateTransaction'
  */
 export const makeDlightRequest = (coinId, accountHash, coinProto, reqId, method, params) => {
   return new Promise((resolve, reject) => {
-    VerusLightClient.request(reqId, method, [coinId, coinProto, accountHash, ...params])
-    .then(res => {      
-      if (res.error != null) {
-        reject(
-          new ApiException(
-            res.error.message,
-            res.error.data,
-            coinId,
-            DLIGHT_PRIVATE,
-            res.error.code
-          )
-        );
-      } else resolve(res);
-    })
+    resolve(res);
   })
 }

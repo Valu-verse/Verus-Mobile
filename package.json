@@ -3,7 +3,7 @@
   "version": "1.0.28",
   "private": true,
   "scripts": {
-    "postinstall": "./node_modules/.bin/rn-nodeify --hack --install --yarn && npx jetify",
+    "postinstall": "./node_modules/.bin/rn-nodeify --hack --install --yarn && npx jetify && rm -rf ./node_modules/react-native-verus-light-client",
     "android": "react-native run-android --main-activity SplashActivity",
     "ios": "react-native run-ios",
     "start": "react-native start",

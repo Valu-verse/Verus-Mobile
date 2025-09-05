@@ -6,7 +6,7 @@ import {
 } from './agama-wallet-lib/keys';
 import { ETH, ERC20, DLIGHT_PRIVATE, ELECTRUM, WYRE_SERVICE } from './constants/intervalConstants';
 import ethers from 'ethers';
-import VerusLightClient from 'react-native-verus-light-client'
+//import VerusLightClient from 'react-native-verus-light-client'
 import {
   KEY_DERIVATION_VERSION,
 } from "../../env/index";
@@ -19,7 +19,7 @@ const deriveLightwalletdKeyPair = async (seed) => {
   return {
     pubKey: null,
     privKey: spendingKey,
-    viewingKey: await VerusLightClient.deriveViewingKey(spendingKey),
+    viewingKey: new Promise.resolve(true), //await VerusLightClient.deriveViewingKey(spendingKey),
     addresses: [],
   };
 };

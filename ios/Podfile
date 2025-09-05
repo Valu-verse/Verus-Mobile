@@ -15,7 +15,6 @@ node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
 $dynamic_frameworks = [
-  'react-native-verus-light-client',
   'MnemonicSwift',
   'React',
   'React-Core',
@@ -45,7 +44,6 @@ $dynamic_frameworks = [
   'React-RCTSettings',
   'React-RCTText',
   'React-RCTVibration',
-  'ZcashLightClientKit',
   'gRPC-Swift',
   'Logging',
   'SwiftNIO',
@@ -149,8 +147,7 @@ target 'verusmobile' do
   )
 
   # Pods for Verus-Mobile
-  pod 'ZcashLightClientKit', :git => 'https://github.com/VerusCoin/ZcashLightClientKit.git', :branch => '0.9.1', :testspecs => ['Tests']
-  pod 'MnemonicSwift', '~> 2.0.0'
+   pod 'MnemonicSwift', '~> 2.0.0'
   #pod 'Permission-Camera', :path => "#{permissions_path}/Camera/Permission-Camera.podspec"
   #pod 'Permission-PhotoLibrary', :path => "#{permissions_path}/PhotoLibrary/Permission-PhotoLibrary.podspec"
   pod 'SwiftNIO', '2.40.0'

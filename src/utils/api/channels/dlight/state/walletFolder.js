@@ -1,4 +1,4 @@
-import VerusLightClient from 'react-native-verus-light-client'
+//import VerusLightClient from 'react-native-verus-light-client'
 
 /**
  * Initializes a wallet for the first time
@@ -13,16 +13,9 @@ import VerusLightClient from 'react-native-verus-light-client'
  */
 export const initializeWallet = async (coinId, coinProto, accountHash, host, port, numAddresses, viewingKeys, birthday = 0) => {
   try {
-    return await VerusLightClient.createWallet(
-      coinId,
-      coinProto,
-      accountHash,
-      host,
-      port,
-      numAddresses,
-      viewingKeys,
-      birthday
-    );
+    return new promise((resolve, reject) => {
+      resolve(true)
+    })
   } catch (error) {
     throw error
   }
