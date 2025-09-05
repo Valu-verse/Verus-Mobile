@@ -578,7 +578,7 @@ PODS:
     - SwiftNIOFoundationCompat (< 3, >= 2.32.0)
     - SwiftNIOPosix (< 3, >= 2.32.0)
     - SwiftNIOTLS (< 3, >= 2.32.0)
-  - SwiftProtobuf (1.25.1)
+  - SwiftProtobuf (1.29.0)
   - TcpSockets (4.0.0):
     - React
   - VisionCamera (4.5.1):
@@ -904,12 +904,12 @@ SPEC CHECKSUMS:
   SwiftNIOSSL: d153c5a6fc5b2301b0519b4c4d037a9414212da6
   SwiftNIOTLS: 598af547490133e9aac52aed0c23c4a90c31dcfc
   SwiftNIOTransportServices: 0b2b407819d82eb63af558c5396e33c945759503
-  SwiftProtobuf: 69f02cd54fb03201c5e6bf8b76f687c5ef7541a3
+  SwiftProtobuf: b7aa08087e2ab6d162862d143020091254095f69
   TcpSockets: 4ef55305239923b343ed0a378b1fac188b1373b0
   VisionCamera: 104de00dce2e04dec51bfb6027eff0312fa3174e
   Yoga: d4f5b037672e6b68ba484c7cf7fe6790122df792
   ZcashLightClientKit: 4e4273f2e841e982fedad461a9008cca19089f5c
 
-PODFILE CHECKSUM: 6484296297e28f08e0a87b93c87d210ae1b20317
+PODFILE CHECKSUM: 711e43d76df80dbbe26521a700438f213823d1c4
 
 COCOAPODS: 1.16.2
