@@ -551,7 +551,7 @@ const ValuAttestation = (props) => {
 
             //  console.log(newLoadingNotification)
         } catch (e) {
-            console.log("state set4", e)
+            console.log("startOnRamp error", e)
             setLoading(false);
             createAlertDialog(
                 `An error occurred while trying to start the Valu Proof of Humanity process. ${e}`, "OK"

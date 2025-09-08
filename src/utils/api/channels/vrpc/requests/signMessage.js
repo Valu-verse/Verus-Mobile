@@ -9,7 +9,7 @@ export const signMessage = async (coinObj, iAddrOrIdentity, message, height) => 
     iAddrOrIdentity,
     message,
     privKey,
-    undefined,
+    null,
     height
   );
 }

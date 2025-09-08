@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text } from 'react-native'
+import { View, Text, ScrollView } from 'react-native'
 import styles from "../../../../styles";
 import AnimatedActivityIndicator from "../../../../components/AnimatedActivityIndicator";
 import {Divider, List, Portal, Dialog, Button, IconButton} from 'react-native-paper';
@@ -25,7 +25,11 @@ export const VerusAttestationRender = function () {
         </View>
       )}
       {!this.props.loading && (
-        <React.Fragment>
+        <ScrollView 
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={true}
+        >
         {Object.values(this.state.attestations || {}).length === 0 && (
           <Text style={{fontSize: 20, textAlign: 'center', padding: 20}}>No attestations present</Text>
         )}
@@ -149,7 +153,7 @@ export const VerusAttestationRender = function () {
 
 
         })}
-        </React.Fragment>
+        </ScrollView>
       )}
 
       {/* Delete Confirmation Modal */}

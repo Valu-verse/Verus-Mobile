@@ -20,12 +20,11 @@ import { coinsList } from '../../../utils/CoinData/CoinsList';
 import { requestSeeds } from '../../../utils/auth/authBox';
 import crypto from 'crypto'
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { signMessage } from '../../../utils/api/channels/vrpc/requests/signMessage';
+import { signHash } from '../../../utils/api/channels/vrpc/requests/signHash';
 import { Buffer } from 'buffer';
 import { BN } from 'bn.js';
+import { getInfo } from "../../../utils/api/channels/vrpc/callCreators";
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
-
-
 const LoginRequestIdentity = props => {
   const { deeplinkData } = props.route.params
   const [loading, setLoading] = useState(false)
@@ -51,8 +50,8 @@ const LoginRequestIdentity = props => {
 
     if (Object.keys(linkedIds).length > 0) {
       for (const chainId of Object.keys(linkedIds)) {
-        if (linkedIds[chainId] && 
-           Object.keys(linkedIds[chainId])
+        if (linkedIds[chainId] &&
+          Object.keys(linkedIds[chainId])
             .includes(req.challenge.subject.find(item => item.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid)?.data)) {
           canProvision = false;
         }
@@ -84,7 +83,7 @@ const LoginRequestIdentity = props => {
       const verusIdServiceData = await requestServiceStoredData(
         VERUSID_SERVICE_ID,
       );
-      
+
       if (verusIdServiceData.linked_ids) {
         setLinkedIds(verusIdServiceData.linked_ids)
       } else {
@@ -96,18 +95,18 @@ const LoginRequestIdentity = props => {
     }
 
     setLoading(false)
-  } 
+  }
 
   useEffect(() => {
-    if(passthrough && passthrough.fqnToAutoLink){
-      
+    if (passthrough && passthrough.fqnToAutoLink) {
+
       let noLogin = false;
 
       if (!req.challenge.redirect_uris || req.challenge.redirect_uris.length == 0) {
         noLogin = true;
       }
-      
-      const data = {[SEND_MODAL_IDENTITY_TO_LINK_FIELD]: passthrough.fqnToAutoLink, noLogin: noLogin};
+
+      const data = { [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: passthrough.fqnToAutoLink, noLogin: noLogin };
       openLinkIdentityModal(CoinDirectory.findCoinObj(system_id, null, true), data);
     }
   }, [passthrough])
@@ -119,7 +118,7 @@ const LoginRequestIdentity = props => {
   }, [encryptedIds])
 
   useEffect(() => {
-    if (!idProvisionSuccess && sendModal.data?.success){
+    if (!idProvisionSuccess && sendModal.data?.success) {
       setIdProvisionSuccess(true);
     }
 
@@ -127,7 +126,7 @@ const LoginRequestIdentity = props => {
       props.navigation.dispatch(
         CommonActions.reset({
           index: 0,
-          routes: [{name: 'SignedInStack'}],
+          routes: [{ name: 'SignedInStack' }],
         }),
       );
     }
@@ -139,14 +138,14 @@ const LoginRequestIdentity = props => {
     for (const chainId of activeCoinIds) {
       sortedIdKeysPerChain[chainId] = linkedIds[chainId]
         ? Object.keys(linkedIds[chainId]).sort(function (x, y) {
-            if (linkedIds[chainId][x] < linkedIds[chainId][y]) {
-              return -1;
-            }
-            if (linkedIds[chainId][x] > linkedIds[chainId][y]) {
-              return 1;
-            }
-            return 0;
-          })
+          if (linkedIds[chainId][x] < linkedIds[chainId][y]) {
+            return -1;
+          }
+          if (linkedIds[chainId][x] > linkedIds[chainId][y]) {
+            return 1;
+          }
+          return 0;
+        })
         : [];
     }
 
@@ -181,40 +180,46 @@ const LoginRequestIdentity = props => {
 
       let foundMessage = req.challenge.requested_access.filter(x => x.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) || [];
       let signedMessage = {};
-      if(foundMessage.length > 0) {
+      if (foundMessage.length > 0) {
         // Look for endorsement data in the subject array instead of requested_access
-        const subjectItem = req.challenge.subject.find(item => 
+        const subjectItem = req.challenge.subject.find(item =>
           item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
         );
-        
-        if(!subjectItem || !subjectItem.data) throw new Error("No endorsement data found to sign");
-        
+
+        if (!subjectItem || !subjectItem.data) throw new Error("No endorsement data found to sign");
+
         // Create endorsement object from the base64 data
         const endorsement = new primitives.Endorsement();
         endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
 
-        const signatureData = new primitives.SignatureData({version: new BN(1)});
-        
+        const signatureData = new primitives.SignatureData({ version: new BN(1) });
+
         signatureData.identity_ID = iAddress;
         signatureData.system_ID = system_id;
-        signatureData.signature = signature;
-        
         signatureData.signature_hash = crypto.createHash('sha256').update(subjectItem.data).digest()
-       
-        const signature = await signMessage(CoinDirectory.findCoinObj(system_id, null, true), iAddress, signatureData.signature_hash);
-        signatureData.signature_as_vch = Buffer.from(signature, 'base64');
 
+        const idClass = new primitives.SignatureData();
+
+        idClass.system_ID = system_id;
+        idClass.identity_ID = iAddress;
+        idClass.signature_hash = signatureData.signature_hash;
+
+        const chainInfo = await getInfo(system_id);
+        const height = chainInfo.result.longestchain;
+        const sigHash = idClass.getIdentityHash({ version: 2, hash_type: 5, height });
+        const signature = await signHash(CoinDirectory.findCoinObj(system_id, null, true), iAddress, sigHash, height);
+
+        signatureData.signature_as_vch = Buffer.from(signature, 'base64');
         endorsement.signature = signatureData;
         endorsement.flags = primitives.Endorsement.FLAGS_HAS_SIGNATURE;
+        signedMessage.endorsement = endorsement.toJson();
 
-        signedMessage.endorsement = endorsement.toJson();        
-
-       }
+      }
       props.navigation.navigate("LoginRequestComplete", {
         signedResponse,
         signedMessage,
       })
-    } catch(e) {
+    } catch (e) {
       createAlert("Error", e.message)
     }
   };
@@ -222,7 +227,7 @@ const LoginRequestIdentity = props => {
   return loading ? (
     <AnimatedActivityIndicatorBox />
   ) : (
-    <ScrollView style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}>
+    <ScrollView style={{ ...Styles.fullWidth, ...Styles.backgroundColorWhite }}>
       {Object.keys(sortedIds).filter(x => x === identityNetwork).map(chainId => {
         return (
           <React.Fragment key={chainId}>
