@@ -60,11 +60,11 @@ const AttestationWidget = props => {
                             marginRight: 0
                         }} />
                         <Paragraph style={{ fontSize: 16, color: Colors.primaryColor, fontWeight: 'bold' }}>
-                            {'Valu Attestations'}
+                            {'Valu Attestation'}
                         </Paragraph>
                     </View>
                     <Paragraph style={{ fontSize: 12, color: Colors.primaryColor, marginTop:20 }}>
-                        {'Get your Valu Identity'}
+                        {'Get your Valu Proof of PersonHood'}
                     </Paragraph>
 
                 </View>

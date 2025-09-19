@@ -28,16 +28,11 @@ export const ValuServiceRender = function () {
           />
         </View>
       )}
-      {this.props.encryptedSeeds[VALU_SERVICE] != null ? (
         <ValuServiceAccount
         navigation={this.props.navigation}
         subScreen={this.state.subScreen}
         />
-      ) : (
-        <ValuServiceIntroSlider
-        navigation={this.props.navigation}
-        />
-      )}
+
     </React.Fragment>
   );
 };

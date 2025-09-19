@@ -103,12 +103,19 @@ class ValuServiceAccount extends Component {
   };
 
   selectCountry(countryCode) {
+    this.countrySelectionInProgress = true; // Flag to prevent cancel logic
     this.setState({
         taxCountry: {
             ...this.state.taxCountry,
             country: countryCode
-        }
-    }, () => this.updateTaxCountry())
+        },
+        countryModalOpen: false
+    }, () => {
+        this.updateTaxCountry();
+        setTimeout(() => {
+            this.countrySelectionInProgress = false; // Reset flag after a short delay
+        }, 100);
+    })
 }
 
 loadPersonalLocations() {
@@ -207,6 +214,11 @@ updateTaxCountry() {
                                 };
                             })}
                             cancel={() => {
+                              // Don't show error if a selection is in progress
+                              if (this.countrySelectionInProgress) {
+                                  return;
+                              }
+                              
                               if (this.state.taxCountry?.country) {
                                   this.setState({ countryModalOpen: false });
                               } else {
@@ -305,41 +317,7 @@ updateTaxCountry() {
         {...this.props}
         route={{ params: this.state.subScreenData || {} }}
         setSubScreen={this.setSubScreen}
-      />);
-    else
-      return (
-        <SafeAreaView style={Styles.defaultRoot}>
-          <ScrollView
-            style={Styles.fullWidth}
-            contentContainerStyle={Styles.focalCenter}>
-            <Text style={styles.title}>Select an Option</Text>
-            <Button
-              style={{marginTop:40}}
-              color={Colors.primaryColor}
-              mode="contained"
-              onPress={() => this.setSubScreen("attestation")}
-            >
-              Valu Attestations
-            </Button>
-            <Button
-              color={Colors.primaryColor}
-              mode="contained"
-              onPress={() => this.setSubScreen("onRamp")}
-              style={{marginTop:40}}
-            >
-              Valu OnRamp
-            </Button>
-            <Button
-              color={Colors.primaryColor}
-              mode="contained"
-              onPress={() => this.setSubScreen("offRamp")}
-              style={{marginTop:40}}
-            >
-              Valu OffRamp
-            </Button>
-          </ScrollView>
-        </SafeAreaView>
-      );
+      />);   
   }
 
 }

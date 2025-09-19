@@ -33,11 +33,11 @@ class ValuChooseIdentity extends Component {
     }
 
     handleNameChange = (text) => {
-        // Remove any special characters and convert to lowercase
-        const cleanText = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+        // Only prevent specific special characters: . / * : ;
+        const cleanText = text.replace(/[./*:;]/g, '');
         this.setState({ identityName: cleanText });
     }
-
+ 
     getFullyQualifiedName = () => {
         const { identityName, identitySuffix } = this.state;
         return identityName + identitySuffix;

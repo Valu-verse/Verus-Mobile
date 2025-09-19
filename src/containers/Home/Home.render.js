@@ -209,13 +209,6 @@ export const HomeRenderWidget = ({
           <AttestationWidget />
         </Provider>
       );
-    },
-    [VALU_ACCOUNT_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <ValuAccountWidget />
-        </Provider>
-      );
     }
   }
 

@@ -641,17 +641,7 @@ class ValuOnRampChooseSource extends Component {
               Buy vUSDC
             </Button>
             
-            {/* Demo button for testing attestation flow - Remove in production */}
-            <Button
-              onPress={this.demoAttestationFlow}
-              uppercase={false}
-              mode="outlined"
-              style={[styles.actionButton, { marginTop: 10 }]}
-              labelStyle={[styles.buttonLabel, { color: Colors.primaryColor }]}
-            >
-              Demo: Test Attestation Flow
-            </Button>
-            
+           
             <React.Fragment>
               <Divider style={{ marginVertical: 5 }} />
               <List.Item

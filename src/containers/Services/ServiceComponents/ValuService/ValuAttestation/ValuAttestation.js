@@ -30,7 +30,8 @@ import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/
 import { updateDeeplinkUrl } from '../../../../../actions/actionDispatchers';
 import {
     VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
-    VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING
+    VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING,
+    VALU_POL_PENDING
 } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
@@ -74,7 +75,8 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_FAILED]: "RETRY",
         [VALU_POL_READY]: "CONTINUE",
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
-        [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE"
+        [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
+        [VALU_POL_PENDING]: "REFRESH STATUS",
 
     }
 
@@ -269,7 +271,7 @@ const ValuAttestation = (props) => {
             setStatus("error");
             setMainButtonText("RETRY");
             createAlertDialog(
-                `An error occurred while trying to start the Valu Proof of Humanity process. ${e.message}`, "RETRY")
+                `An error occurred while trying to start the Valu Proof of Personhood process. ${e.message}`, "RETRY")
         }
 
     }, [props.navigation, isProvisioningIdentity]);
@@ -474,7 +476,7 @@ const ValuAttestation = (props) => {
 
     const createAlertDialog = (message, button, func = () => { }) => {
         createAlert(
-            `Valu Proof of Humanity Attestation`,
+            `Valu Proof of Personhood Attestation`,
             message, [
             {
                 text: 'CANCEL',
@@ -513,7 +515,7 @@ const ValuAttestation = (props) => {
                 if (skipDispatchNotification) {
                     const newLoadingNotification = new NavigationNotification();
                     newLoadingNotification.body = "Continue";
-                    newLoadingNotification.title = [`Complete Valu Proof of Humanity`]
+                    newLoadingNotification.title = [`Complete Valu Proof of Personhood`]
                     newLoadingNotification.acchash = activeAccount.accountHash;
                     newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
                     newLoadingNotification.navigate = () => {
@@ -527,11 +529,16 @@ const ValuAttestation = (props) => {
 
             } else if (status === VALU_POL_PAYMENT_PENDING) {
                 createAlertDialog(
-                    `You already have a Valu Proof of Humanity in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
+                    `You already have a Valu Proof of Personhood in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
 
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
+            } else if (status === VALU_POL_PENDING) {
+                // Show loading spinner while checking status
+                setLoading(true);
+                await fetchData();
+                // Loading will be set to false in fetchData
             } else if (status === VALU_POL_PAYMENT_RECEIVED) {
                 // Show identity choice modal first instead of directly navigating
                 setLoading(false);
@@ -545,20 +552,15 @@ const ValuAttestation = (props) => {
                 // Trigger internal deeplink handler instead of opening externally
                 updateDeeplinkUrl(newRep.data);
             }
-
-            //    throw new Error(reply.error);
-
-
-            //  console.log(newLoadingNotification)
         } catch (e) {
             console.log("startOnRamp error", e)
             setLoading(false);
             createAlertDialog(
-                `An error occurred while trying to start the Valu Proof of Humanity process. ${e}`, "OK"
+                `An error occurred while trying to start the Valu Proof of Personhood process. ${e}`, "OK"
             )
 
         }
-        //  Linking.openURL(reply);
+        
     }
 
     const stageMessages = {
@@ -575,7 +577,10 @@ const ValuAttestation = (props) => {
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         ["VALU_POL_READY"]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Your Valu Proof of Humanity is ready to retrieve.
+            Your Valu Proof of Personhood is ready to retrieve.
+        </Text>),
+        [VALU_POL_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            Your Personal details are being processed. Click continue to check if your Proof of Personhood is ready.
         </Text>),
         "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
             An error occurred. Please try again.
