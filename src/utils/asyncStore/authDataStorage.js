@@ -1,6 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-// react-native's version of local storage
-
 import {
   encryptkey,
   decryptkey,
@@ -14,8 +11,9 @@ import { setAccounts, updateSessionKey } from '../../actions/actionCreators';
 import { USER_DATA_STORAGE_INTERNAL_KEY } from '../../../env/index';
 import { VALU_SERVICE_ID, WYRE_SERVICE_ID } from '../constants/services';
 import { resetPersonalDataEncryptionForUser, resetServicesStoredEncryptionForUser } from '../../actions/actionDispatchers';
-import { removeSessionPassword, setSessionPassword } from '../keychain/keychain';
+import { removeSessionCredential } from '../keychain/keychain';
 import { initSession } from '../auth/authBox';
+import { SecureStorage } from '../keychain/secureStore';
 
 //Set storage to hold encrypted user data
 export const storeUser = (authData, users) => {
@@ -54,7 +52,7 @@ export const storeUser = (authData, users) => {
     _users.push(userObj);
     let _toStore = {users: _users};
 
-    AsyncStorage.setItem(
+    SecureStorage.setItem(
       USER_DATA_STORAGE_INTERNAL_KEY,
       JSON.stringify(_toStore),
     )
@@ -85,7 +83,7 @@ export const addEncryptedKeyToUser = async (accountHash, channel, seed, password
       let newUsers = [...users]
       newUsers[userObjIndex] = newUserObj
 
-      await AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: newUsers}))
+      await SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: newUsers}))
       return await getUsers()
     }
   } catch(e) {
@@ -98,7 +96,7 @@ export const setUsers = (users) => {
   let _toStore = {users}
 
   return new Promise((resolve, reject) => {
-    AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore))
+    SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore))
       .then(() => {
         resolve(_toStore.users);
       })
@@ -109,7 +107,7 @@ export const setUsers = (users) => {
 //Delete user by user ID and return new user array
 export const deleteUser = (accountHash) => {
   return new Promise((resolve, reject) => {
-    AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
+    SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(res => {
         let _users = res ? JSON.parse(res).users : [];
         if(accountHash !== null) {
@@ -119,7 +117,7 @@ export const deleteUser = (accountHash) => {
             _users.splice(userIndex, 1);
             let _toStore = {users: _users}
             let promiseArr = [
-              AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore)),
+              SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore)),
               _users]
             return Promise.all(promiseArr)
           } else {
@@ -141,7 +139,7 @@ export const deleteUser = (accountHash) => {
 
 export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
   try {
-    const res = await AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY);
+    const res = await SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY);
     let users = res ? JSON.parse(res).users : [];
     let userIndex = users.findIndex(n => n.accountHash === accountHash);
 
@@ -171,7 +169,7 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
     };
 
     // Reset the session password
-    await removeSessionPassword();
+    await removeSessionCredential();
     const sessionKey = await initSession(newPwd);
     store.dispatch(updateSessionKey(sessionKey));
 
@@ -179,7 +177,7 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
     
     await resetServicesStoredEncryptionForUser(accountHash, oldPwd);
     
-    await AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users}));
+    await SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users}));
   
     return users;
   } catch (err) {
@@ -190,7 +188,7 @@ export const resetUserPwd = async (accountHash, newPwd, oldPwd) => {
 
 const setUserSetting = (accountHash, settingKey, setting) => {
   return new Promise((resolve, reject) => {
-    AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
+    SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(async (res) => {
         let _users = res ? JSON.parse(res).users : [];
         if(accountHash !== null) {
@@ -198,7 +196,7 @@ const setUserSetting = (accountHash, settingKey, setting) => {
 
           if (userIndex > -1) {
             _users[userIndex][settingKey] = setting
-            await AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: _users}))
+            await SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify({users: _users}))
             resolve(_users)
           } else {
             throw new Error("User with hash " + accountHash + " not found")
@@ -241,7 +239,7 @@ export const putUserPaymentMethods = async (user, paymentMethods) => {
 
 export const putUser = (userID, userParams) => {
   return new Promise((resolve, reject) => {
-    AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
+    SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(res => {
         const _users = res ? JSON.parse(res).users : [];
         if(userID !== null) {
@@ -253,7 +251,7 @@ export const putUser = (userID, userParams) => {
               ...userParams,
             }
             const _toStore = { users: _users }
-            const promiseArr = [AsyncStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore)), _users]
+            const promiseArr = [SecureStorage.setItem(USER_DATA_STORAGE_INTERNAL_KEY, JSON.stringify(_toStore)), _users]
             return Promise.all(promiseArr)
           }
         }
@@ -278,7 +276,7 @@ export const putUser = (userID, userParams) => {
 export const getUsers = () => {
   let users = {}
   return new Promise((resolve, reject) => {
-    AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
+    SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(res => {
         users = res ? JSON.parse(res) : {users: []};
         resolve(users.users)
@@ -290,7 +288,7 @@ export const getUsers = () => {
 // Check user password
 export const checkPinForUser = (pin, userName, alertOnFail = true) => {
   return new Promise((resolve, reject) => {
-    AsyncStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
+    SecureStorage.getItem(USER_DATA_STORAGE_INTERNAL_KEY)
       .then(async res => {
         let users = res ? JSON.parse(res) : {users: []};
         if(pin !== null && users.users) {
@@ -353,5 +351,5 @@ export const checkPinForUser = (pin, userName, alertOnFail = true) => {
   });
 };
 
-export const onSignOut = () => AsyncStorage.removeItem(KEY);
+export const onSignOut = () => SecureStorage.removeItem(KEY);
 //if user signs out, remove TRUE key
