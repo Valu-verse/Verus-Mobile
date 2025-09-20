@@ -31,39 +31,39 @@ const HomeFAB = (props) => {
       ? [
           {
             icon: 'format-list-bulleted',
-            label: 'Manage Coins',
+            label: 'Browse all',
             onPress: handleAddCoin,
           },
           {
             icon: 'rocket-launch',
-            label: 'Add ERC20 Token',
+            label: 'Add ERC-20 token',
             onPress: handleAddErc20Token,
           },
           {
             icon: 'rocket-launch',
-            label: 'Add PBaaS Currency',
+            label: 'Add ecosystem currency',
             onPress: handleAddPbaasCurrency,
           }
         ]
       : [
           {
             icon: 'swap-horizontal-variant',
-            label: 'Configure Home Cards',
+            label: 'Arrange cards',
             onPress: handleEditCards,
           },
           {
             icon: 'format-list-bulleted',
-            label: 'Manage Coins',
+            label: 'Browse all',
             onPress: handleAddCoin,
           },
           {
             icon: 'ethereum',
-            label: 'Add ERC20 Token',
+            label: 'Add ERC-20 token',
             onPress: handleAddErc20Token,
           },
           {
             icon: 'rocket-launch',
-            label: 'Add PBaaS Currency',
+            label: 'Add ecosystem currency',
             onPress: handleAddPbaasCurrency,
           },
         ];
@@ -136,7 +136,7 @@ const HomeFAB = (props) => {
           uppercase={false}
           labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 14, letterSpacing: 0, textTransform: 'none' }}
         >
-          Add currency
+          Manage coins
         </Button>
       </View>
     </Portal>
