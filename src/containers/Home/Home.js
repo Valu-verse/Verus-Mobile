@@ -46,7 +46,6 @@ import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
-  VALU_WIDGET_TYPE,
   ATTESTATION_WIDGET_TYPE,
   VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
@@ -165,11 +164,8 @@ const Home = () => {
       dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
     }
 
-    // Add the valu widget if not present
-    if (!widgetsList.includes(VALU_WIDGET_TYPE)) {
-      widgetsList.push(VALU_WIDGET_TYPE);
-      dispatchAddWidget(VALU_WIDGET_TYPE, activeAccount.accountHash);
-    }
+    // Ensure VALU Buy/Sell widget is removed (replaced by floating buttons)
+    widgetsList = widgetsList.filter((id) => id !== 'valu');
 
     if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
       widgetsList.push(ATTESTATION_WIDGET_TYPE);
@@ -210,12 +206,7 @@ const Home = () => {
           service: VERUSID_SERVICE_ID,
         });
       },
-      [VALU_WIDGET_TYPE]  : () => {
-        navigation.navigate('Service', {
-          service: VALU_SERVICE_ID,
-          subScreen: 'onOffRamp'
-        });
-      },
+      
       [ATTESTATION_WIDGET_TYPE]: () => {
         navigation.navigate('Service', {
           service: VALU_SERVICE_ID,
@@ -416,6 +407,13 @@ const Home = () => {
     );
   };
 
+  const _openOnOffRamp = () => {
+    navigation.navigate('Service', {
+      service: VALU_SERVICE_ID,
+      subScreen: 'onOffRamp',
+    });
+  };
+
   return (
     <HomeRender
       dragDetectionEnabled={isDragDetectionEnabled}
@@ -429,6 +427,7 @@ const Home = () => {
       _verusPay={_verusPay}
       _addPbaasCurrency={_addPbaasCurrency}
       _addErc20Token={_addErc20Token}
+      handleOpenOnOffRamp={_openOnOffRamp}
       forceUpdate={forceUpdate}
       loading={loading}
       HomeRenderCoinsList={() =>
