@@ -7,12 +7,19 @@
   login, creates a new update heartbeat interval.
 */
 
+/*
+  Updated Login screen to match Landing screen visual style:
+  - Added top blue blob with "Powered by" and white Verus logo
+  - Centered Valu logo with welcome copy below
+  - Preserved existing Login and Add a profile buttons
+*/
 import React, {useEffect} from 'react';
 import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
-import {VerusLogo, ValuLogo} from '../../images/customIcons';
+import { ValuLogo } from '../../images/customIcons';
+import VerusLogoWhite from '../../images/customIcons/verus-logo-white.svg';
 import {TouchableOpacity} from 'react-native';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
@@ -95,44 +102,44 @@ const Login = props => {
         backgroundColor: Colors.secondaryColor,
         ...Styles.focalCenter,
       }}>
-      <Image source={ValuLogo} style={Styles.valuSplashLogo} />
-      
-      {/* Powered by Verus section */}
-      <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 20 }}>
-        <Text style={{ 
-          fontSize: 12, 
-          color: Colors.primaryColor, 
-          marginBottom: 5,
-          textAlign: 'center' 
-        }}>
-          Powered by
-        </Text>
-        <VerusLogo 
-          height={90} 
-          width={180} 
-        />
-      </View>
-      
+      {/* Top Verus blob */}
       <View
         style={{
-  
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {'Welcome to\nThe Internet of VALU'}
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 160,
+          backgroundColor: '#3165D4',
+          borderBottomLeftRadius: 36,
+          borderBottomRightRadius: 36,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: 44,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: Colors.secondaryColor, opacity: 0.9, marginBottom: 6 }}>
+          Powered by
         </Text>
+        <VerusLogoWhite width={110} height={24} />
+      </View>
+
+      {/* Center hero with Valu logo and copy */}
+      <View style={{ alignItems: 'center' }}>
+        <Image 
+          source={ValuLogo} 
+          style={{ width: 200, height: 120, resizeMode: 'contain' }}
+        />
         <Text
           style={{
             textAlign: 'center',
             color: Colors.primaryColor,
-            fontSize: 20,
+            fontSize: 18,
+            fontWeight: '600',
+            marginTop: 24,
+            lineHeight: 24,
           }}>
-          {''}
+          Welcome to VALU.{'\n'}Make the most of every day.
         </Text>
       </View>
       <TallButton

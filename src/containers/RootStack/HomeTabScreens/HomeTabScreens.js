@@ -1,3 +1,8 @@
+/*
+  Updated HomeTabScreens:
+  - Set bottom tab bar background to white (secondaryColor)
+  - Added activeColor (primaryColor) and inactiveColor (verusDarkGray)
+*/
 import React from 'react';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
@@ -13,7 +18,9 @@ const HomeTabs = createMaterialBottomTabNavigator()
 const HomeTabScreens = props => {
   return (
     <HomeTabs.Navigator
-      barStyle={{ backgroundColor: Colors.primaryColor }}
+      barStyle={{ backgroundColor: Colors.secondaryColor }}
+      activeColor={Colors.primaryColor}
+      inactiveColor={Colors.verusDarkGray}
       shifting={false}
     >
       <HomeTabs.Screen
