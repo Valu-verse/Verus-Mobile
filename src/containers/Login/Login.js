@@ -1,17 +1,11 @@
 /*
-  This component's purpose is to present the user with the option
-  to log into their accounts, and will only be shown if at least on account
-  exists on the mobile device. It uses the user-entered username and password
-  to find and decrypt the wallet seed in asyncStorage. When mounted, it clears
-  any detecting app update heartbeats located from before, and upon successfull
-  login, creates a new update heartbeat interval.
-*/
-
-/*
-  Updated Login screen to match Landing screen visual style:
-  - Added top blue blob with "Powered by" and white Verus logo
-  - Centered Valu logo with welcome copy below
-  - Preserved existing Login and Add a profile buttons
+  Login screen
+  - Purpose: Presents login options when at least one account exists on device.
+  - Behavior: Auth modal logic preserved; navigations unchanged.
+  - Visual updates (this edit):
+    • Apply same primary button style as LandingScreen (contained, rounded, shadowed).
+    • Add themed secondary button (outlined, rounded) for "Add a profile".
+    • Consistent typography (font size, weight, casing) and height.
 */
 import React, {useEffect} from 'react';
 import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
@@ -145,22 +139,37 @@ const Login = props => {
       <TallButton
         onPress={() => openAuthModal()}
         mode="contained"
-        labelStyle={{fontWeight: 'bold'}}
+        labelStyle={{ color: Colors.secondaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: 'absolute',
-          bottom: 86, // Adjusted position
-          width: 280,
+          bottom: 100, // Add small spacing between buttons
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.primaryColor,
+          elevation: 6,
+          shadowColor: Colors.primaryColor,
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}>
         {'Login'}
       </TallButton>
       <TallButton
         onPress={() => handleAddUser()}
-        mode="text"
-        labelStyle={{fontWeight: 'bold'}}
+        mode="outlined"
+        labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: 'absolute',
           bottom: 30, // Adjusted position
-          width: 280,
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.secondaryColor,
+          borderWidth: 1,
+          borderColor: Colors.primaryColor,
         }}>
         {'Add a profile'}
       </TallButton>

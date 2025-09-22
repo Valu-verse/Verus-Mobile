@@ -69,13 +69,28 @@ export default function LandingScreen(props) {
       <TallButton
         onPress={() => props.navigation.navigate("WelcomeSlider")}
         mode="contained"
-        labelStyle={{ fontWeight: "bold" }}
+        labelStyle={{
+          color: Colors.secondaryColor,
+          fontWeight: '600',
+          fontSize: 18,
+          letterSpacing: 0,
+          textTransform: 'none',
+        }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: "absolute",
           bottom: 80,
-          width: 280
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.primaryColor,
+          elevation: 6,
+          shadowColor: Colors.primaryColor,
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}>
-        {"Get Started"}
+        {"Get started"}
       </TallButton>
     </View>
   );
