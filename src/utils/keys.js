@@ -6,7 +6,12 @@ import {
 } from './agama-wallet-lib/keys';
 import { ETH, ERC20, DLIGHT_PRIVATE, ELECTRUM, WYRE_SERVICE } from './constants/intervalConstants';
 import { SigningKey, ethers } from 'ethers';
-import VerusLightClient from 'react-native-verus-light-client'
+// Replaced react-native-verus-light-client with null functions
+const VerusLightClient = {
+  deriveViewingKey: () => Promise.resolve(null),
+  deriveSpendingKeys: () => Promise.resolve([]),
+  deterministicSeedBytes: () => new Uint8Array(0)
+}
 import {
   KEY_DERIVATION_VERSION,
 } from "../../env/index";

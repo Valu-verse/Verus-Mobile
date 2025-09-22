@@ -15,7 +15,6 @@ node_require('react-native/scripts/react_native_pods.rb')
 node_require('react-native-permissions/scripts/setup.rb')
 
 $dynamic_frameworks = [
-  'react-native-verus-light-client',
   'MnemonicSwift',
   'React',
   'React-Core',
@@ -45,7 +44,6 @@ $dynamic_frameworks = [
   'React-RCTSettings',
   'React-RCTText',
   'React-RCTVibration',
-  'ZcashLightClientKit',
   'gRPC-Swift',
   'Logging',
   'SwiftNIO',
@@ -149,7 +147,6 @@ target 'verusmobile' do
   )
 
   # Pods for Verus-Mobile
-  pod 'ZcashLightClientKit', :git => 'https://github.com/VerusCoin/ZcashLightClientKit.git', :branch => '0.9.1', :testspecs => ['Tests']
   pod 'MnemonicSwift', '~> 2.0.0'
   #pod 'Permission-Camera', :path => "#{permissions_path}/Camera/Permission-Camera.podspec"
   #pod 'Permission-PhotoLibrary', :path => "#{permissions_path}/PhotoLibrary/Permission-PhotoLibrary.podspec"
@@ -171,33 +168,7 @@ target 'verusmobile' do
     )
     __apply_Xcode_12_5_M1_post_install_workaround(installer)
 
-    # Remove test files from react-native-verus-light-client
-    verus_light_client_target = installer.pods_project.targets.find { |target| target.name == 'react-native-verus-light-client' }
-    if verus_light_client_target
-      puts "Removing test files from react-native-verus-light-client"
-      
-      # Remove files with 'test' in their names from all build phases
-      verus_light_client_target.build_phases.each do |build_phase|
-        if build_phase.respond_to?(:files)
-          files_to_remove = build_phase.files.select do |file|
-            file.file_ref && file.file_ref.path && file.file_ref.path.downcase.include?('test')
-          end
-          
-          files_to_remove.each do |file|
-            puts "  Removing: #{file.file_ref.path}"
-            build_phase.remove_file_reference(file.file_ref)
-          end
-        end
-      end
-      
-      # Also remove test files from the file references
-      verus_light_client_target.source_build_phase.files.to_a.each do |build_file|
-        if build_file.file_ref && build_file.file_ref.path && build_file.file_ref.path.downcase.include?('test')
-          puts "  Removing source file: #{build_file.file_ref.path}"
-          verus_light_client_target.source_build_phase.remove_file_reference(build_file.file_ref)
-        end
-      end
-    end
+
 
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
@@ -224,18 +195,10 @@ target 'verusmobile' do
         config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) _LIBCPP_DISABLE_AVAILABILITY=1'
         
         # Special handling for Swift/C++ interop libraries that might cause ABI issues
-        if target.name.include?('Swift') || target.name.include?('gRPC') || target.name.include?('NIO') || target.name == 'react-native-verus-light-client'
+        if target.name.include?('Swift') || target.name.include?('gRPC') || target.name.include?('NIO')
           puts "Applying extra C++ ABI fixes to #{target.name}"
           config.build_settings['SWIFT_VERSION'] = '5.0'
           config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'  # Use older standard for problematic targets
-        end
-
-        if target.name == 'ZcashLightClientKit'
-           config.build_settings['ZCASH_NETWORK_ENVIRONMENT'] = 'MAINNET'
-           # Ensure ZcashLightClientKit builds for the correct architectures
-           config.build_settings['VALID_ARCHS'] = 'arm64 x86_64'
-           config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
-           config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
         end
         config.build_settings['ENABLE_BITCODE'] = 'NO'
       end

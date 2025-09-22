@@ -1,8 +1,8 @@
-const mockVerusLightClient = require('../__mocks__/react-native-verus-light-client/mock')
+// DLight functionality has been disabled, no mock needed
 const mockRnAlertAsync = require('../__mocks__/react-native-alert-async/mock')
 const mockRedux = require('../__mocks__/redux/mock')
 
-jest.mock('react-native-verus-light-client', () => mockVerusLightClient());
+jest.mock('react-native-verus-light-client', () => ({}));
 jest.mock('react-native-alert-async', () => mockRnAlertAsync());
 jest.mock('redux', () => mockRedux());
 jest.mock('@react-native-async-storage/async-storage', () =>

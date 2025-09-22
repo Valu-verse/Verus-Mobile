@@ -4,7 +4,8 @@ import {
   updateTransactions
 } from '../../../../actions/actions/wallet/dispatchers/UpdateTransactions'
 
-import VerusLightClient from 'react-native-verus-light-client'
+// Replaced react-native-verus-light-client with null functions
+const VerusLightClient = {}
 import { getActions } from 'redux'
 
 import { MOCK_STATE } from '../../../../tests/helpers/MockAppState'

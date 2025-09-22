@@ -1,4 +1,7 @@
-import VerusLightClient from 'react-native-verus-light-client'
+// Replaced react-native-verus-light-client with null functions
+const VerusLightClient = {
+  request: () => Promise.resolve({ error: { message: "DLight disabled", code: -1 } })
+}
 import ApiException from '../../errors/apiError'
 import { DLIGHT_PRIVATE } from '../../../constants/intervalConstants'
 
@@ -26,19 +29,14 @@ export * from './requests/sendPrivateTransaction'
  */
 export const makeDlightRequest = (coinId, accountHash, coinProto, reqId, method, params) => {
   return new Promise((resolve, reject) => {
-    VerusLightClient.request(reqId, method, [coinId, coinProto, accountHash, ...params])
-    .then(res => {      
-      if (res.error != null) {
-        reject(
-          new ApiException(
-            res.error.message,
-            res.error.data,
-            coinId,
-            DLIGHT_PRIVATE,
-            res.error.code
-          )
-        );
-      } else resolve(res);
-    })
+    reject(
+      new ApiException(
+        "DLight functionality has been disabled",
+        null,
+        coinId,
+        DLIGHT_PRIVATE,
+        -1
+      )
+    );
   })
 }

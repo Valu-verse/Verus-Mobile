@@ -4,7 +4,8 @@ import {
   updateInfo
 } from '../../../../actions/actions/wallet/dispatchers/UpdateInfo'
 
-import VerusLightClient from 'react-native-verus-light-client'
+// Replaced react-native-verus-light-client with null functions
+const VerusLightClient = {}
 
 import { MOCK_STATE } from '../../../../tests/helpers/MockAppState'
 import { ELECTRUM, DLIGHT_PRIVATE } from '../../../constants/intervalConstants'

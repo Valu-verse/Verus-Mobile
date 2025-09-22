@@ -1,4 +1,10 @@
-import VerusLightClient from 'react-native-verus-light-client'
+// Replaced react-native-verus-light-client with null functions
+const VerusLightClient = {
+  createWallet: () => Promise.reject(new Error("DLight functionality has been disabled")),
+  openWallet: () => Promise.reject(new Error("DLight functionality has been disabled")),
+  closeWallet: () => Promise.reject(new Error("DLight functionality has been disabled")),
+  deleteWallet: () => Promise.reject(new Error("DLight functionality has been disabled"))
+}
 
 /**
  * Initializes a wallet for the first time
@@ -12,20 +18,7 @@ import VerusLightClient from 'react-native-verus-light-client'
  * @param {Integer} birthday (optional) The last known blockheight the wallet was created on 
  */
 export const initializeWallet = async (coinId, coinProto, accountHash, host, port, numAddresses, viewingKeys, birthday = 0) => {
-  try {
-    return await VerusLightClient.createWallet(
-      coinId,
-      coinProto,
-      accountHash,
-      host,
-      port,
-      numAddresses,
-      viewingKeys,
-      birthday
-    );
-  } catch (error) {
-    throw error
-  }
+  throw new Error("DLight functionality has been disabled")
 }
 
 /**
@@ -35,11 +28,7 @@ export const initializeWallet = async (coinId, coinProto, accountHash, host, por
  * @param {String} accountHash The account hash of the user account to create the wallet for
  */
 export const openWallet = async (coinId, coinProto, accountHash) => {
-  try {
-    return await VerusLightClient.openWallet(coinId, coinProto, accountHash)
-  } catch (error) {
-    throw error
-  }
+  throw new Error("DLight functionality has been disabled")
 }
 
 /**
@@ -49,11 +38,7 @@ export const openWallet = async (coinId, coinProto, accountHash) => {
  * @param {String} accountHash The account hash of the user account to create the wallet for
  */
 export const closeWallet = async (coinId, coinProto, accountHash) => {
-  try {
-    return await VerusLightClient.closeWallet(coinId, coinProto, accountHash)
-  } catch (error) {
-    throw error
-  }
+  throw new Error("DLight functionality has been disabled")
 }
 
 /**
@@ -63,9 +48,5 @@ export const closeWallet = async (coinId, coinProto, accountHash) => {
  * @param {String} accountHash The account hash of the user account to create the wallet for
  */
 export const deleteWallet = async (coinId, coinProto, accountHash) => {
-  try {
-    return await VerusLightClient.deleteWallet(coinId, coinProto, accountHash)
-  } catch (error) {
-    throw error
-  }
+  throw new Error("DLight functionality has been disabled")
 }
