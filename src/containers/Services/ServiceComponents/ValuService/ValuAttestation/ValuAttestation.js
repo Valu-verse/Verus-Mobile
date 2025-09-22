@@ -424,12 +424,11 @@ const ValuAttestation = (props) => {
                 return;
             }
         } catch (error) {
-            console.log("Registered user authentication failed:", error);
+            console.log("Registered user authentication failed:", error?.message ? error.message : error);
         }
 
         // If registered user authentication fails or user not authenticated, use fallback authentication
 
-        ValuProvider.reset();
         const seed = (await requestSeeds())[VALU_SERVICE];
         if (seed == null) throw new Error("No Valu seed present");
         await ValuProvider.authenticate(seed, true);
@@ -544,7 +543,7 @@ const ValuAttestation = (props) => {
                 setLoading(false);
                 showIdentityChoiceModal();
                 return;
-            } else if (status === "VALU_POL_READY") {
+            } else if (status === VALU_POL_READY) {
                 const newRep = await ValuProvider.getValuAttestationStatus();
                 if (newRep.success === false) {
                     throw new Error(newRep.error);
@@ -576,7 +575,7 @@ const ValuAttestation = (props) => {
         "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
-        ["VALU_POL_READY"]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+        [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Your Valu Proof of Personhood is ready to retrieve.
         </Text>),
         [VALU_POL_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>

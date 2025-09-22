@@ -273,6 +273,7 @@ updateTaxCountry() {
                             onPress={() => { this.setSubScreen("offRamp")  }}
                             uppercase={false}
                             mode="contained"
+                            disabled={this.state.taxCountry == null}
                             labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
                             style={{ height: 41, width: 125 }}
                         >

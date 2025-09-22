@@ -9,7 +9,7 @@ import {
   storeSettings
 } from '../../utils/asyncStore/asyncStore';
 import store from '../../store/index'
-//TODO: Maybe dispatch from here instead of VerusMobile main file
+//TODO: Maybe dispatch from here instead of valumobile main file
 
 /**
  * Fetches the wallet settings state from Async Storage and returns a promise that 

@@ -20,7 +20,7 @@ const DEFAULT_GENERIC_PASSWORD_KEY = 'default'
 
 const getInternetCredential = async (credentialKey, title) => {
   const credentials = await Keychain.getInternetCredentials(credentialKey, INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     authenticationPrompt: { title }
   } : {
     authenticationPrompt: { title }
@@ -223,7 +223,7 @@ export const removeLegacyBiometricPassword = async (accountHash) => {
   delete credentials[accountHash]
 
   await Keychain.setGenericPassword(INTERNAL_APP_ID, JSON.stringify(credentials), INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
     accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
   } : {
@@ -234,7 +234,7 @@ export const removeLegacyBiometricPassword = async (accountHash) => {
 
 export const removeAllLegacyBiometricPasswords = async () => {
   await Keychain.setGenericPassword(INTERNAL_APP_ID, "{}", INCLUDE_SERVICE ? {
-    service: 'com.verus.verusmobile',
+    service: 'com.verus.valumobile',
     accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
     accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
   } : {

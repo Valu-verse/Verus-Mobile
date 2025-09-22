@@ -87,12 +87,19 @@ import {
         }
       case SIGN_OUT_COMPLETE:
         return {
-          ...state,
           openCoinChannels: {},
           serviceChannelOpen: true,
           authenticated: false,
           accountId: null,
-          currentAccountDataScreenParams: null
+          accountLogin: null,
+          currentAccountDataScreenParams: null,
+          amountFunded: 0,
+          onrampRequests: {},
+          offRampRequest: {},
+          openOffRamp: false,
+          // Reset any other state variables that may have been added
+          KYCState: undefined,
+          partnerUserId: undefined
         }
       case SET_CURRENT_VALU_ACCOUNT_DATA:
         return {

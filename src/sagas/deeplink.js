@@ -19,7 +19,7 @@ function* handleDeeplinkUrl(action) {
 
   if (urlstring != null) {
     try {
-      if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) throw new Error("Deeplink URL max length exceeded.");
+     // if (urlstring.length >= MAX_DEEPLINK_STRING_LENGTH) throw new Error(`Deeplink URL max length exceeded. Length: ${urlstring.length}, Max: ${MAX_DEEPLINK_STRING_LENGTH}`);
       const url = new URL(urlstring);
   
       if (url.host !== CALLBACK_HOST) throw new Error('Unsupported host url.');

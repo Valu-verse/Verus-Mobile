@@ -1,10 +1,10 @@
 {
-  "name": "verusmobile",
+  "name": "valumobile",
   "version": "1.0.31",
   "private": true,
   "scripts": {
     "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
-    "android": "react-native run-android",
+    "android": "react-native run-android --main-activity SplashActivity",
     "ios": "react-native run-ios",
     "start": "react-native start",
     "bundle-android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/",

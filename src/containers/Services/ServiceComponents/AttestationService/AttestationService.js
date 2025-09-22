@@ -27,15 +27,8 @@ class AttestationService extends Component {
     try {
       const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
       if (attestationData) {
-        console.log('Attestation Data Structure:', JSON.stringify(attestationData, null, 2));
-        
-        // Log the first attestation to see its structure
-        const firstAttestation = Object.values(attestationData)[0];
-        if (firstAttestation) {
-          console.log('First Attestation Fields:', Object.keys(firstAttestation));
-          console.log('First Attestation:', firstAttestation);
-        }
-        
+          
+       
         // Add timestamps to attestations that don't have them
         const attestationsWithTimestamps = {};
         let hasUpdates = false;
