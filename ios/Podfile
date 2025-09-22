@@ -232,6 +232,10 @@ target 'verusmobile' do
 
         if target.name == 'ZcashLightClientKit'
            config.build_settings['ZCASH_NETWORK_ENVIRONMENT'] = 'MAINNET'
+           # Ensure ZcashLightClientKit builds for the correct architectures
+           config.build_settings['VALID_ARCHS'] = 'arm64 x86_64'
+           config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
+           config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
         end
         config.build_settings['ENABLE_BITCODE'] = 'NO'
       end
