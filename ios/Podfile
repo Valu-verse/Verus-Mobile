@@ -171,12 +171,67 @@ target 'verusmobile' do
     )
     __apply_Xcode_12_5_M1_post_install_workaround(installer)
 
+    # Remove test files from react-native-verus-light-client
+    verus_light_client_target = installer.pods_project.targets.find { |target| target.name == 'react-native-verus-light-client' }
+    if verus_light_client_target
+      puts "Removing test files from react-native-verus-light-client"
+      
+      # Remove files with 'test' in their names from all build phases
+      verus_light_client_target.build_phases.each do |build_phase|
+        if build_phase.respond_to?(:files)
+          files_to_remove = build_phase.files.select do |file|
+            file.file_ref && file.file_ref.path && file.file_ref.path.downcase.include?('test')
+          end
+          
+          files_to_remove.each do |file|
+            puts "  Removing: #{file.file_ref.path}"
+            build_phase.remove_file_reference(file.file_ref)
+          end
+        end
+      end
+      
+      # Also remove test files from the file references
+      verus_light_client_target.source_build_phase.files.to_a.each do |build_file|
+        if build_file.file_ref && build_file.file_ref.path && build_file.file_ref.path.downcase.include?('test')
+          puts "  Removing source file: #{build_file.file_ref.path}"
+          verus_light_client_target.source_build_phase.remove_file_reference(build_file.file_ref)
+        end
+      end
+    end
+
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
-
+        # Maintain iOS 13 compatibility while fixing C++ ABI issues
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+        
+        # Force use of legacy C++ ABI for Xcode 16.4 compatibility
+        config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
+        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        
+        # Comprehensive C++ ABI compatibility for Xcode 16.4 with iOS 13
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = '$(inherited) -D_LIBCPP_DISABLE_AVAILABILITY -fno-aligned-allocation'
+        
+        # Use GNU C standard to support typeof and other GNU extensions
+        config.build_settings['GCC_C_LANGUAGE_STANDARD'] = 'gnu11'
+        
+        # Add additional C flags for compatibility
+        config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-implicit-function-declaration'
+        
+        # Force older C++ ABI for exception handling compatibility
+        config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -Wl,-weak_reference_mismatches,weak'
+        
+        # Disable new C++ features that require newer runtime
+        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) _LIBCPP_DISABLE_AVAILABILITY=1'
+        
+        # Special handling for Swift/C++ interop libraries that might cause ABI issues
+        if target.name.include?('Swift') || target.name.include?('gRPC') || target.name.include?('NIO') || target.name == 'react-native-verus-light-client'
+          puts "Applying extra C++ ABI fixes to #{target.name}"
+          config.build_settings['SWIFT_VERSION'] = '5.0'
+          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'  # Use older standard for problematic targets
+        end
 
         if target.name == 'ZcashLightClientKit'
-           config.build_settings['ZCASH_NETWORK_ENVIRONMENT'] = ENV["ZCASH_NETWORK_ENVIRONMENT"]
+           config.build_settings['ZCASH_NETWORK_ENVIRONMENT'] = 'MAINNET'
         end
         config.build_settings['ENABLE_BITCODE'] = 'NO'
       end
