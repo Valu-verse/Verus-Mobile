@@ -172,7 +172,6 @@
     "ssri": "8.0.1",
     "color-string": "1.5.5",
     "ajv": "6.12.3",
-    "hermes-engine": "0.10.0",
     "logkitty": "0.7.1",
     "node-notifier": "8.0.1",
     "merge-deep": "3.0.3",

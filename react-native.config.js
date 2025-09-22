@@ -3,8 +3,9 @@ module.exports = {
   dependencies: {
     "react-native-flipper": {
       platforms: {
-        ios: null,
-      },
-    },
+        android: null, // disable Android platform, other platforms will still autolink if provided
+        ios: null // disable iOS platform as well
+      }
+    }
   },
 };
