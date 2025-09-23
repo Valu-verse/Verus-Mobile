@@ -94,6 +94,7 @@ const Home = () => {
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
   const [editingCards, setEditingCards] = useState(false);
   const [expandedListItems, setExpandedListItems] = useState({});
+  const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
 
   const LIST_ITEM_INITIAL_HEIGHT = 58;
   const LIST_ITEM_MARGIN = 8;
@@ -408,9 +409,15 @@ const Home = () => {
   };
 
   const _openOnOffRamp = () => {
+    setBuySellSheetVisible(true);
+  };
+
+  const _handleBuySellComplete = ({ action, address }) => {
+    setBuySellSheetVisible(false);
     navigation.navigate('Service', {
       service: VALU_SERVICE_ID,
-      subScreen: 'onOffRamp',
+      subScreen: action === 'sell' ? 'offRamp' : 'onRamp',
+      subScreenData: { initialAddress: address }
     });
   };
 
@@ -428,6 +435,9 @@ const Home = () => {
       _addPbaasCurrency={_addPbaasCurrency}
       _addErc20Token={_addErc20Token}
       handleOpenOnOffRamp={_openOnOffRamp}
+      buySellSheetVisible={buySellSheetVisible}
+      setBuySellSheetVisible={setBuySellSheetVisible}
+      handleBuySellComplete={_handleBuySellComplete}
       forceUpdate={forceUpdate}
       loading={loading}
       HomeRenderCoinsList={() =>

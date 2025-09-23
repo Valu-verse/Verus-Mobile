@@ -41,6 +41,8 @@ import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
+import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
+import { connect as reduxConnect } from 'react-redux';
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE",
@@ -74,7 +76,7 @@ class ValuOffRampChooseSource extends Component {
       error: null,
       mainVerusNetwork: Ticker,
       addresses,
-      chosenAddress: addresses[0] || {},
+      chosenAddress: (props.initialAddress ? props.initialAddress : (addresses[0] || {})),
       locations: {},
       partnerUserId: partnerUserId
     };
@@ -345,12 +347,13 @@ class ValuOffRampChooseSource extends Component {
   }
 
   renderAddressSelector() {
+    const readOnly = !!this.props.initialAddress;
     return (
       <View style={{ marginTop: 20, width: 300 }}>
         <Text style={{ fontSize: 14, marginBottom: 5 }}>Select Payment Address</Text>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={this.openAddressModal}
+          onPress={readOnly ? () => {} : this.openAddressModal}
           style={{ width: '100%' }}
         >
           <TextInput
@@ -502,6 +505,15 @@ class ValuOffRampChooseSource extends Component {
   }
 
   render() {
+    const allBalances = this.props.allBalances;
+    const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const addrId = this.state.chosenAddress?.id;
+    const available = addrId && allBalances[vusdcId] && allBalances[vusdcId][addrId] && allBalances[vusdcId][addrId].total
+      ? Number(allBalances[vusdcId][addrId].total)
+      : 0;
+
+    const amountNum = Number(this.state.amount || 0);
+    const exceedsAvailable = !isNaN(amountNum) && amountNum > available;
     return (
       <SafeAreaView style={Styles.defaultRoot}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -509,8 +521,15 @@ class ValuOffRampChooseSource extends Component {
             {this.renderModals()}
 
             <Text style={styles.headerText}>Sell Crypto</Text>
+            {/* Available balance for selected address */}
+            <Text style={{ fontSize: 12, marginTop: 4, color: exceedsAvailable ? 'red' : 'black' }}>{`Available: ${available} vUSDC.vETH`}</Text>
 
             {this.renderCurrencyInputs()}
+            <NumericKeypad
+              value={this.state.amount}
+              onChange={(val) => this.handleChange(val)}
+              decimalPlaces={2}
+            />
             {this.renderAddressSelector()}
             {this.renderPaymentMethodSelector()}
 
@@ -518,7 +537,7 @@ class ValuOffRampChooseSource extends Component {
               onPress={this.startOnRamp}
               uppercase={false}
               mode="contained"
-              disabled={this.state.loading || this.state.error != null}
+              disabled={this.state.loading || this.state.error != null || exceedsAvailable}
               labelStyle={styles.buttonLabel}
               style={styles.actionButton}
             >
@@ -628,7 +647,8 @@ const mapStateToProps = (state) => {
     encryptedPersonalData: state.personal,
     allSubWallets: state.coinMenus.allSubWallets,
     activeCoin: state.coins.activeCoinList,
-    valuService: state.channelStore_valu_service
+    valuService: state.channelStore_valu_service,
+    allBalances: state.ledger.balances
   };
 };
 

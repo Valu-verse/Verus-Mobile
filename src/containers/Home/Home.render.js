@@ -3,6 +3,7 @@
 import React from 'react';
 import { View, RefreshControl } from 'react-native';
 import { Provider, Portal, Banner } from 'react-native-paper';
+import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
 import { truncateDecimal } from '../../utils/math';
 import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
@@ -48,6 +49,9 @@ export const HomeRender = ({
   _addPbaasCurrency,
   _addErc20Token,
   handleOpenOnOffRamp,
+  buySellSheetVisible,
+  setBuySellSheetVisible,
+  handleBuySellComplete,
   forceUpdate,
   loading,
   HomeRenderCoinsList,
@@ -71,6 +75,13 @@ export const HomeRender = ({
               };
             })}
             cancel={() => setDisplayCurrencyModalOpen(false)}
+          />
+        )}
+        {buySellSheetVisible && (
+          <BuySellSheet
+            visible={true}
+            onClose={() => setBuySellSheetVisible(false)}
+            onComplete={handleBuySellComplete}
           />
         )}
       </Portal>
