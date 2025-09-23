@@ -1,9 +1,13 @@
 /**
  * @format
  * @flow strict-local
+ *
+ * Changes:
+ * - Added global translucent Android StatusBar (transparent, dark-content)
+ * - Removed persistent "PRE-RELEASE Version" overlay badge
  */
 import React from 'react';
-import { View, Text as RText, StyleSheet, Keyboard, Platform } from 'react-native';
+import { View, Keyboard, Platform, StatusBar } from 'react-native';
 import VerusMobile from './src/VerusMobile';
 import store from './src/store';
 import {Provider} from 'react-redux';
@@ -130,12 +134,11 @@ export default class App extends React.Component {
         <PaperProvider theme={theme}>
           <Provider store={store}>
             <View style={{flex: 1}}>
+            {/* Updated: Global translucent status bar on Android to match iOS behavior */}
+            {Platform.OS === 'android' && (
+              <StatusBar translucent backgroundColor="transparent" barStyle="dark-content" />
+            )}
             <VerusMobile />
-              {!this.state.keyboardVisible && (
-                <View style={styles.preReleaseContainer} pointerEvents="none">
-                  <RText style={styles.preReleaseText}>PRE-RELEASE Version</RText>
-                </View>
-              )}
             </View>
           </Provider>
         </PaperProvider>
@@ -144,23 +147,4 @@ export default class App extends React.Component {
   }
 }
 
-const styles = StyleSheet.create({
-  preReleaseContainer: {
-    position: 'absolute',
-    bottom: 40,
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    zIndex: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  preReleaseText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-});
+// Styles removed with PRE-RELEASE overlay
