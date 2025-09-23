@@ -136,7 +136,7 @@ const HomeFAB = (props) => {
           uppercase={false}
           labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 14, letterSpacing: 0, textTransform: 'none' }}
         >
-          Manage coins
+          Manage assets
         </Button>
       </View>
     </Portal>

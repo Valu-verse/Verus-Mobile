@@ -48,7 +48,7 @@ export default function LandingScreen(props) {
         <Image 
           source={ValuLogo} 
           style={{
-            width: 200,
+            width: 180,
             height: 120,
             resizeMode: 'contain',
           }}
