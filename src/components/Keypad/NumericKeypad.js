@@ -3,9 +3,12 @@ import { View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 
 /*
-  New file: NumericKeypad
+  Updated file: NumericKeypad
   - Provides a reusable custom numeric keypad for amount entry
   - Keeps business logic outside; emits sanitized string values via onChange
+  - Added configurable sizing and styling props for modern layouts
+  - Full-width keypad layout with flex-based button sizing
+  - Enhanced typography with medium font weight
 */
 
 const KEYS = [
@@ -15,7 +18,20 @@ const KEYS = [
   ['.', '0', '⌫'],
 ];
 
-const NumericKeypad = ({ value, onChange, decimalPlaces = 2, maxLength = 18, disabled = false }) => {
+const NumericKeypad = ({
+  value,
+  onChange,
+  decimalPlaces = 2,
+  maxLength = 18,
+  disabled = false,
+  keyWidth = undefined,
+  keyHeight = 44,
+  fontSize = 20,
+  keyRadius = 10,
+  keyBackground = '#F2F2F2',
+  containerPaddingHorizontal = 0,
+  rowSpacing = 8,
+}) => {
   const handlePress = (key) => {
     if (disabled) return;
 
@@ -45,24 +61,24 @@ const NumericKeypad = ({ value, onChange, decimalPlaces = 2, maxLength = 18, dis
   };
 
   return (
-    <View style={{ paddingTop: 8 }}>
+    <View style={{ paddingHorizontal: containerPaddingHorizontal }}>
       {KEYS.map((row, rIdx) => (
-        <View key={rIdx} style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 8 }}>
+        <View key={rIdx} style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: rowSpacing }}>
           {row.map((k) => (
             <TouchableOpacity
               key={k}
               onPress={() => handlePress(k)}
-              activeOpacity={0.7}
+              activeOpacity={0.3}
               style={{
-                width: 88,
-                height: 48,
-                borderRadius: 8,
+                height: keyHeight,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#F2F2F2',
+                backgroundColor: keyBackground,
+                flex: 1,
+                borderRadius: 0,
               }}
             >
-              <Text style={{ fontSize: 18 }}>{k}</Text>
+              <Text style={{ fontSize, fontWeight: '400' }}>{k}</Text>
             </TouchableOpacity>
           ))}
         </View>

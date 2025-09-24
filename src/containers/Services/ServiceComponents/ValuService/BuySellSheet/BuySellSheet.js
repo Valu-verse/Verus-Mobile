@@ -25,6 +25,8 @@ import { VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
   - Modern UI with clear action buttons and visual feedback for disabled states
   - Automatic vUSDC.vETH enabling without modal navigation
   - Updated "About vUSDC" intro copy with two small headers and body text
+  - Replaced circular backgrounds on Buy/Sell icons with standalone plus/minus icons
+  - Icons set to black, added more spacing between title/subtitle, added extra bottom padding
 */
 
 const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id
@@ -250,7 +252,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                     vUSDC brings USDC to the Verus network
                   </Text>
                   <Text style={{ fontSize: 14, color: '#666', lineHeight: 20 }}>
-                    vUSDC is the bridged version of USDC (regulated stablecoin issued by Circle) that moves from Ethereum to the Verus blockchain, and back. This allows you to use the stability of USDC within the Verus ecosystem.
+                    vUSDC is the bridged version of USDC (regulated stablecoin issued by Circle) that moves from Ethereum to Verus, and back. This allows you to use the stability of USDC within the Verus ecosystem.
                   </Text>
                 </View>
 
@@ -296,7 +298,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
             )}
 
             {step === 'buysell' && (
-              <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+              <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
                 
                 {/* Buy Option */}
                 <List.Item
@@ -304,21 +306,11 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                   description="Buy vUSDC with cash"
                   onPress={() => { setAction('buy'); setStep('address'); }}
                   left={(props) => (
-                    <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: Colors.primaryColor,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      alignSelf: 'center'
-                    }}>
-                      <Text style={{ color: Colors.secondaryColor, fontSize: 20, fontWeight: 'bold' }}>+</Text>
-                    </View>
+                    <List.Icon {...props} icon="plus" color={'black'} />
                   )}
                   right={(props) => <List.Icon {...props} icon="chevron-right" />}
                   titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
-                  descriptionStyle={{ fontSize: 14, color: '#666' }}
+                  descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 6 }}
                   style={{ 
                     backgroundColor: 'white',
                     borderRadius: 12,
@@ -334,21 +326,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                   onPress={() => { if (canSell) { setAction('sell'); setStep('address'); } }}
                   disabled={!canSell}
                   left={(props) => (
-                    <View style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 20,
-                      backgroundColor: canSell ? '#FF6B35' : '#E0E0E0',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      alignSelf: 'center'
-                    }}>
-                      <Text style={{ 
-                        color: canSell ? Colors.secondaryColor : '#A0A0A0', 
-                        fontSize: 20, 
-                        fontWeight: 'bold' 
-                      }}>−</Text>
-                    </View>
+                    <List.Icon {...props} icon="minus" color={'black'} />
                   )}
                   right={(props) => <List.Icon {...props} icon="chevron-right" color={canSell ? 'black' : '#C0C0C0'} />}
                   titleStyle={{ 
@@ -358,7 +336,8 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                   }}
                   descriptionStyle={{ 
                     fontSize: 14, 
-                    color: canSell ? '#666' : '#C0C0C0' 
+                    color: canSell ? '#666' : '#C0C0C0',
+                    marginTop: 6
                   }}
                   style={{ 
                     backgroundColor: canSell ? 'white' : '#F8F8F8',
