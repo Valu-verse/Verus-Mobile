@@ -16,7 +16,8 @@ import { refreshActiveChainLifecycles } from '../../../../../actions/actions/int
 import { createAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiatePartnerUserId } from '../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
 import { requestSeeds } from '../../../../../utils/auth/authBox';
-import { VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
+import { API_GET_BALANCES, VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
+import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 // No drag handle – we follow other modals with a Close button in header
 
 /*
@@ -53,7 +54,7 @@ const computeVusdcVethBalances = (balances, allSubWallets, ticker) => {
 const BuySellSheet = ({ visible, onClose, onComplete }) => {
   const dispatch = useDispatch();
   const activeAccount = useObjectSelector((s) => s.authentication.activeAccount);
-  const balances = useObjectSelector((s) => s.ledger.balances);
+  const balances = useObjectSelector((s) => extractLedgerData(s, 'balances', API_GET_BALANCES));
   const allSubWallets = useObjectSelector((s) => s.coinMenus.allSubWallets);
   const activeCoinList = useObjectSelector((s) => s.coins.activeCoinList);
   const valuService = useObjectSelector((s) => s.channelStore_valu_service);
@@ -404,7 +405,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
             {step === 'address' && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
                 <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>
-                  {action === 'sell' ? 'Choose source address' : 'Choose destination address'}
+                  {action === 'sell' ? 'Choose source address' : 'Choose destination for vUSDC'}
                 </Text>
                 <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, lineHeight: 20 }}>
                   {action === 'sell' 
@@ -412,32 +413,70 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                     : 'Select the address where you want to receive your vUSDC.'}
                 </Text>
                 <View>
-                  {addresses.map((addr, index) => (
-                    <TouchableOpacity
-                      key={addr.id || addr.address}
-                      onPress={() => { setSelectedAddress(addr); onComplete({ action, address: addr }); }}
-                      activeOpacity={0.7}
-                      style={{
-                        backgroundColor: 'white',
-                        borderRadius: 12,
-                        marginBottom: index === addresses.length - 1 ? 16 : 8,
-                        paddingVertical: 4,
-                        elevation: Platform.OS === 'android' ? 2 : 0,
-                        shadowColor: '#000',
-                        shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                        shadowOffset: { width: 0, height: 2 },
-                      }}
-                    >
+                  {addresses.map((addr) => {
+                    const amountNum = (addrBalanceMap[addr.id] || 0).toFixed(2);
+                    return (
                       <List.Item
-                        title={addr.name || addr.address}
-                        description={(action === 'sell' ? 'Available: ' : 'Current: ') + (addrBalanceMap[addr.id] || 0).toFixed(2) + ' vUSDC.vETH'}
+                        key={addr.id || addr.address}
+                        onPress={() => { setSelectedAddress(addr); onComplete({ action, address: addr }); }}
+                        left={(props) => (
+                          <List.Icon {...props} icon="wallet" color={'black'} />
+                        )}
                         right={(props) => <List.Icon {...props} icon="chevron-right" />}
-                        titleStyle={{ fontSize: 16, fontWeight: '500' }}
-                        descriptionStyle={{ fontSize: 13, color: '#888' }}
+                        title={() => (
+                          action === 'sell' ? (
+                            <Text style={{ fontSize: 16, fontWeight: '600', color: 'black' }}>
+                              {(Math.floor(amountNum * 100) / 100).toFixed(2) + ' vUSDC'}
+                              <Text style={{ fontSize: 14, color: '#777', fontWeight: '500' }}>
+                                {'.vETH'}
+                              </Text>
+                            </Text>
+                          ) : (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text style={{ fontSize: 16, fontWeight: '500', color: 'black' }}>
+                                {addr.name || addr.address}
+                              </Text>
+                              {action === 'buy' && (
+                                <View
+                                  style={{
+                                    marginLeft: 8,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 2,
+                                    borderRadius: 10,
+                                    backgroundColor: '#E8F5E9',
+                                    borderWidth: 1,
+                                    borderColor: '#D6E9DB',
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 10, color: Colors.verusGreenColor, fontWeight: '600' }}>
+                                    My wallet
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          )
+                        )}
+                        description={() => (
+                          action === 'sell' ? (
+                            <Text style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
+                              {addr.name || addr.address}
+                            </Text>
+                          ) : (
+                            <Text style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
+                              {'Current: ' + (Math.floor(amountNum * 100) / 100).toFixed(2) + ' vUSDC'}
+                              <Text style={{ fontSize: 12, color: '#999' }}>{'.vETH'}</Text>
+                            </Text>
+                          )
+                        )}
+                        style={{ 
+                          backgroundColor: 'white',
+                          borderRadius: 12,
+                          marginBottom: 12,
+                          paddingVertical: 8
+                        }}
                       />
-                    </TouchableOpacity>
-                  ))}
+                    );
+                  })}
                 </View>
               </View>
             )}

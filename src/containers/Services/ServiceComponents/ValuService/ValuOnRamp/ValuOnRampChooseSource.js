@@ -256,6 +256,8 @@ class ValuOnRampChooseSource extends Component {
   };
 
   async startOnRamp() {
+    // Extra safety: prevent starting if an inline error is present or amount is empty
+    if (this.state.error != null || this.state.amount === "") return;
     createAlert(
       "Terms and Conditions",
       "By proceeding with this transaction, you acknowledge and agree that the Polygon tokens you are purchasing will be automatically converted into vUSDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
@@ -562,6 +564,7 @@ class ValuOnRampChooseSource extends Component {
   render() {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
+    const ctaDisabled = this.state.loading || this.state.error != null || this.state.amount === "";
     const allBalances = this.props.allBalances;
     const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
     const addrId = this.state.chosenAddress?.id;
@@ -594,10 +597,16 @@ class ValuOnRampChooseSource extends Component {
               <Button
                 onPress={this.startOnRamp}
                 mode="contained"
-                disabled={this.state.loading || this.state.error != null}
-                style={styles.modernActionButton}
+                disabled={ctaDisabled}
+                style={[
+                  styles.modernActionButton,
+                  ctaDisabled ? styles.modernActionButtonDisabled : null,
+                ]}
                 contentStyle={[styles.modernActionButtonContent, { flexDirection: 'row-reverse' }]}
-                labelStyle={styles.modernActionButtonLabel}
+                labelStyle={[
+                  styles.modernActionButtonLabel,
+                  ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                ]}
                 icon="open-in-new"
               >
                 Choose payment method
@@ -842,6 +851,20 @@ const styles = StyleSheet.create({
   modernActionButton: {
     borderRadius: 24,
     backgroundColor: Colors.primaryColor,
+    // Remove any platform shadows
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernActionButtonDisabled: {
+    backgroundColor: '#CFEAF2',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   modernActionButtonContent: {
     height: 48,
@@ -852,6 +875,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     letterSpacing: 0,
     textTransform: 'none',
+  },
+  modernActionButtonLabelDisabled: {
+    color: '#F0F9FC',
   },
   keypadContainer: {
     backgroundColor: '#FAFAFA',

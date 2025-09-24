@@ -1,14 +1,14 @@
 /*
   Updated HomeFAB:
-  - Replaces single circular FAB with two floating rounded-rect buttons
-    • "Add currency" (outlined/secondary) opens the same FAB.Group actions overlay
-    • "Buy & sell" (primary) currently no-op placeholder
-  - Keeps FAB.Group for overlay/backdrop + actions, hides its anchor
+  - Keeps two floating rounded-rect buttons: "Buy & sell" (primary) and "Manage assets" (outlined)
+  - Replaces the hidden FAB.Group overlay with a bottom sheet ManageAssetsSheet
+  - ManageAssetsSheet mirrors Buy/Sell sheet styling and auto-closes on selection
 */
 import * as React from 'react';
 import { Platform, View } from 'react-native';
-import { FAB, Portal, Button } from 'react-native-paper';
+import { Portal, Button } from 'react-native-paper';
 import Colors from '../../../globals/colors';
+import ManageAssetsSheet from './ManageAssetsSheet';
 
 const HomeFAB = (props) => {
   const {
@@ -21,70 +21,15 @@ const HomeFAB = (props) => {
     handleOpenOnOffRamp,
   } = props;
 
-  const [state, setState] = React.useState({ open: false });
+  const [isManageOpen, setIsManageOpen] = React.useState(false);
 
-  const onStateChange = ({ open }) => setState({ open });
-
-  const { open } = state;
-
-  const actions = !showConfigureHomeCards
-      ? [
-          {
-            icon: 'format-list-bulleted',
-            label: 'Browse all',
-            onPress: handleAddCoin,
-          },
-          {
-            icon: 'rocket-launch',
-            label: 'Add ERC-20 token',
-            onPress: handleAddErc20Token,
-          },
-          {
-            icon: 'rocket-launch',
-            label: 'Add ecosystem currency',
-            onPress: handleAddPbaasCurrency,
-          }
-        ]
-      : [
-          {
-            icon: 'swap-horizontal-variant',
-            label: 'Arrange cards',
-            onPress: handleEditCards,
-          },
-          {
-            icon: 'format-list-bulleted',
-            label: 'Browse all',
-            onPress: handleAddCoin,
-          },
-          {
-            icon: 'ethereum',
-            label: 'Add ERC-20 token',
-            onPress: handleAddErc20Token,
-          },
-          {
-            icon: 'rocket-launch',
-            label: 'Add ecosystem currency',
-            onPress: handleAddPbaasCurrency,
-          },
-        ];
+  
 
   return (
     <Portal>
-      {/* Hidden anchor, still provides overlay + actions when state.open = true */}
-      <FAB.Group
-        fabStyle={{
-          backgroundColor: Colors.primaryColor,
-          opacity: 0, // Hide anchor while preserving overlay/actions behavior
-        }}
-        open={open}
-        icon={open ? "minus" : "plus"}
-        actions={actions}
-        onStateChange={onStateChange}
-      />
-
       {/* Floating action buttons row */}
       <View
-        pointerEvents={open ? 'none' : 'auto'}
+        pointerEvents={'auto'}
         style={{
           position: 'absolute',
           left: 0,
@@ -119,7 +64,7 @@ const HomeFAB = (props) => {
         {/* Secondary button on the right */}
         <Button
           mode="outlined"
-          onPress={() => setState({ open: true })}
+          onPress={() => setIsManageOpen(true)}
           style={{
             borderRadius: 22,
             borderColor: Colors.primaryColor,
@@ -139,6 +84,17 @@ const HomeFAB = (props) => {
           Manage assets
         </Button>
       </View>
+      
+      {/* Manage Assets Bottom Sheet */}
+      <ManageAssetsSheet
+        visible={isManageOpen}
+        onClose={() => setIsManageOpen(false)}
+        showConfigureHomeCards={showConfigureHomeCards}
+        onBrowseAll={handleAddCoin}
+        onAddErc20={handleAddErc20Token}
+        onAddPbaas={handleAddPbaasCurrency}
+        onArrangeCards={handleEditCards}
+      />
     </Portal>
   );
 };
