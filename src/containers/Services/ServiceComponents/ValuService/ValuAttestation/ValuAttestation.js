@@ -2,12 +2,8 @@ import React, { useEffect, useState, useCallback } from "react"
 import { connect, useSelector } from 'react-redux'
 import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
-import { primitives } from "verusid-ts-client"
-
-import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
-
-const { ATTESTATION_NAME } = primitives;
-import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
+import InAppBrowser from 'react-native-inappbrowser-reborn';
+import { primitives, VerusIdInterface } from "verusid-ts-client"
 import { SafeAreaView, ScrollView, View, Image, Linking, AppState } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
@@ -40,15 +36,17 @@ import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { setServiceLoading } from "../../../../../actions/actionCreators";
 import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
 import { setRequestedVerusId } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
+import { getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
+import { Buffer } from 'buffer';
+import { requestPrivKey } from "../../../../../utils/auth/authBox";
+import { VRPC } from "../../../../../utils/constants/intervalConstants";
+import { sha256 } from "@bitgo/utxo-lib/dist/src/crypto";
 
 
 const ValuAttestation = (props) => {
     const activeAccount = useSelector(state => state.authentication.activeAccount);
     const signedIn = useSelector(state => state.authentication.signedIn);
-    const valuAuthenticated = useSelector(state => state.channelStore_valu_service.authenticated);
     const verusNetwork = Object.keys(activeAccount.testnetOverrides).length > 0 ? 'VRSCTEST' : 'VRSC';
-    const [attestationData, setAttestationData] = useState({});
-    const [signer, setSigner] = useState("");
     const [valuReply, setValuReply] = useState(null);
     const [loading, setLoading] = useState(true); // Start with loading true
     const [status, setStatus] = useState(null); // Start with null instead of empty string
@@ -63,6 +61,7 @@ const ValuAttestation = (props) => {
     const acchash = useSelector(state =>
         state.authentication.activeAccount
     ).accountHash;
+    const systemId = Object.keys(activeAccount.testnetOverrides).length > 0 ? 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq' : 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV';
     const notifications = useSelector(state =>
         state.notifications
     );
@@ -159,8 +158,9 @@ const ValuAttestation = (props) => {
             setShowIdentityProvisioningProgress(false);
             setIsProvisioningIdentity(false);
 
-            // Navigate home (reset stack)
-            resetToHome();
+            // Instead of navigating home, return the identity info to continue the attestation process
+            return { identityName, identityAddress, continueFlow: true };
+
         } catch (error) {
             console.error(`Error provisioning identity from ${source}:`, error);
             setShowIdentityProvisioningProgress(false);
@@ -180,6 +180,98 @@ const ValuAttestation = (props) => {
                 { cancelable: false }
             );
         }
+        throw error;
+    };
+
+    // New function to continue with proof of personhood
+    const continueProofOfPersonhood = async (identityInfo) => {
+        try {
+            setLoading(true);
+            console.log("Continuing proof of personhood with identity:", identityInfo);
+            // Get the SumSub session URL with the selected identity
+            const newRep = await ValuProvider.startSumsubSession({ 
+                identityName: identityInfo.identityName, 
+                isNew: !identityInfo.isExisting 
+            });
+            
+            if (newRep.success === false) {
+                throw new Error(newRep.error);
+            }
+            
+            console.log("Starting SumSub session:", newRep.data);
+            
+            // Create signature for authentication
+            const coinObj = CoinDirectory.findCoinObj(systemId, null, true);
+            const chainInfo = await getInfo(systemId);
+            const height = chainInfo.result.longestchain;
+            const message = `Authentication request for ${identityInfo.identityName} at ${Date.now()}`;
+            const messageHash = sha256(Buffer.from(message, 'utf-8'));
+            
+            // Sign the message using the identity address
+            const RAddress = activeAccount.keys[verusNetwork].vrpc.addresses[0];
+            const wif = await requestPrivKey(coinObj.id, VRPC);
+
+            const signature = await VerusIdInterface.signHashWithAddress(messageHash, wif);
+
+            console.log("Signature:", signature);
+
+            // Append signature and related data to URL as query parameters
+            const url = new URL(newRep.data.url);
+            url.searchParams.append('signature', signature);
+            url.searchParams.append('message', message);
+            url.searchParams.append('RAddress', RAddress);
+            url.searchParams.append('height', height.toString());
+            url.searchParams.append('systemId', coinObj.system_id);
+            
+            const authenticatedUrl = url.toString();
+            console.log("Opening authenticated URL:", authenticatedUrl);
+            
+            // Open the SumSub URL in InAppBrowser
+            if (await InAppBrowser.isAvailable()) {
+                InAppBrowser.open(authenticatedUrl, {
+                    // iOS Properties
+                    dismissButtonStyle: 'cancel',
+                    preferredBarTintColor: '#00A1CC',
+                    preferredControlTintColor: 'white',
+                    readerMode: false,
+                    animated: true,
+                    modalPresentationStyle: 'fullScreen',
+                    modalTransitionStyle: 'coverVertical',
+                    modalEnabled: true,
+                    enableBarCollapsing: false,
+                    // Android Properties
+                    showTitle: false,
+                    toolbarColor: '#00A1CC',
+                    secondaryToolbarColor: 'black',
+                    navigationBarColor: 'black',
+                    navigationBarDividerColor: 'white',
+                    enableUrlBarHiding: true,
+                    enableDefaultShare: false,
+                    forceCloseOnRedirection: false,
+                    hasBackButton: false,
+                    waitForRedirectDelay: 500,
+                    showInRecents: true,
+                    ephemeralWebSession: false,
+                    animations: {
+                        startEnter: 'slide_in_right',
+                        startExit: 'slide_out_left',
+                        endEnter: 'slide_in_left',
+                        endExit: 'slide_out_right'
+                    }
+                });
+            } else {
+                Linking.openURL(authenticatedUrl);
+            }
+            
+            setLoading(false);
+            
+        } catch (error) {
+            console.error("Error continuing proof of personhood:", error);
+            setLoading(false);
+            createAlertDialog(
+                'An error occurred while continuing with your proof of personhood. ' + error.message, "OK"
+            );
+        }
     };
 
     const handleProvisioningResponse = async (
@@ -189,8 +281,6 @@ const ValuAttestation = (props) => {
         uri,
         loginRequest
     ) => {
-
-
 
         const verusIdState = {
             status: NOTIFICATION_TYPE_VERUSID_PENDING,
@@ -305,7 +395,15 @@ const ValuAttestation = (props) => {
     );
 
     const continueWithIdentity = async (chosenIdentity) => {
-        await provisionNewIdentity(chosenIdentity, 'ValuChooseIdentity screen');
+        try {
+            const result = await provisionNewIdentity(chosenIdentity, 'ValuChooseIdentity screen');
+            if (result?.continueFlow) {
+                // Continue with proof of personhood after identity provisioning
+                await continueProofOfPersonhood(result);
+            }
+        } catch (error) {
+            console.error('Error in continueWithIdentity:', error);
+        }
     };
 
     // Load existing identities from VerusID service
@@ -351,19 +449,14 @@ const ValuAttestation = (props) => {
         setExistingIdentityModalVisible(false);
         setLoading(true);
         try {
-            // Use the selected identity's name for the deep link
             const identityName = linkedIds[verusNetwork] && linkedIds[verusNetwork][iAddress];
             if (!identityName) {
                 throw new Error("Identity name not found");
             }
-            const newRep = await ValuProvider.getValuIdDeepLink({ identityName, isNew: false });
-            if (newRep.success === false) {
-                throw new Error(newRep.error);
-            }
-            console.log("newRep", newRep.data);
-            // Trigger internal deeplink handler instead of opening externally
-            updateDeeplinkUrl(newRep.data);
-            setLoading(false);
+            
+            // Continue with proof of personhood using existing identity
+            await continueProofOfPersonhood({ identityName, identityAddress: iAddress, isExisting: true });
+            
         } catch (error) {
             console.error("Error using existing identity:", error);
             setLoading(false);
@@ -375,7 +468,15 @@ const ValuAttestation = (props) => {
 
     // Handle requesting a new identity (ValuChooseIdentity flow)
     const handleNewIdentityRequest = async (identityName) => {
-        await provisionNewIdentity(identityName, 'new identity request');
+        try {
+            const result = await provisionNewIdentity(identityName, 'new identity request');
+            if (result?.continueFlow) {
+                // Continue with proof of personhood after identity provisioning
+                await continueProofOfPersonhood(result);
+            }
+        } catch (error) {
+            console.error('Error in handleNewIdentityRequest:', error);
+        }
     };
 
     // Handle linking new identity
@@ -573,7 +674,7 @@ const ValuAttestation = (props) => {
             Purchase a ValuID and Valu Identity for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Purchase a ValuID and KYC attestation off Valu for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+            Purchase a Valu Proof of Personhood with a free VerusID for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
         </Text>),
         [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Your Valu Proof of Personhood is ready to retrieve.

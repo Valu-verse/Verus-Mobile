@@ -46,10 +46,10 @@ class ValuChooseIdentity extends Component {
     handleSubmit = async () => {
         const { identityName, identityType } = this.state;
         
-        if (!identityName || identityName.length < 3) {
+        if (!identityName || identityName.length < 1) {
             createAlert(
                 "Invalid Name",
-                `${identityType} name must be at least 3 characters long.`,
+                `${identityType} name must be at least 1 characters long.`,
                 [{ text: 'OK', onPress: () => resolveAlert(false) }]
             );
             return;
@@ -59,8 +59,7 @@ class ValuChooseIdentity extends Component {
         
         try {
             const fqn = this.getFullyQualifiedName();
-            console.log("Checking availability for identity:", fqn);
-            
+                   
             // Check if the identity name is available
             const availabilityCheck = await ValuProvider.checkIdentityAvailable(fqn);
             
@@ -71,7 +70,7 @@ class ValuChooseIdentity extends Component {
             if (!availabilityCheck.data.available) {
                 createAlert(
                     "ValuID Not Available",
-                    `The ${identityType.toLowerCase()} "${fqn}" is already taken. Please choose a different name.`,
+                    `The VerusID "${fqn}" is already taken. Please choose a different name.`,
                     [{ text: 'OK', onPress: () => resolveAlert(false) }]
                 );
                 this.setState({ processing: false });
@@ -139,15 +138,15 @@ class ValuChooseIdentity extends Component {
 
                                 <View style={styles.requirementsSection}>
                                     <Text style={styles.requirementsTitle}>Requirements:</Text>
-                                    <Text style={styles.requirementText}>• Minimum 3 characters</Text>
-                                    <Text style={styles.requirementText}>• Letters and numbers only</Text>
+                                    <Text style={styles.requirementText}>• Minimum 1 character</Text>
+                                    <Text style={styles.requirementText}>• No . \ / * : characters</Text>
                                     <Text style={styles.requirementText}>• Must be unique</Text>
                                 </View>
 
                                 <Button
                                     mode="contained"
                                     onPress={this.handleSubmit}
-                                    disabled={processing || identityName.length < 3}
+                                    disabled={processing || identityName.length < 1}
                                     loading={processing}
                                     style={[styles.button, styles.submitButton]}
                                     labelStyle={styles.buttonLabel}

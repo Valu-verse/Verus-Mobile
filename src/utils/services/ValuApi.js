@@ -33,6 +33,7 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
         getOnRampOptions: async (payload) => this.getOnRampOptions(payload),
         getOnRampURL: async (payload) => this.getOnRampURL(payload),
         checkIdentityAvailable: async (payload) => this.checkIdentityAvailable(payload),
+        startSumsubSession: async (payload) => this.startSumsubSession(payload),
     });
 
     this.service = ValuService.build();
@@ -208,6 +209,10 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
 
   provisionIdentityRequest = async (payload) => {
     return await this.service.provisionIdentityRequest(payload);
+  }
+
+  startSumsubSession = async (payload) => {
+    return await this.service.startSumsubSession(payload);
   }
 
 }
