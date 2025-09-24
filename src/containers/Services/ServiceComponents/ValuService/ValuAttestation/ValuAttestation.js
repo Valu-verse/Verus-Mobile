@@ -27,7 +27,7 @@ import { updateDeeplinkUrl } from '../../../../../actions/actionDispatchers';
 import {
     VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
     VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING,
-    VALU_POL_PENDING
+    VALU_POL_PENDING, NOTIFICATION_TYPE_VERUSID_READY
 } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
@@ -35,12 +35,13 @@ import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
 import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { setServiceLoading } from "../../../../../actions/actionCreators";
 import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
-import { setRequestedVerusId } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
+import { setRequestedVerusId, linkVerusId, deleteProvisionedIds } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
 import { getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
 import { Buffer } from 'buffer';
 import { requestPrivKey } from "../../../../../utils/auth/authBox";
 import { VRPC } from "../../../../../utils/constants/intervalConstants";
 import { sha256 } from "@bitgo/utxo-lib/dist/src/crypto";
+import { dispatchRemoveNotification } from '../../../../../actions/actions/notifications/dispatchers/notifications';
 
 
 const ValuAttestation = (props) => {
@@ -58,6 +59,8 @@ const ValuAttestation = (props) => {
     const [sortedIds, setSortedIds] = useState({});
     const [isProvisioningIdentity, setIsProvisioningIdentity] = useState(false);
     const [showIdentityProvisioningProgress, setShowIdentityProvisioningProgress] = useState(false);
+    const [showPendingIdentityModal, setShowPendingIdentityModal] = useState(false);
+    const [pendingIdentityInfo, setPendingIdentityInfo] = useState(null);
     const acchash = useSelector(state =>
         state.authentication.activeAccount
     ).accountHash;
@@ -66,6 +69,7 @@ const ValuAttestation = (props) => {
         state.notifications
     );
     const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
+    const pendingIds = useSelector(state => state.channelStore_verusid.pendingIds);
 
     const buttonMessages = {
         [VALU_POL_PAYMENT_STARTED]: "START",
@@ -513,6 +517,104 @@ const ValuAttestation = (props) => {
         setExistingIdentityModalVisible(true);
     };
 
+    // Check for pending identities and handle accordingly
+    const checkForPendingIdentity = async () => {
+        try {
+            console.log("Checking for pending identities on network:", pendingIds);
+            if (pendingIds[verusNetwork]) {
+                const identityAddresses = Object.keys(pendingIds[verusNetwork]);
+                if (identityAddresses.length > 0) {
+                    // Get the first pending identity (you might want to handle multiple differently)
+                    const firstAddress = identityAddresses[0];
+                    const identityDetails = pendingIds[verusNetwork][firstAddress];
+                    
+                    if (identityDetails.status === NOTIFICATION_TYPE_VERUSID_READY) {
+                        // Identity is ready to be linked
+                        setPendingIdentityInfo({
+                            address: firstAddress,
+                            details: identityDetails
+                        });
+                        setShowPendingIdentityModal(true);
+                        return 'ready'; // Found ready identity
+                    } else if (identityDetails.status === NOTIFICATION_TYPE_VERUSID_PENDING) {
+                        // Identity is still being processed
+                        const identityName = identityDetails.fqn || identityDetails.provisioningName || 'Unknown';
+                        createAlertDialog(
+                            `You have a pending ID "${identityName}" please wait a few more minutes for this to be confirmed then you can link, try again in a few minutes.`,
+                            "OK"
+                        );
+                        return 'pending'; // Found pending identity
+                    }
+                }
+            }
+            return false; // No pending identity found
+        } catch (error) {
+            console.log('Error checking for pending identity:', error);
+            return false;
+        }
+    };
+
+    // Link the pending identity
+    const linkPendingIdentity = async () => {
+        if (!pendingIdentityInfo) return;
+        
+        try {
+            setLoading(true);
+            
+            const { address, details } = pendingIdentityInfo;
+            const identityName = details.provisioningName || details.fqn;
+            
+            // Link the VerusID
+            await linkVerusId(address, identityName, verusNetwork);
+            
+            // Delete from pending IDs
+            await deleteProvisionedIds(address, verusNetwork);
+            
+            // Update pending IDs in Redux store
+            await updatePendingVerusIds();
+            
+            // Remove notification if it exists
+            if (details.notificationUid) {
+                await dispatchRemoveNotification(details.notificationUid);
+            }
+            
+            // Close the modal and show success message
+            setShowPendingIdentityModal(false);
+            setPendingIdentityInfo(null);
+            
+            createAlertDialog(
+                `Successfully linked identity: ${identityName}. Now proceeding to get your Valu Attestation.`,
+                "CONTINUE",
+                async () => {
+                    try {
+                        // Now proceed with the attestation flow
+                        const newRep = await ValuProvider.getValuAttestationStatus();
+                        if (newRep.success === false) {
+                            throw new Error(newRep.error);
+                        }
+                        // Trigger internal deeplink handler instead of opening externally
+                        updateDeeplinkUrl(newRep.data);
+                    } catch (error) {
+                        console.log('Error proceeding with attestation:', error);
+                        createAlertDialog(
+                            `Failed to proceed with attestation: ${error.message}`,
+                            "OK"
+                        );
+                    }
+                }
+            );
+            
+        } catch (error) {
+            console.log('Error linking pending identity:', error);
+            createAlertDialog(
+                `Failed to link identity: ${error.message}`,
+                "OK"
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const checkAccountCreationStatus = async () => {
 
         // First, try to authenticate with registered user
@@ -645,12 +747,26 @@ const ValuAttestation = (props) => {
                 showIdentityChoiceModal();
                 return;
             } else if (status === VALU_POL_READY) {
-                const newRep = await ValuProvider.getValuAttestationStatus();
-                if (newRep.success === false) {
-                    throw new Error(newRep.error);
+                // First check if there are any pending identities that need to be handled
+                const pendingStatus = await checkForPendingIdentity();
+                
+                if (pendingStatus === 'pending') {
+                    // Identity is still being processed, alert was already shown, don't proceed
+                    setLoading(false);
+                    return;
+                } else if (pendingStatus === 'ready') {
+                    // Identity is ready to link, modal was shown, don't proceed to deeplink yet
+                    setLoading(false);
+                    return;
+                } else {
+                    // No pending identity, proceed with normal flow
+                    const newRep = await ValuProvider.getValuAttestationStatus();
+                    if (newRep.success === false) {
+                        throw new Error(newRep.error);
+                    }
+                    // Trigger internal deeplink handler instead of opening externally
+                    updateDeeplinkUrl(newRep.data);
                 }
-                // Trigger internal deeplink handler instead of opening externally
-                updateDeeplinkUrl(newRep.data);
             }
         } catch (e) {
             console.log("startOnRamp error", e)
@@ -821,6 +937,39 @@ const ValuAttestation = (props) => {
                         }}
                     />
                 )}
+
+                {/* Pending Identity Link Modal */}
+                <Dialog visible={showPendingIdentityModal} onDismiss={() => setShowPendingIdentityModal(false)}>
+                    <Dialog.Title>Link Your New Identity</Dialog.Title>
+                    <Dialog.Content>
+                        {pendingIdentityInfo && (
+                            <View>
+                                <Text style={{ fontSize: 16, marginBottom: 10 }}>
+                                    Your new VerusID is ready to be linked:
+                                </Text>
+                                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 5 }}>
+                                    {pendingIdentityInfo.details.provisioningName || pendingIdentityInfo.details.fqn}
+                                </Text>
+                                <Text style={{ fontSize: 14, color: Colors.secondaryColor, marginBottom: 15 }}>
+                                    Address: {pendingIdentityInfo.address}
+                                </Text>
+                                <Text style={{ fontSize: 14, marginBottom: 10 }}>
+                                    Would you like to link this identity to your wallet now?
+                                </Text>
+                            </View>
+                        )}
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setShowPendingIdentityModal(false)}>Cancel</Button>
+                        <Button 
+                            onPress={linkPendingIdentity}
+                            mode="contained"
+                            disabled={loading}
+                        >
+                            Link Identity
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
             </Portal>
         </SafeAreaView>
     );
