@@ -392,6 +392,12 @@ class ValuService {
       return this.service.post(`${this.url}/provision-identity-request`, payload);
     });
   }
+
+  startSumsubSession = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/start-sumsub-session`, payload);
+    });
+  }
 }
 
 export default ValuService;

@@ -116,10 +116,7 @@ class AttestationService extends Component {
       
       // Get current attestations
       const currentAttestations = { ...this.state.attestations };
-      
-      console.log('Before deletion:', Object.keys(currentAttestations));
-      console.log('Attestation to delete:', attestationToDelete);
-      
+     
       // Remove the attestation by finding and removing the matching attestation
       // Since we're dealing with attestation objects, let's use a more reliable method
       let foundKey = null;
@@ -133,9 +130,7 @@ class AttestationService extends Component {
       if (foundKey) {
         delete currentAttestations[foundKey];
         
-        console.log('After deletion:', Object.keys(currentAttestations));
-        console.log('Deleted key:', foundKey);
-        
+         
         // Update the encrypted storage
         await replaceAttestationDataForUser(
           currentAttestations,

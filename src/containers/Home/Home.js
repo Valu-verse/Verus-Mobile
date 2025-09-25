@@ -46,8 +46,9 @@ import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE,
-  VALU_ACCOUNT_TYPE
+  VALU_WIDGET_TYPE,
+  ATTESTATION_WIDGET_TYPE
+
 } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
@@ -171,11 +172,6 @@ const Home = () => {
     if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
       widgetsList.push(ATTESTATION_WIDGET_TYPE);
       dispatchAddWidget(ATTESTATION_WIDGET_TYPE, activeAccount.accountHash);
-    }
-
-    if (!widgetsList.includes(VALU_ACCOUNT_TYPE)) {
-      widgetsList.push(VALU_ACCOUNT_TYPE);
-      dispatchAddWidget(VALU_ACCOUNT_TYPE, activeAccount.accountHash);
     }
 
     setWidgets(widgetsList);
