@@ -29,6 +29,7 @@ const CurrencyWidget = props => {
   const {width} = Dimensions.get('window');
 
   const Logo = getCoinLogo(coinObj.id, coinObj.proto);
+  const ICON_SIZE = 20;
 
   // Style-only overrides per currency (no coinsList change)
   const WIDGET_OVERRIDES = {
@@ -39,7 +40,7 @@ const CurrencyWidget = props => {
       name: 'vUSDC',
       renderLogo: () => (
         <Avatar.Image
-          size={26}
+          size={ICON_SIZE}
           source={UsdcIcon}
           style={{ backgroundColor: 'transparent' }}
         />
@@ -99,6 +100,35 @@ const CurrencyWidget = props => {
     }
   };
 
+  // Precompute secondary text to avoid deeply nested ternaries in JSX
+  const secondaryTextHidden = (
+    coinObj.testnet && coinObj.proto === 'erc20'
+      ? 'Testnet ERC20 Token'
+      : !!coinObj.testnet
+      ? 'Testnet Currency'
+      : coinObj.pbaas_options && !coinObj.compatible_channels.includes(GENERAL)
+      ? 'PBaaS Currency'
+      : uniValueDisplay === '-'
+      ? (coinObj.proto === 'erc20'
+          ? (coinObj.unlisted ? 'Unlisted Token' : 'ERC20 Token')
+          : uniValueDisplay)
+      : `*** ${coinObj.display_ticker}`
+  );
+
+  const secondaryTextVisible = (
+    coinObj.testnet && coinObj.proto === 'erc20'
+      ? 'Testnet ERC20 Token'
+      : !!coinObj.testnet
+      ? 'Testnet Currency'
+      : coinObj.pbaas_options && !coinObj.compatible_channels.includes(GENERAL)
+      ? 'PBaaS Currency'
+      : uniValueDisplay === '-'
+      ? (coinObj.proto === 'erc20'
+          ? (coinObj.unlisted ? 'Unlisted Token' : 'ERC20 Token')
+          : uniValueDisplay)
+      : `${currencyBalance == null ? '-' : normalizeNum(Number(currencyBalance), 4)[3]} ${coinObj.display_ticker}`
+  );
+
   return (
     <Card
       style={{
@@ -146,21 +176,22 @@ const CurrencyWidget = props => {
             paddingRight: shouldShowSubwalletBadge ? 40 : 0,
           }}>
           {override?.renderLogo ? (
+            // Custom icon defined in override (keep its own sizing)
             override.renderLogo()
           ) : Logo == null ? (
             <Avatar.Icon
               icon="wallet"
               color={themeColor}
               style={{backgroundColor: 'white'}}
-              size={26}
+              size={ICON_SIZE}
             />
           ) : (
             <Logo
               style={{
                 alignSelf: 'center',
               }}
-              width={24}
-              height={24}
+              width={ICON_SIZE}
+              height={ICON_SIZE}
             />
           )}
           <Paragraph
@@ -178,10 +209,10 @@ const CurrencyWidget = props => {
         </View>
 
         {!showBalance ? (
-          <View>
+          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 12, alignItems: 'flex-end' }}>
             <Paragraph
              numberOfLines={1}
-             style={{fontSize: 16, paddingTop: 8, fontWeight: '500', color: override?.textColor || Colors.secondaryColor}}
+             style={{fontSize: 20, fontWeight: '700', color: override?.textColor || Colors.secondaryColor, letterSpacing: -0.05, textAlign: 'right'}}
             >
               {!!coinObj.testnet || uniValueDisplay === '-'
                 ? `${
@@ -191,33 +222,18 @@ const CurrencyWidget = props => {
                   } ${coinObj.display_ticker}`
                 : '*****'}
             </Paragraph>
-            {/* <P></P> */}
             <Paragraph
-            style={{fontSize: 12, color: override?.textColor ? '#444' : Colors.secondaryColor}}
+              numberOfLines={1}
+              style={{fontSize: 12, fontWeight: '400', color: override?.textColor ? '#666' : 'rgba(255,255,255,0.7)', marginTop: 6, lineHeight: 16, textAlign: 'right'}}
             >
-              {coinObj.testnet && coinObj.proto === 'erc20'
-                ? 'Testnet ERC20 Token'
-                : !!coinObj.testnet
-                ? 'Testnet Currency'
-                : coinObj.pbaas_options &&
-                  !coinObj.compatible_channels.includes(GENERAL)
-                ? 'PBaaS Currency'
-                : uniValueDisplay === '-'
-                ? coinObj.proto === 'erc20'
-                  ? coinObj.unlisted
-                    ? 'Unlisted Token'
-                    : 'ERC20 Token'
-                  : uniValueDisplay
-                : `${
-                  `***`
-                } ${coinObj.display_ticker}`}
+              {secondaryTextHidden}
             </Paragraph>
           </View>
         ) : (
-          <View>
+          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 6, alignItems: 'flex-end' }}>
             <Paragraph
               numberOfLines={1}
-              style={{fontSize: 16, paddingTop: 8, fontWeight: '500', color: override?.textColor || Colors.secondaryColor}}>
+              style={{fontSize: 20, fontWeight: '700', color: override?.textColor || Colors.secondaryColor, letterSpacing: -0.05, textAlign: 'right'}}>
               {coinObj.testnet || uniValueDisplay === '-'
                 ? `${
                     currencyBalance == null
@@ -226,25 +242,8 @@ const CurrencyWidget = props => {
                   } ${coinObj.display_ticker}`
                 : uniValueDisplay}
             </Paragraph>
-            <Paragraph style={{fontSize: 12, color: override?.textColor ? '#444' : Colors.secondaryColor}}>
-              {coinObj.testnet && coinObj.proto === 'erc20'
-                ? 'Testnet ERC20 Token'
-                : !!coinObj.testnet
-                ? 'Testnet Currency'
-                : coinObj.pbaas_options &&
-                  !coinObj.compatible_channels.includes(GENERAL)
-                ? 'PBaaS Currency'
-                : uniValueDisplay === '-'
-                ? coinObj.proto === 'erc20'
-                  ? coinObj.unlisted
-                    ? 'Unlisted Token'
-                    : 'ERC20 Token'
-                  : uniValueDisplay
-                : `${
-                    currencyBalance == null
-                      ? '-'
-                      : normalizeNum(Number(currencyBalance), 4)[3]
-                  } ${coinObj.display_ticker}`}
+            <Paragraph style={{fontSize: 12, fontWeight: '400', color: override?.textColor ? '#666' : 'rgba(255,255,255,0.7)', marginTop: 6, lineHeight: 16, textAlign: 'right'}}>
+              {secondaryTextVisible}
             </Paragraph>
           </View>
         )}
