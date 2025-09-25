@@ -209,7 +209,7 @@ const CurrencyWidget = props => {
         </View>
 
         {!showBalance ? (
-          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 12, alignItems: 'flex-end' }}>
+          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 6, alignItems: 'flex-end' }}>
             <Paragraph
              numberOfLines={1}
              style={{fontSize: 20, fontWeight: '700', color: override?.textColor || Colors.secondaryColor, letterSpacing: -0.05, textAlign: 'right'}}
