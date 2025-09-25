@@ -1,3 +1,8 @@
+/*
+  Updated header defaults:
+  - Header background set to white (Colors.secondaryColor)
+  - Title and icons switched to black (Colors.quinaryColor)
+*/
 import {DrawerActions} from '@react-navigation/compat';
 import React from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
@@ -35,11 +40,11 @@ const Header = () => {
             }}>
             <MaterialCommunityIcons
               name="eye-off"
-              size={25}
-              color={Colors.secondaryColor}
+              size={22}
+              color={Colors.verusDarkGray}
               style={{
                 marginLeft: 5,
-                marginRight: 5,
+                marginRight: 10,
               }}
             />
           </TouchableOpacity>
@@ -53,8 +58,8 @@ const Header = () => {
             }}>
             <MaterialCommunityIcons
               name="eye"
-              size={25}
-              color={Colors.secondaryColor}
+              size={22}
+              color={Colors.verusDarkGray}
               style={{
                 marginLeft: 5,
                 marginRight: 5,
@@ -65,7 +70,7 @@ const Header = () => {
 
         <TouchableOpacity
           onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}>
-          <Icon name="menu" size={35} color={Colors.secondaryColor} />
+          <Icon name="menu" size={28} color={Colors.verusDarkGray} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -76,14 +81,14 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
   headerShown: true,
   headerMode: 'screen',
   headerStyle: {
-    backgroundColor: Colors.primaryColor,
+    backgroundColor: Colors.secondaryColor,
   },
   headerTitleStyle: {
     fontFamily: 'Avenir-Black',
     fontWeight: 'normal',
     fontSize: 22,
-    color: Colors.secondaryColor,
+    color: Colors.quinaryColor,
   },
   headerRight: () => <Header />,
-  headerTintColor: Colors.secondaryColor,
+  headerTintColor: Colors.quinaryColor,
 });

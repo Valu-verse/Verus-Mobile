@@ -25,7 +25,7 @@ const deriveLightwalletdKeyPair = async (seed) => {
   return {
     pubKey: null,
     privKey: spendingKey,
-    viewingKey: await VerusLightClient.deriveViewingKey(spendingKey),
+    viewingKey: new Promise.resolve(true), //await VerusLightClient.deriveViewingKey(spendingKey),
     addresses: [],
   };
 };

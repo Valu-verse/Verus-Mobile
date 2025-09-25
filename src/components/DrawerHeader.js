@@ -1,46 +1,34 @@
+/*
+  Updated DrawerHeader:
+  - Keep white background; remove all branding/logo content
+  - Retain spacing for a clean, minimal header area
+*/
 import React from 'react';
 import { 
   View, 
   TouchableOpacity,
-	SafeAreaView
+	SafeAreaView,
 } from 'react-native';
-import { Text } from 'react-native-paper';
 import Colors from '../globals/colors';
-import { CoinLogos, getCoinLogo } from '../utils/CoinData/CoinData';
-
-const VrscLogo = getCoinLogo("VRSC");
 
 const DrawerHeader = ({ navigateToScreen }) => (
   <TouchableOpacity onPress={() => navigateToScreen("Home")}>
     <SafeAreaView
       style={{
-        backgroundColor: Colors.primaryColor,
+        backgroundColor: Colors.secondaryColor,
       }}
     >
       <View
         style={{
           flexDirection: "row",
-          backgroundColor: Colors.primaryColor,
+          backgroundColor: Colors.secondaryColor,
           paddingLeft: 20,
 					paddingBottom: 24,
           paddingTop: 24,
           alignItems: "center",
         }}
       >
-        <VrscLogo
-          width={30}
-          height={30}
-        />
-        <Text
-          style={{
-            color: "#FFF",
-            paddingLeft: 22,
-            fontSize: 16,
-            fontFamily: "Avenir-Black",
-          }}
-        >
-          Verus Mobile
-        </Text>
+        {/* Intentionally blank to keep a minimal, unbranded header */}
       </View>
     </SafeAreaView>
   </TouchableOpacity>

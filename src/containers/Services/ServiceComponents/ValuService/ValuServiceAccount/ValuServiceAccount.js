@@ -22,6 +22,7 @@ import ListSelectionModal from "../../../../../components/ListSelectionModal/Lis
 import { requestPersonalData } from "../../../../../utils/auth/authBox";
 import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
+import BuySellSheet from "../BuySellSheet/BuySellSheet";
 
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", // Austria
   "BE", // Belgium
@@ -198,121 +199,29 @@ updateTaxCountry() {
                 style={Styles.fullWidth}
                 contentContainerStyle={Styles.focalCenter}>
                 <Portal>
-
-                    {this.state.countryModalOpen && (
-                        <ListSelectionModal
-                            title="Select a Country"
-                            flexHeight={3}
-                            visible={this.state.countryModalOpen}
-                            onSelect={(item) => this.selectCountry(item.key)}
-                            data={ALLOWED_COUNTRIES.map((code) => {
-                                const item = ISO_3166_COUNTRIES[code];
-
-                                return {
-                                    key: code,
-                                    title: `${item.emoji} ${item.name}`,
-                                };
-                            })}
-                            cancel={() => {
-                              // Don't show error if a selection is in progress
-                              if (this.countrySelectionInProgress) {
-                                  return;
-                              }
-                              
-                              if (this.state.taxCountry?.country) {
-                                  this.setState({ countryModalOpen: false });
-                              } else {
-                                  // Close the modal first
-                                  this.setState({ countryModalOpen: false }, () => {
-                                      // Then show the alert
-                                      createAlert(
-                                          "Country Selection Required",
-                                          "You must select a country to continue.",
-                                          [{ 
-                                              text: "OK", 
-                                              onPress: () => {
-                                                  // After user acknowledges, reopen the modal
-                                                  resolveAlert();
-                                                  this.setState({ countryModalOpen: true });
-                                              } 
-                                          }]
-                                      );
-                                  });
-                              }
-                          }}
-                        />
-                    )}
+                    { /* Render a bottom-sheet stepper instead of inline controls */ }
+                    <BuySellSheet
+                      visible={true}
+                      onClose={() => this.props.navigation.goBack()}
+                      onComplete={({ action, address }) => {
+                        // Persist chosen address and transition
+                        this.setState({ subScreenData: { initialAddress: address } }, () => {
+                          this.setSubScreen(action === 'sell' ? 'offRamp' : 'onRamp');
+                        });
+                      }}
+                    />
                 </Portal>
-
-
-                <View style={{ alignContent: 'center', alignItems: 'center', width: 380 }}>
-                    <Text style={{ fontSize: 25, textAlign: 'center', paddingBottom: 20 }}>
-                        Valu On-Off Ramp
-                    </Text>
-                    <Image source={ValuOnRampIcon} style={{ aspectRatio: 2, height: 120, alignSelf: 'center', marginBottom: 1 }} />
-                    <Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 10 }}>
-                        Purchase or sell vUSDC tokens on Verus to/from your bank account or credit/debit card.
-                    </Text>
-                    <Image source={VUSDC} style={{ aspectRatio: 1.1, height: 80, alignSelf: 'center', marginTop: 50 }} />
-                    <Text style={{ fontSize: 20, textAlign: 'center', paddingBottom: 20 }}>
-                        vUSDC
-                    </Text>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-evenly', marginTop: 6, width: '100%' }}>
-                        <Button
-                            onPress={() => { this.setSubScreen("onRamp") }}
-                            uppercase={false}
-                            mode="contained"
-                            disabled={this.state.taxCountry == null}
-                            labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                            style={{ height: 41, width: 125 }}
-                        >
-                            {'Buy Crypto'}
-                        </Button>
-
-                        <Button
-                            onPress={() => { this.setSubScreen("offRamp")  }}
-                            uppercase={false}
-                            mode="contained"
-                            disabled={this.state.taxCountry == null}
-                            labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                            style={{ height: 41, width: 125 }}
-                        >
-                            {'Sell Crypto'}
-                        </Button>
-                    </View>
-                    <React.Fragment >
-                        <List.Subheader>{"Country"}</List.Subheader>
-                        <List.Item
-                            style={{ width: 200, borderColor: "black", borderWidth: 1, borderRadius: 5, marginBottom: 10 }}
-                            title={
-                                ISO_3166_COUNTRIES[this.state.taxCountry?.country] == null
-                                    ? "Select a country"
-                                    : `${ISO_3166_COUNTRIES[this.state.taxCountry.country].emoji} ${ISO_3166_COUNTRIES[this.state.taxCountry.country].name
-                                    }`
-                            }
-                            titleStyle={{
-                                color: "black"
-                            }}
-                            right={(props) => (
-                                <List.Icon {...props} icon={"flag"} size={20} />
-                            )}
-                            onPress={
-                                this.state.loading
-                                    ? () => { }
-                                    : () => this.setState({ countryModalOpen: true })
-                            }
-                        />
-                    </React.Fragment>
-                </View>
+                <View style={{ alignContent: 'center', alignItems: 'center', width: 380 }} />
             </ScrollView>
         </SafeAreaView>);
     else if (this.state.subScreen == "onRamp")
       return (<ValuOnRampChooseSource 
         {...this.props}
         setSubScreen={this.setSubScreen}
+        initialAddress={this.state.subScreenData?.initialAddress}
       />);
     else if (this.state.subScreen == "offRamp")
-      return (<ValuOffRampChooseSource {...this.props}/>);
+      return (<ValuOffRampChooseSource {...this.props} initialAddress={this.state.subScreenData?.initialAddress}/>);
     else if (this.state.subScreen == "attestationAccept")
       return (<ValuAttestationAccept 
         {...this.props}

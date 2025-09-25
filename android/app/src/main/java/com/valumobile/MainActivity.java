@@ -1,4 +1,5 @@
 package com.valumobile;
+// Updated: Align getMainComponentName with JS app name in app.json ("verusmobile")
 
 import com.facebook.react.ReactActivity;
 import com.facebook.react.ReactActivityDelegate;
@@ -13,7 +14,7 @@ public class MainActivity extends ReactActivity {
    */
   @Override
   protected String getMainComponentName() {
-    return "valumobile";
+    return "verusmobile";
   }
 
   /**

@@ -1,76 +1,96 @@
+/*
+  Updated LandingScreen:
+  - Added top blue blob with "Powered by Verus" branding
+  - Removed animated background; clean minimal design
+  - Added welcome copy under the Valu logo
+  - Kept changes contained to this file
+*/
 import React from 'react';
-import { View, Dimensions, Image } from 'react-native';
-import { Text, Paragraph } from 'react-native-paper';
+import { View, Image } from 'react-native';
+import { Text } from 'react-native-paper';
 import TallButton from '../../../components/LargerButton';
 import Colors from '../../../globals/colors';
-import { VerusLogo, ValuLogo } from '../../../images/customIcons';
-import styles from '../../../styles';
-import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
-import { useState } from 'react';
-import { useEffect } from 'react';
+import { ValuLogo } from '../../../images/customIcons';
+import VerusLogoWhite from '../../../images/customIcons/verus-logo-white.svg';
 import Styles from "../../../styles/index";
 
 export default function LandingScreen(props) {
-  const { height } = Dimensions.get('window');
-
-  const [normalDevice, setNormalDevice] = useState(height > SMALL_DEVICE_HEGHT ? true : false);
-
-  useEffect(() => {
-    if (height > SMALL_DEVICE_HEGHT) {
-      setNormalDevice(true);
-    } else {
-      setNormalDevice(false);
-    }
-  })
-
   return (
     <View
       style={{
         backgroundColor: Colors.secondaryColor,
-        ...styles.focalCenter,
+        ...Styles.focalCenter,
       }}>
-      <View style={{ alignItems: 'center', position: "absolute" }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {'Welcome to'}
+      {/* Top Verus blob */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 160,
+          backgroundColor: '#3165D4',
+          borderBottomLeftRadius: 36,
+          borderBottomRightRadius: 36,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: 44,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: Colors.secondaryColor, opacity: 0.9, marginBottom: 6 }}>
+          Powered by
         </Text>
-        <Image source={ValuLogo} style={{
-          width: '60%',
-          height: '60%',
-          resizeMode: 'contain',
-        }} />
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 20
-          }}>
-          {''}
-        </Text>
-        {normalDevice ? <Paragraph
-          style={{
-            textAlign: 'center',
-            width: "60%",
-            marginTop: 24
-          }}>
-          {'The mobile wallet for Verus and its ecosystem.\nHere you can easily and securely send, receive and store VRSC, BTC, ETH and more.'}
-        </Paragraph> : null}
+        <VerusLogoWhite width={110} height={24} />
       </View>
+
+      {/* Center hero with Valu logo and copy */}
+      <View style={{ alignItems: 'center' }}>
+        <Image 
+          source={ValuLogo} 
+          style={{
+            width: 180,
+            height: 120,
+            resizeMode: 'contain',
+          }}
+        />
+        <Text
+          style={{
+            textAlign: 'center',
+            color: Colors.primaryColor,
+            fontSize: 18,
+            fontWeight: '600',
+            marginTop: 24,
+            lineHeight: 24,
+          }}>
+          Welcome to VALU.{'\n'}Make the most of every day.
+        </Text>
+      </View>
+
       <TallButton
         onPress={() => props.navigation.navigate("WelcomeSlider")}
         mode="contained"
-        labelStyle={{ fontWeight: "bold" }}
+        labelStyle={{
+          color: Colors.secondaryColor,
+          fontWeight: '600',
+          fontSize: 18,
+          letterSpacing: 0,
+          textTransform: 'none',
+        }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: "absolute",
           bottom: 80,
-          width: 280
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.primaryColor,
+          elevation: 6,
+          shadowColor: Colors.primaryColor,
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}>
-        {"Get Started"}
+        {"Get started"}
       </TallButton>
     </View>
   );

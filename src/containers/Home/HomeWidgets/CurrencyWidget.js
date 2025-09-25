@@ -1,7 +1,15 @@
+// CurrencyWidget - Currency card component for the home screen
+// Updated to improve space usage and readability:
+// - Removed maxWidth constraint on coin name for better text display
+// - Added middle ellipsis for long tickers (e.g., vUSDC.vETH)
+// - Repositioned subwallet badge to absolute top-right position
+// - Hide subwallet badge when count is 1, make it tappable
+// - Removed link icon for cleaner design
+
 import BigNumber from 'bignumber.js';
 import React, {useState, useEffect} from 'react';
-import {View, Dimensions, Text} from 'react-native';
-import {Avatar, Card, Paragraph} from 'react-native-paper';
+import {View, Dimensions, Text, TouchableOpacity} from 'react-native';
+import {Avatar, Card, Paragraph, Portal} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {getCoinLogo} from '../../../utils/CoinData/CoinData';
 import {USD} from '../../../utils/constants/currencies';
@@ -10,20 +18,44 @@ import {formatCurrency} from 'react-native-format-currency';
 import SubWalletsLogo from '../../../images/customIcons/SubWallets.svg';
 import {extractDisplaySubWallets} from '../../../utils/subwallet/extractSubWallets';
 import {normalizeNum} from '../../../utils/normalizeNum';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../../globals/colors';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { coinsList } from '../../../utils/CoinData/CoinsList';
+import SubWalletSelectorModal from '../../SubWalletSelect/SubWalletSelectorModal';
+import UsdcIcon from '../../../images/customIcons/usdc-icon.webp';
 
 const CurrencyWidget = props => {
   const {currencyBalance, coinObj} = props;
   const {width} = Dimensions.get('window');
 
   const Logo = getCoinLogo(coinObj.id, coinObj.proto);
-  const themeColor = coinObj.theme_color ? coinObj.theme_color : '#1C1C1C';
+
+  // Style-only overrides per currency (no coinsList change)
+  const WIDGET_OVERRIDES = {
+    'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd': {
+      backgroundColor: '#FFFFFF',
+      textColor: '#000000',
+      badgeBg: '#0A6AE3',
+      name: 'vUSDC',
+      renderLogo: () => (
+        <Avatar.Image
+          size={26}
+          source={UsdcIcon}
+          style={{ backgroundColor: 'transparent' }}
+        />
+      ),
+    },
+  };
+
+  const override = WIDGET_OVERRIDES[coinObj.id];
+  const themeColor = override?.backgroundColor || (coinObj.theme_color ? coinObj.theme_color : '#1C1C1C');
   const showBalance = useSelector(state => state.coins.showBalance);
 
   const allSubwallets = useObjectSelector(state => extractDisplaySubWallets(state));
+  const subwalletCount = allSubwallets[coinObj.id] ? allSubwallets[coinObj.id].length : 1;
+  const shouldShowSubwalletBadge = subwalletCount > 1;
+
+  const [subWalletSelectorOpen, setSubWalletSelectorOpen] = useState(false);
 
   const displayCurrency = useSelector(state =>
     state.settings.generalWalletSettings.displayCurrency
@@ -55,10 +87,18 @@ const CurrencyWidget = props => {
     }
   }, [currencyBalance, uniRate, displayCurrency]);
 
-  const displayedName =
+  let displayedName =
     coinObj.display_name.length > 8
       ? coinObj.display_ticker
       : coinObj.display_name;
+  if (override?.name) displayedName = override.name;
+
+  const handleSubwalletBadgePress = () => {
+    if (allSubwallets[coinObj.id]) {
+      setSubWalletSelectorOpen(true);
+    }
+  };
+
   return (
     <Card
       style={{
@@ -66,80 +106,82 @@ const CurrencyWidget = props => {
         width: width / 2 - 16,
         borderRadius: 10,
         backgroundColor: themeColor,
+        position: 'relative',
       }}
       mode="elevated"
       elevation={5}>
       <Card.Content>
+        {/* Subwallet badge - absolute positioned */}
+        {shouldShowSubwalletBadge && (
+          <TouchableOpacity
+            onPress={handleSubwalletBadgePress}
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: override?.badgeBg || 'rgba(0, 0, 0, 0.2)',
+              paddingHorizontal: 6,
+              paddingVertical: 2,
+              borderRadius: 10,
+              zIndex: 1,
+            }}
+            accessibilityLabel={`${subwalletCount} subwallets`}
+            accessibilityRole="button">
+            <Text style={{fontSize: 10, color: 'white', marginRight: 2}}>
+              {subwalletCount > 99 ? '99+' : subwalletCount}
+            </Text>
+            <SubWalletsLogo width={12} height={12} />
+          </TouchableOpacity>
+        )}
+
+        {/* Main content area */}
         <View
           style={{
             display: 'flex',
             flexDirection: 'row',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            paddingRight: shouldShowSubwalletBadge ? 40 : 0,
           }}>
-          <View
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'visible',
-            }}>
-            {Logo == null ? (
-              <Avatar.Icon
-                icon="wallet"
-                color={themeColor}
-                style={{backgroundColor: 'white'}}
-                size={26}
-              />
-            ) : (
-              <Logo
-                style={{
-                  alignSelf: 'center',
-                }}
-                width={24}
-                height={24}
-              />
-            )}
-            <Paragraph
+          {override?.renderLogo ? (
+            override.renderLogo()
+          ) : Logo == null ? (
+            <Avatar.Icon
+              icon="wallet"
+              color={themeColor}
+              style={{backgroundColor: 'white'}}
+              size={26}
+            />
+          ) : (
+            <Logo
               style={{
-                fontSize: 16,
-                marginLeft: 8,
-                fontWeight: 'bold',
-                maxWidth: 80,
+                alignSelf: 'center',
               }}
-              numberOfLines={1}>
-              {displayedName}
-            </Paragraph>
-          </View>
-          <View
+              width={24}
+              height={24}
+            />
+          )}
+          <Paragraph
             style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: -10,
-              marginTop: -12,
-            }}>
-            <Paragraph style={{fontSize: 12}}>
-              {allSubwallets[coinObj.id] ? allSubwallets[coinObj.id].length : 1}
-            </Paragraph>
-            <SubWalletsLogo />
-            {coinObj.mapped_to != null && coinObj.id !== coinsList.VRSC.id && (
-              <MaterialCommunityIcons
-                name={'link'}
-                color={Colors.secondaryColor}
-                size={16}
-              />
-            )}
-          </View>
+              fontSize: 16,
+              marginLeft: 8,
+              fontWeight: 'bold',
+              flex: 1,
+              color: override?.textColor || Colors.secondaryColor,
+            }}
+            numberOfLines={1}
+            ellipsizeMode="middle">
+            {displayedName}
+          </Paragraph>
         </View>
 
         {!showBalance ? (
           <View>
             <Paragraph
              numberOfLines={1}
-             style={{fontSize: 16, paddingTop: 8, fontWeight: '500'}}
+             style={{fontSize: 16, paddingTop: 8, fontWeight: '500', color: override?.textColor || Colors.secondaryColor}}
             >
               {!!coinObj.testnet || uniValueDisplay === '-'
                 ? `${
@@ -151,7 +193,7 @@ const CurrencyWidget = props => {
             </Paragraph>
             {/* <P></P> */}
             <Paragraph
-            style={{fontSize: 12}}
+            style={{fontSize: 12, color: override?.textColor ? '#444' : Colors.secondaryColor}}
             >
               {coinObj.testnet && coinObj.proto === 'erc20'
                 ? 'Testnet ERC20 Token'
@@ -175,16 +217,16 @@ const CurrencyWidget = props => {
           <View>
             <Paragraph
               numberOfLines={1}
-              style={{fontSize: 16, paddingTop: 8, fontWeight: '500'}}>
+              style={{fontSize: 16, paddingTop: 8, fontWeight: '500', color: override?.textColor || Colors.secondaryColor}}>
               {coinObj.testnet || uniValueDisplay === '-'
                 ? `${
                     currencyBalance == null
                       ? '-'
-                      : normalizeNum(Number(currencyBalance), 8)[3]
+                      : normalizeNum(Number(currencyBalance), 4)[3]
                   } ${coinObj.display_ticker}`
                 : uniValueDisplay}
             </Paragraph>
-            <Paragraph style={{fontSize: 12}}>
+            <Paragraph style={{fontSize: 12, color: override?.textColor ? '#444' : Colors.secondaryColor}}>
               {coinObj.testnet && coinObj.proto === 'erc20'
                 ? 'Testnet ERC20 Token'
                 : !!coinObj.testnet
@@ -201,12 +243,30 @@ const CurrencyWidget = props => {
                 : `${
                     currencyBalance == null
                       ? '-'
-                      : normalizeNum(Number(currencyBalance), 8)[3]
+                      : normalizeNum(Number(currencyBalance), 4)[3]
                   } ${coinObj.display_ticker}`}
             </Paragraph>
           </View>
         )}
       </Card.Content>
+      
+      {/* SubWallet Selector Modal */}
+      <Portal>
+        {subWalletSelectorOpen && (
+          <SubWalletSelectorModal
+            visible={subWalletSelectorOpen}
+            chainTicker={coinObj.id}
+            cancel={() => setSubWalletSelectorOpen(false)}
+            animationType="slide"
+            subWallets={allSubwallets[coinObj.id] || []}
+            onSelect={(wallet) => {
+              setSubWalletSelectorOpen(false);
+              // Handle wallet selection if needed - for now just close
+            }}
+            displayTicker={coinObj.display_ticker}
+          />
+        )}
+      </Portal>
     </Card>
   );
 };

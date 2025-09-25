@@ -14,7 +14,8 @@ class Service extends Component {
     super(props);
     this.state = {
       activeService: props.route.params.service,
-      subScreen: props.route.params?.subScreen || null
+      subScreen: props.route.params?.subScreen || null,
+      subScreenData: props.route.params?.subScreenData || null
     }
 
     this.SERVICE_COMPONENTS = {
@@ -22,7 +23,7 @@ class Service extends Component {
       [VERUSID_SERVICE_ID]: <VerusIdService navigation={props.navigation}/>,
       [PBAAS_PRECONVERT_SERVICE_ID]: <PbaasPreconvertService navigation={props.navigation}/>,
       [ATTESTATION_SERVICE_ID]: <AttestationService navigation={props.navigation}/>,
-      [VALU_SERVICE_ID]: <ValuService navigation={props.navigation} subScreen={this.state.subScreen}/>,
+      [VALU_SERVICE_ID]: <ValuService navigation={props.navigation} subScreen={this.state.subScreen} subScreenData={this.state.subScreenData}/>,
     }
   }
 
