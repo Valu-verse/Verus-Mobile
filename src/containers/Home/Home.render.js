@@ -17,8 +17,7 @@ import {
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
   VALU_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE,
-  VALU_ACCOUNT_TYPE
+  ATTESTATION_WIDGET_TYPE
 } from '../../utils/constants/widgets';
 import { setAndSaveAccountWidgets } from '../../actions/actionCreators';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
@@ -212,5 +211,9 @@ export const HomeRenderWidget = ({
     }
   }
 
-  return renderers[widgetType] ? renderers[widgetType]() : <View />;
+  if (renderers[widgetType]) {
+    return renderers[widgetType]();
+  } else {
+    return null; // Return null instead of an empty View to prevent rendering
+  }
 };
