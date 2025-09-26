@@ -1,18 +1,19 @@
 /*
-  This component's purpose is to present the user with the option
-  to log into their accounts, and will only be shown if at least on account
-  exists on the mobile device. It uses the user-entered username and password
-  to find and decrypt the wallet seed in asyncStorage. When mounted, it clears
-  any detecting app update heartbeats located from before, and upon successfull
-  login, creates a new update heartbeat interval.
+  Login screen
+  - Purpose: Presents login options when at least one account exists on device.
+  - Behavior: Auth modal logic preserved; navigations unchanged.
+  - Visual updates (this edit):
+    • Apply same primary button style as LandingScreen (contained, rounded, shadowed).
+    • Add themed secondary button (outlined, rounded) for "Add a profile".
+    • Consistent typography (font size, weight, casing) and height.
 */
-
 import React, {useEffect} from 'react';
 import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
 import {Button, Text} from 'react-native-paper';
 import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
-import {VerusLogo, ValuLogo} from '../../images/customIcons';
+import { ValuLogo } from '../../images/customIcons';
+import VerusLogoWhite from '../../images/customIcons/verus-logo-white.svg';
 import {TouchableOpacity} from 'react-native';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
@@ -95,65 +96,80 @@ const Login = props => {
         backgroundColor: Colors.secondaryColor,
         ...Styles.focalCenter,
       }}>
-      <Image source={ValuLogo} style={Styles.valuSplashLogo} />
-      
-      {/* Powered by Verus section */}
-      <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 20 }}>
-        <Text style={{ 
-          fontSize: 12, 
-          color: Colors.primaryColor, 
-          marginBottom: 5,
-          textAlign: 'center' 
-        }}>
-          Powered by
-        </Text>
-        <VerusLogo 
-          height={90} 
-          width={180} 
-        />
-      </View>
-      
+      {/* Top Verus blob */}
       <View
         style={{
-  
-        }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
-          }}>
-          {'Welcome to\nThe Internet of VALU'}
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 160,
+          backgroundColor: '#3165D4',
+          borderBottomLeftRadius: 36,
+          borderBottomRightRadius: 36,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: 44,
+        }}
+      >
+        <Text style={{ fontSize: 12, color: Colors.secondaryColor, opacity: 0.9, marginBottom: 6 }}>
+          Powered by
         </Text>
+        <VerusLogoWhite width={110} height={24} />
+      </View>
+
+      {/* Center hero with Valu logo and copy */}
+      <View style={{ alignItems: 'center' }}>
+        <Image 
+          source={ValuLogo} 
+          style={{ width: 200, height: 120, resizeMode: 'contain' }}
+        />
         <Text
           style={{
             textAlign: 'center',
             color: Colors.primaryColor,
-            fontSize: 20,
+            fontSize: 18,
+            fontWeight: '600',
+            marginTop: 24,
+            lineHeight: 24,
           }}>
-          {''}
+          Welcome to VALU.{'\n'}Make the most of every day.
         </Text>
       </View>
       <TallButton
         onPress={() => openAuthModal()}
         mode="contained"
-        labelStyle={{fontWeight: 'bold'}}
+        labelStyle={{ color: Colors.secondaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: 'absolute',
-          bottom: 86, // Adjusted position
-          width: 280,
+          bottom: 100, // Add small spacing between buttons
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.primaryColor,
+          elevation: 6,
+          shadowColor: Colors.primaryColor,
+          shadowOpacity: 0.25,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}>
         {'Login'}
       </TallButton>
       <TallButton
         onPress={() => handleAddUser()}
-        mode="text"
-        labelStyle={{fontWeight: 'bold'}}
+        mode="outlined"
+        labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
+        uppercase={false}
+        contentStyle={{ height: 56 }}
         style={{
           position: 'absolute',
           bottom: 30, // Adjusted position
-          width: 280,
+          width: 300,
+          borderRadius: 24,
+          backgroundColor: Colors.secondaryColor,
+          borderWidth: 1,
+          borderColor: Colors.primaryColor,
         }}>
         {'Add a profile'}
       </TallButton>

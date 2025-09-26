@@ -1,3 +1,16 @@
+/*
+  Updated file: ValuOffRampChooseSource
+  - Redesigned Sell screen to match modern on-ramp style (based on ValuOnRampChooseSource)
+  - Large "You Sell" input with balance display and MAX button below
+  - Full-width keypad at bottom with modern styling and shadows
+  - Small country selector chip in top-right corner
+  - Modern CTA button with HomeFAB styling (rounded, shadows)
+  - Light background with card-based input containers
+  - Compact responsive layout for small devices
+  - Balance display shows available vUSDC.vETH with lighter .vETH suffix
+  - MAX button sets amount to available balance (respecting provider limits)
+*/
+
 import React, { Component } from "react";
 import { connect } from 'react-redux';
 import { primitives } from "verusid-ts-client";
@@ -10,22 +23,24 @@ import {
   StyleSheet,
   Alert,
   Keyboard,
-  TouchableOpacity
+  TouchableOpacity,
+  Platform,
+  Dimensions
 } from 'react-native';
-import {
-  Divider,
-  List,
-  Button,
-  Text,
-  RadioButton,
-  Portal,
-  TextInput,
-  IconButton,
-  ActivityIndicator
+import { 
+  Divider, 
+  List, 
+  Button, 
+  Text, 
+  RadioButton, 
+  Portal, 
+  TextInput, 
+  IconButton, 
+  ActivityIndicator 
 } from 'react-native-paper';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { formatCurrency } from "react-native-format-currency";
-import { CommonActions } from '@react-navigation/native';
+import {CommonActions} from '@react-navigation/native';
 
 import { VALU_URL } from "../../../../../utils/constants/constants";
 
@@ -41,9 +56,12 @@ import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
+import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
+import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
+import { API_GET_BALANCES } from '../../../../../utils/constants/intervalConstants';
 
 // Constants
-const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE",
+const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
 class ValuOffRampChooseSource extends Component {
@@ -59,10 +77,19 @@ class ValuOffRampChooseSource extends Component {
       throw new Error("No partner user ID found for Valu service");
     }
 
+    // Calculate default amount as max available for initial address
+    const initialAddress = props.initialAddress ? props.initialAddress : (addresses[0] || {});
+    const allBalances = props.allBalances;
+    const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const initialAvailable = initialAddress.id && allBalances[vusdcId] && allBalances[vusdcId][initialAddress.id] && allBalances[vusdcId][initialAddress.id].total
+      ? Number(allBalances[vusdcId][initialAddress.id].total)
+      : 0;
+    const defaultAmount = initialAvailable > 0 ? (Math.floor(initialAvailable * 100) / 100).toFixed(2) : "100";
+
     this.state = {
       radioValue: 0,
-      amount: "100",
-      converted: "0",
+      amount: defaultAmount,
+      converted: 0,
       taxCountry: null,
       currency: "USD",
       countryModalOpen: false,
@@ -74,35 +101,69 @@ class ValuOffRampChooseSource extends Component {
       error: null,
       mainVerusNetwork: Ticker,
       addresses,
-      chosenAddress: addresses[0] || {},
+      chosenAddress: initialAddress,
       locations: {},
       partnerUserId: partnerUserId
     };
-
+    
     this.handleChange = this.handleChange.bind(this);
     this.openAddressModal = this.openAddressModal.bind(this);
     this.startOnRamp = this.startOnRamp.bind(this);
   }
 
   async componentDidMount() {
-    this.setState({ loading: true });
+      this.initialize();
+  }
 
+  async connectionError() {
+    createAlert(
+      "Failed to Connect to Valu",
+      "Please try again soon.  We apologise for the inconvenience",
+      [
+        {
+          text: 'back',
+          onPress: () => {resolveAlert(false); this.props.navigation.goBack()},
+          style: 'cancel',
+        },
+        {
+          text: 'TRY AGAIN', 
+          onPress: async () => {
+            try {
+              await this.initialize();
+  
+              resolveAlert(true);
+            } catch (error) {
+              console.error("Error starting off-ramp:", error);
+              this.connectionError();
+              resolveAlert(false);
+            }
+          }
+        },
+      ],
+      { cancelable: false }
+    );
+  }
+  
+  async initialize() {
+
+    this.setState({ loading: true });
+    
     try {
       const location = await requestPersonalData(PERSONAL_LOCATIONS);
       const countryCode = location?.tax_countries?.[0]?.country || "US";
       const amount = this.state.amount;
-
-      const valuReply = await ValuProvider.getOffRampOptions({
-        countryCode,
+      
+      const valuReply = await ValuProvider.getOffRampOptions({ 
+        countryCode, 
         amount,
-        partnerUserId: this.state.partnerUserId
+        partnerUserId: this.state.partnerUserId 
       });
-
-      const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || "0";
-      const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || "0";
-      const formattedValue = formatCurrency({
-        amount: Number(cryptoReceived).toFixed(2),
-        code: 'USD'
+      
+      const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || 0;
+      const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || 0;
+      const formattedValue = formatCurrency({ 
+        amount: Number(cryptoReceived).toFixed(2), 
+        code: 'USD' 
       });
 
       this.setState({
@@ -115,11 +176,7 @@ class ValuOffRampChooseSource extends Component {
         loading: false,
       });
     } catch (error) {
-      console.error("Error loading initial data:", error);
-      this.setState({
-        loading: false,
-        error: " - Failed to load data"
-      });
+      this.connectionError();
     }
   }
 
@@ -127,7 +184,7 @@ class ValuOffRampChooseSource extends Component {
     this.setState({ loading: true }, async () => {
       try {
         const taxCountries = [this.state.taxCountry];
-
+        
         await modifyPersonalDataForUser(
           { ...this.state.locations, tax_countries: taxCountries },
           PERSONAL_LOCATIONS,
@@ -142,15 +199,17 @@ class ValuOffRampChooseSource extends Component {
   }
 
   resetToScreen = () => {
-    const resetAction = CommonActions.reset({
-      index: 0,
-      routes: [{ name: 'SignedInStack' }],
-    });
+      const resetAction = CommonActions.reset({
+              index: 0,
+              routes: [{name: 'SignedInStack'}],
+            });
 
-    this.props.navigation.dispatch(resetAction);
-  };
+      this.props.navigation.dispatch(resetAction);
+    };
 
   async startOnRamp() {
+    // Extra safety: prevent starting if an inline error is present or amount is empty
+    if (this.state.error != null || this.state.amount === "") return;
     createAlert(
       "Terms and Conditions",
       "By proceeding with this transaction, you acknowledge and agree that the vUSDC you send will be automatically converted to Polygon USDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
@@ -161,14 +220,13 @@ class ValuOffRampChooseSource extends Component {
           style: 'cancel',
         },
         {
-          text: 'Accept & Proceed',
+          text: 'Accept & Proceed', 
           onPress: async () => {
             try {
               const { options, radioValue, amount, taxCountry } = this.state;
-
-              const reply = await ValuProvider.getOffRampURL({
-                option: options[radioValue],
-                amount,
+              const reply = await ValuProvider.getOffRampURL({ 
+                option: options[radioValue], 
+                amount, 
                 countryCode: taxCountry.country,
                 address: this.state.chosenAddress.id,
                 partnerUserId: this.state.partnerUserId
@@ -198,6 +256,10 @@ class ValuOffRampChooseSource extends Component {
                   enableUrlBarHiding: true,
                   enableDefaultShare: false,
                   forceCloseOnRedirection: false,
+                  hasBackButton: false,  // Prevent back button from closing the browser
+                  waitForRedirectDelay: 500, // Give redirects more time to process
+                  showInRecents: true,   // Keep in Android recents
+                  ephemeralWebSession: false, // Maintain cookies and session data
                   animations: {
                     startEnter: 'slide_in_right',
                     startExit: 'slide_out_left',
@@ -205,15 +267,14 @@ class ValuOffRampChooseSource extends Component {
                     endExit: 'slide_out_right'
                   }
                 });
-                this.resetToScreen('CoinMenus', 'Overview');
-                console.log("InAppBrowser opened successfully");
+                this.resetToScreen();
               } else {
                 Linking.openURL(reply.url);
               }
               resolveAlert(true);
             } catch (error) {
-              console.error("Error starting on-ramp:", error);
-              Alert.alert("Error", "Failed to start the purchase process. Please try again.");
+              console.error("Error starting off-ramp:", error);
+              Alert.alert("Error", "Failed to start the sell process. Please try again.");
               resolveAlert(false);
             }
           }
@@ -224,40 +285,47 @@ class ValuOffRampChooseSource extends Component {
   }
 
   validateAmount(value, min, max) {
+    // Clear old error state - validation now handled via inline color coding
+    this.setState({ error: null });
+    
     if (isNaN(value)) {
-      this.setState({ error: " - Please enter a valid number" });
       return false;
     }
 
     if (Number(value) < Number(min)) {
-      this.setState({ error: ` - Min ${min}` });
       return false;
     }
 
     if (Number(value) > Number(max)) {
-      const formattedMax = formatCurrency({ amount: Number(max).toFixed(2), code: 'USD' })[1];
-      this.setState({ error: ` - Max ${formattedMax}` });
       return false;
     }
 
-    this.setState({ error: null });
     return true;
   }
 
   handleChange(value = null, countryCode = null) {
-    const youPay = value || this.state.amount;
+    const youPay = value !== null && value !== undefined ? value : this.state.amount;
 
-    this.setState({
-      loading: true,
-      updatingfee: true,
-      amount: youPay
+    if (youPay === '') {
+      this.setState({ amount: '', error: null, loading: false, updatingfee: false });
+      return;
+    }
+
+    if (youPay.includes('.') && youPay.split('.')[1]?.length > 2) {
+      return;
+    }
+
+    this.setState({ 
+      loading: true, 
+      updatingfee: true, 
+      amount: youPay 
     }, async () => {
       try {
         const radioValue = this.state.radioValue;
         const selectedCountry = countryCode || this.state.taxCountry.country;
-
-        const valuReply = await ValuProvider.getOffRampOptions({
-          countryCode: selectedCountry,
+        
+        const valuReply = await ValuProvider.getOffRampOptions({ 
+          countryCode: selectedCountry, 
           amount: youPay,
           partnerUserId: this.state.partnerUserId
         });
@@ -265,16 +333,16 @@ class ValuOffRampChooseSource extends Component {
         // Validate amount against min/max
         if (valuReply.options && valuReply.options[radioValue]) {
           this.validateAmount(
-            youPay,
-            valuReply.options[radioValue].minAmount,
+            youPay, 
+            valuReply.options[radioValue].minAmount, 
             valuReply.options[radioValue].maxAmount
           );
 
           const fee = valuReply.options[radioValue].feePercentage || 0;
           const cryptoReceived = valuReply.options[radioValue].amountReceived || 0;
-          const formattedValue = formatCurrency({
-            amount: Number(cryptoReceived).toFixed(2),
-            code: 'USD'
+          const formattedValue = formatCurrency({ 
+            amount: Number(cryptoReceived).toFixed(2), 
+            code: 'USD' 
           });
 
           const updates = {
@@ -301,10 +369,10 @@ class ValuOffRampChooseSource extends Component {
         }
       } catch (error) {
         console.error("Error handling change:", error);
-        this.setState({
-          loading: false,
+        this.setState({ 
+          loading: false, 
           updatingfee: false,
-          error: " - Failed to update values"
+          error: " - Failed to update values" 
         });
       }
     });
@@ -314,147 +382,142 @@ class ValuOffRampChooseSource extends Component {
     this.setState({ addressModalOpen: true });
   }
 
+  handleMaxPress = () => {
+    const allBalances = this.props.allBalances;
+    const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const addrId = this.state.chosenAddress?.id;
+    const available = addrId && allBalances[vusdcId] && allBalances[vusdcId][addrId] && allBalances[vusdcId][addrId].total
+      ? Number(allBalances[vusdcId][addrId].total)
+      : 0;
+
+    if (available <= 0) return;
+
+    // Get provider max if available
+    const providerMax = this.state.options?.[this.state.radioValue]?.maxAmount;
+    const maxAmount = providerMax ? Math.min(available, Number(providerMax)) : available;
+    
+    // Round DOWN to 2 decimals to ensure we never exceed actual balance
+    const formattedMax = (Math.floor(maxAmount * 100) / 100).toFixed(2);
+    this.handleChange(formattedMax);
+  };
+
+  // Get validation state for amount
+  getAmountValidationState() {
+    const allBalances = this.props.allBalances;
+    const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const addrId = this.state.chosenAddress?.id;
+    const available = addrId && allBalances[vusdcId] && allBalances[vusdcId][addrId] && allBalances[vusdcId][addrId].total
+      ? Number(allBalances[vusdcId][addrId].total)
+      : 0;
+
+    const amount = Number(this.state.amount || 0);
+    const providerMin = this.state.options?.[this.state.radioValue]?.minAmount || 0;
+
+    if (amount > available) return { state: 'exceeds', available, amount, providerMin };
+    if (amount < providerMin && providerMin > 0) return { state: 'below_min', available, amount, providerMin };
+    return { state: 'valid', available, amount, providerMin };
+  }
+
   // Render helper methods to break down the UI
   renderCurrencyInputs() {
-    return (
-      <>
-        <TextInput
-          style={styles.textInput}
-          mode="outlined"
-          value={this.state.amount}
-          right={<TextInput.Affix text={"vUSDC"} />}
-          onChangeText={this.handleChange}
-          keyboardType="numeric"
-          label={`You Pay${this.state.error || ""}`}
-          error={this.state.error != null}
-        />
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    const formatAmount = (raw = "") => {
+      if (raw == null || raw === "") return "0";
+      const [int = "0", frac] = String(raw).split('.');
+      const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return frac != null ? `${withCommas}.${frac}` : withCommas;
+    };
 
-        <TextInput
-          style={[styles.textInput, { marginTop: 20 }]}
-          mode="outlined"
-          placeholder={`Enter amount in vUSDC`}
-          value={this.state.loading ? "-" : this.state.converted}
-          right={<TextInput.Affix text={this.state.currency} />}
-          onChangeText={() => { }}
-          keyboardType="numeric"
-          label={`You Receive${this.state.error || ""}`}
-          error={this.state.error != null}
-        />
-      </>
-    );
-  }
+    // Use raw amount for display, only format if it has content
+    const displayAmount = this.state.amount === "" ? "0" : formatAmount(this.state.amount);
+    
+    const validation = this.getAmountValidationState();
+    const { state: validationState, available } = validation;
 
-  renderAddressSelector() {
-    return (
-      <View style={{ marginTop: 20, width: 300 }}>
-        <Text style={{ fontSize: 14, marginBottom: 5 }}>Select Payment Address</Text>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={this.openAddressModal}
-          style={{ width: '100%' }}
-        >
-          <TextInput
-            style={[styles.textInput, { height: 35, fontSize: 15 }]}
-            mode="outlined"
-            value={this.state.chosenAddress?.name}
-            right={<TextInput.Icon icon="menu-down" size={20} />}
-            editable={false}
-            pointerEvents="none"
-            label={`${this.state.mainVerusNetwork} Network`}
-          />
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  renderPaymentMethodSelector() {
-    const feeoptions = "Please select the payment method you would like to use to purchase vUSDC tokens. \n\n" +
-      "Polygon: We use the Polygon network to provide the cheapest on-ramp prices.\n";
+    // Color coding based on validation state
+    const amountColor = validationState === 'exceeds' ? '#FF4444' : 
+                       validationState === 'below_min' ? '#FF8C00' : '#1A1A1A';
+    
+    const balanceColor = validationState === 'exceeds' ? '#FF4444' : '#888';
+    const maxButtonStyle = validationState === 'exceeds' ? styles.maxButtonProminent : styles.maxButton;
+    const maxButtonTextStyle = validationState === 'exceeds' ? styles.maxButtonTextProminent : styles.maxButtonText;
 
     return (
-      <View style={{ alignContent: 'center', alignItems: 'center' }}>
-        <List.Section title=" " style={{ width: 380, marginTop: -30, marginBottom: 20 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', height: 40 }}>
-            <Text>Choose Payment Method</Text>
-            <IconButton
-              icon="information"
-              size={25}
-              iconColor={Colors.verusGreenColor}
-              onPress={() => Alert.alert("Purchase Options", feeoptions)}
-            />
+      <View style={{ alignItems: 'center', marginTop: 8 }}>
+        {/* Large You Sell input - simplified currency */}
+        <View style={{ width: '90%', marginBottom: 8 }}>
+            <Text style={{ fontSize: 14, color: '#666', marginBottom: 8, textAlign: 'left' }}>You sell</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-start', width: '100%' }}>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.5}
+              style={[
+                styles.mediumLargeAmountInline, 
+                isSmall ? styles.mediumLargeAmountInlineSmall : null,
+                { color: amountColor }
+              ]}
+            >
+              {displayAmount}
+              <Text style={[
+                styles.mediumLargeCurrencyInline, 
+                isSmall ? styles.mediumLargeCurrencyInlineSmall : null,
+                { color: amountColor === '#1A1A1A' ? '#888' : amountColor }
+              ]}>{`\u2009vUSDC`}</Text>
+            </Text>
           </View>
-
-          <View style={{ maxHeight: 300 }}>
-            <ScrollView style={{ flexGrow: 0 }}>
-              {(this.state.loading && !this.state.updatingfee) ? (
-                <ActivityIndicator
-                  animating={true}
-                  size={100}
-                  style={styles.loadingIndicator}
-                />
-              ) : (
-                <RadioButton.Group
-                  value={this.state.radioValue}
-                  onValueChange={(value) => {
-                    this.setState({ radioValue: value },
-                      () => this.handleChange(this.state.amount)
-                    );
-                  }}
-                >
-                  <View style={[styles.tableRow, { marginRight: 20 }]}>
-                    <Text style={[styles.tableHeaderCell, { flex: 4 }]}>Method</Text>
-                    <Text style={[styles.tableHeaderCell, { flex: 4 }]}>via</Text>
-                    <Text style={[styles.tableHeaderCell, { flex: 3 }]}>Fee</Text>
-                  </View>
-
-                  {this.state.options.map((route, index) => (
-                    <View key={index} style={[styles.tableRow, { marginRight: 20 }]}>
-                      <View style={[styles.tableCell, { flex: 4 }]}>
-                        <Text style={styles.tableCellLabel}>
-                          {route.provider || 'Payment Provider'}
-                        </Text>
-                        <Text style={styles.tableCellValue}>
-                          {route.paymentMethod}
-                        </Text>
-                      </View>
-
-                      <View style={[styles.tableCell, { flex: 4 }]}>
-                        <Text style={styles.tableCellLabel}>
-                          {route.destinationNetworkName}
-                        </Text>
-                        <Text style={styles.tableCellValue}>
-                          {route.sourceCurrency.toUpperCase()}
-                        </Text>
-                      </View>
-
-                      <View style={[styles.tableCell, { flex: 2 }]}>
-                        {this.state.updatingfee ? (
-                          <ActivityIndicator
-                            animating={true}
-                            color='#aaa'
-                            size={20}
-                            style={{ flex: 3 }}
-                          />
-                        ) : (
-                          <Text style={{ textAlign: "left" }}>
-                            {`${route.feePercentage}%`}
-                          </Text>
-                        )}
-                      </View>
-
-                      <RadioButton value={index} style={{ flex: 1 }} />
-                    </View>
-                  ))}
-                </RadioButton.Group>
+          
+          {/* Balance and MAX row with smart coloring */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 12, color: balanceColor }}>
+                Available: {(Math.floor(available * 100) / 100).toFixed(2)} vUSDC<Text style={{ fontSize: 11, color: balanceColor === '#FF4444' ? '#FF6666' : '#aaa' }}>.vETH</Text>
+              </Text>
+              {/* Micro validation feedback */}
+              {validationState === 'exceeds' && (
+                <Text style={{ fontSize: 10, color: '#FF4444', marginTop: 2 }}>Exceeds available</Text>
               )}
-            </ScrollView>
+              {validationState === 'below_min' && (
+                <Text style={{ fontSize: 10, color: '#FF8C00', marginTop: 2 }}>Min {validation.providerMin}</Text>
+              )}
+            </View>
+            <TouchableOpacity
+              onPress={this.handleMaxPress}
+              disabled={available <= 0}
+              style={[
+                maxButtonStyle,
+                available <= 0 ? styles.maxButtonDisabled : null
+              ]}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                maxButtonTextStyle,
+                available <= 0 ? styles.maxButtonTextDisabled : null
+              ]}>
+                MAX
+              </Text>
+            </TouchableOpacity>
           </View>
-        </List.Section>
-
-        <Text style={{ color: '#888' }}>
-          {`Total fee ${this.state.loading ? "-" : isNaN(this.state.totalFee) ? 0 : this.state.totalFee} ${this.state.currency}`}
-        </Text>
+        </View>
       </View>
+    );
+  }
+
+  renderCountrySelector() {
+    const countryData = this.state.taxCountry?.country ? ISO_3166_COUNTRIES[this.state.taxCountry.country] : null;
+    
+    return (
+      <TouchableOpacity
+        onPress={() => this.setState({ countryModalOpen: true })}
+        style={styles.countryChip}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.countryChipText}>
+          {countryData ? `${countryData.emoji} ${countryData.name}` : "Select country"}
+        </Text>
+        <Text style={styles.countryChipIcon}>⌄</Text>
+      </TouchableOpacity>
     );
   }
 
@@ -477,7 +540,7 @@ class ValuOffRampChooseSource extends Component {
             cancel={() => this.setState({ countryModalOpen: false })}
           />
         )}
-
+        
         {this.state.addressModalOpen && (
           <ListSelectionModal
             title={`Select a ${this.state.mainVerusNetwork} address`}
@@ -502,66 +565,439 @@ class ValuOffRampChooseSource extends Component {
   }
 
   render() {
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    
+    const validation = this.getAmountValidationState();
+    const ctaDisabled = this.state.loading || this.state.amount === "" || validation.state !== 'valid';
+    
     return (
-      <SafeAreaView style={Styles.defaultRoot}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.container}>
+          <View style={{ flex: 1 }}>
             {this.renderModals()}
-
-            <Text style={styles.headerText}>Sell Crypto</Text>
-
-            {this.renderCurrencyInputs()}
-            {this.renderAddressSelector()}
-            {this.renderPaymentMethodSelector()}
-
-            <Button
-              onPress={this.startOnRamp}
-              uppercase={false}
-              mode="contained"
-              disabled={this.state.loading || this.state.error != null}
-              labelStyle={styles.buttonLabel}
-              style={styles.actionButton}
-            >
-              Sell vUSDC
-            </Button>
-
-            <React.Fragment>
-              <Divider style={{ marginVertical: 5 }} />
-              <List.Item
-                style={styles.countrySelector}
-                title={
-                  ISO_3166_COUNTRIES[this.state.taxCountry?.country] == null
-                    ? "Select a country"
-                    : `${ISO_3166_COUNTRIES[this.state.taxCountry.country].emoji} ${ISO_3166_COUNTRIES[this.state.taxCountry.country].name}`
-                }
-                titleStyle={{ color: "black" }}
-                right={(props) => (
-                  <List.Icon {...props} icon={"account-edit"} size={20} />
-                )}
-                onPress={
-                  this.state.loading
-                    ? () => { }
-                    : () => this.setState({ countryModalOpen: true })
-                }
+            
+            {/* Main content container */}
+            <View style={styles.modernContainer}>
+            {/* Header: minimal, right-aligned country chip only */}
+            <View style={[styles.header, { paddingBottom: 4 }]}>
+              <View style={{ flex: 1 }} />
+              {this.renderCountrySelector()}
+            </View>
+              
+              
+              {this.renderCurrencyInputs()}
+              {this.renderOptionsList()}
+              
+              {/* Spacer to push keypad and button to bottom */}
+              <View style={{ flex: isSmall ? 0 : 1 }} />
+              
+              {/* Modern CTA Button */}
+              <View style={[styles.ctaContainer, isSmall ? { paddingBottom: 4 } : null ]}>
+              <Button
+                onPress={this.startOnRamp}
+                mode="contained"
+                disabled={ctaDisabled}
+                style={[
+                  styles.modernActionButton,
+                  ctaDisabled ? styles.modernActionButtonDisabled : null,
+                ]}
+                contentStyle={[styles.modernActionButtonContent, { flexDirection: 'row-reverse' }]}
+                labelStyle={[
+                  styles.modernActionButtonLabel,
+                  ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                ]}
+                icon="open-in-new"
+              >
+                Choose payout method
+              </Button>
+              </View>
+            </View>
+            
+            {/* Full-width keypad at bottom - outside main container */}
+            <View style={[styles.fullWidthKeypadContainer, isSmall ? { paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 12 : 8 } : null]}>
+              <NumericKeypad
+                value={this.state.amount}
+                onChange={(val) => this.handleChange(val)}
+                decimalPlaces={2}
+                keyWidth={undefined}
+                keyHeight={isSmall ? 36 : 50}
+                fontSize={isSmall ? 22 : 28}
+                keyRadius={0}
+                keyBackground={'transparent'}
+                containerPaddingHorizontal={0}
+                rowSpacing={isSmall ? 4 : 6}
               />
-            </React.Fragment>
+            </View>
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
     );
   }
+
+  // Skeleton loading for payment options
+  renderSkeletonOptions() {
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
+        <View style={{ width: '90%', marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 13, color: '#666' }}>Payment options</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>Receive {this.state.currency}</Text>
+        </View>
+        <View style={styles.skeletonOptionsContainer}>
+          {/* Skeleton Option 1 */}
+          <View style={styles.skeletonRow3Column}>
+            <View style={[styles.skeletonText, { flex: 2, marginRight: 8 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginHorizontal: 4, width: 30 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginLeft: 8, width: 50 }]} />
+          </View>
+          <View style={styles.optionDivider} />
+          
+          {/* Skeleton Option 2 */}
+          <View style={styles.skeletonRow3Column}>
+            <View style={[styles.skeletonText, { flex: 2, marginRight: 8 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginHorizontal: 4, width: 30 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginLeft: 8, width: 50 }]} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // Payment options list with payment method, fee %, and total received (sorted by lowest fee)
+  renderOptionsList() {
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    const { options, loading } = this.state;
+
+    if (loading) return this.renderSkeletonOptions();
+    if (!Array.isArray(options) || options.length === 0) return null;
+
+    const formatNum = (n) => {
+      if (n == null) return '—';
+      const parts = String(Number(n).toFixed(2)).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return parts.join('.');
+    };
+
+    // Sort by lowest fee percentage first
+    const sortedOptions = [...options].sort((a, b) => {
+      const feeA = Number(a.feePercentage || 0);
+      const feeB = Number(b.feePercentage || 0);
+      return feeA - feeB;
+    });
+
+    // Show max 3 options for better selection
+    const visibleOptions = sortedOptions.slice(0, 3);
+    const hasMoreOptions = sortedOptions.length > 3;
+
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
+        <View style={{ width: '90%', marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 13, color: '#666' }}>Payment options</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>Receive {this.state.currency}</Text>
+        </View>
+        <View style={styles.optionsContainer}>
+          {visibleOptions.map((route, idx) => (
+            <View key={`${route.paymentMethod}-${idx}`}>
+              <View style={[styles.optionRow3Column, isSmall ? { paddingVertical: 6 } : null]}>
+                <Text style={styles.optionMethod}>{route.paymentMethod}</Text>
+                <Text style={styles.optionFee}>{`${Number(route.feePercentage || 0).toFixed(1)}%`}</Text>
+                <Text style={styles.optionReceive}>{formatNum(route.amountReceived)}</Text>
+              </View>
+              {idx < visibleOptions.length - 1 && <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />}
+            </View>
+          ))}
+          {hasMoreOptions && (
+            <>
+              <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />
+              <View style={styles.moreOptionsRow}>
+                <Text style={styles.moreOptionsText}>{`and ${sortedOptions.length - 3} more option${sortedOptions.length - 3 > 1 ? 's' : ''}`}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignContent: 'center',
-    alignItems: 'center'
+  container: { 
+    alignContent: 'center', 
+    alignItems: 'center' 
   },
-  headerText: {
-    fontSize: 18,
+  modernContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  modernHeaderText: { 
+    fontSize: 18, 
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  countryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+  },
+  countryChipText: {
+    fontSize: 12,
+    color: '#333',
+    marginRight: 4,
+  },
+  countryChipIcon: {
+    fontSize: 12,
+    color: '#888',
+  },
+  // Medium-large amount styles (smaller than on-ramp)
+  mediumLargeAmountInline: {
+    fontSize: 58,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    textAlign: 'left',
+    includeFontPadding: false,
+  },
+  mediumLargeAmountInlineSmall: {
+    fontSize: 46,
+  },
+  mediumLargeCurrencyInline: {
+    fontSize: 58,
+    fontWeight: '500',
+    color: '#888',
+    includeFontPadding: false,
+  },
+  mediumLargeCurrencyInlineSmall: {
+    fontSize: 46,
+  },
+  mediumLargeCurrencyInlineLighter: {
+    fontSize: 58,
+    fontWeight: '400',
+    color: '#aaa',
+    includeFontPadding: false,
+  },
+  mediumLargeCurrencyInlineSmallLighter: {
+    fontSize: 46,
+  },
+  maxButton: {
+    backgroundColor: Colors.primaryColor,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  maxButtonDisabled: {
+    backgroundColor: '#E0E0E0',
+  },
+  maxButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.secondaryColor,
+    letterSpacing: 0.5,
+  },
+  maxButtonTextDisabled: {
+    color: '#999',
+  },
+  maxButtonProminent: {
+    backgroundColor: '#FF4444',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  maxButtonTextProminent: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'white',
+    letterSpacing: 0.5,
+  },
+  ctaContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  modernActionButton: {
+    borderRadius: 24,
+    backgroundColor: Colors.primaryColor,
+    // Remove any platform shadows
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernActionButtonDisabled: {
+    backgroundColor: '#CFEAF2',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernActionButtonContent: {
+    height: 48,
+  },
+  modernActionButtonLabel: {
+    color: Colors.secondaryColor,
+    fontWeight: '600',
+    fontSize: 15,
+    letterSpacing: 0,
+    textTransform: 'none',
+  },
+  modernActionButtonLabelDisabled: {
+    color: '#F0F9FC',
+  },
+  keypadContainer: {
+    backgroundColor: '#FAFAFA',
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  fullWidthKeypadContainer: {
+    backgroundColor: '#FAFAFA',
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  optionsContainer: {
+    width: '90%',
+    paddingVertical: 4,
+  },
+  compactOptionRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 2,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 6,
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  optionRow3Column: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  feeRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 4,
+    marginHorizontal: 12,
+  },
+  optionMethod: {
+    fontSize: 12,
+    color: '#1A1A1A',
+    fontWeight: '500',
+    flex: 2,
+  },
+  optionReceive: {
+    fontSize: 12,
+    color: '#1A1A1A',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+  },
+  optionFee: {
+    fontSize: 12,
+    color: '#999',
     textAlign: 'center',
-    paddingVertical: 5,
-    fontWeight: 'bold'
+    flex: 1,
+  },
+  moreOptionsRow: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  moreOptionsText: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  skeletonOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  skeletonOptionsContainer: {
+    width: '90%',
+    paddingVertical: 4,
+  },
+  skeletonCompactOptionRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 2,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 6,
+  },
+  skeletonOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  skeletonFeeRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  skeletonRow3Column: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  skeletonText: {
+    height: 14,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 4,
+    width: '80%',
+  },
+  headerText: { 
+    fontSize: 18, 
+    textAlign: 'center', 
+    paddingVertical: 5, 
+    fontWeight: 'bold' 
   },
   textInput: {
     paddingHorizontal: 10,
@@ -571,8 +1007,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   loadingIndicator: {
-    width: 200,
-    height: 200,
+    width: 200, 
+    height: 200, 
     flex: 1,
     alignSelf: 'center',
     justifyContent: 'center',
@@ -590,26 +1026,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tableHeaderCell: {
-    fontWeight: "bold",
+    fontWeight: "bold", 
     textAlign: "left"
   },
-  tableCellLabel: {
-    fontSize: 12,
-    color: '#888',
-    textAlign: "left"
+  tableCellLabel: { 
+    fontSize: 12, 
+    color: '#888', 
+    textAlign: "left" 
   },
-  tableCellValue: {
-    fontSize: 14,
-    textAlign: "left"
+  tableCellValue: { 
+    fontSize: 14, 
+    textAlign: "left" 
   },
-  buttonLabel: {
-    fontWeight: 'bold',
-    fontSize: 16
+  buttonLabel: { 
+    fontWeight: 'bold', 
+    fontSize: 16 
   },
-  actionButton: {
-    height: 41,
-    marginTop: 6,
-    width: 180
+  actionButton: { 
+    height: 41, 
+    marginTop: 6, 
+    width: 180 
   },
   countrySelector: {
     width: 200,
@@ -628,7 +1064,8 @@ const mapStateToProps = (state) => {
     encryptedPersonalData: state.personal,
     allSubWallets: state.coinMenus.allSubWallets,
     activeCoin: state.coins.activeCoinList,
-    valuService: state.channelStore_valu_service
+    valuService: state.channelStore_valu_service,
+    allBalances: extractLedgerData(state, 'balances', API_GET_BALANCES)
   };
 };
 

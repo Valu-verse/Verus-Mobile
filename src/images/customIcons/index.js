@@ -1,3 +1,7 @@
+/*
+  customIcons/index.js
+  - Added ValuWhiteIcon export from valu-white.svg for use in UI widgets
+*/
 import Open from './add.png';
 import Approved from './aproved.png';
 import Pending from './pending.png';
@@ -45,6 +49,7 @@ import ValuLogo from './ValuBrand.png'
 import ValuSeperator from './partingline.png'
 import Valu from './Valu.png';
 import ValuIcon from './valu.svg';
+import ValuWhiteIcon from './valu-white.svg';
 import AttesationBadge from './attestation.png';
 import ValuOnRamp from './ValuOnRamp.png';
 import VUSDC from './vUSDC.png';
@@ -95,7 +100,8 @@ export {
   AttesationBadge,
   ValuOnRamp,
   VUSDC,
-  ValuIcon
+  ValuIcon,
+  ValuWhiteIcon
 };
 
 export default Open;

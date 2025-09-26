@@ -3,6 +3,7 @@
 import React from 'react';
 import { View, RefreshControl } from 'react-native';
 import { Provider, Portal, Banner } from 'react-native-paper';
+import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
 import { truncateDecimal } from '../../utils/math';
 import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
@@ -16,8 +17,8 @@ import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
-  VALU_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE
+  ATTESTATION_WIDGET_TYPE,
+  VALU_ACCOUNT_TYPE
 } from '../../utils/constants/widgets';
 import { setAndSaveAccountWidgets } from '../../actions/actionCreators';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
@@ -27,7 +28,8 @@ import {
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../utils/constants/currencies';
 import VerusIdWidget from './HomeWidgets/VerusIdWidget';
-import ValuWidget from './HomeWidgets/ValuWidget';
+// ValuWidget removed in favor of floating Buy & sell button
+// import ValuWidget from './HomeWidgets/ValuWidget';
 import AttestationWidget from './HomeWidgets/AttestationWidget';
 import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
@@ -45,6 +47,10 @@ export const HomeRender = ({
   _verusPay,
   _addPbaasCurrency,
   _addErc20Token,
+  handleOpenOnOffRamp,
+  buySellSheetVisible,
+  setBuySellSheetVisible,
+  handleBuySellComplete,
   forceUpdate,
   loading,
   HomeRenderCoinsList,
@@ -70,6 +76,13 @@ export const HomeRender = ({
             cancel={() => setDisplayCurrencyModalOpen(false)}
           />
         )}
+        {buySellSheetVisible && (
+          <BuySellSheet
+            visible={true}
+            onClose={() => setBuySellSheetVisible(false)}
+            onComplete={handleBuySellComplete}
+          />
+        )}
       </Portal>
       <HomeFAB
         handleAddCoin={_addCoin}
@@ -77,6 +90,7 @@ export const HomeRender = ({
         handleEditCards={() => setEditingCards(!editingCards)}
         handleAddPbaasCurrency={_addPbaasCurrency}
         handleAddErc20Token={_addErc20Token}
+        handleOpenOnOffRamp={handleOpenOnOffRamp}
         showConfigureHomeCards={!dragDetection}
       />
       <Banner
@@ -192,13 +206,6 @@ export const HomeRenderWidget = ({
       return (
         <Provider theme={HomeListItemThemeLight}>
           <VerusIdWidget />
-        </Provider>
-      );
-    },
-    [VALU_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <ValuWidget />
         </Provider>
       );
     },

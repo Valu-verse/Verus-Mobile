@@ -1,5 +1,11 @@
+// TotalUniBalanceWidget
+// Changes:
+// - Modernized visual hierarchy
+// - Label ('Total value') positioned snug at top-left
+// - Amount left-aligned and vertically centered
+// - Amount font size increased for emphasis
 import React, {useState, useEffect} from 'react';
-import {View, Dimensions, TouchableOpacity} from 'react-native';
+import {View, Dimensions, TouchableOpacity, Text} from 'react-native';
 import {Card, Paragraph} from 'react-native-paper';
 import {useDispatch, useSelector} from 'react-redux';
 import {USD} from '../../../utils/constants/currencies';
@@ -43,25 +49,54 @@ const TotalUniBalanceWidget = props => {
       }}
       mode="outlined">
       <Card.Content>
-        <View
+        {/* Top-left label */}
+        <Paragraph
           style={{
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}>
-          <Paragraph style={{fontSize: 16, fontWeight: 'bold'}}>
-            {'Total value'}
-          </Paragraph>
+            position: 'absolute',
+            top: 8,
+            left: 12,
+            fontSize: 12,
+            color: Colors.quaternaryColor,
+            zIndex: 1,
+          }}
+        >
+          {'Total value'}
+        </Paragraph>
+
+        {/* Vertically centered amount */}
+        <View style={{ height: '100%', justifyContent: 'center', alignItems: 'center', paddingLeft: 12, paddingRight: 12, zIndex: 2 }}>
+          {showBalance ? (
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.6}
+              style={{
+                fontSize: 32,
+                fontWeight: '700',
+                letterSpacing: -0.2,
+                includeFontPadding: false,
+                textAlign: 'center'
+              }}
+            >
+              {uniValueDisplay}
+            </Text>
+          ) : (
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.6}
+              style={{
+                fontSize: 32,
+                fontWeight: '700',
+                letterSpacing: -0.2,
+                includeFontPadding: false,
+                textAlign: 'center'
+              }}
+            >
+              ********
+            </Text>
+          )}
         </View>
-        {showBalance ? (
-          <Paragraph style={{fontSize: 16, paddingTop: 8, fontWeight: '500'}}>
-            {uniValueDisplay}
-          </Paragraph>
-        ) : (
-          <Paragraph style={{fontSize: 16, paddingTop: 8, fontWeight: '500'}}>
-            ********
-          </Paragraph>
-        )}
       </Card.Content>
     </Card>
   );

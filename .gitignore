@@ -128,3 +128,6 @@ android/app/src/main/res/drawable-xxhdpi/node_modules_reactnavigation_drawer_src
 android/app/src/main/res/drawable-xxhdpi/node_modules_reactnavigation_elements_src_assets_backicon.png
 android/app/src/main/res/drawable-xxxhdpi/node_modules_reactnavigation_drawer_src_views_assets_toggledrawericon.png
 android/app/src/main/res/drawable-xxxhdpi/node_modules_reactnavigation_elements_src_assets_backicon.png
+
+# instructions
+.cursor/

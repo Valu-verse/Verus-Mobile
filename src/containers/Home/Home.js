@@ -48,6 +48,7 @@ import {
   VERUSID_WIDGET_TYPE,
   VALU_WIDGET_TYPE,
   ATTESTATION_WIDGET_TYPE
+
 } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
@@ -94,6 +95,7 @@ const Home = () => {
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
   const [editingCards, setEditingCards] = useState(false);
   const [expandedListItems, setExpandedListItems] = useState({});
+  const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
 
   const LIST_ITEM_INITIAL_HEIGHT = 58;
   const LIST_ITEM_MARGIN = 8;
@@ -164,11 +166,8 @@ const Home = () => {
       dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
     }
 
-    // Add the valu widget if not present
-    if (!widgetsList.includes(VALU_WIDGET_TYPE)) {
-      widgetsList.push(VALU_WIDGET_TYPE);
-      dispatchAddWidget(VALU_WIDGET_TYPE, activeAccount.accountHash);
-    }
+    // Ensure VALU Buy/Sell widget is removed (replaced by floating buttons)
+    widgetsList = widgetsList.filter((id) => id !== 'valu');
 
     if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
       widgetsList.push(ATTESTATION_WIDGET_TYPE);
@@ -204,12 +203,7 @@ const Home = () => {
           service: VERUSID_SERVICE_ID,
         });
       },
-      [VALU_WIDGET_TYPE]  : () => {
-        navigation.navigate('Service', {
-          service: VALU_SERVICE_ID,
-          subScreen: 'onOffRamp'
-        });
-      },
+      
       [ATTESTATION_WIDGET_TYPE]: () => {
         navigation.navigate('Service', {
           service: VALU_SERVICE_ID,
@@ -410,6 +404,19 @@ const Home = () => {
     );
   };
 
+  const _openOnOffRamp = () => {
+    setBuySellSheetVisible(true);
+  };
+
+  const _handleBuySellComplete = ({ action, address }) => {
+    setBuySellSheetVisible(false);
+    navigation.navigate('Service', {
+      service: VALU_SERVICE_ID,
+      subScreen: action === 'sell' ? 'offRamp' : 'onRamp',
+      subScreenData: { initialAddress: address }
+    });
+  };
+
   return (
     <HomeRender
       dragDetectionEnabled={isDragDetectionEnabled}
@@ -423,6 +430,10 @@ const Home = () => {
       _verusPay={_verusPay}
       _addPbaasCurrency={_addPbaasCurrency}
       _addErc20Token={_addErc20Token}
+      handleOpenOnOffRamp={_openOnOffRamp}
+      buySellSheetVisible={buySellSheetVisible}
+      setBuySellSheetVisible={setBuySellSheetVisible}
+      handleBuySellComplete={_handleBuySellComplete}
       forceUpdate={forceUpdate}
       loading={loading}
       HomeRenderCoinsList={() =>

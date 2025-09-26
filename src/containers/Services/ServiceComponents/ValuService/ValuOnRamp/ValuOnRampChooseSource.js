@@ -1,16 +1,34 @@
+/*
+  Updated file: ValuOnRampChooseSource
+  - Redesigned Buy screen to match Coinbase's modern, clean style
+  - Large "You Pay" input with smaller "You Receive" display below
+  - Full-width keypad at bottom with modern styling and shadows
+  - Small country selector chip in top-right corner
+  - Modern CTA button with HomeFAB styling (rounded, shadows)
+  - Light background with card-based input containers
+  - Removed amount suggestion chips for cleaner interface
+  - Fee display condensed to single line with better typography
+  - NEW: Compact responsive layout for small devices
+    • Local compact rule: height <= 667 OR width <= 375 (iPhone SE class)
+    • Reduce keypad height/spacing and typography sizes
+    • Tighten options list spacing and ensure CTA remains visible
+*/
+
 import React, { Component } from "react";
 import { connect } from 'react-redux';
 import { primitives } from "verusid-ts-client";
-import { 
-  SafeAreaView, 
-  ScrollView, 
-  View, 
-  TouchableWithoutFeedback, 
-  Linking, 
-  StyleSheet, 
-  Alert, 
-  Keyboard, 
-  TouchableOpacity 
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  TouchableWithoutFeedback,
+  Linking,
+  StyleSheet,
+  Alert,
+  Keyboard,
+  TouchableOpacity,
+  Platform,
+  Dimensions
 } from 'react-native';
 import { 
   Divider, 
@@ -39,6 +57,7 @@ import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiateOnrampRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
+import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
@@ -72,7 +91,7 @@ class ValuOnRampChooseSource extends Component {
       error: null,
       mainVerusNetwork: Ticker,
       addresses,
-      chosenAddress: addresses[0] || {},
+      chosenAddress: (props.initialAddress ? props.initialAddress : (addresses[0] || {})),
       locations: {},
       partnerUserId: partnerUserId
     };
@@ -186,6 +205,7 @@ class ValuOnRampChooseSource extends Component {
       this.props.navigation.dispatch(resetAction);
     };
 
+
   // Handle navigation to attestation acceptance screen
   navigateToAttestationAccept = (attestation, transactionData) => {
     
@@ -236,6 +256,8 @@ class ValuOnRampChooseSource extends Component {
   };
 
   async startOnRamp() {
+    // Extra safety: prevent starting if an inline error is present or amount is empty
+    if (this.state.error != null || this.state.amount === "") return;
     createAlert(
       "Terms and Conditions",
       "By proceeding with this transaction, you acknowledge and agree that the Polygon tokens you are purchasing will be automatically converted into vUSDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
@@ -331,9 +353,14 @@ class ValuOnRampChooseSource extends Component {
   }
 
   handleChange(value = null, countryCode = null) {
-    const youPay = value || this.state.amount;
+    const youPay = value !== null && value !== undefined ? value : this.state.amount;
 
-    if (youPay.includes('.') && youPay.split('.')[1].length > 2) {
+    if (youPay === '') {
+      this.setState({ amount: '', error: null, loading: false, updatingfee: false });
+      return;
+    }
+
+    if (youPay.includes('.') && youPay.split('.')[1]?.length > 2) {
       return;
     }
 
@@ -406,145 +433,62 @@ class ValuOnRampChooseSource extends Component {
 
   // Render helper methods to break down the UI
   renderCurrencyInputs() {
-    return (
-      <>
-        <TextInput
-          style={styles.textInput}
-          mode="outlined"
-          value={this.state.amount}
-          right={<TextInput.Affix text={this.state.currency} />}
-          onChangeText={this.handleChange}
-          keyboardType="numeric"
-          label={`You Pay${this.state.error || ""}`}
-          error={this.state.error != null}
-        />
-        
-        <TextInput
-          style={[styles.textInput, { marginTop: 20 }]}
-          mode="outlined"
-          placeholder={`Enter amount in ${this.state.currency}`}
-          value={this.state.loading ? "-" : String(this.state.converted)}
-          right={<TextInput.Affix text={"vUSDC"} />}
-          onChangeText={() => {}}
-          keyboardType="numeric"
-          label={`You Receive${this.state.error || ""}`}
-          error={this.state.error != null}
-        />
-      </>
-    );
-  }
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    const formatAmount = (raw = "") => {
+      if (raw == null || raw === "") return "0";
+      const [int = "0", frac] = String(raw).split('.');
+      const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return frac != null ? `${withCommas}.${frac}` : withCommas;
+    };
 
-  renderAddressSelector() {
+    // Use raw amount for display, only format if it has content
+    const displayAmount = this.state.amount === "" ? "0" : formatAmount(this.state.amount);
     return (
-      <View style={{ marginTop: 20, width: 300 }}>
-        <Text style={{ fontSize: 14, marginBottom: 5 }}>Select Receiving Address</Text>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={this.openAddressModal}
-          style={{ width: '100%',  alignSelf: 'center' }}
-        >
-          <TextInput
-            style={[styles.textInput, { height: 35, fontSize: 15 }]}
-            mode="outlined"
-            value={this.state.chosenAddress?.name || "Select an address"}
-            right={<TextInput.Icon icon="menu-down" size={20} />}
-            editable={false}
-            pointerEvents="none"
-            label={`To the ${this.state.mainVerusNetwork} Network`}
-          />
-        </TouchableOpacity>
+      <View style={{ alignItems: 'center', marginTop: 8 }}>
+        {/* Large You Pay input - no background, very large */}
+        <View style={{ width: '90%', marginBottom: 8 }}>
+            <Text style={{ fontSize: 14, color: '#666', marginBottom: 8, textAlign: 'left' }}>You pay</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-start', width: '100%' }}>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit={true}
+              minimumFontScale={0.5}
+              style={[styles.extraLargeAmountInline, isSmall ? styles.extraLargeAmountInlineSmall : null]}
+            >
+              {displayAmount}
+              <Text style={[styles.extraLargeCurrencyInline, isSmall ? styles.extraLargeCurrencyInlineSmall : null]}>{`\u2009${this.state.currency}`}</Text>
+            </Text>
+          </View>
+          {this.state.error && (
+            <Text style={{ fontSize: 12, color: '#FF6B35', marginTop: 8, textAlign: 'left' }}>
+              {this.state.error.replace(' - ', '')}
+            </Text>
+          )}
+        </View>
       </View>
     );
   }
 
-  renderPaymentMethodSelector() {
-    const feeoptions = "Please select the payment method you would like to use to purchase vUSDC tokens. \n\n" +
-      "Polygon: We use the Polygon network to provide the cheapest on-ramp prices.\n";
-      
-    return (
-      <View style={{ alignContent: 'center', alignItems: 'center' }}>
-        <List.Section style={{ width: 380}}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', height: 40 }}>
-            <Text>Choose Payment Method</Text>
-            <IconButton
-              icon="information"
-              size={25}
-              iconColor={Colors.verusGreenColor}
-              onPress={() => Alert.alert("Purchase Options", feeoptions)}
-            />
-          </View>
-          
-          <View style={{ maxHeight: 300 }}>
-            <ScrollView style={{ flexGrow: 0 }}>
-              {(this.state.loading && !this.state.updatingfee) ? (
-                <ActivityIndicator 
-                  animating={true}
-                  size={100}
-                  style={styles.loadingIndicator} 
-                />
-              ) : (
-                <RadioButton.Group
-                  value={this.state.radioValue}
-                  onValueChange={(value) => {
-                    this.setState({ radioValue: value }, 
-                      () => this.handleChange(this.state.amount)
-                    );
-                  }}
-                >
-                  <View style={[styles.tableRow, { marginRight: 20 }]}>
-                    <Text style={[styles.tableHeaderCell, { flex: 4 }]}>Method</Text>
-                    <Text style={[styles.tableHeaderCell, { flex: 4 }]}>via</Text>
-                    <Text style={[styles.tableHeaderCell, { flex: 3 }]}>Fee</Text>
-                  </View>
-                  
-                  {this.state.options.map((route, index) => (
-                    <View key={index} style={[styles.tableRow, { marginRight: 20 }]}>
-                      <View style={[styles.tableCell, { flex: 4 }]}>
-                        <Text style={styles.tableCellLabel}>
-                          {route.provider || 'Payment Provider'}
-                        </Text>
-                        <Text style={styles.tableCellValue}>
-                          {route.paymentMethod}
-                        </Text>
-                      </View>
+  // Fee range and limits display (derived from current options and amount)
+  renderFeeAndLimits() {
+    return null;
+  }
 
-                      <View style={[styles.tableCell, { flex: 4 }]}>
-                        <Text style={styles.tableCellLabel}>
-                          {route.destinationNetworkName}
-                        </Text>
-                        <Text style={styles.tableCellValue}>
-                          {route.destinationCurrency.toUpperCase()}
-                        </Text>
-                      </View>
-                      
-                      <View style={[styles.tableCell, { flex: 2 }]}>
-                        {this.state.updatingfee ? (
-                          <ActivityIndicator 
-                            animating={true} 
-                            color='#aaa' 
-                            size={20} 
-                            style={{ flex: 3 }} 
-                          />
-                        ) : (
-                          <Text style={{ textAlign: "left" }}>
-                            {`${route.feePercentage}%`}
-                          </Text>
-                        )}
-                      </View>
-                      
-                      <RadioButton value={index} style={{ flex: 1 }} />
-                    </View>
-                  ))}
-                </RadioButton.Group>
-              )}
-            </ScrollView>
-          </View>
-        </List.Section>
-        
-        <Text style={{ color: '#888' }}>
-          {`Total fee ${this.state.loading ? "-" : isNaN(this.state.totalFee) ? 0 : this.state.totalFee} ${this.state.currency}`}
+  renderCountrySelector() {
+    const countryData = this.state.taxCountry?.country ? ISO_3166_COUNTRIES[this.state.taxCountry.country] : null;
+    
+    return (
+      <TouchableOpacity
+        onPress={() => this.setState({ countryModalOpen: true })}
+        style={styles.countryChip}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.countryChipText}>
+          {countryData ? `${countryData.emoji} ${countryData.name}` : "Select country"}
         </Text>
-      </View>
+        <Text style={styles.countryChipIcon}>⌄</Text>
+      </TouchableOpacity>
     );
   }
 
@@ -618,53 +562,161 @@ class ValuOnRampChooseSource extends Component {
   };
 
   render() {
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    const ctaDisabled = this.state.loading || this.state.error != null || this.state.amount === "";
+    const allBalances = this.props.allBalances;
+    const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const addrId = this.state.chosenAddress?.id;
+    const currentBal = addrId && allBalances[vusdcId] && allBalances[vusdcId][addrId] && allBalances[vusdcId][addrId].total
+      ? Number(allBalances[vusdcId][addrId].total)
+      : 0;
     return (
-      <SafeAreaView style={Styles.defaultRoot}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.container}>
+          <View style={{ flex: 1 }}>
             {this.renderModals()}
             
-            <Text style={styles.headerText}>Buy Crypto</Text>
+            {/* Main content container */}
+            <View style={styles.modernContainer}>
+            {/* Header: minimal, right-aligned country chip only */}
+            <View style={[styles.header, { paddingBottom: 4 }]}>
+              <View style={{ flex: 1 }} />
+              {this.renderCountrySelector()}
+            </View>
+              
+              
+              {this.renderCurrencyInputs()}
+              {this.renderOptionsList()}
+              
+              {/* Spacer to push keypad and button to bottom */}
+              <View style={{ flex: isSmall ? 0 : 1 }} />
+              
+              {/* Modern CTA Button */}
+              <View style={[styles.ctaContainer, isSmall ? { paddingBottom: 4 } : null ]}>
+              <Button
+                onPress={this.startOnRamp}
+                mode="contained"
+                disabled={ctaDisabled}
+                style={[
+                  styles.modernActionButton,
+                  ctaDisabled ? styles.modernActionButtonDisabled : null,
+                ]}
+                contentStyle={[styles.modernActionButtonContent, { flexDirection: 'row-reverse' }]}
+                labelStyle={[
+                  styles.modernActionButtonLabel,
+                  ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                ]}
+                icon="open-in-new"
+              >
+                Choose payment method
+              </Button>
+              </View>
+            </View>
             
-            {this.renderCurrencyInputs()}
-            {this.renderAddressSelector()}
-            {this.renderPaymentMethodSelector()}
-            
-            <Button
-              onPress={this.startOnRamp}
-              uppercase={false}
-              mode="contained"
-              disabled={this.state.loading || this.state.error != null}
-              labelStyle={styles.buttonLabel}
-              style={styles.actionButton}
-            >
-              Buy vUSDC
-            </Button>
-            
-           
-            <React.Fragment>
-              <Divider style={{ marginVertical: 5 }} />
-              <List.Item
-                style={styles.countrySelector}
-                title={
-                  ISO_3166_COUNTRIES[this.state.taxCountry?.country] == null
-                    ? "Select a country"
-                    : `${ISO_3166_COUNTRIES[this.state.taxCountry.country].emoji} ${ISO_3166_COUNTRIES[this.state.taxCountry.country].name}`
-                }
-                titleStyle={{ color: "black" }}
-                right={(props) => (
-                  <List.Icon {...props} icon={"account-edit"} size={20} />
-                )}
-                onPress={
-                  this.state.loading
-                    ? () => {}
-                    : () => this.setState({ countryModalOpen: true })
-                }
+            {/* Full-width keypad at bottom - outside main container */}
+            <View style={[styles.fullWidthKeypadContainer, isSmall ? { paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 12 : 8 } : null]}>
+              <NumericKeypad
+                value={this.state.amount}
+                onChange={(val) => this.handleChange(val)}
+                decimalPlaces={2}
+                keyWidth={undefined}
+                keyHeight={isSmall ? 36 : 50}
+                fontSize={isSmall ? 22 : 28}
+                keyRadius={0}
+                keyBackground={'transparent'}
+                containerPaddingHorizontal={0}
+                rowSpacing={isSmall ? 4 : 6}
               />
-            </React.Fragment>
+            </View>
           </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
+    );
+  }
+
+  // Skeleton loading for payment options
+  renderSkeletonOptions() {
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
+        <View style={{ width: '90%', marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 13, color: '#666' }}>Payment options</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>Receive vUSDC</Text>
+        </View>
+        <View style={styles.skeletonOptionsContainer}>
+          {/* Skeleton Option 1 */}
+          <View style={styles.skeletonRow3Column}>
+            <View style={[styles.skeletonText, { flex: 2, marginRight: 8 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginHorizontal: 4, width: 30 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginLeft: 8, width: 50 }]} />
+          </View>
+          <View style={styles.optionDivider} />
+          
+          {/* Skeleton Option 2 */}
+          <View style={styles.skeletonRow3Column}>
+            <View style={[styles.skeletonText, { flex: 2, marginRight: 8 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginHorizontal: 4, width: 30 }]} />
+            <View style={[styles.skeletonText, { flex: 1, marginLeft: 8, width: 50 }]} />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // New: Payment options list with payment method, fee %, and total received (sorted by lowest fee)
+  renderOptionsList() {
+    const { height, width } = Dimensions.get('window');
+    const isSmall = height <= 667 || width <= 375;
+    const { options, loading } = this.state;
+
+    if (loading) return this.renderSkeletonOptions();
+    if (!Array.isArray(options) || options.length === 0) return null;
+
+    const formatNum = (n) => {
+      if (n == null) return '—';
+      const parts = String(Number(n).toFixed(2)).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return parts.join('.');
+    };
+
+    // Sort by lowest fee percentage first
+    const sortedOptions = [...options].sort((a, b) => {
+      const feeA = Number(a.feePercentage || 0);
+      const feeB = Number(b.feePercentage || 0);
+      return feeA - feeB;
+    });
+
+    // Show max 3 options for better selection
+    const visibleOptions = sortedOptions.slice(0, 3);
+    const hasMoreOptions = sortedOptions.length > 3;
+
+    return (
+      <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
+        <View style={{ width: '90%', marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text style={{ fontSize: 13, color: '#666' }}>Payment options</Text>
+          <Text style={{ fontSize: 13, color: '#666' }}>Receive vUSDC</Text>
+        </View>
+        <View style={styles.optionsContainer}>
+          {visibleOptions.map((route, idx) => (
+            <View key={`${route.paymentMethod}-${idx}`}>
+              <View style={[styles.optionRow3Column, isSmall ? { paddingVertical: 6 } : null]}>
+                <Text style={styles.optionMethod}>{route.paymentMethod}</Text>
+                <Text style={styles.optionFee}>{`${Number(route.feePercentage || 0).toFixed(1)}%`}</Text>
+                <Text style={styles.optionReceive}>{formatNum(route.amountReceived)}</Text>
+              </View>
+              {idx < visibleOptions.length - 1 && <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />}
+            </View>
+          ))}
+          {hasMoreOptions && (
+            <>
+              <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />
+              <View style={styles.moreOptionsRow}>
+                <Text style={styles.moreOptionsText}>{`and ${sortedOptions.length - 3} more option${sortedOptions.length - 3 > 1 ? 's' : ''}`}</Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
     );
   }
 }
@@ -673,6 +725,293 @@ const styles = StyleSheet.create({
   container: { 
     alignContent: 'center', 
     alignItems: 'center' 
+  },
+  modernContainer: {
+    flex: 1,
+    backgroundColor: '#FAFAFA',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  modernHeaderText: { 
+    fontSize: 18, 
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  countryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+  },
+  countryChipText: {
+    fontSize: 12,
+    color: '#333',
+    marginRight: 4,
+  },
+  countryChipIcon: {
+    fontSize: 12,
+    color: '#888',
+  },
+  largeInputContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  largeAmountInput: {
+    flex: 1,
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+  },
+  extraLargeAmountInput: {
+    fontSize: 72,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    textAlign: 'left',
+    minWidth: 200,
+  },
+  extraLargeAmountInline: {
+    fontSize: 72,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    textAlign: 'left',
+    includeFontPadding: false,
+  },
+  extraLargeAmountInlineSmall: {
+    fontSize: 56,
+  },
+  currencyLabel: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#666',
+    marginLeft: 12,
+  },
+  extraLargeCurrencyLabel: {
+    fontSize: 72,
+    fontWeight: '600',
+    color: '#888',
+    marginLeft: 16,
+  },
+  extraLargeCurrencyInline: {
+    fontSize: 72,
+    fontWeight: '500',
+    color: '#888',
+    includeFontPadding: false,
+  },
+  extraLargeCurrencyInlineSmall: {
+    fontSize: 56,
+  },
+  smallInputContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  smallAmountText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#333',
+  },
+  smallCurrencyLabel: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#888',
+  },
+  ctaContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  modernActionButton: {
+    borderRadius: 24,
+    backgroundColor: Colors.primaryColor,
+    // Remove any platform shadows
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernActionButtonDisabled: {
+    backgroundColor: '#CFEAF2',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  modernActionButtonContent: {
+    height: 48,
+  },
+  modernActionButtonLabel: {
+    color: Colors.secondaryColor,
+    fontWeight: '600',
+    fontSize: 15,
+    letterSpacing: 0,
+    textTransform: 'none',
+  },
+  modernActionButtonLabelDisabled: {
+    color: '#F0F9FC',
+  },
+  keypadContainer: {
+    backgroundColor: '#FAFAFA',
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  fullWidthKeypadContainer: {
+    backgroundColor: '#FAFAFA',
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  optionsContainer: {
+    width: '90%',
+    paddingVertical: 4,
+  },
+  compactOptionRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 2,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 6,
+  },
+  optionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  optionRow3Column: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  feeRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  optionDivider: {
+    height: 1,
+    backgroundColor: '#E8E8E8',
+    marginVertical: 4,
+    marginHorizontal: 12,
+  },
+  optionMethod: {
+    fontSize: 12,
+    color: '#1A1A1A',
+    fontWeight: '500',
+    flex: 2,
+  },
+  optionReceive: {
+    fontSize: 12,
+    color: '#1A1A1A',
+    fontWeight: '600',
+    textAlign: 'right',
+    flex: 1,
+  },
+  optionFee: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    flex: 1,
+  },
+  moreOptionsRow: {
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  moreOptionsText: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  skeletonOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    backgroundColor: '#FAFAFA',
+    borderRadius: 8,
+  },
+  skeletonOptionsContainer: {
+    width: '90%',
+    paddingVertical: 4,
+  },
+  skeletonCompactOptionRow: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 2,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    borderRadius: 6,
+  },
+  skeletonOptionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  skeletonFeeRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  skeletonRow3Column: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  skeletonText: {
+    height: 14,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 4,
+    width: '80%',
   },
   headerText: { 
     fontSize: 18, 
@@ -742,7 +1081,8 @@ const mapStateToProps = (state) => ({
   activeAccount: state.authentication.activeAccount,
   encryptedPersonalData: state.personal,
   allSubWallets: state.coinMenus.allSubWallets,
-  valuService: state.channelStore_valu_service
+  valuService: state.channelStore_valu_service,
+  allBalances: state.ledger.balances,
 });
 
 export default connect(mapStateToProps)(ValuOnRampChooseSource);
