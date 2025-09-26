@@ -1,10 +1,19 @@
+/*
+  ValuAttestation (first-screen UX update)
+  - Rename and refocus: Big gradient title "Proof of Personhood" (uses AttestationWidget gradient)
+  - Remove header image and blue-heavy styling; neutral copy and layout
+  - Update price to $9.99 and improve first-visit explanation
+  - Primary button mirrors LandingScreen primary (no glow/shadow)
+  - Add "How it works" semi-modal using BuySellSheet modal styling (SemiModal)
+  - No pre-start confirmation dialog; rest of flow unchanged
+*/
 import React, { useEffect, useState, useCallback } from "react"
 import { connect, useSelector } from 'react-redux'
 import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { primitives, VerusIdInterface } from "verusid-ts-client"
-import { SafeAreaView, ScrollView, View, Image, Linking, AppState } from 'react-native'
+import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
 import ListSelectionModal from "../../../../../components/ListSelectionModal/ListSelectionModal";
@@ -15,7 +24,7 @@ import { openLinkIdentityModal } from "../../../../../actions/actions/sendModal/
 import { useObjectSelector } from "../../../../../hooks/useObjectSelector";
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
-import { AttesationBadge, VUSDC } from "../../../../../images/customIcons";
+import { VUSDC } from "../../../../../images/customIcons";
 import { requestAttestationData, requestSeeds } from "../../../../../utils/auth/authBox";
 import { ATTESTATIONS_PROVISIONED } from "../../../../../utils/constants/attestations";
 import { signIdProvisioningRequest } from '../../../../../utils/api/channels/vrpc/requests/signIdProvisioningRequest';
@@ -42,6 +51,8 @@ import { requestPrivKey } from "../../../../../utils/auth/authBox";
 import { VRPC } from "../../../../../utils/constants/intervalConstants";
 import { sha256 } from "@bitgo/utxo-lib/dist/src/crypto";
 import { dispatchRemoveNotification } from '../../../../../actions/actions/notifications/dispatchers/notifications';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Text as SvgText, TSpan } from 'react-native-svg';
+import SemiModal from '../../../../../components/SemiModal';
 
 
 const ValuAttestation = (props) => {
@@ -51,7 +62,7 @@ const ValuAttestation = (props) => {
     const [valuReply, setValuReply] = useState(null);
     const [loading, setLoading] = useState(true); // Start with loading true
     const [status, setStatus] = useState(null); // Start with null instead of empty string
-    const [mainButtonText, setMainButtonText] = useState("START");
+    const [mainButtonText, setMainButtonText] = useState("Get Proof for $9.99");
     const [appState, setAppState] = useState(AppState.currentState);
     const [identityChoiceModalVisible, setIdentityChoiceModalVisible] = useState(false);
     const [existingIdentityModalVisible, setExistingIdentityModalVisible] = useState(false);
@@ -61,6 +72,7 @@ const ValuAttestation = (props) => {
     const [showIdentityProvisioningProgress, setShowIdentityProvisioningProgress] = useState(false);
     const [showPendingIdentityModal, setShowPendingIdentityModal] = useState(false);
     const [pendingIdentityInfo, setPendingIdentityInfo] = useState(null);
+    const [howItWorksVisible, setHowItWorksVisible] = useState(false);
     const acchash = useSelector(state =>
         state.authentication.activeAccount
     ).accountHash;
@@ -72,7 +84,7 @@ const ValuAttestation = (props) => {
     const pendingIds = useSelector(state => state.channelStore_verusid.pendingIds);
 
     const buttonMessages = {
-        [VALU_POL_PAYMENT_STARTED]: "START",
+        [VALU_POL_PAYMENT_STARTED]: "Get Proof for $9.99",
         [VALU_POL_PAYMENT_PENDING]: "RESUME",
         [VALU_POL_PAYMENT_RECEIVED]: "CONTINUE",
         [VALU_POL_PAYMENT_FAILED]: "RETRY",
@@ -780,37 +792,41 @@ const ValuAttestation = (props) => {
     }
 
     const stageMessages = {
-        [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Payment received. Proceed to get your Valu Attestation.
+        [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
+            Payment received. Continue to finish your Proof of Personhood.
         </Text>),
-        [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            You already have a Valu Identity in progress.
+        [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
+            You already have an attestation in progress.
         </Text>),
-        [VALU_POL_PAYMENT_STARTED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Purchase a ValuID and Valu Identity for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+        [VALU_POL_READY]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
+            Your Proof of Personhood is ready to retrieve.
         </Text>),
-        "": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Purchase a Valu Proof of Personhood with a free VerusID for:<Text style={{ fontWeight: 'bold' }}> $10 USD</Text>
+        [VALU_POL_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
+            Your details are being processed. Tap continue to check if your proof is ready.
         </Text>),
-        [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Your Valu Proof of Personhood is ready to retrieve.
-        </Text>),
-        [VALU_POL_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Your Personal details are being processed. Click continue to check if your Proof of Personhood is ready.
-        </Text>),
-        "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
+        "error": (<Text style={{ fontSize: 16, textAlign: 'left', color: Colors.WarningRed }}>
             An error occurred. Please try again.
         </Text>),
-        // Add null case to prevent showing anything while loading
         [null]: null
     }
+
+    const screenWidth = Dimensions.get('window').width;
+    const isInitialStatus = status === VALU_POL_PAYMENT_STARTED || status === "" || status === null;
+    const statusMeta = {
+        [VALU_POL_PAYMENT_RECEIVED]: { title: 'Payment received', body: 'Continue to finish your Proof of Personhood.', cta: 'Continue' },
+        [VALU_POL_PAYMENT_PENDING]: { title: 'Purchase in progress', body: 'Resume your purchase to finish payment.', cta: 'Resume purchase' },
+        [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
+        [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
+        [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' }
+    };
+    const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
 
     return (
         <SafeAreaView style={Styles.defaultRoot}>
             <ScrollView
                 style={Styles.fullWidth}
-                contentContainerStyle={Styles.focalCenter}>
-                <View style={{ alignContent: 'center', alignItems: 'center' }}>
+                contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', alignItems: 'stretch' }}>
+                <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
                     {showIdentityProvisioningProgress ? (
                         <React.Fragment>
                             <Text style={{ fontSize: 30, textAlign: 'center', paddingBottom: 20 }}>
@@ -834,28 +850,228 @@ const ValuAttestation = (props) => {
                         />
                     ) : (
                         <React.Fragment>
-                            <Text style={{ fontSize: 30, textAlign: 'center', paddingBottom: 20 }}>
-                                Valu Attestation Service
-                            </Text>
-                            <Image source={AttesationBadge} style={{ aspectRatio: 1.5, height: 120, alignSelf: 'center', marginBottom: 1 }} />
-                            {stageMessages[status]}
-                            <Button
-                                onPress={() => { startOnRamp() }}
-                                disabled={status === 'error'}
-                                uppercase={false}
-                                mode="contained"
-                                labelStyle={{ fontWeight: 'bold', fontSize: 16 }}
-                                style={{ height: 41, marginTop: 60, width: 180, }}
-                            >
-                                {mainButtonText}
-                            </Button>
+                            {/* Large gradient title - left aligned, two lines */}
+                            {/* Header box with subtle divider */}
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, marginTop: 32, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#EDEDED' }}>
+                                <Svg width={screenWidth - 48} height={125}>
+                                    <Defs>
+                                        <SvgLinearGradient id="valuGradient" x1="0" y1="0" x2="1" y2="1">
+                                            <Stop offset="0" stopColor="#00C8FF" />
+                                            <Stop offset="1" stopColor="#0077A9" />
+                                        </SvgLinearGradient>
+                                    </Defs>
+                                    <SvgText
+                                        x={0}
+                                        y={45}
+                                        fontSize={54}
+                                        fontWeight={'800'}
+                                        textAnchor={'start'}
+                                        fill={'url(#valuGradient)'}
+                                    >
+                                        {Array.from('Proof of').map((ch, i) => (
+                                            <TSpan key={`p1-${i}`} dx={i === 0 ? 0 : -1.5}>{ch}</TSpan>
+                                        ))}
+                                    </SvgText>
+                                    <SvgText
+                                        x={0}
+                                        y={95}
+                                        fontSize={54}
+                                        fontWeight={'800'}
+                                        textAnchor={'start'}
+                                        fill={'url(#valuGradient)'}
+                                    >
+                                        {Array.from('Personhood').map((ch, i) => (
+                                            <TSpan key={`p2-${i}`} dx={i === 0 ? 0 : -1.5}>{ch}</TSpan>
+                                        ))}
+                                    </SvgText>
+                                </Svg>
+                                
+                                {/* Tagline */}
+                                <Text style={{ fontSize: 18, color: '#666', marginTop: -8, marginBottom: 12, textAlign: 'left' }}>
+                                    {'Verify once. Prove privately anywhere.'}
+                                </Text>
+                            </View>
+                            
+                            {/* Content area (no background) */}
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 20, marginTop: 16 }}>
+                                {/* What you get section (initial only) */}
+                                {isInitialStatus && (
+                                <View style={{ marginBottom: 32 }}>
+                                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>What you get</Text>
+                                    <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>
+                                        You receive a reusable Proof of Personhood attestation linked to your VerusID. It lets you prove you're a unique, verified person—without exposing your personal details by default.
+                                    </Text>
+                                </View>)}
+                                
+                                {/* Benefits list (initial only) */}
+                                {isInitialStatus && (
+                                <View style={{ width: '100%', marginBottom: 12 }}>
+                                    <View style={{ flexDirection: 'column' }}>
+                                        <View style={{ width: '100%', marginBottom: 16 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                <Text style={{ fontSize: 16, marginRight: 6 }}>🔒</Text>
+                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
+                                            </View>
+                                            <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
+                                                Share a cryptographic proof, not your documents.
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: '100%', marginBottom: 0 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                <Text style={{ fontSize: 16, marginRight: 6 }}>⚡</Text>
+                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
+                                            </View>
+                                            <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
+                                                Verify once and reuse across supported services.
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View>)}
+
+                                {/* Status copy (non-initial only) */}
+                                {!isInitialStatus && (
+                                    <View>
+                                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 }}>{statusMeta[status]?.title}</Text>
+                                        <Text style={{ fontSize: 15, color: '#555', lineHeight: 21 }}>{statusMeta[status]?.body}</Text>
+                                    </View>
+                                )}
+                                
+                                {/* old stage messages suppressed */}
+                            </View>
+                            
                         </React.Fragment>
                     )}
                 </View>
+                {/* Bottom container pinned by space-between */}
+                <View style={{ width: '100%', alignSelf: 'stretch' }}>
+                    <TouchableOpacity onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7} style={{ marginBottom: 16 }}>
+                        <Text style={{ fontSize: 14, color: '#666', textDecorationLine: 'underline', textAlign: 'center' }}>{'How it works'}</Text>
+                    </TouchableOpacity>
+                    <View style={{ paddingHorizontal: 20, paddingBottom: 24, width: '100%', alignSelf: 'stretch' }}>
+                        <Button
+                            onPress={() => { startOnRamp() }}
+                            mode="contained"
+                            disabled={status === 'error'}
+                            style={{
+                                borderRadius: 24,
+                                backgroundColor: Colors.primaryColor,
+                                elevation: 0,
+                                shadowColor: 'transparent',
+                                shadowOpacity: 0,
+                                shadowRadius: 0,
+                                shadowOffset: { width: 0, height: 0 },
+                                width: '100%',
+                                alignSelf: 'stretch'
+                            }}
+                            contentStyle={{ height: 48 }}
+                            labelStyle={{
+                                color: Colors.secondaryColor,
+                                fontWeight: '600',
+                                fontSize: 15,
+                                letterSpacing: 0,
+                                textTransform: 'none',
+                            }}
+                        >
+                            {ctaLabel}
+                        </Button>
+                    </View>
+                </View>
             </ScrollView>
 
-            {/* Identity Choice Modal */}
+            {/* How it works SemiModal */}
             <Portal>
+                {howItWorksVisible && (
+                    <SemiModal
+                        animationType={'slide'}
+                        transparent={true}
+                        visible={true}
+                        onRequestClose={() => setHowItWorksVisible(false)}
+                        flexHeight={0.01}
+                        contentContainerStyle={{
+                            borderTopLeftRadius: 16,
+                            borderTopRightRadius: 16,
+                            flex: 0,
+                            alignSelf: 'flex-end',
+                            width: '100%',
+                            maxHeight: '70%',
+                        }}
+                    >
+                        <View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
+                                <Button onPress={() => setHowItWorksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
+                                <Text style={{ fontSize: 16, fontWeight: '600' }}>{'How it works'}</Text>
+                                <View style={{ width: 64 }} />
+                            </View>
+                            <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+                                
+                                
+                                {/* Step 1 */}
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>1</Text>
+                                    </View>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Choose or create your VerusID (included with the purchase).</Text>
+                                </View>
+                                
+                                {/* Step 2 */}
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>2</Text>
+                                    </View>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Complete a quick one‑time identity check (ID + selfie).</Text>
+                                </View>
+                                
+                                {/* Step 3 */}
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>3</Text>
+                                    </View>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>We issue a cryptographic proof bound to your VerusID—not your personal data.</Text>
+                                </View>
+                                
+                                {/* Step 4 */}
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>4</Text>
+                                    </View>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Reuse this proof to verify in seconds across supported services.</Text>
+                                </View>
+                                
+                                <Text style={{ fontSize: 14, color: '#666', marginBottom: 24 }}>{'Estimated time: About 5–10 minutes'}</Text>
+                                
+                                {/* Got it button */}
+                                <Button
+                                    onPress={() => setHowItWorksVisible(false)}
+                                    mode="contained"
+                                    style={{
+                                        borderRadius: 24,
+                                        backgroundColor: Colors.primaryColor,
+                                        elevation: 0,
+                                        shadowColor: 'transparent',
+                                        shadowOpacity: 0,
+                                        shadowRadius: 0,
+                                        shadowOffset: { width: 0, height: 0 },
+                                        width: '100%',
+                                        alignSelf: 'stretch',
+                                        marginBottom: 20
+                                    }}
+                                    contentStyle={{ height: 48 }}
+                                    labelStyle={{
+                                        color: Colors.secondaryColor,
+                                        fontWeight: '600',
+                                        fontSize: 15,
+                                        letterSpacing: 0,
+                                        textTransform: 'none',
+                                    }}
+                                >
+                                    Got it
+                                </Button>
+                            </View>
+                        </View>
+                    </SemiModal>
+                )}
+
+                {/* Identity Choice Modal */}
                 <Dialog visible={identityChoiceModalVisible} onDismiss={() => setIdentityChoiceModalVisible(false)}>
                     <Dialog.Title>Choose Identity Option</Dialog.Title>
                     <Dialog.Content>
