@@ -11,6 +11,8 @@ import { checkPersonalDataCatagories } from "../../../utils/personal/displayUtil
 import { handlePersonalDataSend } from "../../../utils/deeplink/handlePersonalDataSend";
 import { primitives } from "verusid-ts-client"
 import { defaultPersonalProfileDataTemplate } from "../../../utils/constants/personal.js";
+import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
+import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
 
 const { IDENTITY_CONTACTDETAILS, IDENTITY_PERSONALDETAILS, IDENTITY_LOCATION, IDENTITY_DOCUMENTS, IDENTITY_BANKINGDETAILS} = primitives;
 
@@ -64,13 +66,19 @@ class PersonalSelectData extends Component {
   }
 
   cancel = () => {
-    if (this.props.route.params.cancel) {
-      this.props.route.params.cancel.cancel()
+    if (this.props.cancel) {
+      this.props.cancel()
     }
   }
 
   updateDisplay() {
-    const { deeplinkData } = this.props.route.params
+    const { deeplinkData } = this.props;
+    
+    if (!deeplinkData || !deeplinkData.challenge) {
+      createAlert("Error", "Missing data in state.");
+      this.cancel();
+      return;
+    }
     const loginConsent = new primitives.LoginConsentRequest(deeplinkData);
 
     const personalDataURL = loginConsent.challenge.subject
@@ -119,8 +127,23 @@ class PersonalSelectData extends Component {
               resolveAlert();
               handlePersonalDataSend(personalData, this.state.personalDataURL)
               .then(() => {
+                // Set profile permission as agreed
+                const permissionIndex = this.props.route.params?.permissionIndex || 0;
+                const permissionType = this.props.route.params?.permissionType || LOGIN_PERMISSION_TYPES.OPEN_PROFILE;
+                
+                this.props.dispatch(setPermissionAgreed(
+                  this.props.passthrough,
+                  permissionIndex,
+                  permissionType,
+                  {
+                    personalData: personalData,
+                    recipientFqn: this.state.signerFqn,
+                    personalDataURL: this.state.personalDataURL,
+                    categories: this.state.catagoriesRequested
+                  }
+                ));
+
                 this.setState({loading: false});
-                this.props.route.params.onGoBack(true);
                 this.props.navigation.goBack();
               })
             },
@@ -180,7 +203,10 @@ class PersonalSelectData extends Component {
 const mapStateToProps = (state) => {
   return {
     activeAccount: state.authentication.activeAccount,
-    encryptedPersonalData: state.personal
+    encryptedPersonalData: state.personal,
+    deeplinkData: state.deeplink.data,
+    cancel: state.deeplink.cancel,
+    passthrough: state.deeplink.passthrough
   }
 };
 

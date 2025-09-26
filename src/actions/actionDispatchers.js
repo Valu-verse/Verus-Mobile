@@ -20,6 +20,7 @@ export * from './actions/send/dispatchers/traditionalCryptoSend'
 
 // Deeplink
 export * from './actions/deeplink/dispatchers/deeplinkListener'
+export * from './actions/deeplink/creators/passthroughData'
 
 // Notifications
 export * from './actions/notifications/dispatchers/notifications'

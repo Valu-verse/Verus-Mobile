@@ -4,6 +4,8 @@ import { createAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import { LoginSignDataRequestRender } from "./LoginSignDataRequest.render"
 import { primitives } from "verusid-ts-client"
 import { Buffer } from 'buffer'
+import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData"
+import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions"
 
 class LoginSignDataRequest extends Component {
   constructor(props) {
@@ -25,25 +27,49 @@ class LoginSignDataRequest extends Component {
     try {
       this.setState({ loading: true });
 
-      const { deeplinkData } = this.props.route.params;
-      const req = new primitives.LoginConsentRequest(deeplinkData);
-
-      // Look for endorsement data in the subject array
-      const subjectItem = req.challenge.subject.find(item => 
-        item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
-      );
-
-      if (!subjectItem || !subjectItem.data) {
-        throw new Error("No endorsement data found in request");
+      // Check if endorsement data was passed directly from LoginRequestInfo
+      const passedEndorsement = this.props.route.params?.endorsementData;
+      const permissionIndex = this.props.route.params?.permissionIndex;
+      
+      // Always get the request for redirect URL handling
+      const { deeplinkData } = this.props;
+      let req = null;
+      if (deeplinkData && deeplinkData.challenge) {
+        req = new primitives.LoginConsentRequest(deeplinkData);
       }
+      
+      let endorsement;
+      
+      if (passedEndorsement) {
+        // Use the endorsement data passed from LoginRequestInfo
+        endorsement = passedEndorsement;
+      } else {
+        // Fall back to parsing from deeplink data
+        if (!req) {
+          throw new Error("Missing endorsement data in state.");
+        }
 
-      // Create endorsement object from the base64 data
-      const endorsement = new primitives.Endorsement();
-      endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+        // Look for endorsement data in the subject array
+        const subjectItems = req.challenge.subject?.filter(item => 
+          item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
+        ) || [];
+        
+        const subjectItem = permissionIndex !== undefined 
+          ? subjectItems[permissionIndex] 
+          : subjectItems[0];
+
+        if (!subjectItem || !subjectItem.data) {
+          throw new Error("No endorsement data found in request");
+        }
+
+        // Create endorsement object from the base64 data
+        endorsement = new primitives.Endorsement();
+        endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+      }
 
       // Get redirect URL from the request challenge
       let redirectUrl = null;
-      if (req.challenge.redirect_uris && req.challenge.redirect_uris.length > 0) {
+      if (req && req.challenge.redirect_uris && req.challenge.redirect_uris.length > 0) {
         const redirectsObj = {};
         req.challenge.redirect_uris.forEach(a => {
           redirectsObj[a.vdxfkey] = a;
@@ -80,28 +106,27 @@ class LoginSignDataRequest extends Component {
   }
 
   cancel = () => {
-    if (this.props.route.params.cancel) {
-      this.props.route.params.cancel.cancel()
+    if (this.props.cancel) {
+      this.props.cancel()
     }
   }
 
   handleAccept = () => {
-    // Pass the endorsement data back to continue with signing
-    if (this.props.route.params.onGoBack) {
-      this.props.route.params.onGoBack({
-        accepted: true,
-        endorsementData: this.state.endorsementData
-      });
-    }
+    // Set the permission as agreed using the generic index-based approach
+    const permissionIndex = this.props.route.params?.permissionIndex;
+    const permissionType = this.props.route.params?.permissionType || LOGIN_PERMISSION_TYPES.SIGN_MESSAGE;
+    
+    this.props.dispatch(setPermissionAgreed(
+      this.props.passthrough, 
+      permissionIndex,
+      permissionType,
+      { endorsementData: this.state.endorsementData }
+    ));
+
     this.props.navigation.goBack();
   }
 
   handleCancel = () => {
-    if (this.props.route.params.onGoBack) {
-      this.props.route.params.onGoBack({
-        accepted: false
-      });
-    }
     this.cancel();
   }
 
@@ -112,7 +137,10 @@ class LoginSignDataRequest extends Component {
 
 const mapStateToProps = (state) => {
   return {
-    activeAccount: state.authentication.activeAccount
+    activeAccount: state.authentication.activeAccount,
+    deeplinkData: state.deeplink.data,
+    cancel: state.deeplink.cancel,
+    passthrough: state.deeplink.passthrough
   }
 };
 

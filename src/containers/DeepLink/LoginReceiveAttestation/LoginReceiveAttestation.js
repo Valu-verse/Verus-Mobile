@@ -14,6 +14,8 @@ import { requestAttestationData } from "../../../utils/auth/authBox"
 import { downloadAttestationData as downloadAttestationUtil } from "../../../utils/attestations/downloadAttestation"
 import { getIdentity } from "../../../utils/api/channels/verusid/callCreators"
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
+import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
+import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
 
 const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 class LoginReceiveAttestation extends Component {
@@ -218,8 +220,8 @@ class LoginReceiveAttestation extends Component {
   }
 
   cancel = () => {
-    if (this.props.route.params.cancel) {
-      this.props.route.params.cancel.cancel()
+    if (this.props.cancel) {
+      this.props.cancel()
     }
   }
 
@@ -299,8 +301,6 @@ class LoginReceiveAttestation extends Component {
     const mmrMatched = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex') == signatureData.toJson().signaturehash;
     const dataDescriptorsHashCorrect = await validateMMRfromMmrDatadescriptor(mmrData);
 
-    console.log("hashVerified", hashVerified, "mmrMatched", mmrMatched, "dataDescriptorsHashCorrect", dataDescriptorsHashCorrect);
-
     return (!!hashVerified && !!mmrMatched && !!dataDescriptorsHashCorrect);
   }
 
@@ -337,7 +337,7 @@ class LoginReceiveAttestation extends Component {
       return;
     }
 
-    const { deeplinkData } = this.props.route.params
+    const { deeplinkData } = this.props;
     const loginConsent = new primitives.LoginConsentRequest(deeplinkData);
 
     if (loginConsent.challenge.attestations?.length > 1) {
@@ -448,8 +448,22 @@ class LoginReceiveAttestation extends Component {
           this.props.activeAccount.accountHash
         );
 
+        // Set the permission as agreed using the generic index-based approach
+        const permissionIndex = this.props.route.params?.permissionIndex || 0;
+        const permissionType = this.props.route.params?.permissionType || 
+          (this.state.isDownloadedAttestation ? LOGIN_PERMISSION_TYPES.DOWNLOAD_REQUIRED : LOGIN_PERMISSION_TYPES.ATTESTATION_TO_ACCEPT);
+        
+        this.props.dispatch(setPermissionAgreed(
+          this.props.passthrough,
+          permissionIndex,
+          permissionType,
+          { 
+            attestationData: this.state.completeAttestaton,
+            downloadUrl: this.props.route.params.downloadUrl 
+          }
+        ));
+
         this.setState({ loading: false });
-        this.props.route.params.onGoBack(true);
         this.props.navigation.goBack();
         this.cancel();
       } catch (error) {
@@ -494,7 +508,10 @@ class LoginReceiveAttestation extends Component {
 const mapStateToProps = (state) => {
   return {
     activeAccount: state.authentication.activeAccount,
-    encryptedPersonalData: state.personal
+    encryptedPersonalData: state.personal,
+    deeplinkData: state.deeplink.data,
+    cancel: state.deeplink.cancel,
+    passthrough: state.deeplink.passthrough
   }
 };
 

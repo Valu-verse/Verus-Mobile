@@ -24,9 +24,10 @@ import { signHash } from '../../../utils/api/channels/vrpc/requests/signHash';
 import { Buffer } from 'buffer';
 import { BN } from 'bn.js';
 import { getInfo } from "../../../utils/api/channels/vrpc/callCreators";
+import { PERMISSION_STATUS } from '../../../utils/constants/loginPermissions';
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
 const LoginRequestIdentity = props => {
-  const { deeplinkData } = props.route.params
+  const deeplinkData = useSelector(state => state.deeplink.data)
   const [loading, setLoading] = useState(false)
   const [linkedIds, setLinkedIds] = useState({})
   const [sortedIds, setSortedIds] = useState({});
@@ -180,40 +181,69 @@ const LoginRequestIdentity = props => {
 
       let foundMessage = req.challenge.requested_access.filter(x => x.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) || [];
       let signedMessage = {};
+      
       if (foundMessage.length > 0) {
-        // Look for endorsement data in the subject array instead of requested_access
-        const subjectItem = req.challenge.subject.find(item =>
+        // Get all signature subject items that were agreed to
+        const allSignatureSubjects = req.challenge.subject?.filter(item =>
           item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
-        );
+        ) || [];
 
-        if (!subjectItem || !subjectItem.data) throw new Error("No endorsement data found to sign");
+        if (allSignatureSubjects.length === 0) {
+          throw new Error("No endorsement data found to sign");
+        }
 
-        // Create endorsement object from the base64 data
-        const endorsement = new primitives.Endorsement();
-        endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+        // Check which signature requests were agreed to via passthrough permissions
+        const agreedSignatures = [];
+        for (let i = 0; i < allSignatureSubjects.length; i++) {
+          const permission = passthrough?.permissions?.[i];
+          if (permission?.status === PERMISSION_STATUS.AGREED && permission?.permissionType === 'signmessage') {
+            agreedSignatures.push({ subjectItem: allSignatureSubjects[i], index: i });
+          }
+        }
 
-        const signatureData = new primitives.SignatureData({ version: new BN(1) });
+        if (agreedSignatures.length === 0) {
+          throw new Error("No signature requests were agreed to");
+        }
 
-        signatureData.identity_ID = iAddress;
-        signatureData.system_ID = system_id;
-        signatureData.signature_hash = crypto.createHash('sha256').update(subjectItem.data).digest()
-
-        const idClass = new primitives.SignatureData();
-
-        idClass.system_ID = system_id;
-        idClass.identity_ID = iAddress;
-        idClass.signature_hash = signatureData.signature_hash;
-
+        // Process all agreed signatures
+        const signedEndorsements = [];
         const chainInfo = await getInfo(system_id);
         const height = chainInfo.result.longestchain;
-        const sigHash = idClass.getIdentityHash({ version: 2, hash_type: 5, height });
-        const signature = await signHash(CoinDirectory.findCoinObj(system_id, null, true), iAddress, sigHash, height);
 
-        signatureData.signature_as_vch = Buffer.from(signature, 'base64');
-        endorsement.signature = signatureData;
-        endorsement.flags = primitives.Endorsement.FLAGS_HAS_SIGNATURE;
-        signedMessage.endorsement = endorsement.toJson();
+        for (const { subjectItem, index } of agreedSignatures) {
+          // Create endorsement object from the base64 data
+          const endorsement = new primitives.Endorsement();
+          endorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
 
+          const signatureData = new primitives.SignatureData({ version: new BN(1) });
+
+          signatureData.identity_ID = iAddress;
+          signatureData.system_ID = system_id;
+          signatureData.signature_hash = crypto.createHash('sha256').update(subjectItem.data).digest()
+
+          const idClass = new primitives.SignatureData();
+
+          idClass.system_ID = system_id;
+          idClass.identity_ID = iAddress;
+          idClass.signature_hash = signatureData.signature_hash;
+
+          const sigHash = idClass.getIdentityHash({ version: 2, hash_type: 5, height });
+          const signature = await signHash(CoinDirectory.findCoinObj(system_id, null, true), iAddress, sigHash, height);
+
+          signatureData.signature_as_vch = Buffer.from(signature, 'base64');
+          endorsement.signature = signatureData;
+          endorsement.flags = primitives.Endorsement.FLAGS_HAS_SIGNATURE;
+          
+          signedEndorsements.push(endorsement.toJson());
+        }
+
+        // If there's only one signature, maintain backward compatibility
+        if (signedEndorsements.length === 1) {
+          signedMessage.endorsement = signedEndorsements[0];
+        } else {
+          // For multiple signatures, send as an array
+          signedMessage.endorsements = signedEndorsements;
+        }
       }
       props.navigation.navigate("LoginRequestComplete", {
         signedResponse,
