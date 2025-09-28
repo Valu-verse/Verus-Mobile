@@ -64,7 +64,7 @@ const TotalUniBalanceWidget = props => {
         </Paragraph>
 
         {/* Vertically centered amount */}
-        <View style={{ height: '100%', justifyContent: 'center', alignItems: 'center', paddingLeft: 12, paddingRight: 12, zIndex: 2 }}>
+        <View style={{ height: '100%', justifyContent: 'center', alignItems: 'center', marginTop: 4, paddingLeft: 12, paddingRight: 12, zIndex: 2 }}>
           {showBalance ? (
             <Text
               numberOfLines={1}
@@ -73,7 +73,7 @@ const TotalUniBalanceWidget = props => {
               style={{
                 fontSize: 32,
                 fontWeight: '700',
-                letterSpacing: -0.2,
+                letterSpacing: -1,
                 includeFontPadding: false,
                 textAlign: 'center'
               }}
