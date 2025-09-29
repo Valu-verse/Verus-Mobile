@@ -18,6 +18,8 @@ import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { createAttestationResponse } from "../../../utils/attestations/createAttestationResponse";
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { at } from "lodash";
+import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
+import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
 const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
 const { RequestInformation, RequestItem } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest");
@@ -49,8 +51,8 @@ class LoginShareAttestation extends Component {
   }
 
   cancel = () => {
-    if (this.props.route.params.cancel) {
-      this.props.route.params.cancel.cancel()
+    if (this.props.cancel) {
+      this.props.cancel()
     }
   }
 
@@ -296,7 +298,13 @@ class LoginShareAttestation extends Component {
    */
   updateDisplay = async () => {
     try {
-      const { deeplinkData } = this.props.route.params;
+      const { deeplinkData } = this.props;
+      
+      if (!deeplinkData || !deeplinkData.challenge) {
+        createAlert("Error", "Missing attestation data in state.");
+        this.cancel();
+        return;
+      }
 
     // Parse the login consent request (new model)
     const { loginConsent, attestationDataURL, infoRequest, challengeId } = this.parseLoginConsentRequest(deeplinkData);
@@ -486,8 +494,22 @@ class LoginShareAttestation extends Component {
             
             handleAttestationDataSend(attestationDataWithChallenge, this.state.attestationDataURL)
               .then(() => {
-                this.setState({ loading: false });
-                this.props.route.params.onGoBack(true);
+                // Set view attestation permission as agreed
+                const permissionIndex = this.props.route.params?.permissionIndex || 0;
+                const permissionType = this.props.route.params?.permissionType || LOGIN_PERMISSION_TYPES.VIEW_ATTESTATION;
+                
+                this.props.dispatch(setPermissionAgreed(
+                  this.props.passthrough,
+                  permissionIndex,
+                  permissionType,
+                  {
+                    sharedAttestations: createdAttestation,
+                    recipientFqn: this.state.signerFqn,
+                    attestationDataURL: this.state.attestationDataURL
+                  }
+                ));
+
+                this.setState({ loading: false });             
                 this.props.navigation.goBack();
                 this.cancel();
               }).catch((e) => {
@@ -512,7 +534,10 @@ class LoginShareAttestation extends Component {
 const mapStateToProps = (state) => {
   return {
     activeAccount: state.authentication.activeAccount,
-    encryptedPersonalData: state.personal
+    encryptedPersonalData: state.personal,
+    deeplinkData: state.deeplink.data,
+    cancel: state.deeplink.cancel,
+    passthrough: state.deeplink.passthrough
   }
 };
 

@@ -46,6 +46,7 @@ import { setServiceLoading } from "../../../../../actions/actionCreators";
 import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
 import { setRequestedVerusId, linkVerusId, deleteProvisionedIds } from '../../../../../actions/actions/services/dispatchers/verusid/verusid';
 import { getInfo } from "../../../../../utils/api/channels/vrpc/callCreators";
+import { getIdentity } from "../../../../../utils/api/channels/verusid/callCreators";
 import { Buffer } from 'buffer';
 import { requestPrivKey } from "../../../../../utils/auth/authBox";
 import { VRPC } from "../../../../../utils/constants/intervalConstants";
@@ -91,7 +92,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_READY]: "CONTINUE",
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
         [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
-        [VALU_POL_PENDING]: "REFRESH STATUS",
+        [VALU_POL_PENDING]: "CONTINUE",
 
     }
 
@@ -532,13 +533,42 @@ const ValuAttestation = (props) => {
     // Check for pending identities and handle accordingly
     const checkForPendingIdentity = async () => {
         try {
-            console.log("Checking for pending identities on network:", pendingIds);
+
             if (pendingIds[verusNetwork]) {
                 const identityAddresses = Object.keys(pendingIds[verusNetwork]);
                 if (identityAddresses.length > 0) {
                     // Get the first pending identity (you might want to handle multiple differently)
                     const firstAddress = identityAddresses[0];
                     const identityDetails = pendingIds[verusNetwork][firstAddress];
+                    
+                    // Check if the identity has been mined in using getidentity
+                    try {
+                        const identityResult = await getIdentity(systemId, firstAddress);
+
+                        if (identityResult && identityResult.result && identityResult.result.identity) {
+                            // Identity is mined in, automatically link it and remove notification
+                            const identityName = identityDetails.fqn || identityDetails.provisioningName || 'Unknown';
+                            
+                            // Link the VerusID
+                            await linkVerusId(firstAddress, identityName, verusNetwork);
+                            
+                            // Delete from pending IDs
+                            await deleteProvisionedIds(firstAddress, verusNetwork);
+                            
+                            // Update pending IDs in Redux store
+                            await updatePendingVerusIds();
+                            
+                            // Remove notification if it exists
+                            if (identityDetails.notificationUid) {
+                                await dispatchRemoveNotification(identityDetails.notificationUid);
+                            }
+                         
+                            return 'auto_linked'; // Identity was automatically linked
+                        }
+                    } catch (getIdentityError) {
+                        console.log('Error checking identity status with getidentity:', getIdentityError);
+                        // Continue with normal flow if getidentity fails
+                    }
                     
                     if (identityDetails.status === NOTIFICATION_TYPE_VERUSID_READY) {
                         // Identity is ready to be linked
@@ -632,10 +662,10 @@ const ValuAttestation = (props) => {
         // First, try to authenticate with registered user
         try {
             const authResult = await ValuProvider.authenticateRegisteredUser();
-            console.log("authResult", authResult);
+       
             // If authentication is successful, user is already authenticated
             if (authResult.success) {
-                console.log("User already authenticated with registered credentials");
+               
                 return;
             }
         } catch (error) {
@@ -750,8 +780,9 @@ const ValuAttestation = (props) => {
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
             } else if (status === VALU_POL_PENDING) {
                 // Show loading spinner while checking status
-                setLoading(true);
-                await fetchData();
+                setLoading(false);
+                showIdentityChoiceModal();
+                return;
                 // Loading will be set to false in fetchData
             } else if (status === VALU_POL_PAYMENT_RECEIVED) {
                 // Show identity choice modal first instead of directly navigating
@@ -770,6 +801,28 @@ const ValuAttestation = (props) => {
                     // Identity is ready to link, modal was shown, don't proceed to deeplink yet
                     setLoading(false);
                     return;
+                } else if (pendingStatus === 'auto_linked') {
+                    // Identity was automatically linked, proceed with attestation flow
+                    createAlertDialog(
+                        `Your identity has been successfully confirmed and linked! Now proceeding to get your Valu Attestation.`,
+                        "CONTINUE",
+                        async () => {
+                            try {
+                                const newRep = await ValuProvider.getValuAttestationStatus();
+                                if (newRep.success === false) {
+                                    throw new Error(newRep.error);
+                                }
+                                // Trigger internal deeplink handler instead of opening externally
+                                updateDeeplinkUrl(newRep.data);
+                            } catch (error) {
+                                console.log('Error proceeding with attestation after auto-link:', error);
+                                createAlertDialog(
+                                    `Failed to proceed with attestation: ${error.message}`,
+                                    "OK"
+                                );
+                            }
+                        }
+                    );
                 } else {
                     // No pending identity, proceed with normal flow
                     const newRep = await ValuProvider.getValuAttestationStatus();
@@ -804,7 +857,15 @@ const ValuAttestation = (props) => {
         [VALU_POL_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
             Your details are being processed. Tap continue to check if your proof is ready.
         </Text>),
-        "error": (<Text style={{ fontSize: 16, textAlign: 'left', color: Colors.WarningRed }}>
+
+        [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            Your Valu Proof of Personhood is ready to retrieve.
+        </Text>),
+        [VALU_POL_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            Continue with your Proof of Personhood.
+        </Text>),
+        "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
+
             An error occurred. Please try again.
         </Text>),
         [null]: null

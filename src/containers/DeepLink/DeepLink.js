@@ -20,6 +20,7 @@ import LoginRequestInfo from './LoginRequestInfo/LoginRequestInfo';
 import { getCurrency, getFriendlyNameMap, getIdentity } from '../../utils/api/channels/verusid/callCreators';
 import { convertFqnToDisplayFormat } from '../../utils/fullyqualifiedname';
 import { resetDeeplinkData } from '../../actions/actionCreators';
+import { setDeeplinkCancel } from '../../actions/actions/deeplink/creators/deeplink';
 
 const authorizedPermissions = [primitives.IDENTITY_VIEW.vdxfid, 
   primitives.IDENTITY_AGREEMENT.vdxfid, 
@@ -463,6 +464,8 @@ const DeepLink = (props) => {
   };
 
   useEffect(() => {
+    // Store the cancel function in Redux state
+    dispatch(setDeeplinkCancel(cancel))
     processDeeplink()
   }, [])
 

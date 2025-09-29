@@ -120,7 +120,7 @@ class ValuService {
             if (uri.substr(0, 4) !== "http") {
               uri = config.baseURL.replace(/\/+$/, "") + uri;
             }
-            console.log("uri", config.data == null ? uri : uri + JSON.stringify(config.data) );
+
             config.headers["x-api-signature"] = ValuService.signUrlString(
               config.data == null ? uri : uri + JSON.stringify(config.data),
               valuToken

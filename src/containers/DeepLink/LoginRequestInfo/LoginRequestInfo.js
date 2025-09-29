@@ -21,6 +21,8 @@ import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals
 import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { checkIfAttestationProvision as checkAttestationProvision } from '../../../utils/attestations/downloadAttestation';
+import { LOGIN_PERMISSION_TYPES, PERMISSION_STATUS } from '../../../utils/constants/loginPermissions';
+import { setPermissionAgreed } from '../../../actions/actions/deeplink/creators/passthroughData';
 
 const LoginRequestInfo = props => {
   const { deeplinkData, sigtime, cancel, signerFqn } = props
@@ -131,16 +133,6 @@ const LoginRequestInfo = props => {
   };
 
   const buildAlert = (request) => {
-    const setPermission = () => {
-      const _permissions = permissions.map(permission => {
-        if (permission.vdxfkey === request.vdxfkey) {
-          return { ...permission, agreed: true };
-        }
-        return permission;
-      });
-      setExtraPermissions(_permissions);
-    }
-
     if (request.agreed) return;
 
     // Check if user needs to be authenticated for any action
@@ -165,17 +157,10 @@ const LoginRequestInfo = props => {
     if (request.downloadRequired && !request.downloaded) {
       // Handle download case - navigate to LoginReceiveAttestation with download URL
       props.navigation.navigate("LoginReceiveAttestation", {
-        deeplinkData,
         fromService: false,
-        cancel: { cancel },
         downloadUrl: req.challenge.redirect_uris.find(
           uri => uri.vdxfkey === primitives.ATTESTATION_PROVISION_URL.vdxfid
         )?.uri,
-        onGoBack: (data) => {
-          if (data) {
-            setPermission();
-          }
-        },
         signerFqn
       });
       return;
@@ -191,21 +176,25 @@ const LoginRequestInfo = props => {
 
     for (const [key, screenName] of Object.entries(navigationConfigs)) {
       if (request[key]) {
-        props.navigation.navigate(screenName, {
-          deeplinkData,
+        const navigationParams = {
           fromService: false,
-          cancel: { cancel },
-          onGoBack: (data) => {
-            if (data && data.accepted) {
-              setPermission();
-            }
-          },
           signerFqn
-        });
+        };
+        
+        // Add index and additional data for all requests
+        navigationParams.permissionIndex = request.index;
+        navigationParams.permissionType = request.permissionType;
+        
+        if (key === 'signmessage' && request.endorsement) {
+          navigationParams.endorsementData = request.endorsement;
+        }
+        
+        props.navigation.navigate(screenName, navigationParams);
         return;
       }
     }
 
+    // For simple agreements that don't require navigation
     return createAlert(
       request.title,
       request.data,
@@ -217,7 +206,13 @@ const LoginRequestInfo = props => {
         },
         {
           text: 'ACCEPT', onPress: () => {
-            setPermission();
+            // Update permission using Redux passthrough system
+            dispatch(setPermissionAgreed(
+              passthrough,
+              request.index,
+              request.permissionType,
+              { data: request.data }
+            ));
             resolveAlert(true)
           }
         },
@@ -226,7 +221,7 @@ const LoginRequestInfo = props => {
   }
 
   useEffect(() => {
-    if (req && req.challenge && req.challenge.requested_access) {
+    if (req && req.challenge) {
       // Check if this is an attestation provision request (download scenario)
       if (checkAttestationProvision(req.challenge)) {
         setIsAttestationProvision(true);
@@ -234,12 +229,13 @@ const LoginRequestInfo = props => {
         // Create a permission for the attestation download
         const provisioningTitle = req.challenge.provisioning_info[0].data;
         const downloadPermission = [{
+          index: 0,
           data: `Download ${provisioningTitle}`,
           title: provisioningTitle,
+          permissionType: LOGIN_PERMISSION_TYPES.DOWNLOAD_REQUIRED,
           downloadRequired: true,
           downloaded: false,
-          agreed: false,
-          vdxfkey: 'attestation_download'
+          agreed: false
         }];
 
         setExtraPermissions(downloadPermission);
@@ -247,89 +243,122 @@ const LoginRequestInfo = props => {
         return;
       }
 
-      // Handle regular login permissions
+      // Handle regular login permissions - loop through subject array instead of requested_access
       const loginTemp = [];
-      const { requested_access, attestations } = req.challenge;
+      const { requested_access, attestations, subject } = req.challenge;
 
+      // Handle simple identity view requests
       if (requested_access.length === 1 && requested_access.some(value => value.vdxfkey === primitives.IDENTITY_VIEW.vdxfid)) {
         if (attestations && attestations.length > 0) {
           loginTemp.push({ 
+            index: 0,
             data: "Accept attestation", 
             title: "Attestation Provisioning Request", 
+            permissionType: LOGIN_PERMISSION_TYPES.ATTESTATION_TO_ACCEPT,
             attestationToAccept: true, 
             agreed: false 
           });
         } else {
           setReady(true);
         }
+      } else if (subject && subject.length > 0) {
+        // Process each subject item directly
+        subject.forEach((subjectItem, index) => {
+          const { vdxfkey } = subjectItem;
+          console.log(`Processing subject item with vdxfkey: ${vdxfkey}`);
+          let permissionData = null;
+
+          // Handle different subject types
+          if (vdxfkey === primitives.IDENTITY_AGREEMENT.vdxfid) {
+            permissionData = {
+              data: subjectItem.data,
+              title: "Agreement to accept",
+              permissionType: LOGIN_PERMISSION_TYPES.DOWNLOAD_REQUIRED // Generic agreement
+            };
+          } else if (vdxfkey === primitives.ATTESTATION_READ_REQUEST.vdxfid) {
+            permissionData = {
+              data: "Agree to share attestation data",
+              title: "Attestation View Request",
+              permissionType: LOGIN_PERMISSION_TYPES.VIEW_ATTESTATION,
+              viewAttestation: true
+            };
+          } else if (vdxfkey === primitives.PROFILE_DATA_VIEW_REQUEST.vdxfid) {
+            permissionData = {
+              data: "Agree to share profile data",
+              title: "Personal Data Input Request",
+              permissionType: LOGIN_PERMISSION_TYPES.OPEN_PROFILE,
+              openProfile: true
+            };
+          } else if (vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid) {
+            try {
+              console.log('Processing sign data request for subject item:', subjectItem);
+              const newEndorsement = new primitives.Endorsement();
+              newEndorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
+              
+              permissionData = {
+                data: newEndorsement.message,
+                endorsement: newEndorsement,
+                title: `Signature request ${index + 1}`,
+                permissionType: LOGIN_PERMISSION_TYPES.SIGN_MESSAGE,
+                signmessage: true
+              };
+            } catch (e) {
+              console.error('Failed to parse endorsement:', e);
+              permissionData = {
+                data: "Invalid endorsement data",
+                title: `Signature request ${index + 1}`,
+                permissionType: LOGIN_PERMISSION_TYPES.SIGN_MESSAGE,
+                signmessage: true
+              };
+            }
+          }
+          
+          if (permissionData) {
+            loginTemp.push({ 
+              index,
+              vdxfkey,
+              ...permissionData, 
+              agreed: false 
+            });
+          }
+        });
       } else {
-        // Process each requested access
-        for (const access of requested_access) {
+        // Handle other requested access types that don't have subject items
+        requested_access.forEach((access, index) => {
           const { vdxfkey } = access;
-          let tempdata = {};
 
           // Skip IDENTITY_VIEW and LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY
           if (vdxfkey === primitives.IDENTITY_VIEW.vdxfid || 
               vdxfkey === primitives.LOGIN_CONSENT_PERSONALINFO_WEBHOOK_VDXF_KEY.vdxfid) {
-            continue;
+            return;
           }
 
-          // Map different access types to permissions
           const accessTypeMap = {
-            [primitives.IDENTITY_AGREEMENT.vdxfid]: {
-              data: access.toJson().data,
-              title: "Agreement to accept"
-            },
             [primitives.ATTESTATION_READ_REQUEST.vdxfid]: {
               data: "Agree to share attestation data",
               title: "Attestation View Request",
+              permissionType: LOGIN_PERMISSION_TYPES.VIEW_ATTESTATION,
               viewAttestation: true
             },
             [primitives.PROFILE_DATA_VIEW_REQUEST.vdxfid]: {
               data: "Agree to share profile data",
               title: "Personal Data Input Request",
+              permissionType: LOGIN_PERMISSION_TYPES.OPEN_PROFILE,
               openProfile: true
-            },
-            [primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid]: (() => {
-              try {
-                // Look for endorsement data in the subject array instead of access data
-                const subjectItem = req.challenge.subject.find(item => 
-                  item.vdxfkey === primitives.IDENTITY_SIGNDATA_REQUEST.vdxfid
-                );
-                
-                if (!subjectItem) {
-                  return {
-                    data: "No endorsement data found",
-                    title: "Signature request",
-                    signmessage: true
-                  };
-                }
-                
-                const newEndorsement = new primitives.Endorsement();
-                newEndorsement.fromBuffer(Buffer.from(subjectItem.data, 'base64'));
-                return {
-                  data: newEndorsement.message,
-                  endorsement: newEndorsement,
-                  title: "Signature request",
-                  signmessage: true
-                };
-              } catch (e) {
-                console.error('Failed to parse endorsement:', e);
-                return {
-                  data: "Invalid endorsement data",
-                  title: "Signature request",
-                  signmessage: true
-                };
-              }
-            })()
+            }
           };
 
-          tempdata = accessTypeMap[vdxfkey] || {};
+          const permissionData = accessTypeMap[vdxfkey];
           
-          if (Object.keys(tempdata).length > 0) {
-            loginTemp.push({ vdxfkey, ...tempdata, agreed: false });
+          if (permissionData) {
+            loginTemp.push({ 
+              index,
+              vdxfkey,
+              ...permissionData, 
+              agreed: false 
+            });
           }
-        }
+        });
       }
 
       if (loginTemp.length > 0) setExtraPermissions(loginTemp);
@@ -342,6 +371,40 @@ const LoginRequestInfo = props => {
       setReady(allAgreed);
     }
   }, [permissions]);
+
+  // Handle permission updates from passthrough data (Redux-based permission system)
+  // When users complete actions in other screens, they dispatch permission updates via Redux
+  // This effect automatically updates the UI to reflect completed permissions
+  useEffect(() => {
+    if (passthrough?.permissions && permissions) {
+      let hasUpdates = false;
+      const updatedPermissions = permissions.map(permission => {
+        // Only update if permission is not already agreed
+        if (!permission.agreed) {
+          // Check if this permission has been agreed to by index
+          const passthroughPermission = passthrough.permissions[permission.index];
+          
+          if (passthroughPermission?.status === PERMISSION_STATUS.AGREED) {
+            console.log(`Permission ${permission.index} (${permission.permissionType}) was agreed`);
+            hasUpdates = true;
+            
+            // Special handling for download permissions
+            if (permission.downloadRequired) {
+              return { ...permission, agreed: true, downloaded: true };
+            } else {
+              return { ...permission, agreed: true };
+            }
+          }
+        }
+
+        return permission;
+      });
+
+      if (hasUpdates) {
+        setExtraPermissions(updatedPermissions);
+      }
+    }
+  }, [passthrough?.permissions]);
 
   const addRootSystem = async () => {
     setLoading(true)
@@ -410,13 +473,16 @@ const LoginRequestInfo = props => {
 
   const handleContinue = async () => {
     if (signedIn) {
+      // Check if all permissions have been accepted
       if (!ready) {
-        for (let i = 0; i < permissions.length; i++) {
-          const result = await buildAlert(permissions[i], i);
-          if (!result) return;
-        }
+        createAlert(
+          "Permissions Required",
+          "Please complete all required permissions before continuing.",
+          [{ text: 'OK', onPress: () => resolveAlert() }]
+        );
+        return;
       }
-      
+
       const coinObj = CoinDirectory.findCoinObj(chain_id);
       
       if (!!coinObj.testnet != isTestnet) {
@@ -430,7 +496,7 @@ const LoginRequestInfo = props => {
       if (!rootSystemAdded) {
         tryAddRootSystem()
       } else {
-        props.navigation.navigate('LoginRequestIdentity', { deeplinkData });
+        props.navigation.navigate('LoginRequestIdentity', {});
       }
     } else {
       setWaitingForSignin(true);
