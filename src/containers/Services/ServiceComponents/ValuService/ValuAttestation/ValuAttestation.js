@@ -7,13 +7,13 @@
   - Add "How it works" semi-modal using BuySellSheet modal styling (SemiModal)
   - No pre-start confirmation dialog; rest of flow unchanged
 */
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
 import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { primitives, VerusIdInterface } from "verusid-ts-client"
-import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity } from 'react-native'
+import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
 import ListSelectionModal from "../../../../../components/ListSelectionModal/ListSelectionModal";
@@ -74,6 +74,7 @@ const ValuAttestation = (props) => {
     const [showPendingIdentityModal, setShowPendingIdentityModal] = useState(false);
     const [pendingIdentityInfo, setPendingIdentityInfo] = useState(null);
     const [howItWorksVisible, setHowItWorksVisible] = useState(false);
+    const pulse = useRef(new Animated.Value(1)).current;
     const acchash = useSelector(state =>
         state.authentication.activeAccount
     ).accountHash;
@@ -386,6 +387,13 @@ const ValuAttestation = (props) => {
     // useFocusEffect(fetchData);
 
     useEffect(() => {
+        // skeleton pulse animation
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulse, { toValue: 0.6, duration: 700, useNativeDriver: true }),
+                Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true })
+            ])
+        ).start();
         initAccountStatus().then(() => {
             fetchData();
         });
@@ -904,11 +912,32 @@ const ValuAttestation = (props) => {
                             </Text>
                         </React.Fragment>
                     ) : loading || status === null ? (
-                        <AnimatedActivityIndicator
-                            style={{
-                                width: 128,
-                            }}
-                        />
+                        <React.Fragment>
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, marginTop: 32, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#EDEDED' }}>
+                                <Animated.View style={{ opacity: pulse, width: '70%', height: 44, backgroundColor: '#E8E8E8', borderRadius: 6, marginBottom: 8 }} />
+                                <Animated.View style={{ opacity: pulse, width: '50%', height: 44, backgroundColor: '#E8E8E8', borderRadius: 6 }} />
+                                <Animated.View style={{ opacity: pulse, width: '60%', height: 14, backgroundColor: '#E8E8E8', borderRadius: 4, marginTop: 8 }} />
+                            </View>
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 20, marginTop: 16 }}>
+                                <Animated.View style={{ opacity: pulse, width: 120, height: 16, backgroundColor: '#E8E8E8', borderRadius: 4, marginBottom: 8 }} />
+                                <Animated.View style={{ opacity: pulse, width: '100%', height: 12, backgroundColor: '#E8E8E8', borderRadius: 4, marginBottom: 6 }} />
+                                <Animated.View style={{ opacity: pulse, width: '92%', height: 12, backgroundColor: '#E8E8E8', borderRadius: 4, marginBottom: 16 }} />
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                                    <Animated.View style={{ opacity: pulse, width: 18, height: 18, borderRadius: 9, backgroundColor: '#E8E8E8', marginRight: 10, marginTop: 2 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Animated.View style={{ opacity: pulse, width: 120, height: 12, backgroundColor: '#E8E8E8', borderRadius: 4, marginBottom: 6 }} />
+                                        <Animated.View style={{ opacity: pulse, width: '90%', height: 12, backgroundColor: '#E8E8E8', borderRadius: 4 }} />
+                                    </View>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                                    <Animated.View style={{ opacity: pulse, width: 18, height: 18, borderRadius: 9, backgroundColor: '#E8E8E8', marginRight: 10, marginTop: 2 }} />
+                                    <View style={{ flex: 1 }}>
+                                        <Animated.View style={{ opacity: pulse, width: 120, height: 12, backgroundColor: '#E8E8E8', borderRadius: 4, marginBottom: 6 }} />
+                                        <Animated.View style={{ opacity: pulse, width: '90%', height: 12, backgroundColor: '#E8E8E8', borderRadius: 4 }} />
+                                    </View>
+                                </View>
+                            </View>
+                        </React.Fragment>
                     ) : (
                         <React.Fragment>
                             {/* Large gradient title - left aligned, two lines */}
@@ -1005,37 +1034,45 @@ const ValuAttestation = (props) => {
                 </View>
                 {/* Bottom container pinned by space-between */}
                 <View style={{ width: '100%', alignSelf: 'stretch' }}>
-                    <TouchableOpacity onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-                        <Text style={{ fontSize: 14, color: '#666', textDecorationLine: 'underline', textAlign: 'center' }}>{'How it works'}</Text>
-                    </TouchableOpacity>
-                    <View style={{ paddingHorizontal: 20, paddingBottom: 24, width: '100%', alignSelf: 'stretch' }}>
-                        <Button
-                            onPress={() => { startOnRamp() }}
-                            mode="contained"
-                            disabled={status === 'error'}
-                            style={{
-                                borderRadius: 24,
-                                backgroundColor: Colors.primaryColor,
-                                elevation: 0,
-                                shadowColor: 'transparent',
-                                shadowOpacity: 0,
-                                shadowRadius: 0,
-                                shadowOffset: { width: 0, height: 0 },
-                                width: '100%',
-                                alignSelf: 'stretch'
-                            }}
-                            contentStyle={{ height: 48 }}
-                            labelStyle={{
-                                color: Colors.secondaryColor,
-                                fontWeight: '600',
-                                fontSize: 15,
-                                letterSpacing: 0,
-                                textTransform: 'none',
-                            }}
-                        >
-                            {ctaLabel}
-                        </Button>
-                    </View>
+                    {loading || status === null ? (
+                        <View style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
+                            <Animated.View style={{ opacity: pulse, width: '100%', height: 48, backgroundColor: '#E8E8E8', borderRadius: 24 }} />
+                        </View>
+                    ) : (
+                        <React.Fragment>
+                            <TouchableOpacity onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7} style={{ marginBottom: 16 }}>
+                                <Text style={{ fontSize: 14, color: '#666', textDecorationLine: 'underline', textAlign: 'center' }}>{'How it works'}</Text>
+                            </TouchableOpacity>
+                            <View style={{ paddingHorizontal: 20, paddingBottom: 24, width: '100%', alignSelf: 'stretch' }}>
+                                <Button
+                                    onPress={() => { startOnRamp() }}
+                                    mode="contained"
+                                    disabled={status === 'error'}
+                                    style={{
+                                        borderRadius: 24,
+                                        backgroundColor: Colors.primaryColor,
+                                        elevation: 0,
+                                        shadowColor: 'transparent',
+                                        shadowOpacity: 0,
+                                        shadowRadius: 0,
+                                        shadowOffset: { width: 0, height: 0 },
+                                        width: '100%',
+                                        alignSelf: 'stretch'
+                                    }}
+                                    contentStyle={{ height: 48 }}
+                                    labelStyle={{
+                                        color: Colors.secondaryColor,
+                                        fontWeight: '600',
+                                        fontSize: 15,
+                                        letterSpacing: 0,
+                                        textTransform: 'none',
+                                    }}
+                                >
+                                    {ctaLabel}
+                                </Button>
+                            </View>
+                        </React.Fragment>
+                    )}
                 </View>
             </ScrollView>
 
@@ -1068,32 +1105,32 @@ const ValuAttestation = (props) => {
                                 
                                 {/* Step 1 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
-                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>1</Text>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>1</Text>
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Choose or create your VerusID (included with the purchase).</Text>
                                 </View>
                                 
                                 {/* Step 2 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
-                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>2</Text>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>2</Text>
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Complete a quick one‑time identity check (ID + selfie).</Text>
                                 </View>
                                 
                                 {/* Step 3 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
-                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>3</Text>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>3</Text>
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>We issue a cryptographic proof bound to your VerusID—not your personal data.</Text>
                                 </View>
                                 
                                 {/* Step 4 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}>
-                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primaryColor, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
-                                        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.secondaryColor }}>4</Text>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>4</Text>
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Reuse this proof to verify in seconds across supported services.</Text>
                                 </View>
