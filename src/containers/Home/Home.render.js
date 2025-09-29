@@ -175,6 +175,7 @@ export const HomeRenderWidget = ({
   widgetId,
   totalCryptoBalances,
   totalFiatBalance,
+  hasValuProofOfPersonhood,
 }) => {
   const widgetSplit = widgetId.split(':');
   const widgetType = widgetSplit[0];
@@ -212,7 +213,7 @@ export const HomeRenderWidget = ({
     [ATTESTATION_WIDGET_TYPE]: () => {
       return (
         <Provider theme={HomeListItemThemeLight}>
-          <AttestationWidget />
+          <AttestationWidget hasValuProofOfPersonhood={hasValuProofOfPersonhood} />
         </Provider>
       );
     }

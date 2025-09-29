@@ -10,9 +10,15 @@ import { Card, Paragraph } from 'react-native-paper';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 
 const AttestationWidget = props => {
+    const { hasValuProofOfPersonhood } = props;
     const { width } = Dimensions.get('window');
     const cardWidth = width / 2 - 16;
     const cardHeight = 110;
+
+    // Determine the text based on whether user has the attestation
+    const widgetText = hasValuProofOfPersonhood 
+        ? 'View your Proof of Personhood' 
+        : 'Get your Proof of Personhood';
 
     return (
         <Card
@@ -46,7 +52,7 @@ const AttestationWidget = props => {
                         justifyContent: 'flex-end'
                     }}>
                     <Paragraph style={{ fontSize: 18, color: '#FFFFFF', fontWeight: '700', letterSpacing: -0.2, lineHeight: 22 }}>
-                        {'Get your Proof of Personhood'}
+                        {widgetText}
                     </Paragraph>
                 </View>
             </Card.Content>

@@ -93,6 +93,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
         [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
         [VALU_POL_PENDING]: "CONTINUE",
+        "POP_RECEIVED": "Go to Attestations",
 
     }
 
@@ -322,14 +323,26 @@ const ValuAttestation = (props) => {
         }
 
         // Check for data in the wallet that says there is an attestation present.
-        // If there is, then take the user to the attestation page.
-        // If there is not, then display the 
-        const VALU_ATTESTATION = "isdffds" //TODO: make a function to check whether POL is provisioned
-        const attestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+        let attestaionPresent = false
+          try {
+            const attestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+            console.log("Attestations fetched in ValuAttestation:", attestations);
+            // Check if user has "Valu Proof of Personhood" attestation
+            attestaionPresent = Object.values(attestations || {}).some(attestationItem => 
+                attestationItem && 
+                typeof attestationItem === 'object' && 
+                attestationItem.name === "Valu Proof of Personhood"
+            );
+            
+           
+        } catch (e) {
+            console.log("Error checking for existing Proof of Personhood:", e);
+            
+        }
 
-        if (attestations[VALU_ATTESTATION]) {
+        if (attestaionPresent) {
             // Use the navigation object
-            props.navigation.navigate('Attestation', { attestations: attestations });
+            setStatus("POP_RECEIVED");
             return;
         }
 
@@ -832,6 +845,10 @@ const ValuAttestation = (props) => {
                     // Trigger internal deeplink handler instead of opening externally
                     updateDeeplinkUrl(newRep.data);
                 }
+            } else if (status === "POP_RECEIVED") {
+                // User already has Proof of Personhood attestation, navigate to attestations
+                setLoading(false);
+                  props.navigation.navigate('ServicesHome');
             }
         } catch (e) {
             console.log("startOnRamp error", e)
@@ -866,6 +883,9 @@ const ValuAttestation = (props) => {
         "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
             An error occurred. Please try again.
         </Text>),
+        "POP_RECEIVED": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            You already have a Proof of Personhood attestation.
+        </Text>),
         [null]: null
     }
 
@@ -876,7 +896,8 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_PENDING]: { title: 'Purchase in progress', body: 'Resume your purchase to finish payment.', cta: 'Resume purchase' },
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
         [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
-        [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' }
+        [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' },
+        "POP_RECEIVED": { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'Go to Attestations' }
     };
     const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
 

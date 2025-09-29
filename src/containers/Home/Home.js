@@ -61,6 +61,8 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { requestAttestationData } from '../../utils/auth/authBox';
+import { ATTESTATIONS_PROVISIONED } from '../../utils/constants/attestations';
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -86,6 +88,7 @@ const Home = () => {
   const displayCurrency = useSelector(
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
+  const attestation = useSelector((state) => state.attestation);
 
   const [totalFiatBalance, setTotalFiatBalance] = useState(0);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
@@ -96,6 +99,7 @@ const Home = () => {
   const [editingCards, setEditingCards] = useState(false);
   const [expandedListItems, setExpandedListItems] = useState({});
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
+  const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
 
   const LIST_ITEM_INITIAL_HEIGHT = 58;
   const LIST_ITEM_MARGIN = 8;
@@ -249,6 +253,35 @@ const Home = () => {
   useEffect(() => {
     sortWidgets();
   }, [widgetOrder, sortWidgets]);
+
+  useEffect(() => {
+    // Check for specific "Valu Proof of Personhood" attestation
+    const checkForValuProofOfPersonhood = async () => {
+      if (attestation && attestation.attestations_provisioned) {
+        try {
+          const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+          if (attestationData) {
+            // Check if any attestation has the name "Valu Proof of Personhood"
+            const hasValuAttestation = Object.values(attestationData).some(attestationItem => 
+              attestationItem && 
+              typeof attestationItem === 'object' && 
+              attestationItem.name === "Valu Proof of Personhood"
+            );
+            setHasValuProofOfPersonhood(hasValuAttestation);
+          } else {
+            setHasValuProofOfPersonhood(false);
+          }
+        } catch (e) {
+          console.warn('Could not check attestations:', e.message);
+          setHasValuProofOfPersonhood(false);
+        }
+      } else {
+        setHasValuProofOfPersonhood(false);
+      }
+    };
+
+    checkForValuProofOfPersonhood();
+  }, [attestation]);
 
   const refresh = useCallback(
     async (showLoading = true) => {
@@ -454,6 +487,7 @@ const Home = () => {
               widgetId,
               totalCryptoBalances,
               totalFiatBalance,
+              hasValuProofOfPersonhood,
             }),
         })
       }
