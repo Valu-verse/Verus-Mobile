@@ -874,6 +874,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
             Your details are being processed. Tap continue to check if your proof is ready.
         </Text>),
+
         [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
             Your Valu Proof of Personhood is ready to retrieve.
         </Text>),
@@ -881,6 +882,7 @@ const ValuAttestation = (props) => {
             Continue with your Proof of Personhood.
         </Text>),
         "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
+
             An error occurred. Please try again.
         </Text>),
         "POP_RECEIVED": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
@@ -905,6 +907,8 @@ const ValuAttestation = (props) => {
         <SafeAreaView style={Styles.defaultRoot}>
             <ScrollView
                 style={Styles.fullWidth}
+                contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', alignItems: 'stretch' }}>
+                <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
                 contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', alignItems: 'stretch' }}>
                 <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
                     {showIdentityProvisioningProgress ? (
