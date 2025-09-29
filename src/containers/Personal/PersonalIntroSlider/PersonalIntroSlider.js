@@ -1,3 +1,9 @@
+/*
+  Update 2025-09-29:
+  - Fixed duplicated icons in the Personal intro slider by rendering the
+    slide icon only once in `renderInfoItem()``. This resolves the double
+    fingerprint/shield icons seen on the first two slides.
+*/
 import React from "react";
 import { Component } from "react"
 import { connect } from 'react-redux'
@@ -133,7 +139,6 @@ class PersonalIntroSlider extends Component {
           alignItems: "center",
         }}
       >
-        {this.height >= SMALL_DEVICE_HEGHT && <MaterialCommunityIcons name={item.icon} color={"white"} size={104} />}
         {this.height >= SMALL_DEVICE_HEGHT && <MaterialCommunityIcons name={item.icon} color={"white"} size={104} />}
         <Text
           style={{

@@ -3,6 +3,7 @@
   - Added top blue blob with "Powered by Verus" branding
   - Removed animated background; clean minimal design
   - Added welcome copy under the Valu logo
+  - Removed glow/shadow from primary button (flat appearance)
   - Kept changes contained to this file
 */
 import React from 'react';
@@ -84,11 +85,11 @@ export default function LandingScreen(props) {
           width: 300,
           borderRadius: 24,
           backgroundColor: Colors.primaryColor,
-          elevation: 6,
-          shadowColor: Colors.primaryColor,
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
+          elevation: 0,
+          shadowColor: 'transparent',
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          shadowOffset: { width: 0, height: 0 },
         }}>
         {"Get started"}
       </TallButton>
