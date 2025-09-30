@@ -36,7 +36,7 @@ import { updateDeeplinkUrl } from '../../../../../actions/actionDispatchers';
 import {
     VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
     VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING,
-    VALU_POL_PENDING, NOTIFICATION_TYPE_VERUSID_READY
+    VALU_POL_PENDING, NOTIFICATION_TYPE_VERUSID_READY, POP_RECEIVED
 } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
@@ -94,6 +94,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
         [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
         [VALU_POL_PENDING]: "CONTINUE",
+        [POP_RECEIVED]: "Go to Attestations",
 
     }
 
@@ -149,11 +150,11 @@ const ValuAttestation = (props) => {
             }
 
             console.log("newRep", valuProvisioningResponse);
-            
+
             const response = new primitives.LoginConsentProvisioningResponse(valuProvisioningResponse);
 
-            const {decision} = response;
-            const {result} = decision;
+            const { decision } = response;
+            const { result } = decision;
 
             const identityAddress = result?.identity_address;
             const url = result.info_uri;
@@ -207,24 +208,24 @@ const ValuAttestation = (props) => {
             setLoading(true);
             console.log("Continuing proof of personhood with identity:", identityInfo);
             // Get the SumSub session URL with the selected identity
-            const newRep = await ValuProvider.startSumsubSession({ 
-                identityName: identityInfo.identityName, 
-                isNew: !identityInfo.isExisting 
+            const newRep = await ValuProvider.startSumsubSession({
+                identityName: identityInfo.identityName,
+                isNew: !identityInfo.isExisting
             });
-            
+
             if (newRep.success === false) {
                 throw new Error(newRep.error);
             }
-            
+
             console.log("Starting SumSub session:", newRep.data);
-            
+
             // Create signature for authentication
             const coinObj = CoinDirectory.findCoinObj(systemId, null, true);
             const chainInfo = await getInfo(systemId);
             const height = chainInfo.result.longestchain;
             const message = `Authentication request for ${identityInfo.identityName} at ${Date.now()}`;
             const messageHash = sha256(Buffer.from(message, 'utf-8'));
-            
+
             // Sign the message using the identity address
             const RAddress = activeAccount.keys[verusNetwork].vrpc.addresses[0];
             const wif = await requestPrivKey(coinObj.id, VRPC);
@@ -240,10 +241,10 @@ const ValuAttestation = (props) => {
             url.searchParams.append('RAddress', RAddress);
             url.searchParams.append('height', height.toString());
             url.searchParams.append('systemId', coinObj.system_id);
-            
+
             const authenticatedUrl = url.toString();
             console.log("Opening authenticated URL:", authenticatedUrl);
-            
+
             // Open the SumSub URL in InAppBrowser
             if (await InAppBrowser.isAvailable()) {
                 InAppBrowser.open(authenticatedUrl, {
@@ -280,9 +281,9 @@ const ValuAttestation = (props) => {
             } else {
                 Linking.openURL(authenticatedUrl);
             }
-            
+
             setLoading(false);
-            
+
         } catch (error) {
             console.error("Error continuing proof of personhood:", error);
             setLoading(false);
@@ -323,14 +324,25 @@ const ValuAttestation = (props) => {
         }
 
         // Check for data in the wallet that says there is an attestation present.
-        // If there is, then take the user to the attestation page.
-        // If there is not, then display the 
-        const VALU_ATTESTATION = "isdffds" //TODO: make a function to check whether POL is provisioned
-        const attestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+        let attestaionPresent = false
+        try {
+            const attestations = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+            // Check if user has "Valu Proof of Personhood" attestation
+            attestaionPresent = Object.values(attestations || {}).some(attestationItem =>
+                attestationItem &&
+                typeof attestationItem === 'object' &&
+                attestationItem.name === "Valu Proof of Personhood"
+            );
 
-        if (attestations[VALU_ATTESTATION]) {
+
+        } catch (e) {
+            console.log("Error checking for existing Proof of Personhood:", e);
+
+        }
+
+        if (attestaionPresent) {
             // Use the navigation object
-            props.navigation.navigate('Attestation', { attestations: attestations });
+            setStatus(POP_RECEIVED);
             return;
         }
 
@@ -478,10 +490,10 @@ const ValuAttestation = (props) => {
             if (!identityName) {
                 throw new Error("Identity name not found");
             }
-            
+
             // Continue with proof of personhood using existing identity
             await continueProofOfPersonhood({ identityName, identityAddress: iAddress, isExisting: true });
-            
+
         } catch (error) {
             console.error("Error using existing identity:", error);
             setLoading(false);
@@ -548,7 +560,7 @@ const ValuAttestation = (props) => {
                     // Get the first pending identity (you might want to handle multiple differently)
                     const firstAddress = identityAddresses[0];
                     const identityDetails = pendingIds[verusNetwork][firstAddress];
-                    
+
                     // Check if the identity has been mined in using getidentity
                     try {
                         const identityResult = await getIdentity(systemId, firstAddress);
@@ -556,28 +568,28 @@ const ValuAttestation = (props) => {
                         if (identityResult && identityResult.result && identityResult.result.identity) {
                             // Identity is mined in, automatically link it and remove notification
                             const identityName = identityDetails.fqn || identityDetails.provisioningName || 'Unknown';
-                            
+
                             // Link the VerusID
                             await linkVerusId(firstAddress, identityName, verusNetwork);
-                            
+
                             // Delete from pending IDs
                             await deleteProvisionedIds(firstAddress, verusNetwork);
-                            
+
                             // Update pending IDs in Redux store
                             await updatePendingVerusIds();
-                            
+
                             // Remove notification if it exists
                             if (identityDetails.notificationUid) {
                                 await dispatchRemoveNotification(identityDetails.notificationUid);
                             }
-                         
+
                             return 'auto_linked'; // Identity was automatically linked
                         }
                     } catch (getIdentityError) {
                         console.log('Error checking identity status with getidentity:', getIdentityError);
                         // Continue with normal flow if getidentity fails
                     }
-                    
+
                     if (identityDetails.status === NOTIFICATION_TYPE_VERUSID_READY) {
                         // Identity is ready to be linked
                         setPendingIdentityInfo({
@@ -607,31 +619,31 @@ const ValuAttestation = (props) => {
     // Link the pending identity
     const linkPendingIdentity = async () => {
         if (!pendingIdentityInfo) return;
-        
+
         try {
             setLoading(true);
-            
+
             const { address, details } = pendingIdentityInfo;
             const identityName = details.provisioningName || details.fqn;
-            
+
             // Link the VerusID
             await linkVerusId(address, identityName, verusNetwork);
-            
+
             // Delete from pending IDs
             await deleteProvisionedIds(address, verusNetwork);
-            
+
             // Update pending IDs in Redux store
             await updatePendingVerusIds();
-            
+
             // Remove notification if it exists
             if (details.notificationUid) {
                 await dispatchRemoveNotification(details.notificationUid);
             }
-            
+
             // Close the modal and show success message
             setShowPendingIdentityModal(false);
             setPendingIdentityInfo(null);
-            
+
             createAlertDialog(
                 `Successfully linked identity: ${identityName}. Now proceeding to get your Valu Attestation.`,
                 "CONTINUE",
@@ -653,7 +665,7 @@ const ValuAttestation = (props) => {
                     }
                 }
             );
-            
+
         } catch (error) {
             console.log('Error linking pending identity:', error);
             createAlertDialog(
@@ -670,10 +682,10 @@ const ValuAttestation = (props) => {
         // First, try to authenticate with registered user
         try {
             const authResult = await ValuProvider.authenticateRegisteredUser();
-       
+
             // If authentication is successful, user is already authenticated
             if (authResult.success) {
-               
+
                 return;
             }
         } catch (error) {
@@ -800,7 +812,7 @@ const ValuAttestation = (props) => {
             } else if (status === VALU_POL_READY) {
                 // First check if there are any pending identities that need to be handled
                 const pendingStatus = await checkForPendingIdentity();
-                
+
                 if (pendingStatus === 'pending') {
                     // Identity is still being processed, alert was already shown, don't proceed
                     setLoading(false);
@@ -840,6 +852,14 @@ const ValuAttestation = (props) => {
                     // Trigger internal deeplink handler instead of opening externally
                     updateDeeplinkUrl(newRep.data);
                 }
+            } else if (status === POP_RECEIVED) {
+                // User already has Proof of Personhood attestation, navigate to attestations
+                setLoading(false);
+                // Reset navigation history and navigate to Services
+                props.navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'ServicesHome' }],
+                });
             }
         } catch (e) {
             console.log("startOnRamp error", e)
@@ -849,7 +869,7 @@ const ValuAttestation = (props) => {
             )
 
         }
-        
+
     }
 
     const stageMessages = {
@@ -876,6 +896,9 @@ const ValuAttestation = (props) => {
 
             An error occurred. Please try again.
         </Text>),
+        [POP_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
+            You already have a Proof of Personhood attestation.
+        </Text>),
         [null]: null
     }
 
@@ -886,7 +909,8 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_PENDING]: { title: 'Purchase in progress', body: 'Resume your purchase to finish payment.', cta: 'Resume purchase' },
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
         [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
-        [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' }
+        [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' },
+        [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'Go to Attestations' }
     };
     const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
 
@@ -975,48 +999,48 @@ const ValuAttestation = (props) => {
                                         ))}
                                     </SvgText>
                                 </Svg>
-                                
+
                                 {/* Tagline */}
                                 <Text style={{ fontSize: 18, color: '#666', marginTop: -8, marginBottom: 12, textAlign: 'left' }}>
                                     {'Verify once. Prove privately anywhere.'}
                                 </Text>
                             </View>
-                            
+
                             {/* Content area (no background) */}
                             <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 20, marginTop: 16 }}>
                                 {/* What you get section (initial only) */}
                                 {isInitialStatus && (
-                                <View style={{ marginBottom: 32 }}>
-                                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>What you get</Text>
-                                    <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>
-                                        You receive a reusable Proof of Personhood attestation linked to your VerusID. It lets you prove you're a unique, verified person—without exposing your personal details by default.
-                                    </Text>
-                                </View>)}
-                                
+                                    <View style={{ marginBottom: 32 }}>
+                                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>What you get</Text>
+                                        <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>
+                                            You receive a reusable Proof of Personhood attestation linked to your VerusID. It lets you prove you're a unique, verified person—without exposing your personal details by default.
+                                        </Text>
+                                    </View>)}
+
                                 {/* Benefits list (initial only) */}
                                 {isInitialStatus && (
-                                <View style={{ width: '100%', marginBottom: 12 }}>
-                                    <View style={{ flexDirection: 'column' }}>
-                                        <View style={{ width: '100%', marginBottom: 16 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                                <Text style={{ fontSize: 16, marginRight: 6 }}>🔒</Text>
-                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
+                                    <View style={{ width: '100%', marginBottom: 12 }}>
+                                        <View style={{ flexDirection: 'column' }}>
+                                            <View style={{ width: '100%', marginBottom: 16 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                    <Text style={{ fontSize: 16, marginRight: 6 }}>🔒</Text>
+                                                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
+                                                </View>
+                                                <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
+                                                    Share a cryptographic proof, not your documents.
+                                                </Text>
                                             </View>
-                                            <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
-                                                Share a cryptographic proof, not your documents.
-                                            </Text>
-                                        </View>
-                                        <View style={{ width: '100%', marginBottom: 0 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                                <Text style={{ fontSize: 16, marginRight: 6 }}>⚡</Text>
-                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
+                                            <View style={{ width: '100%', marginBottom: 0 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                    <Text style={{ fontSize: 16, marginRight: 6 }}>⚡</Text>
+                                                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
+                                                </View>
+                                                <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
+                                                    Verify once and reuse across supported services.
+                                                </Text>
                                             </View>
-                                            <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
-                                                Verify once and reuse across supported services.
-                                            </Text>
                                         </View>
-                                    </View>
-                                </View>)}
+                                    </View>)}
 
                                 {/* Status copy (non-initial only) */}
                                 {!isInitialStatus && (
@@ -1025,10 +1049,10 @@ const ValuAttestation = (props) => {
                                         <Text style={{ fontSize: 15, color: '#555', lineHeight: 21 }}>{statusMeta[status]?.body}</Text>
                                     </View>
                                 )}
-                                
+
                                 {/* old stage messages suppressed */}
                             </View>
-                            
+
                         </React.Fragment>
                     )}
                 </View>
@@ -1101,8 +1125,8 @@ const ValuAttestation = (props) => {
                                 <View style={{ width: 64 }} />
                             </View>
                             <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
-                                
-                                
+
+
                                 {/* Step 1 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
@@ -1110,7 +1134,7 @@ const ValuAttestation = (props) => {
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Choose or create your VerusID (included with the purchase).</Text>
                                 </View>
-                                
+
                                 {/* Step 2 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
@@ -1118,7 +1142,7 @@ const ValuAttestation = (props) => {
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Complete a quick one‑time identity check (ID + selfie).</Text>
                                 </View>
-                                
+
                                 {/* Step 3 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
@@ -1126,7 +1150,7 @@ const ValuAttestation = (props) => {
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>We issue a cryptographic proof bound to your VerusID—not your personal data.</Text>
                                 </View>
-                                
+
                                 {/* Step 4 */}
                                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}>
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
@@ -1134,9 +1158,9 @@ const ValuAttestation = (props) => {
                                     </View>
                                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Reuse this proof to verify in seconds across supported services.</Text>
                                 </View>
-                                
+
                                 <Text style={{ fontSize: 14, color: '#666', marginBottom: 24 }}>{'Estimated time: About 5–10 minutes'}</Text>
-                                
+
                                 {/* Got it button */}
                                 <Button
                                     onPress={() => setHowItWorksVisible(false)}
@@ -1275,7 +1299,7 @@ const ValuAttestation = (props) => {
                     </Dialog.Content>
                     <Dialog.Actions>
                         <Button onPress={() => setShowPendingIdentityModal(false)}>Cancel</Button>
-                        <Button 
+                        <Button
                             onPress={linkPendingIdentity}
                             mode="contained"
                             disabled={loading}
