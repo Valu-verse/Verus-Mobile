@@ -909,8 +909,6 @@ const ValuAttestation = (props) => {
                 style={Styles.fullWidth}
                 contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', alignItems: 'stretch' }}>
                 <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
-                contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between', alignItems: 'stretch' }}>
-                <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
                     {showIdentityProvisioningProgress ? (
                         <React.Fragment>
                             <Text style={{ fontSize: 30, textAlign: 'center', paddingBottom: 20 }}>
