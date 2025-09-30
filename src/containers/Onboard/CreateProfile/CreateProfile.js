@@ -8,6 +8,7 @@ import {arrayToObject} from '../../../utils/objectManip';
 import CreateWalletStackScreens from '../../CreateWallet/CreateWallet';
 import ChooseName from './Forms/ChooseName';
 import CreatePassword from './Forms/CreatePassword';
+import ConfirmPassword from './Forms/ConfirmPassword';
 import UseBiometrics from './Forms/UseBiometrics';
 import {KEY_DERIVATION_VERSION, SERVICES_DISABLED_DEFAULT} from '../../../../env/index';
 import {START_COINS, TEST_PROFILE_OVERRIDES} from '../../../utils/constants/constants';
@@ -147,6 +148,19 @@ export default function CreateProfileStackScreens(props) {
         }}>
         {() => (
           <CreatePassword
+            password={password}
+            setPassword={setPassword}
+            navigation={props.navigation}
+          />
+        )}
+      </CreateProfileStack.Screen>
+      <CreateProfileStack.Screen
+        name="ConfirmPassword"
+        options={{
+          headerShown: false,
+        }}>
+        {() => (
+          <ConfirmPassword
             password={password}
             setPassword={setPassword}
             navigation={props.navigation}

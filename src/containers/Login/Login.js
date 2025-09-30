@@ -6,6 +6,8 @@
     • Primary button uses contained, rounded style with NO shadow/glow.
     • Themed secondary button (outlined, rounded) for "Add a profile".
     • Consistent typography (font size, weight, casing) and height.
+  - Copy update (this edit):
+    • Renamed secondary CTA from "Add a profile" to "Create new profile".
 */
 import React, {useEffect} from 'react';
 import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
@@ -171,7 +173,7 @@ const Login = props => {
           borderWidth: 1,
           borderColor: Colors.primaryColor,
         }}>
-        {'Add a profile'}
+        {'Create new profile'}
       </TallButton>
     </SafeAreaView>
   );

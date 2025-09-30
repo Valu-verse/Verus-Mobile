@@ -50,12 +50,14 @@ export default function CreateWalletStackScreens({ navigation, createProfile }) 
         options={{
           headerShown: false,
         }}>
-        {() => (
+        {(routeProps) => (
           <ImportWalletStackScreens
             navigation={navigation}
             importedSeed={importedSeed}
             setImportedSeed={setImportedSeed}
             onComplete={() => completeSeedSetup(false)}
+            initialScreen={routeProps.route?.params?.initialScreen}
+            label={routeProps.route?.params?.label}
           />
         )}
       </CreateWalletStack.Screen>
