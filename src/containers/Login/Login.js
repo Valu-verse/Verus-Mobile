@@ -4,7 +4,8 @@
   - Behavior: Auth modal logic preserved; navigations unchanged.
   - Visual updates (this edit):
     • Primary button uses contained, rounded style with NO shadow/glow.
-    • Themed secondary button (outlined, rounded) for "Add a profile".
+    • Themed secondary button (outlined, rounded) for "Create new profile".
+
     • Consistent typography (font size, weight, casing) and height.
   - Copy update (this edit):
     • Renamed secondary CTA from "Add a profile" to "Create new profile".
