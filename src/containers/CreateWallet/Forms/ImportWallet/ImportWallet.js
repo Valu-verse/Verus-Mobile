@@ -10,10 +10,11 @@ export default function ImportWalletStackScreens({
   importedSeed,
   setImportedSeed,
   onComplete,
-  label
+  label,
+  initialScreen
 }) {
   return (
-    <ImportWalletStack.Navigator>
+    <ImportWalletStack.Navigator initialRouteName={initialScreen ? initialScreen : 'ImportIntro'}>
       <ImportWalletStack.Screen
         name="ImportIntro"
         options={{
