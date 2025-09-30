@@ -3,8 +3,8 @@
   - Purpose: Presents login options when at least one account exists on device.
   - Behavior: Auth modal logic preserved; navigations unchanged.
   - Visual updates (this edit):
-    • Apply same primary button style as LandingScreen (contained, rounded, shadowed).
-    • Add themed secondary button (outlined, rounded) for "Add a profile".
+    • Primary button uses contained, rounded style with NO shadow/glow.
+    • Themed secondary button (outlined, rounded) for "Add a profile".
     • Consistent typography (font size, weight, casing) and height.
 */
 import React, {useEffect} from 'react';
@@ -148,11 +148,11 @@ const Login = props => {
           width: 300,
           borderRadius: 24,
           backgroundColor: Colors.primaryColor,
-          elevation: 6,
-          shadowColor: Colors.primaryColor,
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 4 },
+          elevation: 0,
+          shadowColor: 'transparent',
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          shadowOffset: { width: 0, height: 0 },
         }}>
         {'Login'}
       </TallButton>

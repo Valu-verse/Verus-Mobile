@@ -2,26 +2,23 @@
 // Updated to improve space usage and readability:
 // - Removed maxWidth constraint on coin name for better text display
 // - Added middle ellipsis for long tickers (e.g., vUSDC.vETH)
-// - Repositioned subwallet badge to absolute top-right position
-// - Hide subwallet badge when count is 1, make it tappable
+// - Removed subwallet count badge and selector (users choose subwallet after opening currency)
 // - Removed link icon for cleaner design
 
 import BigNumber from 'bignumber.js';
 import React, {useState, useEffect} from 'react';
-import {View, Dimensions, Text, TouchableOpacity} from 'react-native';
-import {Avatar, Card, Paragraph, Portal} from 'react-native-paper';
+import {View, Dimensions} from 'react-native';
+import {Avatar, Card, Paragraph} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {getCoinLogo} from '../../../utils/CoinData/CoinData';
 import {USD} from '../../../utils/constants/currencies';
 import {GENERAL} from '../../../utils/constants/intervalConstants';
 import {formatCurrency} from 'react-native-format-currency';
-import SubWalletsLogo from '../../../images/customIcons/SubWallets.svg';
-import {extractDisplaySubWallets} from '../../../utils/subwallet/extractSubWallets';
+// Subwallet badge and selector removed
 import {normalizeNum} from '../../../utils/normalizeNum';
 import Colors from '../../../globals/colors';
-import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { coinsList } from '../../../utils/CoinData/CoinsList';
-import SubWalletSelectorModal from '../../SubWalletSelect/SubWalletSelectorModal';
+// import { useObjectSelector } from '../../../hooks/useObjectSelector';
+// import { coinsList } from '../../../utils/CoinData/CoinsList';
 import UsdcIcon from '../../../images/customIcons/usdc-icon.webp';
 
 const CurrencyWidget = props => {
@@ -52,11 +49,7 @@ const CurrencyWidget = props => {
   const themeColor = override?.backgroundColor || (coinObj.theme_color ? coinObj.theme_color : '#1C1C1C');
   const showBalance = useSelector(state => state.coins.showBalance);
 
-  const allSubwallets = useObjectSelector(state => extractDisplaySubWallets(state));
-  const subwalletCount = allSubwallets[coinObj.id] ? allSubwallets[coinObj.id].length : 1;
-  const shouldShowSubwalletBadge = subwalletCount > 1;
-
-  const [subWalletSelectorOpen, setSubWalletSelectorOpen] = useState(false);
+  // Subwallet badge removed; selection happens after opening currency
 
   const displayCurrency = useSelector(state =>
     state.settings.generalWalletSettings.displayCurrency
@@ -94,11 +87,7 @@ const CurrencyWidget = props => {
       : coinObj.display_name;
   if (override?.name) displayedName = override.name;
 
-  const handleSubwalletBadgePress = () => {
-    if (allSubwallets[coinObj.id]) {
-      setSubWalletSelectorOpen(true);
-    }
-  };
+  // Subwallet badge removed
 
   // Precompute secondary text to avoid deeply nested ternaries in JSX
   const secondaryTextHidden = (
@@ -141,30 +130,7 @@ const CurrencyWidget = props => {
       mode="elevated"
       elevation={5}>
       <Card.Content>
-        {/* Subwallet badge - absolute positioned */}
-        {shouldShowSubwalletBadge && (
-          <TouchableOpacity
-            onPress={handleSubwalletBadgePress}
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: override?.badgeBg || 'rgba(0, 0, 0, 0.2)',
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 10,
-              zIndex: 1,
-            }}
-            accessibilityLabel={`${subwalletCount} subwallets`}
-            accessibilityRole="button">
-            <Text style={{fontSize: 10, color: 'white', marginRight: 2}}>
-              {subwalletCount > 99 ? '99+' : subwalletCount}
-            </Text>
-            <SubWalletsLogo width={12} height={12} />
-          </TouchableOpacity>
-        )}
+        {/* Subwallet badge removed */}
 
         {/* Main content area */}
         <View
@@ -173,7 +139,7 @@ const CurrencyWidget = props => {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'flex-start',
-            paddingRight: shouldShowSubwalletBadge ? 40 : 0,
+            paddingRight: 0,
           }}>
           {override?.renderLogo ? (
             // Custom icon defined in override (keep its own sizing)
@@ -209,7 +175,7 @@ const CurrencyWidget = props => {
         </View>
 
         {!showBalance ? (
-          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 6, alignItems: 'flex-end' }}>
+          <View style={{ marginTop: 12, paddingRight: 6, alignItems: 'flex-end' }}>
             <Paragraph
              numberOfLines={1}
              style={{fontSize: 20, fontWeight: '700', color: override?.textColor || Colors.secondaryColor, letterSpacing: -0.05, textAlign: 'right'}}
@@ -230,7 +196,7 @@ const CurrencyWidget = props => {
             </Paragraph>
           </View>
         ) : (
-          <View style={{ marginTop: 12, paddingRight: shouldShowSubwalletBadge ? 40 : 6, alignItems: 'flex-end' }}>
+          <View style={{ marginTop: 12, paddingRight: 6, alignItems: 'flex-end' }}>
             <Paragraph
               numberOfLines={1}
               style={{fontSize: 20, fontWeight: '700', color: override?.textColor || Colors.secondaryColor, letterSpacing: -0.05, textAlign: 'right'}}>
@@ -249,23 +215,7 @@ const CurrencyWidget = props => {
         )}
       </Card.Content>
       
-      {/* SubWallet Selector Modal */}
-      <Portal>
-        {subWalletSelectorOpen && (
-          <SubWalletSelectorModal
-            visible={subWalletSelectorOpen}
-            chainTicker={coinObj.id}
-            cancel={() => setSubWalletSelectorOpen(false)}
-            animationType="slide"
-            subWallets={allSubwallets[coinObj.id] || []}
-            onSelect={(wallet) => {
-              setSubWalletSelectorOpen(false);
-              // Handle wallet selection if needed - for now just close
-            }}
-            displayTicker={coinObj.display_ticker}
-          />
-        )}
-      </Portal>
+      {/* SubWallet Selector Modal removed */}
     </Card>
   );
 };

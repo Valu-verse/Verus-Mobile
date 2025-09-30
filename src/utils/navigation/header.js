@@ -2,6 +2,9 @@
   Updated header defaults:
   - Header background set to white (Colors.secondaryColor)
   - Title and icons switched to black (Colors.quinaryColor)
+  Update 2025-09-29:
+  - Standardized margins for the show/hide balance icons so the icon
+    position doesn't shift when toggling between "eye" and "eye-off".
 */
 import {DrawerActions} from '@react-navigation/compat';
 import React from 'react';
@@ -62,7 +65,7 @@ const Header = () => {
               color={Colors.verusDarkGray}
               style={{
                 marginLeft: 5,
-                marginRight: 5,
+                marginRight: 10,
               }}
             />
           </TouchableOpacity>

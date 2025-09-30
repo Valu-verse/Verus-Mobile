@@ -413,7 +413,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                     : 'Select the address where you want to receive your vUSDC.'}
                 </Text>
                 <View>
-                  {addresses.map((addr) => {
+                  {(action === 'sell' ? addresses.filter((addr) => (addrBalanceMap[addr.id] || 0) > 0) : addresses).map((addr) => {
                     const amountNum = (addrBalanceMap[addr.id] || 0).toFixed(2);
                     return (
                       <List.Item
