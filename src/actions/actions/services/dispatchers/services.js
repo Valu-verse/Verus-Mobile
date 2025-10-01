@@ -81,8 +81,7 @@ export const initServiceStoredDataForUser = async (accountHash) => {
 
 export const resetServices = async () => {
   const CONNECTED_SERVICE_PROVIDERS = {
-    [WYRE_SERVICE_ID]: WyreProvider,
-    [VALU_SERVICE_ID]: ValuProvider
+    [WYRE_SERVICE_ID]: WyreProvider
   }
 
   for (const connectedService of CONNECTED_SERVICES) {    

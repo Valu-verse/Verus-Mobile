@@ -4,7 +4,7 @@ import { Keyboard, ScrollView, TouchableWithoutFeedback, View } from "react-nati
 import { Button, Checkbox, TextInput } from "react-native-paper";
 import { useSelector } from 'react-redux';
 import { initializeAccountData } from "../../../../actions/actionDispatchers";
-import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
+import AnimatedActivityIndicatorBox from "../../../AnimatedActivityIndicatorBox";
 import Colors from '../../../../globals/colors';
 import styles from "../../../../styles";
 import { SEND_MODAL_FORM_STEP_FORM, SEND_MODAL_FORM_STEP_RESULT, SEND_MODAL_USER_TO_AUTHENTICATE } from "../../../../utils/constants/sendModal";
