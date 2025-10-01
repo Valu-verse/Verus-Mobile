@@ -1,24 +1,34 @@
+/*
+  Updated ImportSeed screen:
+  - Top-aligned layout with left-aligned title (black) matching ChooseName.js
+  - Row-based 24-slot card layout with tap-to-edit functionality
+  - BIP39 word suggestions appear after 3 letters typed
+  - Horizontal scrollable suggestion chips
+  - Auto-advance to next empty slot after selecting suggestion
+  - Primary button matches design system (#CFEAF2 when disabled)
+*/
 import {validateMnemonic, wordlists} from 'bip39';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useRef} from 'react';
 import {
   View,
   Dimensions,
   Keyboard,
   TouchableOpacity,
-  TouchableHighlight,
   Platform,
+  SafeAreaView,
+  ScrollView,
+  TextInput as RNTextInput,
 } from 'react-native';
 import {
   Text,
   Button,
-  Paragraph,
-  TextInput,
+  Card,
   Chip,
-  TouchableRipple,
 } from 'react-native-paper';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import TallButton from '../../../../../components/LargerButton';
 import Colors from '../../../../../globals/colors';
+import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
 
 export default function ImportSeed({
   setImportedSeed,
@@ -29,15 +39,17 @@ export default function ImportSeed({
 
   const [currentWord, setCurrentWord] = useState('');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
 
   const wordlist = wordlists.EN;
 
-  const [words, setWords] = useState([]);
-  const [isValidMnemonic, setIsValidMnemonic] = useState(
-    validateMnemonic(importedSeed, wordlist),
-  );
+  const [words, setWords] = useState(Array(24).fill(''));
+  const [isValidMnemonic, setIsValidMnemonic] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
   const [keyboardOffset, setKeyboardOffset] = useState(0);
+  const cardScrollViewRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -52,7 +64,6 @@ export default function ImportSeed({
       () => setKeyboardOffset(0),
     );
 
-    // returned function will be called on component unmount
     return () => {
       keyboardDidShowListener.remove();
       keyboardDidHideListener.remove();
@@ -62,30 +73,52 @@ export default function ImportSeed({
   useEffect(() => {
     if (importedSeed != null && importedSeed.length > 0) {
       const seedSplit = importedSeed.split(' ');
-
-      for (const word of seedSplit) {
-        if (!wordlist.includes(word)) {
-          setImportedSeed('');
-          break;
+      const newWords = Array(24).fill('');
+      
+      for (let i = 0; i < Math.min(seedSplit.length, 24); i++) {
+        if (wordlist.includes(seedSplit[i])) {
+          newWords[i] = seedSplit[i];
         }
       }
 
-      setWords(importedSeed.split(' '));
-      setIsValidMnemonic(validateMnemonic(importedSeed, wordlist));
+      setWords(newWords);
+      
+      // Check if valid mnemonic
+      const filledWords = newWords.filter(w => w !== '');
+      if (filledWords.length === 24) {
+        setIsValidMnemonic(validateMnemonic(newWords.join(' '), wordlist));
+      } else {
+        setIsValidMnemonic(false);
+      }
     } else {
-      setWords([]);
+      setWords(Array(24).fill(''));
       setIsValidMnemonic(false);
     }
   }, [importedSeed]);
 
   useEffect(() => {
-    setCurrentWord(words[currentWordIndex] ? words[currentWordIndex] : '');
+    setCurrentWord(words[currentWordIndex] || '');
   }, [currentWordIndex]);
 
+  // Update suggestions when currentWord changes
+  useEffect(() => {
+    if (currentWord.length >= 3) {
+      const cleanWord = currentWord.toLowerCase().trim();
+      const matches = wordlist.filter(w => w.startsWith(cleanWord));
+      setSuggestions(matches);
+    } else {
+      setSuggestions([]);
+    }
+  }, [currentWord]);
+
   const handleImport = () => {
-    if (!importedSeed || importedSeed.length < 1) {
+    const filledWords = words.filter(w => w !== '');
+    
+    if (filledWords.length === 0) {
       createAlert('Error', 'Please enter a mnemonic seed.');
-    } else if (!validateMnemonic(importedSeed, wordlist)) {
+    } else if (filledWords.length < 24) {
+      createAlert('Error', 'Please enter all 24 words.');
+    } else if (!validateMnemonic(words.join(' '), wordlist)) {
       createAlert('Error', 'Invalid mnemonic seed.');
     } else {
       onComplete();
@@ -102,149 +135,271 @@ export default function ImportSeed({
       return;
     }
 
-    if (currentWordIndex >= words.length) {
-      const newImportedSeed =
-        importedSeed == null || importedSeed.length == 0
-          ? fullWord
-          : importedSeed + ' ' + fullWord;
+    const newWords = [...words];
+    newWords[currentWordIndex] = fullWord;
+    setWords(newWords);
+    setImportedSeed(newWords.join(' '));
 
-      setImportedSeed(newImportedSeed);
-
-      const newWords = newImportedSeed.split(' ');
-
-      if (newWords.length == 24) {
-        Keyboard.dismiss();
-      } else {
-        setCurrentWordIndex(newImportedSeed.split(' ').length);
+    // Auto-advance to next empty slot
+    const nextEmptyIndex = newWords.findIndex((w, i) => i > currentWordIndex && w === '');
+    if (nextEmptyIndex !== -1) {
+      setCurrentWordIndex(nextEmptyIndex);
+      scrollToRow(nextEmptyIndex);
+    } else if (newWords.filter(w => w !== '').length < 24) {
+      // If no empty slots after current, find first empty slot
+      const firstEmptyIndex = newWords.findIndex(w => w === '');
+      if (firstEmptyIndex !== -1) {
+        setCurrentWordIndex(firstEmptyIndex);
+        scrollToRow(firstEmptyIndex);
       }
     } else {
-      const newImportedSeedArr =
-        importedSeed != null ? importedSeed.split(' ') : [];
-
-      newImportedSeedArr[currentWordIndex] = fullWord;
-      setImportedSeed(newImportedSeedArr.join(' '));
-
+      // All slots filled
       Keyboard.dismiss();
+    }
+
+    setCurrentWord('');
+    setSuggestions([]);
+  };
+
+  const selectSuggestion = word => {
+    addWord(word);
+  };
+
+  const selectRow = index => {
+    setCurrentWordIndex(index);
+    scrollToRow(index);
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
   };
 
+  const scrollToRow = index => {
+    if (cardScrollViewRef.current) {
+      // Scroll to approximate position (40px per row)
+      cardScrollViewRef.current.scrollTo({y: index * 40, animated: true});
+    }
+  };
+
+  const getNextEmptySlotIndex = () => {
+    const index = words.findIndex(w => w === '');
+    return index === -1 ? 23 : index;
+  };
+
   return (
-    <View
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        flex: 1,
-        alignItems: 'center',
-        backgroundColor: Colors.secondaryColor,
-      }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
       <View
         style={{
-          alignItems: 'center',
-          position: 'absolute',
-          top:
-            Platform.OS !== 'ios' && keyboardOffset !== 0
-              ? 0
-              : height / 2 - 250,
+          flex: 1,
+          backgroundColor: Colors.secondaryColor,
+          paddingHorizontal: 24,
+          paddingTop: height < SMALL_DEVICE_HEGHT ? 40 : 60,
         }}>
+        {/* Title - top-aligned, left-aligned, black */}
         <Text
           style={{
-            textAlign: 'center',
-            color: Colors.primaryColor,
-            fontSize: 28,
-            fontWeight: 'bold',
+            textAlign: 'left',
+            color: '#1A1A1A',
+            fontSize: 32,
+            fontWeight: '700',
+            letterSpacing: -0.5,
+            marginBottom: 12,
           }}>
-          {'Import 24-word Seed'}
+          {'Import 24-word seed'}
         </Text>
-        <View
+
+        {/* Subtitle - left-aligned, improved typography */}
+        <Text
           style={{
-            justifyContent: 'flex-start',
-            minWidth: '86%',
-            maxWidth: '86%',
-            flexDirection: 'row',
-            marginTop: keyboardOffset !== 0 ? 8 : 64,
-            flexWrap: 'wrap',
+            textAlign: 'left',
+            fontSize: 16,
+            lineHeight: 22,
+            color: '#555',
+            marginBottom: 24,
           }}>
-          {words.map((word, index) => (
-            <TouchableOpacity onPress={() => setCurrentWordIndex(index)}>
-              <Chip
-                style={{
-                  margin: 2,
-                }}
-                selected={currentWordIndex === index}>{`${
-                index + 1
-              }. ${word}`}</Chip>
-            </TouchableOpacity>
-          ))}
-          {words.length > 0 && words.length < 24 && (
-            <TouchableOpacity onPress={() => setCurrentWordIndex(words.length)}>
-              <Chip
-                selected={currentWordIndex === words.length}
-                style={{margin: 2}}>
-                {'+ Add Word'}
-              </Chip>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-      <View
-        style={
-          keyboardOffset !== 0
-            ? {
-                position: 'absolute',
-                bottom: Platform.OS === 'ios' ? keyboardOffset + 16 : 16,
-                width: '75%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            : {
-                position: 'absolute',
-                top: height / 2 - 210,
-                width: '75%',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-        }>
-        <TextInput
-          onChangeText={text => setCurrentWord(text)}
-          label={`Word ${currentWordIndex + 1}`}
-          underlineColor={Colors.primaryColor}
-          selectionColor={Colors.primaryColor}
-          autoCapitalize={'none'}
-          autoCorrect={false}
-          autoComplete="off"
-          value={currentWord}
-          dense
+          {'Tap a slot to enter or edit that word.'}
+        </Text>
+
+        {/* 24-row card */}
+        <Card
           mode="outlined"
           style={{
-            width: 180,
-          }}
-        />
-        <Button
-          onPress={() => addWord(currentWord)}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold', fontSize: 16}}
-          style={{height: 41, marginTop: 6, width: 80, marginLeft: 8}}
-          disabled={currentWord == null || currentWord.length == 0}>
-          {'Next'}
-        </Button>
-      </View>
-      {keyboardOffset === 0 && (
-        <TallButton
-          onPress={handleImport}
-          mode="contained"
-          labelStyle={{fontWeight: 'bold'}}
-          disabled={!isValidMnemonic}
-          style={{
-            position: 'absolute',
-            bottom: 80,
-            width: 280,
+            borderRadius: 12,
+            backgroundColor: '#FAFAFA',
+            borderWidth: 1,
+            borderColor: '#E0E0E0',
+            marginBottom: 16,
+            height: keyboardOffset !== 0 ? 200 : 320,
           }}>
-          {'Import'}
-        </TallButton>
-      )}
-    </View>
+          <ScrollView
+            ref={cardScrollViewRef}
+            contentContainerStyle={{padding: 8}}>
+            {words.map((word, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectRow(index)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderRadius: 8,
+                  marginBottom: 4,
+                  backgroundColor:
+                    currentWordIndex === index
+                      ? Colors.primaryColor + '15'
+                      : 'transparent',
+                  borderWidth: currentWordIndex === index ? 1 : 0,
+                  borderColor:
+                    currentWordIndex === index ? Colors.primaryColor : 'transparent',
+                }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: '#888',
+                    width: 32,
+                  }}>
+                  {`${index + 1}.`}
+                </Text>
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: word ? '600' : '400',
+                    color: word ? '#1A1A1A' : '#CCC',
+                    flex: 1,
+                  }}>
+                  {word || 'Tap to add'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </Card>
+
+        {/* Input section */}
+        <View style={{marginBottom: 16}}>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '600',
+              color: '#1A1A1A',
+              marginBottom: 8,
+            }}>
+            {`Word ${currentWordIndex + 1}`}
+          </Text>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <RNTextInput
+              ref={inputRef}
+              value={currentWord}
+              onChangeText={setCurrentWord}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder="Type at least 3 letters..."
+              placeholderTextColor="#999"
+              returnKeyType="done"
+              autoCorrect={false}
+              autoCapitalize="none"
+              spellCheck={false}
+              onSubmitEditing={() => addWord(currentWord)}
+              style={{
+                flex: 1,
+                height: 48,
+                borderRadius: 12,
+                borderWidth: 2,
+                borderColor: isFocused ? Colors.primaryColor : '#E0E0E0',
+                paddingHorizontal: 16,
+                fontSize: 16,
+                color: '#1A1A1A',
+                backgroundColor: '#FAFAFA',
+              }}
+            />
+            <Button
+              onPress={() => addWord(currentWord)}
+              mode="contained"
+              labelStyle={{
+                fontWeight: '600',
+                fontSize: 14,
+                textTransform: 'none',
+              }}
+              style={{
+                height: 48,
+                marginLeft: 8,
+                borderRadius: 12,
+                justifyContent: 'center',
+              }}
+              disabled={currentWord == null || currentWord.length === 0}>
+              {'Next'}
+            </Button>
+          </View>
+        </View>
+
+        {/* Suggestions */}
+        {suggestions.length > 0 && (
+          <View style={{marginBottom: 16}}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{paddingVertical: 4}}>
+              {suggestions.map((suggestion, index) => (
+                <Chip
+                  key={index}
+                  mode="outlined"
+                  onPress={() => selectSuggestion(suggestion)}
+                  style={{
+                    marginRight: 8,
+                    backgroundColor: Colors.secondaryColor,
+                    borderColor: Colors.primaryColor,
+                  }}
+                  textStyle={{
+                    fontSize: 14,
+                    color: Colors.primaryColor,
+                  }}>
+                  {suggestion}
+                </Chip>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Spacer */}
+        <View style={{flex: 1}} />
+
+        {/* Import button */}
+        {keyboardOffset === 0 && (
+          <TallButton
+            onPress={handleImport}
+            mode="contained"
+            labelStyle={[
+              {
+                color: Colors.secondaryColor,
+                fontWeight: '600',
+                fontSize: 18,
+                letterSpacing: 0,
+                textTransform: 'none',
+              },
+              !isValidMnemonic ? {color: '#F0F9FC'} : null,
+            ]}
+            contentStyle={{height: 56}}
+            disabled={!isValidMnemonic}
+            style={[
+              {
+                width: '100%',
+                borderRadius: 24,
+                backgroundColor: Colors.primaryColor,
+                elevation: 0,
+                shadowColor: 'transparent',
+                shadowOpacity: 0,
+                shadowRadius: 0,
+                shadowOffset: {width: 0, height: 0},
+                marginBottom: 24,
+              },
+              !isValidMnemonic && {
+                backgroundColor: '#CFEAF2',
+              },
+            ]}>
+            {'Import'}
+          </TallButton>
+        )}
+      </View>
+    </SafeAreaView>
   );
 }

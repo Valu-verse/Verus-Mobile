@@ -210,78 +210,62 @@ class ValuOffRampChooseSource extends Component {
   async startOnRamp() {
     // Extra safety: prevent starting if an inline error is present or amount is empty
     if (this.state.error != null || this.state.amount === "") return;
-    createAlert(
-      "Terms and Conditions",
-      "By proceeding with this transaction, you acknowledge and agree that the vUSDC you send will be automatically converted to Polygon USDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
-      [
-        {
-          text: 'Cancel',
-          onPress: () => resolveAlert(false),
-          style: 'cancel',
-        },
-        {
-          text: 'Accept & Proceed', 
-          onPress: async () => {
-            try {
-              const { options, radioValue, amount, taxCountry } = this.state;
-              const reply = await ValuProvider.getOffRampURL({ 
-                option: options[radioValue], 
-                amount, 
-                countryCode: taxCountry.country,
-                address: this.state.chosenAddress.id,
-                partnerUserId: this.state.partnerUserId
-              });
+    try {
+      const { options, radioValue, amount, taxCountry } = this.state;
+      const reply = await ValuProvider.getOffRampURL({
+        option: options[radioValue],
+        amount,
+        countryCode: taxCountry.country,
+        address: this.state.chosenAddress.id,
+        partnerUserId: this.state.partnerUserId
+      });
 
-              initiateOfframpRequest({requestId: reply.requestId, status: 'AWAITING_PAYMENT', 
-                url: `${VALU_URL}/offramp/userpaymentcheck?requestId=${reply.requestId}&OffRampLastStep=true` });
+      initiateOfframpRequest({
+        requestId: reply.requestId,
+        status: 'AWAITING_PAYMENT',
+        url: `${VALU_URL}/offramp/userpaymentcheck?requestId=${reply.requestId}&OffRampLastStep=true`
+      });
 
-              if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(reply.url, {
-                  // iOS Properties
-                  dismissButtonStyle: 'cancel',
-                  preferredBarTintColor: '#00A1CC',
-                  preferredControlTintColor: 'white',
-                  readerMode: false,
-                  animated: true,
-                  modalPresentationStyle: 'fullScreen',
-                  modalTransitionStyle: 'coverVertical',
-                  modalEnabled: true,
-                  enableBarCollapsing: false,
-                  // Android Properties
-                  showTitle: false,
-                  toolbarColor: '#00A1CC',
-                  secondaryToolbarColor: 'black',
-                  navigationBarColor: 'black',
-                  navigationBarDividerColor: 'white',
-                  enableUrlBarHiding: true,
-                  enableDefaultShare: false,
-                  forceCloseOnRedirection: false,
-                  hasBackButton: false,  // Prevent back button from closing the browser
-                  waitForRedirectDelay: 500, // Give redirects more time to process
-                  showInRecents: true,   // Keep in Android recents
-                  ephemeralWebSession: false, // Maintain cookies and session data
-                  animations: {
-                    startEnter: 'slide_in_right',
-                    startExit: 'slide_out_left',
-                    endEnter: 'slide_in_left',
-                    endExit: 'slide_out_right'
-                  }
-                });
-                this.resetToScreen();
-              } else {
-                Linking.openURL(reply.url);
-              }
-              resolveAlert(true);
-            } catch (error) {
-              console.error("Error starting off-ramp:", error);
-              Alert.alert("Error", "Failed to start the sell process. Please try again.");
-              resolveAlert(false);
-            }
+      if (await InAppBrowser.isAvailable()) {
+        InAppBrowser.open(reply.url, {
+          // iOS Properties
+          dismissButtonStyle: 'cancel',
+          preferredBarTintColor: '#00A1CC',
+          preferredControlTintColor: 'white',
+          readerMode: false,
+          animated: true,
+          modalPresentationStyle: 'fullScreen',
+          modalTransitionStyle: 'coverVertical',
+          modalEnabled: true,
+          enableBarCollapsing: false,
+          // Android Properties
+          showTitle: false,
+          toolbarColor: '#00A1CC',
+          secondaryToolbarColor: 'black',
+          navigationBarColor: 'black',
+          navigationBarDividerColor: 'white',
+          enableUrlBarHiding: true,
+          enableDefaultShare: false,
+          forceCloseOnRedirection: false,
+          hasBackButton: false,  // Prevent back button from closing the browser
+          waitForRedirectDelay: 500, // Give redirects more time to process
+          showInRecents: true,   // Keep in Android recents
+          ephemeralWebSession: false, // Maintain cookies and session data
+          animations: {
+            startEnter: 'slide_in_right',
+            startExit: 'slide_out_left',
+            endEnter: 'slide_in_left',
+            endExit: 'slide_out_right'
           }
-        },
-      ],
-      { cancelable: true }
-    );
+        });
+        this.resetToScreen();
+      } else {
+        Linking.openURL(reply.url);
+      }
+    } catch (error) {
+      console.error("Error starting off-ramp:", error);
+      Alert.alert("Error", "Failed to start the sell process. Please try again.");
+    }
   }
 
   validateAmount(value, min, max) {
