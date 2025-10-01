@@ -58,6 +58,7 @@ import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatch
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiateOnrampRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
+import { saveGeneralSettings } from "../../../../../actions/actionCreators";
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
@@ -258,77 +259,98 @@ class ValuOnRampChooseSource extends Component {
   async startOnRamp() {
     // Extra safety: prevent starting if an inline error is present or amount is empty
     if (this.state.error != null || this.state.amount === "") return;
-    createAlert(
-      "Terms and Conditions",
-      "By proceeding with this transaction, you acknowledge and agree that the Polygon tokens you are purchasing will be automatically converted into vUSDC. \n\nThis conversion is conducted on a 1:1 basis and is required to facilitate seamless transactions within our platform.\n\nFor more details, please review our [Terms & Conditions] and/or [FAQ] section.",
-      [
-        {
-          text: 'Cancel',
-          onPress: () => resolveAlert(false),
-          style: 'cancel',
-        },
-        {
-          text: 'Accept & Proceed', 
-          onPress: async () => {
-            try {
-              const { options, radioValue, amount, taxCountry } = this.state;
-              const reply = await ValuProvider.getOnRampURL({ 
-                option: options[radioValue], 
-                amount, 
-                countryCode: taxCountry.country,
-                address: this.state.chosenAddress.id,
-                partnerUserId: this.state.partnerUserId
-              });
 
-              initiateOnrampRequest(reply.requestId, reply.details);
+    const continueToCheckout = async () => {
+      try {
+        const { options, radioValue, amount, taxCountry } = this.state;
+        const reply = await ValuProvider.getOnRampURL({
+          option: options[radioValue],
+          amount,
+          countryCode: taxCountry.country,
+          address: this.state.chosenAddress.id,
+          partnerUserId: this.state.partnerUserId
+        });
 
-              if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(reply.url, {
-                  // iOS Properties
-                  dismissButtonStyle: 'cancel',
-                  preferredBarTintColor: '#00A1CC',
-                  preferredControlTintColor: 'white',
-                  readerMode: false,
-                  animated: true,
-                  modalPresentationStyle: 'fullScreen',
-                  modalTransitionStyle: 'coverVertical',
-                  modalEnabled: true,
-                  enableBarCollapsing: false,
-                  // Android Properties
-                  showTitle: false,
-                  toolbarColor: '#00A1CC',
-                  secondaryToolbarColor: 'black',
-                  navigationBarColor: 'black',
-                  navigationBarDividerColor: 'white',
-                  enableUrlBarHiding: true,
-                  enableDefaultShare: false,
-                  forceCloseOnRedirection: false,
-                  hasBackButton: false,  // Prevent back button from closing the browser
-                  waitForRedirectDelay: 500, // Give redirects more time to process
-                  showInRecents: true,   // Keep in Android recents
-                  ephemeralWebSession: false, // Maintain cookies and session data
-                  animations: {
-                    startEnter: 'slide_in_right',
-                    startExit: 'slide_out_left',
-                    endEnter: 'slide_in_left',
-                    endExit: 'slide_out_right'
-                  }
-                });
-                this.resetToScreen();
-              } else {
-                Linking.openURL(reply.url);
+        initiateOnrampRequest(reply.requestId, reply.details);
+
+        if (await InAppBrowser.isAvailable()) {
+          InAppBrowser.open(reply.url, {
+            // iOS Properties
+            dismissButtonStyle: 'cancel',
+            preferredBarTintColor: '#00A1CC',
+            preferredControlTintColor: 'white',
+            readerMode: false,
+            animated: true,
+            modalPresentationStyle: 'fullScreen',
+            modalTransitionStyle: 'coverVertical',
+            modalEnabled: true,
+            enableBarCollapsing: false,
+            // Android Properties
+            showTitle: false,
+            toolbarColor: '#00A1CC',
+            secondaryToolbarColor: 'black',
+            navigationBarColor: 'black',
+            navigationBarDividerColor: 'white',
+            enableUrlBarHiding: true,
+            enableDefaultShare: false,
+            forceCloseOnRedirection: false,
+            hasBackButton: false,  // Prevent back button from closing the browser
+            waitForRedirectDelay: 500, // Give redirects more time to process
+            showInRecents: true,   // Keep in Android recents
+            ephemeralWebSession: false, // Maintain cookies and session data
+            animations: {
+              startEnter: 'slide_in_right',
+              startExit: 'slide_out_left',
+              endEnter: 'slide_in_left',
+              endExit: 'slide_out_right'
+            }
+          });
+          this.resetToScreen();
+        } else {
+          Linking.openURL(reply.url);
+        }
+      } catch (error) {
+        console.error("Error starting on-ramp:", error);
+        Alert.alert("Error", "Failed to start the purchase process. Please try again.");
+      }
+    };
+
+    const hasAccepted = this.props.generalWalletSettings &&
+      this.props.generalWalletSettings.valuOnrampDisclosureAcceptedV1 === true;
+
+    if (!hasAccepted) {
+      createAlert(
+        "Before you continue",
+        "• Checkout runs on Polygon behind the scenes.\n\n" +
+        "• We convert your purchase to vUSDC at a 1:1 rate.\n\n" +
+        "• vUSDC is deposited to your Valu wallet; no Polygon wallet or gas needed.",
+        [
+          {
+            text: 'Cancel',
+            onPress: () => resolveAlert(false),
+            style: 'cancel',
+          },
+          {
+            text: 'Got it',
+            onPress: async () => {
+              try {
+                await this.props.dispatch(await saveGeneralSettings({ valuOnrampDisclosureAcceptedV1: true }));
+              } catch(e) {
+                // Non-fatal if persistence fails; still continue
+                console.warn('Failed to persist on-ramp disclosure acceptance', e);
               }
               resolveAlert(true);
-            } catch (error) {
-              console.error("Error starting on-ramp:", error);
-              Alert.alert("Error", "Failed to start the purchase process. Please try again.");
-              resolveAlert(false);
+              continueToCheckout();
             }
-          }
-        },
-      ],
-      { cancelable: true }
-    );
+          },
+        ],
+        { cancelable: true }
+      );
+      return;
+    }
+
+    // Already accepted
+    await continueToCheckout();
   }
 
   validateAmount(value, min, max) {
@@ -1083,6 +1105,7 @@ const mapStateToProps = (state) => ({
   allSubWallets: state.coinMenus.allSubWallets,
   valuService: state.channelStore_valu_service,
   allBalances: state.ledger.balances,
+  generalWalletSettings: state.settings.generalWalletSettings,
 });
 
 export default connect(mapStateToProps)(ValuOnRampChooseSource);
