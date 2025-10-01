@@ -1,11 +1,12 @@
 /*
-  ValuAttestation (first-screen UX update)
-  - Rename and refocus: Big gradient title "Proof of Personhood" (uses AttestationWidget gradient)
-  - Remove header image and blue-heavy styling; neutral copy and layout
-  - Update price to $9.99 and improve first-visit explanation
+  ValuAttestation (UX updates)
+  - Big gradient title "Proof of Personhood"; neutral layout and copy
+  - Price updated to $9.99 and improved first-visit explanation
   - Primary button mirrors LandingScreen primary (no glow/shadow)
-  - Add "How it works" semi-modal using BuySellSheet modal styling (SemiModal)
-  - No pre-start confirmation dialog; rest of flow unchanged
+  - "How it works" semi-modal using BuySellSheet modal styling (SemiModal)
+  - When Proof of Personhood is received (POP_RECEIVED):
+    • CTA label changed to "View my Proof of Personhood"
+    • Button navigates directly to Attestations list (not Services)
 */
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
@@ -40,7 +41,7 @@ import {
 } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
-import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
+import { VALU_SERVICE_ID, ATTESTATION_SERVICE_ID } from "../../../../../utils/constants/services";
 import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { setServiceLoading } from "../../../../../actions/actionCreators";
 import { updatePendingVerusIds } from "../../../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager"
@@ -94,7 +95,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
         [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
         [VALU_POL_PENDING]: "CONTINUE",
-        [POP_RECEIVED]: "Go to Attestations",
+        [POP_RECEIVED]: "View my Proof of Personhood",
 
     }
 
@@ -201,6 +202,25 @@ const ValuAttestation = (props) => {
         }
         throw error;
     };
+
+    // Navigate to Attestations list (robust across nested navigators)
+    const navigateToAttestations = () => {
+        const parentNav = props.navigation?.getParent?.() || null;
+        if (parentNav) {
+            parentNav.navigate('ServicesHome', {
+                screen: 'Service',
+                params: { service: ATTESTATION_SERVICE_ID },
+            });
+            return;
+        }
+
+        // Fallbacks if not inside ServicesHome parent
+        if (props.navigation?.replace) {
+            props.navigation.replace('Service', { service: ATTESTATION_SERVICE_ID });
+        } else {
+            props.navigation.navigate('Service', { service: ATTESTATION_SERVICE_ID });
+        }
+    }
 
     // New function to continue with proof of personhood
     const continueProofOfPersonhood = async (identityInfo) => {
@@ -853,13 +873,9 @@ const ValuAttestation = (props) => {
                     updateDeeplinkUrl(newRep.data);
                 }
             } else if (status === POP_RECEIVED) {
-                // User already has Proof of Personhood attestation, navigate to attestations
+                // User already has Proof of Personhood attestation, navigate to Attestations list
                 setLoading(false);
-                // Reset navigation history and navigate to Services
-                props.navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'ServicesHome' }],
-                });
+                navigateToAttestations();
             }
         } catch (e) {
             console.log("startOnRamp error", e)
@@ -910,7 +926,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
         [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
         [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' },
-        [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'Go to Attestations' }
+        [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'View my Proof of Personhood' }
     };
     const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
 
@@ -1064,9 +1080,11 @@ const ValuAttestation = (props) => {
                         </View>
                     ) : (
                         <React.Fragment>
-                            <TouchableOpacity onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7} style={{ marginBottom: 16 }}>
-                                <Text style={{ fontSize: 14, color: '#666', textDecorationLine: 'underline', textAlign: 'center' }}>{'How it works'}</Text>
-                            </TouchableOpacity>
+                            {status !== POP_RECEIVED && (
+                                <TouchableOpacity onPress={() => setHowItWorksVisible(true)} activeOpacity={0.7} style={{ marginBottom: 16 }}>
+                                    <Text style={{ fontSize: 14, color: '#666', textDecorationLine: 'underline', textAlign: 'center' }}>{'How it works'}</Text>
+                                </TouchableOpacity>
+                            )}
                             <View style={{ paddingHorizontal: 20, paddingBottom: 24, width: '100%', alignSelf: 'stretch' }}>
                                 <Button
                                     onPress={() => { startOnRamp() }}

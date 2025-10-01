@@ -1,7 +1,7 @@
 /*
   AttestationWidget
   - Redesign: Valu brand gradient background
-  - Copy only: "Get your Proof of Personhood" (icons removed)
+  - Copy only: "Get your Proof of Personhood" / "View my Proof of Personhood"
   - Implemented gradient using react-native-svg to avoid adding new dependencies
 */
 import React from 'react';
@@ -17,7 +17,7 @@ const AttestationWidget = props => {
 
     // Determine the text based on whether user has the attestation
     const widgetText = hasValuProofOfPersonhood 
-        ? 'View your Proof of Personhood' 
+        ? 'View my Proof of Personhood' 
         : 'Get your Proof of Personhood';
 
     return (
