@@ -20,7 +20,11 @@ const DEFAULT_GENERIC_PASSWORD_KEY = 'default'
 
 const getInternetCredential = async (credentialKey, title) => {
   const credentials = await Keychain.getInternetCredentials(credentialKey, INCLUDE_SERVICE ? {
+<<<<<<< HEAD
     service: 'com.verus.valumobile',
+=======
+    service: 'com.verus.verusmobile',
+>>>>>>> upstream/master
     authenticationPrompt: { title }
   } : {
     authenticationPrompt: { title }
@@ -144,6 +148,21 @@ export const removeBiometricCredential = () => {
 }
 
 export const getLegacyBiometricData = async (title = "Authenticate to retrieve password") => {
+<<<<<<< HEAD
+=======
+  const credentials = await Keychain.getGenericPassword(INCLUDE_SERVICE ? {
+    service: 'com.verus.verusmobile',
+    authenticationPrompt: { title }
+  } : {
+    authenticationPrompt: { title }
+  });
+
+  if (credentials != null) return (JSON.parse(credentials.password))
+  else throw new Error("Biometric authentication not enabled on this device!")
+}
+
+export const getLegacyBiometricPassword = async (accountHash, title = "Authenticate to retrieve password") => {
+>>>>>>> upstream/master
   const credentials = await Keychain.getGenericPassword(INCLUDE_SERVICE ? {
     service: 'com.verus.valumobile',
     authenticationPrompt: { title }
@@ -235,6 +254,17 @@ export const removeLegacyBiometricPassword = async (accountHash) => {
 export const removeAllLegacyBiometricPasswords = async () => {
   await Keychain.setGenericPassword(INTERNAL_APP_ID, "{}", INCLUDE_SERVICE ? {
     service: 'com.verus.valumobile',
+    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+    accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
+  } : {
+    accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
+    accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
+  })
+}
+
+export const removeAllLegacyBiometricPasswords = async () => {
+  await Keychain.setGenericPassword(INTERNAL_APP_ID, "{}", INCLUDE_SERVICE ? {
+    service: 'com.verus.verusmobile',
     accessControl: Keychain.ACCESS_CONTROL.BIOMETRY_ANY,
     accessible: Keychain.ACCESSIBLE.WHEN_PASSCODE_SET_THIS_DEVICE_ONLY
   } : {

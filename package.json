@@ -1,6 +1,6 @@
 {
-  "name": "valumobile",
-  "version": "1.0.31",
+  "name": "verusmobile",
+  "version": "1.0.33",
   "private": true,
   "scripts": {
     "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@bitgo/utxo-lib": "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus",
+    "@noble/curves": "1.9.7",
     "@noble/curves": "1.9.7",
     "@react-native-async-storage/async-storage": "2.0.0",
     "@react-native-camera-roll/camera-roll": "5.0.4",
@@ -47,7 +48,9 @@
     "domain-browser": "1.1.1",
     "ethereumjs-util": "6.0.0",
     "ethers": "git+https://github.com/VerusCoin/ethers.js.git",
+    "ethers": "git+https://github.com/VerusCoin/ethers.js.git",
     "events": "1.0.0",
+    "fast-text-encoding": "1.0.6",
     "fast-text-encoding": "1.0.6",
     "https-browserify": "0.0.0",
     "immutable": "4.0.0-rc.12",
@@ -55,6 +58,7 @@
     "lottie-react-native": "5.1.4",
     "moment": "2.29.4",
     "normalizr": "3.6.0",
+    "path-browserify": "1.0.1",
     "path-browserify": "1.0.1",
     "process": "0.11.10",
     "prop-types": "15.7.2",
@@ -66,6 +70,7 @@
     "react-native-app-intro-slider": "4.0.4",
     "react-native-barcode-mask": "1.2.4",
     "react-native-cache": "git+https://github.com/VerusCoin/react-native-cache.git",
+    "react-native-crypto": "2.2.1",
     "react-native-dialog": "5.6.0",
     "react-native-elements": "1.0.0",
     "react-native-format-currency": "https://github.com/VerusCoin/react-native-format-currency.git",
