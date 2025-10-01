@@ -873,9 +873,17 @@ const ValuAttestation = (props) => {
                     updateDeeplinkUrl(newRep.data);
                 }
             } else if (status === POP_RECEIVED) {
-                // User already has Proof of Personhood attestation, navigate to Attestations list
+                // User already has Proof of Personhood attestation, navigate to Services list
                 setLoading(false);
-                navigateToAttestations();
+                const parentNav = props.navigation?.getParent?.() || null;
+                if (parentNav) {
+                    parentNav.navigate('ServicesHome', { screen: 'Services' });
+                } else if (props.navigation?.popToTop) {
+                    props.navigation.popToTop();
+                    props.navigation.navigate('Services');
+                } else {
+                    props.navigation.navigate('Services');
+                }
             }
         } catch (e) {
             console.log("startOnRamp error", e)
