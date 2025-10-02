@@ -144,6 +144,7 @@ export const removeBiometricCredential = () => {
 }
 
 export const getLegacyBiometricData = async (title = "Authenticate to retrieve password") => {
+
   const credentials = await Keychain.getGenericPassword(INCLUDE_SERVICE ? {
     service: 'com.verus.valumobile',
     authenticationPrompt: { title }

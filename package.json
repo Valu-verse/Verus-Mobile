@@ -1,6 +1,6 @@
 {
-  "name": "valumobile",
-  "version": "1.0.31",
+  "name": "verusmobile",
+  "version": "1.0.33",
   "private": true,
   "scripts": {
     "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
@@ -66,6 +66,7 @@
     "react-native-app-intro-slider": "4.0.4",
     "react-native-barcode-mask": "1.2.4",
     "react-native-cache": "git+https://github.com/VerusCoin/react-native-cache.git",
+    "react-native-crypto": "2.2.1",
     "react-native-dialog": "5.6.0",
     "react-native-elements": "1.0.0",
     "react-native-format-currency": "https://github.com/VerusCoin/react-native-format-currency.git",

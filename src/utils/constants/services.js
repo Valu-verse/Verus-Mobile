@@ -25,10 +25,6 @@ export const CONNECTED_SERVICE_DISPLAY_INFO = {
     title: "Attestations",
     description: "Stored attestations that can be used to prove information about you to services you use",
     decentralized: true
-  },
-  [VALU_SERVICE_ID]: {
-    title: "VALU",
-    description: "Connect to Valu's Fiat On-ramps, ValuVerse and KYC Attesation Services."
   }
 }
 
@@ -36,7 +32,7 @@ export const CONNECTED_SERVICE_CHANNELS = {
   [WYRE_SERVICE_ID]: WYRE_SERVICE
 }
 
-export const CONNECTED_SERVICES = [VERUSID_SERVICE_ID, /*PBAAS_PRECONVERT_SERVICE_ID ,*/ WYRE_SERVICE_ID, ATTESTATION_SERVICE_ID, VALU_SERVICE_ID]
+export const CONNECTED_SERVICES = [VERUSID_SERVICE_ID, /*PBAAS_PRECONVERT_SERVICE_ID ,*/ WYRE_SERVICE_ID, ATTESTATION_SERVICE_ID]
 
 // Wyre specific constants
 export const WYRE_INDIVIDUAL_NAME = 'individualLegalName'
