@@ -1,3 +1,8 @@
+/*
+  Update (2025-10-02): Removed the blocking success alert shown after profile
+  creation/import to reduce interruption. Errors still use alerts. No functional
+  behavior change beyond eliminating the redundant success modal.
+*/
 import {createStackNavigator} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
 import {addCoin, addUser} from '../../../actions/actionCreators';
@@ -117,7 +122,6 @@ export default function CreateProfileStackScreens(props) {
 
       //Log in new user
       await initializeAccountData(newAccount, _pin);
-      createAlert('Profile created!', `Your '${_userName}' profile has been created and is ready to use.`);
     } catch (e) {
       console.error(e)
       createAlert('Error', e.message);
