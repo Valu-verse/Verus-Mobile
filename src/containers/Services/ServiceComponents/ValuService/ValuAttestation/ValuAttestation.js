@@ -88,6 +88,15 @@ const ValuAttestation = (props) => {
     );
     const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
     const pendingIds = useSelector(state => state.channelStore_verusid.pendingIds);
+    // While registering identity, hide back button and disable gestures to avoid leaving mid-flow
+    useEffect(() => {
+        if (props.navigation?.setOptions) {
+            props.navigation.setOptions({
+                headerLeft: showIdentityProvisioningProgress ? () => null : undefined,
+                gestureEnabled: !showIdentityProvisioningProgress,
+            });
+        }
+    }, [showIdentityProvisioningProgress]);
 
     const buttonMessages = {
         [VALU_POL_PAYMENT_STARTED]: "Get Proof for $9.99",
@@ -932,7 +941,7 @@ const ValuAttestation = (props) => {
     const screenWidth = Dimensions.get('window').width;
     const isInitialStatus = status === VALU_POL_PAYMENT_STARTED || status === "" || status === null;
     const statusMeta = {
-        [VALU_POL_PAYMENT_RECEIVED]: { title: 'Payment received', body: 'Continue to finish your Proof of Personhood.', cta: 'Continue' },
+        [VALU_POL_PAYMENT_RECEIVED]: { title: 'Payment received', body: "Next, register a new VerusID for your Proof of Personhood. If you already have a VerusID in your wallet, you can select it instead.", cta: 'Register new VerusID' },
         [VALU_POL_PAYMENT_PENDING]: { title: 'Purchase in progress', body: 'Resume your purchase to finish payment.', cta: 'Resume purchase' },
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
         [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
@@ -949,18 +958,57 @@ const ValuAttestation = (props) => {
                 <View style={{ alignContent: 'center', alignItems: 'stretch', alignSelf: 'stretch', width: '100%', flexGrow: 1 }}>
                     {showIdentityProvisioningProgress ? (
                         <React.Fragment>
-                            <Text style={{ fontSize: 30, textAlign: 'center', paddingBottom: 20 }}>
-                                Registering Identity
-                            </Text>
-                            <AnimatedActivityIndicator
-                                style={{
-                                    width: 128,
-                                    marginBottom: 20
-                                }}
-                            />
-                            <Text style={{ fontSize: 18, textAlign: 'center', marginHorizontal: 50, color: Colors.BasicBlue }}>
-                                Please wait while we register your identity request...
-                            </Text>
+                            {/* Gradient title and tagline (match other states) */}
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, marginTop: 32, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#EDEDED' }}>
+                                <Svg width={screenWidth - 48} height={125}>
+                                    <Defs>
+                                        <SvgLinearGradient id="valuGradient" x1="0" y1="0" x2="1" y2="1">
+                                            <Stop offset="0" stopColor="#00C8FF" />
+                                            <Stop offset="1" stopColor="#0077A9" />
+                                        </SvgLinearGradient>
+                                    </Defs>
+                                    <SvgText
+                                        x={0}
+                                        y={45}
+                                        fontSize={54}
+                                        fontWeight={'800'}
+                                        textAnchor={'start'}
+                                        fill={'url(#valuGradient)'}
+                                    >
+                                        {Array.from('Proof of').map((ch, i) => (
+                                            <TSpan key={`p1-${i}`} dx={i === 0 ? 0 : -1.5}>{ch}</TSpan>
+                                        ))}
+                                    </SvgText>
+                                    <SvgText
+                                        x={0}
+                                        y={95}
+                                        fontSize={54}
+                                        fontWeight={'800'}
+                                        textAnchor={'start'}
+                                        fill={'url(#valuGradient)'}
+                                    >
+                                        {Array.from('Personhood').map((ch, i) => (
+                                            <TSpan key={`p2-${i}`} dx={i === 0 ? 0 : -1.5}>{ch}</TSpan>
+                                        ))}
+                                    </SvgText>
+                                </Svg>
+                                <Text style={{ fontSize: 18, color: '#666', marginTop: -8, marginBottom: 12, textAlign: 'left' }}>
+                                    {'Verify once. Prove privately anywhere.'}
+                                </Text>
+                            </View>
+
+                            {/* Progress content styled like status sections */}
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 20, marginTop: 16, alignItems: 'center' }}>
+                                <AnimatedActivityIndicator
+                                    style={{
+                                        width: 64,
+                                        marginBottom: 12
+                                    }}
+                                />
+                                <Text style={{ fontSize: 15, color: '#555', lineHeight: 21, textAlign: 'center' }}>
+                                    {'Please wait while we register your identity request...'}
+                                </Text>
+                            </View>
                         </React.Fragment>
                     ) : loading || status === null ? (
                         <React.Fragment>
@@ -1076,7 +1124,14 @@ const ValuAttestation = (props) => {
                                 {/* Status copy (non-initial only) */}
                                 {!isInitialStatus && (
                                     <View>
-                                        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 }}>{statusMeta[status]?.title}</Text>
+                                        {status === VALU_POL_PAYMENT_RECEIVED ? (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                                                <MaterialCommunityIcons name={'check-circle'} size={22} color={Colors.verusGreenColor} />
+                                                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginLeft: 6 }}>{statusMeta[status]?.title}</Text>
+                                            </View>
+                                        ) : (
+                                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 }}>{statusMeta[status]?.title}</Text>
+                                        )}
                                         <Text style={{ fontSize: 15, color: '#555', lineHeight: 21 }}>{statusMeta[status]?.body}</Text>
                                     </View>
                                 )}
@@ -1104,10 +1159,10 @@ const ValuAttestation = (props) => {
                                 <Button
                                     onPress={() => { startOnRamp() }}
                                     mode="contained"
-                                    disabled={status === 'error'}
+                                    disabled={status === 'error' || showIdentityProvisioningProgress}
                                     style={{
                                         borderRadius: 24,
-                                        backgroundColor: Colors.primaryColor,
+                                        backgroundColor: (status === 'error' || showIdentityProvisioningProgress) ? '#CFEAF2' : Colors.primaryColor,
                                         elevation: 0,
                                         shadowColor: 'transparent',
                                         shadowOpacity: 0,
@@ -1173,7 +1228,7 @@ const ValuAttestation = (props) => {
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
                                         <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>2</Text>
                                     </View>
-                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Complete a quick one‑time identity check (ID + selfie).</Text>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Complete a quick one‑time identity check (ID + selfie + proof of residence).</Text>
                                 </View>
 
                                 {/* Step 3 */}
@@ -1226,31 +1281,60 @@ const ValuAttestation = (props) => {
                     </SemiModal>
                 )}
 
-                {/* Identity Choice Modal */}
-                <Dialog visible={identityChoiceModalVisible} onDismiss={() => setIdentityChoiceModalVisible(false)}>
-                    <Dialog.Title>Choose Identity Option</Dialog.Title>
-                    <Dialog.Content>
-                        <Text style={{ marginBottom: 20 }}>
-                            Do you want to register a new ValuID or use an existing identity for your attestation?
-                        </Text>
-                        <List.Item
-                            title="Register New ValuID"
-                            description="Create a new ValuID for this attestation"
-                            left={props => <List.Icon {...props} icon="plus" />}
-                            onPress={continueWithNewValuId}
-                        />
-                        <Divider />
-                        <List.Item
-                            title="Use Existing Identity"
-                            description="Link attestation to an existing VerusID"
-                            left={props => <List.Icon {...props} icon="account" />}
-                            onPress={showExistingIdentityModal}
-                        />
-                    </Dialog.Content>
-                    <Dialog.Actions>
-                        <Button onPress={() => setIdentityChoiceModalVisible(false)}>Cancel</Button>
-                    </Dialog.Actions>
-                </Dialog>
+                {/* Identity Choice Sheet (SemiModal) */}
+                {identityChoiceModalVisible && (
+                    <SemiModal
+                        animationType={'slide'}
+                        transparent={true}
+                        visible={true}
+                        onRequestClose={() => setIdentityChoiceModalVisible(false)}
+                        flexHeight={0.01}
+                        contentContainerStyle={{
+                            borderTopLeftRadius: 16,
+                            borderTopRightRadius: 16,
+                            flex: 0,
+                            alignSelf: 'flex-end',
+                            width: '100%',
+                            maxHeight: '70%'
+                        }}
+                    >
+                        <View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
+                                <Button onPress={() => setIdentityChoiceModalVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
+                                <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Choose identity option'}</Text>
+                                <View style={{ width: 64 }} />
+                            </View>
+
+                            <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+                                <Text style={{ fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 }}>
+                                    {'Do you want to register a new VerusID or use an existing identity for your attestation?'}
+                                </Text>
+
+                                <List.Item
+                                    title="Register new VerusID"
+                                    description="Create a new VerusID for this attestation"
+                                    onPress={continueWithNewValuId}
+                                    left={(props) => <List.Icon {...props} icon="plus" color={'black'} />}
+                                    right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                                    titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
+                                    descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 6 }}
+                                    style={{ backgroundColor: 'white', borderRadius: 12, marginBottom: 12, paddingVertical: 8 }}
+                                />
+
+                                <List.Item
+                                    title="Use VerusID in wallet"
+                                    description="Link attestation to an existing VerusID in your wallet"
+                                    onPress={showExistingIdentityModal}
+                                    left={(props) => <List.Icon {...props} icon="account" color={'black'} />}
+                                    right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                                    titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
+                                    descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 6 }}
+                                    style={{ backgroundColor: 'white', borderRadius: 12, paddingVertical: 8 }}
+                                />
+                            </View>
+                        </View>
+                    </SemiModal>
+                )}
 
                 {/* Existing Identity Selection Modal */}
                 {existingIdentityModalVisible && (

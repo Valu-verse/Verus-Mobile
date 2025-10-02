@@ -1,12 +1,13 @@
 import React, { Component } from "react"
 import { connect } from 'react-redux'
-import { SafeAreaView, ScrollView, View, StyleSheet } from 'react-native'
-import { Button, Text, Card, TextInput } from 'react-native-paper'
+import { SafeAreaView, ScrollView, View, StyleSheet, TextInput as RNTextInput } from 'react-native'
+import { Text } from 'react-native-paper'
 
 import Styles from "../../../../../styles"
 import Colors from '../../../../../globals/colors'
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert'
 import ValuProvider from "../../../../../utils/services/ValuProvider"
+import TallButton from '../../../../../components/LargerButton'
 
 class ValuChooseIdentity extends Component {
     constructor(props) {
@@ -26,9 +27,10 @@ class ValuChooseIdentity extends Component {
             processing: false,
             identitySuffix: identitySuffix,
             identityType: identityType,
-            customTitle: title || `Choose Your ${identityType}`,
-            customDescription: description || `Your ${identityType} will be your unique identifier on the Verus network.`,
-            customPreviewLabel: previewLabel || `Your ${identityType} will be:`
+            customTitle: title || `Register your VerusID`,
+            customDescription: description || `This identity will be your unique identifier on the Verus network.`,
+            customPreviewLabel: previewLabel || `Your VerusID will be:`,
+            isFocused: false
         };
     }
 
@@ -105,57 +107,67 @@ class ValuChooseIdentity extends Component {
                     style={Styles.fullWidth}
                     contentContainerStyle={styles.scrollContainer}
                 >
-                    <View style={styles.container}>
-                        <Card style={styles.identityCard}>
-                            <Card.Content>
-                                <Text style={styles.celebrationEmoji}>🆔</Text>
-                                <Text style={styles.cardTitle}>{customTitle}</Text>
-                                
-                                <Text style={styles.description}>
-                                    {customDescription}
-                                </Text>
+                    <View style={styles.pageContainer}>
+                        {/* Title */}
+                        <Text style={styles.title}>{customTitle}</Text>
 
-                                <View style={styles.inputSection}>
-                                    <Text style={styles.inputLabel}>Enter your identity name:</Text>
-                                    <TextInput
-                                        mode="outlined"
-                                        value={identityName}
-                                        onChangeText={this.handleNameChange}
-                                        placeholder="yourname"
-                                        style={styles.textInput}
-                                        outlineColor={Colors.verusGreenColor}
-                                        activeOutlineColor={Colors.verusGreenColor}
-                                        maxLength={20}
-                                        autoCapitalize="none"
-                                        autoCorrect={false}
-                                    />
-                                    
-                                    <View style={styles.previewSection}>
-                                        <Text style={styles.previewLabel}>{customPreviewLabel}</Text>
-                                        <Text style={styles.previewText}>{fqn}</Text>
-                                    </View>
-                                </View>
+                        {/* Subtitle */}
+                        <Text style={styles.subtitle}>{customDescription}</Text>
 
-                                <View style={styles.requirementsSection}>
-                                    <Text style={styles.requirementsTitle}>Requirements:</Text>
-                                    <Text style={styles.requirementText}>• Minimum 1 character</Text>
-                                    <Text style={styles.requirementText}>• No . \ / * : characters</Text>
-                                    <Text style={styles.requirementText}>• Must be unique</Text>
-                                </View>
+                        {/* Input */}
+                        <View style={{ marginBottom: 8 }}>
+                            <Text style={styles.inputLabel}>Enter your identity name</Text>
+                            <RNTextInput
+                                value={identityName}
+                                onChangeText={this.handleNameChange}
+                                onFocus={() => this.setState({ isFocused: true })}
+                                onBlur={() => this.setState({ isFocused: false })}
+                                placeholder="Your name"
+                                placeholderTextColor="#999"
+                                returnKeyType="done"
+                                autoCorrect={false}
+                                autoCapitalize="none"
+                                maxLength={20}
+                                style={[styles.textInput, { borderColor: this.state.isFocused ? Colors.primaryColor : '#E0E0E0' }]}
+                            />
+                            <Text style={styles.helperText}>{"1+ characters. Avoid special characters . / * : ;"}</Text>
+                        </View>
 
-                                <Button
-                                    mode="contained"
-                                    onPress={this.handleSubmit}
-                                    disabled={processing || identityName.length < 1}
-                                    loading={processing}
-                                    style={[styles.button, styles.submitButton]}
-                                    labelStyle={styles.buttonLabel}
-                                    icon="check"
-                                >
-                                    {processing ? "Checking Availability..." : `Continue with this VerusID`}
-                                </Button>
-                            </Card.Content>
-                        </Card>
+                        {/* Preview */}
+                        <View style={styles.previewBox}>
+                            <Text style={styles.previewLabel}>{customPreviewLabel}</Text>
+                            <Text style={styles.previewText}>{fqn}</Text>
+                        </View>
+
+                        {/* Requirements */}
+                        <View style={styles.requirementsSectionPlain}>
+                            <Text style={styles.requirementsTitlePlain}>Requirements</Text>
+                            <Text style={styles.requirementTextPlain}>• Minimum 1 character</Text>
+                            <Text style={styles.requirementTextPlain}>• No . \ / * : ; characters</Text>
+                            <Text style={styles.requirementTextPlain}>• Must be unique</Text>
+                        </View>
+
+                        <View style={{ flex: 1 }} />
+
+                        {/* Primary button (no icon) */}
+                        <TallButton
+                            onPress={this.handleSubmit}
+                            disabled={processing || identityName.length < 1}
+                            style={[
+                                styles.primaryButton,
+                                (processing || identityName.length < 1) && { backgroundColor: '#CFEAF2' }
+                            ]}
+                            contentStyle={{ height: 56 }}
+                            labelStyle={{
+                                color: Colors.secondaryColor,
+                                fontWeight: '600',
+                                fontSize: 18,
+                                letterSpacing: 0,
+                                textTransform: 'none'
+                            }}
+                        >
+                            {processing ? 'Checking availability…' : `Register this VerusID`}
+                        </TallButton>
                     </View>
                 </ScrollView>
             </SafeAreaView>
@@ -166,61 +178,59 @@ class ValuChooseIdentity extends Component {
 const styles = StyleSheet.create({
     scrollContainer: {
         flexGrow: 1,
-        padding: 15,
+        paddingHorizontal: 24,
+        paddingTop: 40,
         paddingBottom: 30,
     },
-    container: {
+    pageContainer: {
         flex: 1,
-        alignItems: 'center',
     },
-    celebrationEmoji: {
-        fontSize: 30,
-        textAlign: 'center',
-        marginBottom: 5,
+    title: {
+        textAlign: 'left',
+        color: '#1A1A1A',
+        fontSize: 32,
+        fontWeight: '700',
+        letterSpacing: -0.5,
+        marginBottom: 12,
     },
-    identityCard: {
-        width: '100%',
-        marginBottom: 15,
-        backgroundColor: '#ffffff',
-        elevation: 5,
-        borderColor: Colors.verusGreenColor,
-        borderWidth: 1,
-    },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-        color: Colors.verusGreenColor,
-        textAlign: 'center',
-    },
-    description: {
-        fontSize: 14,
-        lineHeight: 18,
-        color: '#333',
-        textAlign: 'center',
-        marginBottom: 20,
-        paddingHorizontal: 10,
-    },
-    inputSection: {
-        marginBottom: 20,
+    subtitle: {
+        textAlign: 'left',
+        fontSize: 16,
+        lineHeight: 22,
+        color: '#555',
+        marginBottom: 16,
     },
     inputLabel: {
-        fontSize: 16,
+        fontSize: 13,
         fontWeight: '600',
+        color: '#1A1A1A',
         marginBottom: 8,
-        color: Colors.primaryColor,
     },
     textInput: {
-        marginBottom: 15,
-        backgroundColor: '#f8f8f8',
+        height: 56,
+        borderRadius: 12,
+        borderWidth: 2,
+        paddingHorizontal: 16,
+        fontSize: 16,
+        color: '#1A1A1A',
+        backgroundColor: '#FAFAFA',
     },
-    previewSection: {
-        backgroundColor: '#f0f8ff',
-        padding: 15,
+    helperText: {
+        textAlign: 'left',
+        marginTop: 8,
+        fontSize: 12,
+        color: '#888'
+    },
+    previewBox: {
+        marginTop: 12,
+        marginBottom: 20,
+        backgroundColor: '#F8F8F8',
         borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
         borderWidth: 1,
-        borderColor: Colors.verusGreenColor,
-        alignItems: 'center',
+        borderColor: '#E0E0E0',
+        alignItems: 'center'
     },
     previewLabel: {
         fontSize: 14,
@@ -230,38 +240,34 @@ const styles = StyleSheet.create({
     previewText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: Colors.verusGreenColor,
+        color: Colors.primaryColor,
     },
-    requirementsSection: {
-        marginTop: 15,
+    requirementsSectionPlain: {
+        marginTop: 8,
         marginBottom: 20,
-        paddingHorizontal: 10,
     },
-    requirementsTitle: {
+    requirementsTitlePlain: {
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 8,
-        color: Colors.primaryColor,
+        color: '#1A1A1A',
     },
-    requirementText: {
+    requirementTextPlain: {
         fontSize: 13,
         color: '#555',
         marginBottom: 3,
     },
-    button: {
+    primaryButton: {
         width: '100%',
-        height: 52,
-        justifyContent: 'center',
-        marginTop: 10,
-    },
-    submitButton: {
-        backgroundColor: Colors.verusGreenColor,
-        elevation: 3,
-    },
-    buttonLabel: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: 'white',
+        borderRadius: 24,
+        backgroundColor: Colors.primaryColor,
+        elevation: 0,
+        shadowColor: 'transparent',
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        shadowOffset: { width: 0, height: 0 },
+        marginTop: 12,
+        marginBottom: 24
     },
 });
 
