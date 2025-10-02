@@ -4,6 +4,8 @@
   - Removed animated background; clean minimal design
   - Added welcome copy under the Valu logo
   - Removed glow/shadow from primary button (flat appearance)
+  - "Get started" now navigates directly to CreateProfile (skips WelcomeSlider)
+  - Hid WelcomeSlider from the primary flow; route remains available if needed
   - Kept changes contained to this file
 */
 import React from 'react';
@@ -68,7 +70,7 @@ export default function LandingScreen(props) {
       </View>
 
       <TallButton
-        onPress={() => props.navigation.navigate("WelcomeSlider")}
+        onPress={() => props.navigation.navigate("CreateProfile")}
         mode="contained"
         labelStyle={{
           color: Colors.secondaryColor,
