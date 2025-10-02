@@ -7,6 +7,8 @@
   - When Proof of Personhood is received (POP_RECEIVED):
     • CTA label changed to "View my Proof of Personhood"
     • Button navigates directly to Attestations list (not Services)
+  - Replaced emoji bullets (privacy-first, one-time setup) with MaterialCommunityIcons
+    inside grey circular badges to match the SemiModal "How it works" style
 */
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
@@ -55,6 +57,7 @@ import { sha256 } from "@bitgo/utxo-lib/dist/src/crypto";
 import { dispatchRemoveNotification } from '../../../../../actions/actions/notifications/dispatchers/notifications';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Text as SvgText, TSpan } from 'react-native-svg';
 import SemiModal from '../../../../../components/SemiModal';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
 const ValuAttestation = (props) => {
@@ -1046,8 +1049,10 @@ const ValuAttestation = (props) => {
                                     <View style={{ width: '100%', marginBottom: 12 }}>
                                         <View style={{ flexDirection: 'column' }}>
                                             <View style={{ width: '100%', marginBottom: 16 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                                    <Text style={{ fontSize: 16, marginRight: 6 }}>🔒</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
+                                                <MaterialCommunityIcons name={'shield-outline'} size={16} color={'black'} />
+                                            </View>
                                                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
                                                 </View>
                                                 <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
@@ -1055,8 +1060,10 @@ const ValuAttestation = (props) => {
                                                 </Text>
                                             </View>
                                             <View style={{ width: '100%', marginBottom: 0 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                                    <Text style={{ fontSize: 16, marginRight: 6 }}>⚡</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
+                                                <MaterialCommunityIcons name={'check-circle-outline'} size={16} color={'black'} />
+                                            </View>
                                                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
                                                 </View>
                                                 <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
