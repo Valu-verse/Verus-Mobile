@@ -1,11 +1,12 @@
 /*
   Updated ChooseName screen:
   - Top-aligned layout with left-aligned title (black)
-  - Improved typography and spacing for body copy and bullets
+  - Improved typography and spacing for body copy
   - Custom text input with modern styling (larger, cleaner)
   - Primary button matches Login.js style (no shadow, proper colors)
   - Better spacing between "How it works" link and Continue button
   - Added "How it works" modal using SemiModal pattern
+  - Removed on-page bullet points; moved note about multiple profiles into modal
 */
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, SafeAreaView} from 'react-native';
@@ -98,30 +99,11 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
               color: '#555',
               marginBottom: 16,
             }}>
-            {"Your wallet lives inside a profile on this device."}
+            {"Let's start by creating a profile. Your wallet lives inside a profile on this device."}
           </Text>
 
-          {/* Bullet points - better styling */}
-          <View style={{ marginBottom: 32 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
-              <Text style={{ fontSize: 16, color: '#555', marginRight: 8, marginTop: 1 }}>{"•"}</Text>
-              <Text style={{ fontSize: 14, color: '#555', lineHeight: 20, flex: 1 }}>
-                {"Import an existing seed or create a new wallet in this profile."}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
-              <Text style={{ fontSize: 16, color: '#555', marginRight: 8, marginTop: 1 }}>{"•"}</Text>
-              <Text style={{ fontSize: 14, color: '#555', lineHeight: 20, flex: 1 }}>
-                {"Your password encrypts your wallet's keys locally."}
-              </Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Text style={{ fontSize: 16, color: '#555', marginRight: 8, marginTop: 1 }}>{"•"}</Text>
-              <Text style={{ fontSize: 14, color: '#555', lineHeight: 20, flex: 1 }}>
-                {"Create multiple profiles to keep wallets separate."}
-              </Text>
-            </View>
-          </View>
+          {/* Spacer after body copy */}
+          <View style={{ marginBottom: 32 }} />
 
           {/* Custom text input - larger, cleaner */}
           <View style={{ marginBottom: 8 }}>
@@ -254,11 +236,17 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
                     </View>
                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Import an existing seed or create a new wallet inside the profile.</Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
                       <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>4</Text>
                     </View>
                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Your wallet's keys stay on your device. Nothing leaves without your consent.</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}>
+                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>5</Text>
+                    </View>
+                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>You can create multiple profiles to keep your wallets separate.</Text>
                   </View>
                   <Button
                     onPress={() => setHowItWorksVisible(false)}
