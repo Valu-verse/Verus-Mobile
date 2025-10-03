@@ -215,4 +215,8 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.startSumsubSession(payload);
   }
 
+  getSumSubURL = () => {
+    return `${this.service.url}/verusidloginnewaccount`;
+  }
+
 }

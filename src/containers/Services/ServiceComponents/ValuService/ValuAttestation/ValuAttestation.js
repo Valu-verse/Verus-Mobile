@@ -174,13 +174,13 @@ const ValuAttestation = (props) => {
 
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
-            await handleProvisioningResponse(newLoadingNotification.uid, identityName, identityAddress, url, loginRequest);
-
             let formattedName = identityName;
-            const lastDotIndex = identityName.lastIndexOf('.');
-            if (lastDotIndex !== -1) {
-                formattedName = identityName.substring(0, lastDotIndex);
+            const lastAtIndex = identityName.lastIndexOf('@');
+            if (lastAtIndex !== -1) {
+                formattedName = identityName.substring(0, lastAtIndex);
             }
+            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest);
+
 
             newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valuid@'];
             newLoadingNotification.acchash = activeAccount.accountHash;
@@ -240,22 +240,30 @@ const ValuAttestation = (props) => {
             setLoading(true);
             console.log("Continuing proof of personhood with identity:", identityInfo);
             // Get the SumSub session URL with the selected identity
-            const newRep = await ValuProvider.startSumsubSession({
-                identityName: identityInfo.identityName,
-                isNew: !identityInfo.isExisting
-            });
+            let urlReply;
 
-            if (newRep.success === false) {
-                throw new Error(newRep.error);
+            if (identityInfo) {
+
+                urlReply = await ValuProvider.startSumsubSession({
+                    identityName: identityInfo.identityName,
+                    isNew: !identityInfo.isExisting
+                });
+
+                if (urlReply.success === false) {
+                    throw new Error(urlReply.error);
+                }
+            } else {
+                urlReply = { data: { url: ValuProvider.getSumSubURL() } }
             }
 
-            console.log("Starting SumSub session:", newRep.data);
+            console.log("Starting SumSub session:", urlReply.data);
 
             // Create signature for authentication
             const coinObj = CoinDirectory.findCoinObj(systemId, null, true);
+            console.log("getInfo for systemId:", systemId, coinObj);
             const chainInfo = await getInfo(systemId);
             const height = chainInfo.result.longestchain;
-            const message = `Authentication request for ${identityInfo.identityName} at ${Date.now()}`;
+            const message = `Authentication request for ${identityInfo?.identityName || ''} at ${Date.now()}`;
             const messageHash = sha256(Buffer.from(message, 'utf-8'));
 
             // Sign the message using the identity address
@@ -267,7 +275,7 @@ const ValuAttestation = (props) => {
             console.log("Signature:", signature);
 
             // Append signature and related data to URL as query parameters
-            const url = new URL(newRep.data.url);
+            const url = new URL(urlReply.data.url);
             url.searchParams.append('signature', signature);
             url.searchParams.append('message', message);
             url.searchParams.append('RAddress', RAddress);
@@ -340,7 +348,7 @@ const ValuAttestation = (props) => {
             fromService: false,
             createdAt: Number((Date.now() / 1000).toFixed(0)),
             infoUri: uri,
-            provisioningName: "Valuid",
+            provisioningName: identityName,
             notificationUid: notificationUid
         }
 
@@ -712,6 +720,9 @@ const ValuAttestation = (props) => {
     const checkAccountCreationStatus = async () => {
 
         // First, try to authenticate with registered user
+        const seed = (await requestSeeds())[VALU_SERVICE];
+        if (seed == null) throw new Error("No Valu seed present");
+        await ValuProvider.authenticate(seed, true);
         try {
             const authResult = await ValuProvider.authenticateRegisteredUser();
 
@@ -723,13 +734,6 @@ const ValuAttestation = (props) => {
         } catch (error) {
             console.log("Registered user authentication failed:", error?.message ? error.message : error);
         }
-
-        // If registered user authentication fails or user not authenticated, use fallback authentication
-
-        const seed = (await requestSeeds())[VALU_SERVICE];
-        if (seed == null) throw new Error("No Valu seed present");
-        await ValuProvider.authenticate(seed, true);
-
     }
 
     const initAccountStatus = async () => {
@@ -833,7 +837,8 @@ const ValuAttestation = (props) => {
             } else if (status === VALU_POL_PENDING) {
                 // Show loading spinner while checking status
                 setLoading(false);
-                showIdentityChoiceModal();
+                //showIdentityChoiceModal();
+                await continueProofOfPersonhood();
                 return;
                 // Loading will be set to false in fetchData
             } else if (status === VALU_POL_PAYMENT_RECEIVED) {
