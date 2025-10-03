@@ -25,6 +25,12 @@ function * handleAuthenticateUser(action) {
   let setWidgetAction;
 
   try {
+    yield call(resetServices)
+  } catch(e) {
+    console.warn(e)
+  }
+
+  try {
     setWidgetAction = yield call(initAccountWidgets, action.activeAccount.accountHash)
   } catch(e) {
     console.warn(e)
