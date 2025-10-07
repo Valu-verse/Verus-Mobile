@@ -17,7 +17,7 @@ class ValuChooseIdentity extends Component {
         const {
             identityType = "ValuID",
             identitySuffix = ".valuid@",
-            title,
+            title = '',
             description,
             previewLabel
         } = this.props.route?.params || {};
@@ -48,7 +48,7 @@ class ValuChooseIdentity extends Component {
     handleSubmit = async () => {
         const { identityName, identityType } = this.state;
         
-        if (!identityName || identityName.length < 1) {
+        if (!identityName || identityName?.length < 1) {
             createAlert(
                 "Invalid Name",
                 `${identityType} name must be at least 1 characters long.`,
@@ -109,7 +109,7 @@ class ValuChooseIdentity extends Component {
                 >
                     <View style={styles.pageContainer}>
                         {/* Title */}
-                        <Text style={styles.title}>{customTitle}</Text>
+                        <Text style={styles?.title}>{customTitle}</Text>
 
                         {/* Subtitle */}
                         <Text style={styles.subtitle}>{customDescription}</Text>
@@ -152,10 +152,10 @@ class ValuChooseIdentity extends Component {
                         {/* Primary button (no icon) */}
                         <TallButton
                             onPress={this.handleSubmit}
-                            disabled={processing || identityName.length < 1}
+                            disabled={processing || identityName?.length < 1}
                             style={[
                                 styles.primaryButton,
-                                (processing || identityName.length < 1) && { backgroundColor: '#CFEAF2' }
+                                (processing || identityName?.length < 1) && { backgroundColor: '#CFEAF2' }
                             ]}
                             contentStyle={{ height: 56 }}
                             labelStyle={{

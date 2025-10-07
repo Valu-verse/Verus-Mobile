@@ -5,6 +5,7 @@ import Styles from '../../../styles';
 import {
   CONNECTED_SERVICE_DISPLAY_INFO,
   CONNECTED_SERVICES,
+  VALU_SERVICE_ID,
 } from '../../../utils/constants/services';
 
 export const ServicesOverviewRender = function () {
@@ -13,7 +14,7 @@ export const ServicesOverviewRender = function () {
   const {disabledServices} = this.props.activeAccount;
 
   CONNECTED_SERVICES.map((service, index) => {
-    if (disabledServices[service]) {
+    if (disabledServices[service] || service === VALU_SERVICE_ID) {
       return;
     }
 
