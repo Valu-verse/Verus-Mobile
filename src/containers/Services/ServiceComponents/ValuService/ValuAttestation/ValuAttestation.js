@@ -287,7 +287,7 @@ const ValuAttestation = (props) => {
 
             // Open the SumSub URL in InAppBrowser
             if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(authenticatedUrl, {
+                const result = await InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
                     dismissButtonStyle: 'cancel',
                     preferredBarTintColor: '#00A1CC',
@@ -316,6 +316,13 @@ const ValuAttestation = (props) => {
                         startExit: 'slide_out_left',
                         endEnter: 'slide_in_left',
                         endExit: 'slide_out_right'
+                    }
+                });
+
+                // Add message listener
+                result.addListener('message', (event) => {
+                    if (event.nativeEvent.data === 'close') {
+                        InAppBrowser.close();
                     }
                 });
             } else {
