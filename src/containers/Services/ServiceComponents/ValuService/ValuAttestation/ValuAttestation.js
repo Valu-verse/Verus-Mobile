@@ -445,10 +445,9 @@ const ValuAttestation = (props) => {
                 Animated.timing(pulse, { toValue: 0.6, duration: 700, useNativeDriver: true }),
                 Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true })
             ])
-        ).start();
-        initAccountStatus().then(() => {
-            fetchData();
-        });
+        ).start();      
+        fetchData();
+
     }, []);
 
     // Reload linked identities when encrypted IDs change
@@ -735,27 +734,6 @@ const ValuAttestation = (props) => {
             console.log("Registered user authentication failed:", error?.message ? error.message : error);
         }
     }
-
-    const initAccountStatus = async () => {
-        props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
-        setLoading(true);
-        try {
-            await checkAccountCreationStatus();
-            props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
-            setLoading(false);
-        } catch (e) {
-            setLoading(false);
-            console.log(e)
-
-            createAlertDialog(
-                "Failed to retrieve Valu account status from server.", "RETRY",
-                () => { resolveAlert(); setLoading(false); });
-        }
-    };
-
-    // useEffect(() => {
-    //     fetchData();
-    // }, [fetchData]);
 
     useEffect(() => {
         // make sure teh screen reloads when the app is brought back to the foreground
