@@ -33,7 +33,6 @@ import VerusIdWidget from './HomeWidgets/VerusIdWidget';
 import AttestationWidget from './HomeWidgets/AttestationWidget';
 import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
-import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 export const HomeRender = ({
   dragDetectionEnabled,
@@ -135,10 +134,6 @@ export const HomeRenderCoinsList = ({
         overflow: 'visible',
       }}
     >
-      <NotificationWidget 
-        dispatch={dispatch}
-        navigation={navigation}
-      />
       <SortableContainer customconfig={{}}>
         <SortableGrid
           minDist={dragDetection ? 60 : 0}
