@@ -258,7 +258,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                 </View>
 
                 {/* Requirements */}
-                <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: '500' }}>Requirements</Text>
+                  <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: '500' }}>Requirements</Text>
                 <List.Item
                   title={enabledCurrency ? 'vUSDC.vETH enabled' : 'Enable vUSDC.vETH'}
                   right={() => (
@@ -271,6 +271,11 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                         style={{
                           borderRadius: 22,
                           backgroundColor: Colors.primaryColor,
+                          elevation: 0,
+                          shadowColor: 'transparent',
+                          shadowOpacity: 0,
+                          shadowRadius: 0,
+                          shadowOffset: { width: 0, height: 0 },
                         }}
                         contentStyle={{ height: 36 }}
                         labelStyle={{ 

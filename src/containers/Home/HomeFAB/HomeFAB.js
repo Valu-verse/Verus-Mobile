@@ -3,6 +3,7 @@
   - Keeps two floating rounded-rect buttons: "Buy & sell" (primary) and "Manage assets" (outlined)
   - Replaces the hidden FAB.Group overlay with a bottom sheet ManageAssetsSheet
   - ManageAssetsSheet mirrors Buy/Sell sheet styling and auto-closes on selection
+  - Removal of all elevation/shadows on buttons for a flat look
 */
 import * as React from 'react';
 import { Platform, View } from 'react-native';
@@ -48,11 +49,11 @@ const HomeFAB = (props) => {
             borderRadius: 22,
             backgroundColor: Colors.primaryColor,
             width: 160,
-            elevation: Platform.OS === 'android' ? 6 : 0,
-            shadowColor: Colors.primaryColor,
-            shadowOpacity: 0.25,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 4 },
+            elevation: 0,
+            shadowColor: 'transparent',
+            shadowOpacity: 0,
+            shadowRadius: 0,
+            shadowOffset: { width: 0, height: 0 },
           }}
           contentStyle={{ height: 44 }}
           uppercase={false}
@@ -71,11 +72,11 @@ const HomeFAB = (props) => {
             borderWidth: 1,
             backgroundColor: Colors.secondaryColor,
             width: 160,
-            elevation: Platform.OS === 'android' ? 4 : 0,
-            shadowColor: Colors.quinaryColor,
-            shadowOpacity: 0.1,
-            shadowRadius: 6,
-            shadowOffset: { width: 0, height: 3 },
+            elevation: 0,
+            shadowColor: 'transparent',
+            shadowOpacity: 0,
+            shadowRadius: 0,
+            shadowOffset: { width: 0, height: 0 },
           }}
           contentStyle={{ height: 44 }}
           uppercase={false}
