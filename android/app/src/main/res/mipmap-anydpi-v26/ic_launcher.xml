@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive launcher icon for API 26+.
+  Uses @mipmap/ic_launcher_background and @mipmap/ic_launcher_foreground generated from
+  src/images/customIcons/appIcons/android-icon-bg.png and android-icon-fg.png
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@mipmap/ic_launcher_background"/>
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+</adaptive-icon>
+
+
