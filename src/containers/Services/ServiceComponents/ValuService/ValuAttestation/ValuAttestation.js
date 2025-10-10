@@ -39,7 +39,7 @@ import { updateDeeplinkUrl } from '../../../../../actions/actionDispatchers';
 import {
     VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_RECEIVED, VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_FAILED,
     VALU_POL_IDENTITY_PROVISIONED_PENDING, VALU_POL_IDENTITY_PROVISIONED, VALU_POL_READY, NOTIFICATION_TYPE_VERUSID_PENDING,
-    VALU_POL_PENDING, NOTIFICATION_TYPE_VERUSID_READY, POP_RECEIVED
+    VALU_POL_PENDING, NOTIFICATION_TYPE_VERUSID_READY, POP_RECEIVED, VALU_POL_IDENTITY_CONFIRMED
 } from '../../../../../utils/constants/services';
 import AnimatedActivityIndicator from "../../../../../components/AnimatedActivityIndicator";
 import ValuProvider from "../../../../../utils/services/ValuProvider";
@@ -58,6 +58,7 @@ import { dispatchRemoveNotification } from '../../../../../actions/actions/notif
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Text as SvgText, TSpan } from 'react-native-svg';
 import SemiModal from '../../../../../components/SemiModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { set } from "lodash";
 
 
 const ValuAttestation = (props) => {
@@ -107,6 +108,7 @@ const ValuAttestation = (props) => {
         [VALU_POL_IDENTITY_PROVISIONED_PENDING]: "WAIT FOR IDENTITY",
         [VALU_POL_IDENTITY_PROVISIONED]: "CONTINUE",
         [VALU_POL_PENDING]: "CONTINUE",
+        [VALU_POL_IDENTITY_CONFIRMED]: "CONTINUE",
         [POP_RECEIVED]: "View my Proof of Personhood",
 
     }
@@ -174,13 +176,13 @@ const ValuAttestation = (props) => {
 
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
-            await handleProvisioningResponse(newLoadingNotification.uid, identityName, identityAddress, url, loginRequest);
-
             let formattedName = identityName;
-            const lastDotIndex = identityName.lastIndexOf('.');
-            if (lastDotIndex !== -1) {
-                formattedName = identityName.substring(0, lastDotIndex);
+            const lastAtIndex = identityName.lastIndexOf('@');
+            if (lastAtIndex !== -1) {
+                formattedName = identityName.substring(0, lastAtIndex);
             }
+            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest);
+
 
             newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valuid@'];
             newLoadingNotification.acchash = activeAccount.accountHash;
@@ -240,22 +242,30 @@ const ValuAttestation = (props) => {
             setLoading(true);
             console.log("Continuing proof of personhood with identity:", identityInfo);
             // Get the SumSub session URL with the selected identity
-            const newRep = await ValuProvider.startSumsubSession({
-                identityName: identityInfo.identityName,
-                isNew: !identityInfo.isExisting
-            });
+            let urlReply;
 
-            if (newRep.success === false) {
-                throw new Error(newRep.error);
+            if (identityInfo) {
+
+                urlReply = await ValuProvider.startSumsubSession({
+                    identityName: identityInfo.identityName,
+                    isNew: !identityInfo.isExisting
+                });
+
+                if (urlReply.success === false) {
+                    throw new Error(urlReply.error);
+                }
+            } else {
+                urlReply = { data: { url: ValuProvider.getSumSubURL() } }
             }
 
-            console.log("Starting SumSub session:", newRep.data);
+            console.log("Starting SumSub session:", urlReply.data);
 
             // Create signature for authentication
             const coinObj = CoinDirectory.findCoinObj(systemId, null, true);
+            console.log("getInfo for systemId:", systemId, coinObj);
             const chainInfo = await getInfo(systemId);
             const height = chainInfo.result.longestchain;
-            const message = `Authentication request for ${identityInfo.identityName} at ${Date.now()}`;
+            const message = `Authentication request for ${identityInfo?.identityName || ''} at ${Date.now()}`;
             const messageHash = sha256(Buffer.from(message, 'utf-8'));
 
             // Sign the message using the identity address
@@ -267,7 +277,7 @@ const ValuAttestation = (props) => {
             console.log("Signature:", signature);
 
             // Append signature and related data to URL as query parameters
-            const url = new URL(newRep.data.url);
+            const url = new URL(urlReply.data.url);
             url.searchParams.append('signature', signature);
             url.searchParams.append('message', message);
             url.searchParams.append('RAddress', RAddress);
@@ -278,10 +288,11 @@ const ValuAttestation = (props) => {
             console.log("Opening authenticated URL:", authenticatedUrl);
 
             // Open the SumSub URL in InAppBrowser
+            await InAppBrowser.close();
             if (await InAppBrowser.isAvailable()) {
                 InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
-                    dismissButtonStyle: 'cancel',
+                    dismissButtonStyle: 'close',
                     preferredBarTintColor: '#00A1CC',
                     preferredControlTintColor: 'white',
                     readerMode: false,
@@ -309,7 +320,10 @@ const ValuAttestation = (props) => {
                         endEnter: 'slide_in_left',
                         endExit: 'slide_out_right'
                     }
-                });
+                }).then((result) => {
+                    fetchData();
+                    console.log("InAppBrowser result:", result);
+                });            
             } else {
                 Linking.openURL(authenticatedUrl);
             }
@@ -340,7 +354,7 @@ const ValuAttestation = (props) => {
             fromService: false,
             createdAt: Number((Date.now() / 1000).toFixed(0)),
             infoUri: uri,
-            provisioningName: "Valuid",
+            provisioningName: identityName,
             notificationUid: notificationUid
         }
 
@@ -375,6 +389,7 @@ const ValuAttestation = (props) => {
         if (attestaionPresent) {
             // Use the navigation object
             setStatus(POP_RECEIVED);
+            setLoading(false);
             return;
         }
 
@@ -437,10 +452,9 @@ const ValuAttestation = (props) => {
                 Animated.timing(pulse, { toValue: 0.6, duration: 700, useNativeDriver: true }),
                 Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true })
             ])
-        ).start();
-        initAccountStatus().then(() => {
-            fetchData();
-        });
+        ).start();      
+        fetchData();
+
     }, []);
 
     // Reload linked identities when encrypted IDs change
@@ -459,6 +473,12 @@ const ValuAttestation = (props) => {
                 continueWithIdentity(routeParams.chosenIdentity);
                 // Clear the params to avoid re-execution
                 props.navigation.setParams({ continueFlow: false, chosenIdentity: null });
+                    // Fallback if no parent navigator
+                    props.navigation.reset({
+                        index: 0,
+                       
+                    });
+                
             }
         }, [props.route?.params])
     );
@@ -712,6 +732,9 @@ const ValuAttestation = (props) => {
     const checkAccountCreationStatus = async () => {
 
         // First, try to authenticate with registered user
+        const seed = (await requestSeeds())[VALU_SERVICE];
+        if (seed == null) throw new Error("No Valu seed present");
+        await ValuProvider.authenticate(seed, true);
         try {
             const authResult = await ValuProvider.authenticateRegisteredUser();
 
@@ -723,35 +746,7 @@ const ValuAttestation = (props) => {
         } catch (error) {
             console.log("Registered user authentication failed:", error?.message ? error.message : error);
         }
-
-        // If registered user authentication fails or user not authenticated, use fallback authentication
-
-        const seed = (await requestSeeds())[VALU_SERVICE];
-        if (seed == null) throw new Error("No Valu seed present");
-        await ValuProvider.authenticate(seed, true);
-
     }
-
-    const initAccountStatus = async () => {
-        props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
-        setLoading(true);
-        try {
-            await checkAccountCreationStatus();
-            props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
-            setLoading(false);
-        } catch (e) {
-            setLoading(false);
-            console.log(e)
-
-            createAlertDialog(
-                "Failed to retrieve Valu account status from server.", "RETRY",
-                () => { resolveAlert(); setLoading(false); });
-        }
-    };
-
-    // useEffect(() => {
-    //     fetchData();
-    // }, [fetchData]);
 
     useEffect(() => {
         // make sure teh screen reloads when the app is brought back to the foreground
@@ -830,10 +825,11 @@ const ValuAttestation = (props) => {
             } else if (status === VALU_POL_PAYMENT_FAILED) {
                 createAlertDialog(
                     `Your previous payment attempt failed, would you like to try again?`, "RETRY")
-            } else if (status === VALU_POL_PENDING) {
+            } else if (status === VALU_POL_PENDING || status === VALU_POL_IDENTITY_CONFIRMED) {
                 // Show loading spinner while checking status
                 setLoading(false);
-                showIdentityChoiceModal();
+                //showIdentityChoiceModal();
+                await continueProofOfPersonhood();
                 return;
                 // Loading will be set to false in fetchData
             } else if (status === VALU_POL_PAYMENT_RECEIVED) {
@@ -868,6 +864,7 @@ const ValuAttestation = (props) => {
                                 updateDeeplinkUrl(newRep.data);
                             } catch (error) {
                                 console.log('Error proceeding with attestation after auto-link:', error);
+                                setLoading(false);
                                 createAlertDialog(
                                     `Failed to proceed with attestation: ${error.message}`,
                                     "OK"
@@ -887,15 +884,11 @@ const ValuAttestation = (props) => {
             } else if (status === POP_RECEIVED) {
                 // User already has Proof of Personhood attestation, navigate to Services list
                 setLoading(false);
-                const parentNav = props.navigation?.getParent?.() || null;
-                if (parentNav) {
-                    parentNav.navigate('ServicesHome', { screen: 'Services' });
-                } else if (props.navigation?.popToTop) {
-                    props.navigation.popToTop();
-                    props.navigation.navigate('Services');
-                } else {
-                    props.navigation.navigate('Services');
-                }
+                
+                props.navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'ServicesHome' }],
+                });
             }
         } catch (e) {
             console.log("startOnRamp error", e)
@@ -908,36 +901,6 @@ const ValuAttestation = (props) => {
 
     }
 
-    const stageMessages = {
-        [VALU_POL_PAYMENT_RECEIVED]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
-            Payment received. Continue to finish your Proof of Personhood.
-        </Text>),
-        [VALU_POL_PAYMENT_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
-            You already have an attestation in progress.
-        </Text>),
-        [VALU_POL_READY]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
-            Your Proof of Personhood is ready to retrieve.
-        </Text>),
-        [VALU_POL_PENDING]: (<Text style={{ fontSize: 16, textAlign: 'left', color: 'black' }}>
-            Your details are being processed. Tap continue to check if your proof is ready.
-        </Text>),
-
-        [VALU_POL_READY]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Your Valu Proof of Personhood is ready to retrieve.
-        </Text>),
-        [VALU_POL_PENDING]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            Continue with your Proof of Personhood.
-        </Text>),
-        "error": (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50, color: Colors.WarningRed }}>
-
-            An error occurred. Please try again.
-        </Text>),
-        [POP_RECEIVED]: (<Text style={{ fontSize: 20, textAlign: 'center', paddingTop: 20, marginHorizontal: 50 }}>
-            You already have a Proof of Personhood attestation.
-        </Text>),
-        [null]: null
-    }
-
     const screenWidth = Dimensions.get('window').width;
     const isInitialStatus = status === VALU_POL_PAYMENT_STARTED || status === "" || status === null;
     const statusMeta = {
@@ -946,7 +909,8 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
         [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
         [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' },
-        [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'View my Proof of Personhood' }
+        [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'View my Proof of Personhood' },
+        [VALU_POL_IDENTITY_CONFIRMED]: { title: 'Identity confirmed', body: "Next, resume your personal details input", cta: 'Resume' },
     };
     const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
 

@@ -3,7 +3,7 @@
   - Styling aligned with ChooseName/Landing/Login
   - Replaced icon with wallet hero image (png)
   - Updated CTA labels: "Create new wallet" and "I already have a wallet"
-  - Primary button: contained, rounded, no shadow; Secondary: outlined style
+  - Both buttons have explicit shadow removal (elevation: 0, shadowColor: transparent) to prevent shadow artifacts on press
 */
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableOpacity, Image, SafeAreaView} from 'react-native';
@@ -153,6 +153,11 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
             backgroundColor: Colors.secondaryColor,
             borderWidth: 1,
             borderColor: Colors.primaryColor,
+            elevation: 0,
+            shadowColor: 'transparent',
+            shadowOpacity: 0,
+            shadowRadius: 0,
+            shadowOffset: { width: 0, height: 0 },
             marginBottom: 24,
           }}
         >

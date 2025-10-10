@@ -5,6 +5,14 @@
   Update 2025-09-29:
   - Standardized margins for the show/hide balance icons so the icon
     position doesn't shift when toggling between "eye" and "eye-off".
+  Update 2025-10-10:
+  - Header title font standardized to Source Sans Pro to match app-wide font
+    usage. Use Bold weight, font size 20, and slightly tighter letter spacing
+    for improved readability.
+  Update 2025-10-10 (late):
+  - Revert header title to platform system font for consistency with most
+    in-app text. Keep size 20, bold weight, and slightly reduced letter
+    spacing.
   Update 2025-10-03:
   - Added notification bell icon with badge count
 */
@@ -139,9 +147,9 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
     backgroundColor: Colors.secondaryColor,
   },
   headerTitleStyle: {
-    fontFamily: 'Avenir-Black',
-    fontWeight: 'normal',
-    fontSize: 22,
+    fontWeight: 'bold',
+    fontSize: 18,
+    letterSpacing: -0.3,
     color: Colors.quinaryColor,
   },
   headerRight: () => <Header />,

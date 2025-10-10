@@ -1,13 +1,18 @@
+/*
+  Update: Align bottom primary button with ValuAttestation.js
+  - Replaced TallButton with react-native-paper Button
+  - Matched styling (borderRadius, backgroundColor, elevation, content height, label style)
+  - Removed unused primaryButton style
+*/
 import React, { Component } from "react"
 import { connect } from 'react-redux'
 import { SafeAreaView, ScrollView, View, StyleSheet, TextInput as RNTextInput } from 'react-native'
-import { Text } from 'react-native-paper'
+import { Button, Text } from 'react-native-paper'
 
 import Styles from "../../../../../styles"
 import Colors from '../../../../../globals/colors'
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert'
 import ValuProvider from "../../../../../utils/services/ValuProvider"
-import TallButton from '../../../../../components/LargerButton'
 
 class ValuChooseIdentity extends Component {
     constructor(props) {
@@ -17,7 +22,7 @@ class ValuChooseIdentity extends Component {
         const {
             identityType = "ValuID",
             identitySuffix = ".valuid@",
-            title,
+            title = '',
             description,
             previewLabel
         } = this.props.route?.params || {};
@@ -48,7 +53,7 @@ class ValuChooseIdentity extends Component {
     handleSubmit = async () => {
         const { identityName, identityType } = this.state;
         
-        if (!identityName || identityName.length < 1) {
+        if (!identityName || identityName?.length < 1) {
             createAlert(
                 "Invalid Name",
                 `${identityType} name must be at least 1 characters long.`,
@@ -109,7 +114,7 @@ class ValuChooseIdentity extends Component {
                 >
                     <View style={styles.pageContainer}>
                         {/* Title */}
-                        <Text style={styles.title}>{customTitle}</Text>
+                        <Text style={styles?.title}>{customTitle}</Text>
 
                         {/* Subtitle */}
                         <Text style={styles.subtitle}>{customDescription}</Text>
@@ -149,25 +154,35 @@ class ValuChooseIdentity extends Component {
 
                         <View style={{ flex: 1 }} />
 
-                        {/* Primary button (no icon) */}
-                        <TallButton
+                        {/* Primary button (match ValuAttestation) */}
+                        <Button
                             onPress={this.handleSubmit}
+                            mode="contained"
                             disabled={processing || identityName.length < 1}
-                            style={[
-                                styles.primaryButton,
-                                (processing || identityName.length < 1) && { backgroundColor: '#CFEAF2' }
-                            ]}
-                            contentStyle={{ height: 56 }}
+                            style={{
+                                borderRadius: 24,
+                                backgroundColor: (processing || identityName.length < 1) ? '#CFEAF2' : Colors.primaryColor,
+                                elevation: 0,
+                                shadowColor: 'transparent',
+                                shadowOpacity: 0,
+                                shadowRadius: 0,
+                                shadowOffset: { width: 0, height: 0 },
+                                width: '100%',
+                                alignSelf: 'stretch',
+                                marginTop: 12,
+                                marginBottom: 24
+                            }}
+                            contentStyle={{ height: 48 }}
                             labelStyle={{
                                 color: Colors.secondaryColor,
                                 fontWeight: '600',
-                                fontSize: 18,
+                                fontSize: 15,
                                 letterSpacing: 0,
                                 textTransform: 'none'
                             }}
                         >
-                            {processing ? 'Checking availability…' : `Register this VerusID`}
-                        </TallButton>
+                            {processing ? 'Checking availability…' : 'Register this VerusID'}
+                        </Button>
                     </View>
                 </ScrollView>
             </SafeAreaView>
@@ -257,18 +272,7 @@ const styles = StyleSheet.create({
         color: '#555',
         marginBottom: 3,
     },
-    primaryButton: {
-        width: '100%',
-        borderRadius: 24,
-        backgroundColor: Colors.primaryColor,
-        elevation: 0,
-        shadowColor: 'transparent',
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        shadowOffset: { width: 0, height: 0 },
-        marginTop: 12,
-        marginBottom: 24
-    },
+    
 });
 
 const mapStateToProps = (state) => {
