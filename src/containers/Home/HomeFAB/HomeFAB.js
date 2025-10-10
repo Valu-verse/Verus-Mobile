@@ -9,7 +9,6 @@ import * as React from 'react';
 import { Platform, View } from 'react-native';
 import { Portal, Button } from 'react-native-paper';
 import Colors from '../../../globals/colors';
-import ManageAssetsSheet from './ManageAssetsSheet';
 
 const HomeFAB = (props) => {
   const {
@@ -20,9 +19,8 @@ const HomeFAB = (props) => {
     handleAddPbaasCurrency,
     handleAddErc20Token,
     handleOpenOnOffRamp,
+    handleTransfer,
   } = props;
-
-  const [isManageOpen, setIsManageOpen] = React.useState(false);
 
   
 
@@ -41,7 +39,30 @@ const HomeFAB = (props) => {
           paddingHorizontal: 16,
         }}
       >
-        {/* Primary button on the left */}
+        {/* Secondary Transfer button on the left */}
+        <Button
+          mode="outlined"
+          onPress={typeof handleTransfer === 'function' ? handleTransfer : () => {}}
+          style={{
+            borderRadius: 22,
+            borderColor: Colors.primaryColor,
+            borderWidth: 1,
+            backgroundColor: Colors.secondaryColor,
+            width: 160,
+            elevation: 0,
+            shadowColor: 'transparent',
+            shadowOpacity: 0,
+            shadowRadius: 0,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+          contentStyle={{ height: 44 }}
+          uppercase={false}
+          labelStyle={{ color: Colors.primaryColor, fontWeight: '700', fontSize: 16, letterSpacing: 0, textTransform: 'none' }}
+        >
+          Transfer
+        </Button>
+
+        {/* Primary Buy & sell button on the right */}
         <Button
           mode="contained"
           onPress={handleOpenOnOffRamp}
@@ -57,45 +78,13 @@ const HomeFAB = (props) => {
           }}
           contentStyle={{ height: 44 }}
           uppercase={false}
-          labelStyle={{ color: Colors.secondaryColor, fontWeight: '600', fontSize: 14, letterSpacing: 0, textTransform: 'none' }}
+          labelStyle={{ color: Colors.secondaryColor, fontWeight: '700', fontSize: 16, letterSpacing: 0, textTransform: 'none', textAlign: 'center' }}
         >
           Buy & sell
         </Button>
-
-        {/* Secondary button on the right */}
-        <Button
-          mode="outlined"
-          onPress={() => setIsManageOpen(true)}
-          style={{
-            borderRadius: 22,
-            borderColor: Colors.primaryColor,
-            borderWidth: 1,
-            backgroundColor: Colors.secondaryColor,
-            width: 160,
-            elevation: 0,
-            shadowColor: 'transparent',
-            shadowOpacity: 0,
-            shadowRadius: 0,
-            shadowOffset: { width: 0, height: 0 },
-          }}
-          contentStyle={{ height: 44 }}
-          uppercase={false}
-          labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 14, letterSpacing: 0, textTransform: 'none' }}
-        >
-          Manage assets
-        </Button>
       </View>
       
-      {/* Manage Assets Bottom Sheet */}
-      <ManageAssetsSheet
-        visible={isManageOpen}
-        onClose={() => setIsManageOpen(false)}
-        showConfigureHomeCards={showConfigureHomeCards}
-        onBrowseAll={handleAddCoin}
-        onAddErc20={handleAddErc20Token}
-        onAddPbaas={handleAddPbaasCurrency}
-        onArrangeCards={handleEditCards}
-      />
+      {/* Manage Assets Bottom Sheet removed from Dashboard */}
     </Portal>
   );
 };

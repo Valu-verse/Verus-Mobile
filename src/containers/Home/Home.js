@@ -1,11 +1,11 @@
 /*
-  The purpose of this component is to be the first screen a user is
-  met with after login. This screen should have all necessary or
-  essential wallet components available at the press of one button.
-  This includes VerusPay, adding coins, and coin menus. Keeping this
-  screen clean is also essential, as users will spend a lot of time with
-  it in their faces. It updates the balances and the rates upon loading
-  if they are flagged to be updated in the redux store.
+  Home (Dashboard)
+  - First screen after login with essential actions (VerusPay, add coins, coin menus)
+  - Now restricted to Dashboard widgets only: total value, VerusID, Proof of Personhood
+  - Currency widgets removed from Dashboard (moved to Assets list)
+  - Keeps Buy & Sell as floating primary action
+  - Listens for a header "Edit" event to toggle card arrangement
+  - Updates balances and rates upon load if flagged in redux store
 */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -47,8 +47,8 @@ import {
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
   VALU_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE
-
+  ATTESTATION_WIDGET_TYPE,
+  PERSONAL_PROFILE_WIDGET_TYPE
 } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
@@ -113,6 +113,13 @@ const Home = () => {
     setEditingCards(editing);
   };
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('toggle-edit-cards', () => {
+      setEditingCards((prev) => !prev);
+    });
+    return unsubscribe;
+  }, [navigation]);
+
   const sortWidgets = useCallback(() => {
     setWidgets((prevWidgets) => {
       const sortedWidgets = [...prevWidgets].sort((a, b) => {
@@ -154,15 +161,7 @@ const Home = () => {
       dispatchAddWidget(TOTAL_UNI_BALANCE_WIDGET_TYPE, activeAccount.accountHash);
     }
 
-    // Add currency widgets for active coins
-    for (const coinObj of activeCoinsForUser) {
-      const currencyWidgetId = `${CURRENCY_WIDGET_TYPE}:${coinObj.id}`;
-
-      if (!widgetsList.includes(currencyWidgetId)) {
-        widgetsList.push(currencyWidgetId);
-        dispatchAddWidget(currencyWidgetId, activeAccount.accountHash);
-      }
-    }
+    // Dashboard mode: do NOT add currency widgets
 
     // Add the VerusID widget if not present
     if (!widgetsList.includes(VERUSID_WIDGET_TYPE)) {
@@ -170,12 +169,20 @@ const Home = () => {
       dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
     }
 
+    // Remove currency widgets if any persisted previously
+    widgetsList = widgetsList.filter((id) => !id.startsWith(`${CURRENCY_WIDGET_TYPE}:`));
     // Ensure VALU Buy/Sell widget is removed (replaced by floating buttons)
     widgetsList = widgetsList.filter((id) => id !== 'valu');
 
     if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
       widgetsList.push(ATTESTATION_WIDGET_TYPE);
       dispatchAddWidget(ATTESTATION_WIDGET_TYPE, activeAccount.accountHash);
+    }
+
+    // Add Personal Profile widget
+    if (!widgetsList.includes(PERSONAL_PROFILE_WIDGET_TYPE)) {
+      widgetsList.push(PERSONAL_PROFILE_WIDGET_TYPE);
+      dispatchAddWidget(PERSONAL_PROFILE_WIDGET_TYPE, activeAccount.accountHash);
     }
 
     setWidgets(widgetsList);
@@ -213,6 +220,9 @@ const Home = () => {
           service: VALU_SERVICE_ID,
           subScreen: 'attestation'
         });
+      },
+      [PERSONAL_PROFILE_WIDGET_TYPE]: () => {
+        navigation.navigate('PersonalProfileStack');
       },
     };
 

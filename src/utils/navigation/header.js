@@ -34,6 +34,22 @@ const Header = () => {
   const notifications = useSelector(state => state.notifications);
   const acchash = useSelector(state => state.authentication.activeAccount?.accountHash);
 
+  // Determine active bottom tab to control eye toggle visibility
+  let showEyeToggle = true;
+  try {
+    const parent = navigation.getParent && navigation.getParent();
+    const parentState = parent && parent.getState ? parent.getState() : null;
+    const activeParentRoute = parentState && parentState.routes ? parentState.routes[parentState.index] : null;
+    const activeTabName = activeParentRoute ? activeParentRoute.name : null;
+    // Only show eye toggle on Home (WalletHome) and Assets (AssetsHome)
+    if (activeTabName && !['WalletHome', 'AssetsHome'].includes(activeTabName)) {
+      showEyeToggle = false;
+    }
+  } catch (e) {
+    // Fallback: keep default visibility
+    showEyeToggle = true;
+  }
+
   const handleBalanceShow = event => {
     event.preventDefault();
     event.stopPropagation();
@@ -58,42 +74,44 @@ const Header = () => {
           flexDirection: 'row',
           alignItems: 'center',
         }}>
-        {showBalance ? (
-          <TouchableOpacity
-            onPress={handleBalanceShow}
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-            <MaterialCommunityIcons
-              name="eye-off"
-              size={22}
-              color={Colors.verusDarkGray}
+        {showEyeToggle && (
+          showBalance ? (
+            <TouchableOpacity
+              onPress={handleBalanceShow}
               style={{
-                marginLeft: 5,
-                marginRight: 10,
-              }}
-            />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={handleBalanceShow}
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}>
-            <MaterialCommunityIcons
-              name="eye"
-              size={22}
-              color={Colors.verusDarkGray}
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={22}
+                color={Colors.verusDarkGray}
+                style={{
+                  marginLeft: 5,
+                  marginRight: 10,
+                }}
+              />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleBalanceShow}
               style={{
-                marginLeft: 5,
-                marginRight: 10,
-              }}
-            />
-          </TouchableOpacity>
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
+              <MaterialCommunityIcons
+                name="eye"
+                size={22}
+                color={Colors.verusDarkGray}
+                style={{
+                  marginLeft: 5,
+                  marginRight: 10,
+                }}
+              />
+            </TouchableOpacity>
+          )
         )}
 
         <TouchableOpacity

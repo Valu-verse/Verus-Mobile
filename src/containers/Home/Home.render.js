@@ -18,7 +18,8 @@ import {
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
   ATTESTATION_WIDGET_TYPE,
-  VALU_ACCOUNT_TYPE
+  VALU_ACCOUNT_TYPE,
+  PERSONAL_PROFILE_WIDGET_TYPE
 } from '../../utils/constants/widgets';
 import { setAndSaveAccountWidgets } from '../../actions/actionCreators';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
@@ -32,6 +33,7 @@ import VerusIdWidget from './HomeWidgets/VerusIdWidget';
 // import ValuWidget from './HomeWidgets/ValuWidget';
 import AttestationWidget from './HomeWidgets/AttestationWidget';
 import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
+import PersonalProfileWidget from './HomeWidgets/PersonalProfileWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 
 export const HomeRender = ({
@@ -209,6 +211,13 @@ export const HomeRenderWidget = ({
       return (
         <Provider theme={HomeListItemThemeLight}>
           <AttestationWidget hasValuProofOfPersonhood={hasValuProofOfPersonhood} />
+        </Provider>
+      );
+    },
+    [PERSONAL_PROFILE_WIDGET_TYPE]: () => {
+      return (
+        <Provider theme={HomeListItemThemeLight}>
+          <PersonalProfileWidget />
         </Provider>
       );
     }

@@ -5,9 +5,12 @@
 */
 import React from 'react';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Feather from 'react-native-vector-icons/Feather';
 import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
+import AssetsStackScreens from '../AssetsStackScreens/AssetsStackScreens';
+import ActivityStackScreens from '../ActivityStackScreens/ActivityStackScreens';
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
 import VerusPay from '../../VerusPay/VerusPay';
@@ -27,37 +30,41 @@ const HomeTabScreens = props => {
         name="WalletHome"
         component={WalletStackScreens}
         options={{
-          title: "Wallets",
+          title: "Home",
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons name="wallet" color={color} size={26} />
+            <Feather name="home" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
+
       <HomeTabs.Screen
-        name="PersonalHome"
-        component={ProfileStackScreens}
+        name="AssetsHome"
+        component={AssetsStackScreens}
         options={{
-          title: "Personal",
+          title: "Assets",
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="fingerprint"
-              color={color}
-              size={26}
-            />
+            <Feather name="list" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
+      {/* Personal tab removed: surfaced as a Home card */}
       <HomeTabs.Screen
         name="ServicesHome"
         component={ServicesStackScreens}
         options={{
           title: "Services",
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="room-service"
-              color={color}
-              size={26}
-            />
+            <Feather name="grid" color={color} size={22} style={{ marginBottom: 2 }} />
+          ),
+        }}
+      />
+      <HomeTabs.Screen
+        name="ActivityHome"
+        component={ActivityStackScreens}
+        options={{
+          title: "Activity",
+          tabBarIcon: ({ color }) => (
+            <Feather name="clock" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
@@ -81,11 +88,7 @@ const HomeTabScreens = props => {
         options={{
           title: "Scan",
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="camera"
-              color={color}
-              size={26}
-            />
+            <Feather name="camera" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
