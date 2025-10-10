@@ -35,7 +35,7 @@ const MainStackScreens = props => {
         name="AddCoin"
         component={AddCoin}
         options={{
-          title: "Add Coin",
+          title: "Add assets",
         }}
       />
 

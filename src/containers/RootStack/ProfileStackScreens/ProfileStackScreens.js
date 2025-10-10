@@ -25,7 +25,7 @@ const ProfileStackScreens = props => {
         name="PersonalProfile"
         component={Personal}
         options={{
-          title: "Personal Profile",
+          title: "Personal profile",
         }}
       />
       <ProfileStack.Screen

@@ -5,6 +5,10 @@
   Update 2025-09-29:
   - Standardized margins for the show/hide balance icons so the icon
     position doesn't shift when toggling between "eye" and "eye-off".
+  Update 2025-10-10:
+  - Header title font standardized to Source Sans Pro to match app-wide font
+    usage. Use Bold weight, font size 20, and slightly tighter letter spacing
+    for improved readability.
 */
 import {DrawerActions} from '@react-navigation/compat';
 import React from 'react';
@@ -87,9 +91,9 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
     backgroundColor: Colors.secondaryColor,
   },
   headerTitleStyle: {
-    fontFamily: 'Avenir-Black',
-    fontWeight: 'normal',
-    fontSize: 22,
+    fontFamily: 'SourceSansPro-Bold',
+    fontSize: 20,
+    letterSpacing: -0.3,
     color: Colors.quinaryColor,
   },
   headerRight: () => <Header />,
