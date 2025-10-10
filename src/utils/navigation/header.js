@@ -9,6 +9,10 @@
   - Header title font standardized to Source Sans Pro to match app-wide font
     usage. Use Bold weight, font size 20, and slightly tighter letter spacing
     for improved readability.
+  Update 2025-10-10 (late):
+  - Revert header title to platform system font for consistency with most
+    in-app text. Keep size 20, bold weight, and slightly reduced letter
+    spacing.
 */
 import {DrawerActions} from '@react-navigation/compat';
 import React from 'react';
@@ -91,8 +95,8 @@ export const defaultHeaderOptions = ({navigation, params, route}) => ({
     backgroundColor: Colors.secondaryColor,
   },
   headerTitleStyle: {
-    fontFamily: 'SourceSansPro-Bold',
-    fontSize: 20,
+    fontWeight: 'bold',
+    fontSize: 18,
     letterSpacing: -0.3,
     color: Colors.quinaryColor,
   },
