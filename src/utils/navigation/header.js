@@ -13,11 +13,14 @@
   - Revert header title to platform system font for consistency with most
     in-app text. Keep size 20, bold weight, and slightly reduced letter
     spacing.
+  Update 2025-10-03:
+  - Added notification bell icon with badge count
 */
 import {DrawerActions} from '@react-navigation/compat';
-import React from 'react';
+import React, {useMemo} from 'react';
 import {Text, TouchableOpacity, View} from 'react-native';
 import {Icon} from 'react-native-elements';
+import {Badge} from 'react-native-paper';
 import Colors from '../../globals/colors';
 import styles from '../../styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -28,6 +31,8 @@ const Header = () => {
   const navigation = useNavigation(); // Use the hook here
   const dispatch = useDispatch();
   const showBalance = useSelector(state => state.coins.showBalance);
+  const notifications = useSelector(state => state.notifications);
+  const acchash = useSelector(state => state.authentication.activeAccount?.accountHash);
 
   const handleBalanceShow = event => {
     event.preventDefault();
@@ -35,11 +40,23 @@ const Header = () => {
     dispatch({type: 'SET_BALANCE_SHOW'});
   };
 
+  const notificationCount = useMemo(() => {
+    if (!notifications.directory || !acchash) return 0;
+    return Object.keys(notifications.directory).filter(
+      uid => notifications.directory[uid].acchash === acchash
+    ).length;
+  }, [notifications, acchash]);
+
+  const handleNotificationPress = () => {
+    navigation.navigate('Notifications');
+  };
+
   return (
     <TouchableOpacity style={{paddingRight: 8}}>
       <View
         style={{
           flexDirection: 'row',
+          alignItems: 'center',
         }}>
         {showBalance ? (
           <TouchableOpacity
@@ -78,6 +95,41 @@ const Header = () => {
             />
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          onPress={handleNotificationPress}
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginRight: 10,
+            position: 'relative',
+          }}>
+          <MaterialCommunityIcons
+            name="bell-outline"
+            size={24}
+            color={Colors.verusDarkGray}
+          />
+          {notificationCount > 0 && (
+            <Badge
+              size={20}
+              style={{
+                position: 'absolute',
+                top: -6,
+                right: -10,
+                backgroundColor: Colors.primaryColor,
+                borderWidth: 1,
+                borderColor: '#FFFFFF',
+              }}
+              labelStyle={{
+                fontSize: 11,
+                fontWeight: '700',
+              }}
+            >
+              {notificationCount > 99 ? '99+' : notificationCount}
+            </Badge>
+          )}
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}>
