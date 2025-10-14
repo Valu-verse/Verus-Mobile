@@ -362,8 +362,12 @@ const ValuAttestation = (props) => {
         await updatePendingVerusIds();
 
     };
-
+    
     const fetchData = useCallback(async () => {
+
+        if(!loading) {
+            setLoading(true);
+        }
         // Don't fetch data if we're currently provisioning an identity
         if (isProvisioningIdentity) {
             return;
@@ -393,7 +397,6 @@ const ValuAttestation = (props) => {
             return;
         }
 
-        setLoading(true);
         try {
 
             const provisionRequest = new primitives.LoginConsentProvisioningRequest({

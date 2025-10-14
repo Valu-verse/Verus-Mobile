@@ -8,6 +8,7 @@ import {
   SET_PENDING_VERUSIDS,
 } from '../../utils/constants/storeType';
 import VrpcProvider from '../../utils/vrpc/vrpcInterface';
+import Store from '../../store/index';
 
 export default function* verusidSaga() {
   yield all([
@@ -27,14 +28,35 @@ function* handleVerusidChannelInit(action) {
 }
 
 function* handleVerusidChannelClose(action) {
-  VrpcProvider.deleteEndpoint(
-    action.payload.systemId,
-    action.payload.endpointAddress,
-  );
+  try {
+    // Check if the endpoint exists before trying to delete it
+    const endpoints = Store.getState().channelStore_vrpc.vrpcEndpoints;
+    const endpointId = VrpcProvider.getEndpointId(action.payload.systemId, action.payload.endpointAddress);
+    
+    if (endpoints[endpointId]) {
+      VrpcProvider.deleteEndpoint(
+        action.payload.systemId,
+        action.payload.endpointAddress,
+      );
+    } else {
+      console.log(`VerusID endpoint ${action.payload.endpointAddress} already deleted for ${action.payload.systemId}`);
+    }
+  } catch (error) {
+    // Endpoint might not be initialized, which is fine during cleanup
+    console.log('VerusID channel close:', error.message);
+  }
 }
 
 function* handleSignOut() {
-  VrpcProvider.deleteAllEndpoints();
+  // Only delete endpoints if they haven't been deleted already
+  try {
+    const endpoints = Store.getState().channelStore_vrpc.vrpcEndpoints;
+    if (Object.keys(endpoints).length > 0) {
+      VrpcProvider.deleteAllEndpoints();
+    }
+  } catch (error) {
+    console.log('VerusID sign out cleanup:', error.message);
+  }
   
   setImmediate(() => {
     VrpcProvider.addDefaultEndpoints();
