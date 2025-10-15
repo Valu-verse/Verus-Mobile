@@ -290,7 +290,7 @@ const ValuAttestation = (props) => {
             // Open the SumSub URL in InAppBrowser
             await InAppBrowser.close();
             if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(authenticatedUrl, {
+                const browserResult = await InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
                     dismissButtonStyle: 'close',
                     preferredBarTintColor: '#00A1CC',
@@ -320,15 +320,26 @@ const ValuAttestation = (props) => {
                         endEnter: 'slide_in_left',
                         endExit: 'slide_out_right'
                     }
-                }).then((result) => {
-                    fetchData();
-                    console.log("InAppBrowser result:", result);
-                });            
+                });
+                
+                console.log("InAppBrowser result:", browserResult);
+                
+                // Handle the browser close result
+                if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
+                    console.log("User closed the browser, refreshing data...");
+                    setLoading(true);
+                    await fetchData();
+                } else {
+                    // Browser was closed due to navigation/completion
+                    setLoading(true);
+                    await fetchData();
+                }
             } else {
                 Linking.openURL(authenticatedUrl);
+                setLoading(false);
             }
 
-            setLoading(false);
+            // Don't set loading false here since we handle it in the browser result
 
         } catch (error) {
             console.error("Error continuing proof of personhood:", error);
@@ -364,12 +375,14 @@ const ValuAttestation = (props) => {
     };
     
     const fetchData = useCallback(async () => {
-
+        console.log("fetchData called, current loading state:", loading);
+        
         if(!loading) {
             setLoading(true);
         }
         // Don't fetch data if we're currently provisioning an identity
         if (isProvisioningIdentity) {
+            setLoading(false);
             return;
         }
 
@@ -444,7 +457,7 @@ const ValuAttestation = (props) => {
                 `An error occurred while trying to start the Valu Proof of Personhood process. ${e.message}`, "RETRY")
         }
 
-    }, [props.navigation, isProvisioningIdentity]);
+    }, [props.navigation, isProvisioningIdentity, loading]);
 
     // useFocusEffect(fetchData);
 
@@ -610,7 +623,7 @@ const ValuAttestation = (props) => {
         try {
 
             if (pendingIds[verusNetwork]) {
-                const identityAddresses = Object.keys(pendingIds[verusNetwork]);
+                const identityAddresses = Object.keys(pendingIds[verusNetwork] || {});
                 if (identityAddresses.length > 0) {
                     // Get the first pending identity (you might want to handle multiple differently)
                     const firstAddress = identityAddresses[0];
