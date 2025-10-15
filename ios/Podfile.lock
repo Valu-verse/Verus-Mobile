@@ -26,7 +26,6 @@ PODS:
     - lottie-ios (~> 3.4.0)
     - React-Core
   - MnemonicSwift (2.0.0)
-  - OpenSSL-Universal (3.3.3001)
   - RCT-Folly (2021.07.22.00):
     - boost
     - DoubleConversion
@@ -284,11 +283,6 @@ PODS:
     - React-Core
   - react-native-netinfo (6.0.2):
     - React-Core
-  - react-native-quick-crypto (0.7.17):
-    - OpenSSL-Universal
-    - RCT-Folly (= 2021.07.22.00)
-    - React
-    - React-Core
   - react-native-randombytes (3.6.1):
     - React-Core
   - react-native-safe-area-context (4.11.1):
@@ -500,7 +494,6 @@ DEPENDENCIES:
   - "react-native-cameraroll (from `../node_modules/@react-native-camera-roll/camera-roll`)"
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - "react-native-netinfo (from `../node_modules/@react-native-community/netinfo`)"
-  - react-native-quick-crypto (from `../node_modules/react-native-quick-crypto`)
   - react-native-randombytes (from `../node_modules/react-native-randombytes`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-udp (from `../node_modules/react-native-udp`)
@@ -547,7 +540,6 @@ SPEC REPOS:
     - libevent
     - lottie-ios
     - MnemonicSwift
-    - OpenSSL-Universal
     - SwiftNIO
     - SwiftNIOConcurrencyHelpers
     - SwiftNIOCore
@@ -603,8 +595,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-image-picker"
   react-native-netinfo:
     :path: "../node_modules/@react-native-community/netinfo"
-  react-native-quick-crypto:
-    :path: "../node_modules/react-native-quick-crypto"
   react-native-randombytes:
     :path: "../node_modules/react-native-randombytes"
   react-native-safe-area-context:
@@ -688,7 +678,6 @@ SPEC CHECKSUMS:
   lottie-ios: 8f97d3271e155c2d688875c29cd3c74908aef5f8
   lottie-react-native: b702fab740cdb952a8e2354713d3beda63ff97b0
   MnemonicSwift: 36384fc6b2640d93df9fe9fb60a8da7957cec36d
-  OpenSSL-Universal: 6082b0bf950e5636fe0d78def171184e2b3899c2
   RCT-Folly: 424b8c9a7a0b9ab2886ffe9c3b041ef628fd4fb1
   RCTRequired: 79b5f823c2b4b865451ba9ddb33c676786760ea8
   RCTTypeSafety: 4f6d5414413d8848923ccd448c4cef4b6ffcd403
@@ -706,7 +695,6 @@ SPEC CHECKSUMS:
   react-native-cameraroll: 38b40d9033e4077b6c603f92f95c6d05fa7907df
   react-native-image-picker: 3269f75c251cdcd61ab51b911dd30d6fff8c6169
   react-native-netinfo: 92e6e4476eb8bf6fc2d7c0a6ca0a1406f663d73a
-  react-native-quick-crypto: c63f09c36b5e03ee0cb6b03cc2de296fb6ff3f0f
   react-native-randombytes: 421f1c7d48c0af8dbcd471b0324393ebf8fe7846
   react-native-safe-area-context: 5141f11858b033636f1788b14f32eaba92cee810
   react-native-udp: 8864b1211857e9d8224ae5cbaf8580970fb99de1
