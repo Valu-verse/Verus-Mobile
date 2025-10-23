@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { primitives, VerusIdInterface } from "verusid-ts-client"
-import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated } from 'react-native'
+import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated, Platform } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
 import ListSelectionModal from "../../../../../components/ListSelectionModal/ListSelectionModal";
@@ -289,7 +289,7 @@ const ValuAttestation = (props) => {
 
             // Open the SumSub URL in InAppBrowser
             await InAppBrowser.close();
-            if (await InAppBrowser.isAvailable()) {
+            if (Platform.OS === 'android' && await InAppBrowser.isAvailable()) {
                 const browserResult = await InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
                     dismissButtonStyle: 'close',
@@ -492,7 +492,12 @@ const ValuAttestation = (props) => {
                     // Fallback if no parent navigator
                     props.navigation.reset({
                         index: 0,
-                       
+                        routes: [{ 
+                            name: 'ServicesHome',
+                            params: {
+                                screen: 'ValuAttestation'
+                            }
+                        }]
                     });
                 
             }
@@ -598,8 +603,9 @@ const ValuAttestation = (props) => {
 
 
     // Continue with new ValuID flow
-    const continueWithNewValuId = () => {
+    const continueWithNewValuId = async () => {
         setIdentityChoiceModalVisible(false);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to ensure modal is closed before navigating
         // Navigate to ValuChooseIdentity screen, but pass a callback for when the user submits a new identity
         const parentNav = props.navigation?.getParent();
         if (parentNav) {
