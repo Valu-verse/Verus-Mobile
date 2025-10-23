@@ -158,10 +158,10 @@ class ValuChooseIdentity extends Component {
                         <Button
                             onPress={this.handleSubmit}
                             mode="contained"
-                            disabled={processing || identityName.length < 1}
+                            disabled={processing || identityName?.length < 1}
                             style={{
                                 borderRadius: 24,
-                                backgroundColor: (processing || identityName.length < 1) ? '#CFEAF2' : Colors.primaryColor,
+                                backgroundColor: (processing || identityName?.length < 1) ? '#CFEAF2' : Colors.primaryColor,
                                 elevation: 0,
                                 shadowColor: 'transparent',
                                 shadowOpacity: 0,
