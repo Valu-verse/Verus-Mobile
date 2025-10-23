@@ -18,8 +18,7 @@ class SemiModal extends Component {
     super(props);
     this.state = {};
 
-    this.animatedOpacity = new Animated.Value(0);
-    this.activeAnimation = null;
+    this.animatedOpacity = new Animated.Value(0)
   }
 
   componentDidMount() {
@@ -31,46 +30,20 @@ class SemiModal extends Component {
     else if (!lastProps.visible && this.props.visible) this.fadeIn()
   }
 
-  componentWillUnmount() {
-    // Stop any running animations
-    if (this.activeAnimation) {
-      this.activeAnimation.stop();
-      this.activeAnimation = null;
-    }
-  }
-
   fadeIn = () => {
-    // Stop any existing animation
-    if (this.activeAnimation) {
-      this.activeAnimation.stop();
-    }
-    
-    this.activeAnimation = Animated.timing(this.animatedOpacity, {
+    Animated.timing(this.animatedOpacity, {
       toValue: 0.6,
       duration: 300,
       useNativeDriver: true
-    });
-    
-    this.activeAnimation.start(() => {
-      this.activeAnimation = null;
-    });
+    }).start();
   };
 
   fadeOut = () => {
-    // Stop any existing animation
-    if (this.activeAnimation) {
-      this.activeAnimation.stop();
-    }
-    
-    this.activeAnimation = Animated.timing(this.animatedOpacity, {
+    Animated.timing(this.animatedOpacity, {
       toValue: 0,
       duration: 300,
       useNativeDriver: true
-    });
-    
-    this.activeAnimation.start(() => {
-      this.activeAnimation = null;
-    });
+    }).start();
   };
 
   render() {
