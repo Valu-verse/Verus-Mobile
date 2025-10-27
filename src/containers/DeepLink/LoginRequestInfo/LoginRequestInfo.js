@@ -473,14 +473,16 @@ const LoginRequestInfo = props => {
 
   const handleContinue = async () => {
     if (signedIn) {
-      // Check if all permissions have been accepted
-      if (!ready) {
-        createAlert(
-          "Permissions Required",
-          "Please complete all required permissions before continuing.",
-          [{ text: 'OK', onPress: () => resolveAlert() }]
-        );
-        return;
+      // Check if there are permissions that need to be handled one by one
+      if (permissions && permissions.length > 0) {
+        // Find the first permission that hasn't been agreed to
+        const nextPermission = permissions.find(permission => !permission.agreed);
+        
+        if (nextPermission) {
+          // Handle the next permission in the sequence
+          buildAlert(nextPermission);
+          return;
+        }
       }
 
       const coinObj = CoinDirectory.findCoinObj(chain_id);

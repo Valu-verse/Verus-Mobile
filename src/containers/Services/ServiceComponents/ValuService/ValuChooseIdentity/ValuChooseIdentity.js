@@ -52,7 +52,7 @@ class ValuChooseIdentity extends Component {
 
     handleSubmit = async () => {
         const { identityName, identityType } = this.state;
-        
+        console.log("Submitting identity name:", identityName, identityType);
         if (!identityName || identityName?.length < 1) {
             createAlert(
                 "Invalid Name",
@@ -68,10 +68,11 @@ class ValuChooseIdentity extends Component {
             const fqn = this.getFullyQualifiedName();
                    
             // Check if the identity name is available
+            console.log("Availability check before check");
             const availabilityCheck = await ValuProvider.checkIdentityAvailable(fqn);
-            
+            console.log("Availability check result:", availabilityCheck);
             if (!availabilityCheck.success) {
-                throw new Error(availabilityCheck.error || `Failed to check ${identityType.toLowerCase()} availability`);
+                throw new Error(availabilityCheck?.error);
             }
             
             if (!availabilityCheck.data.available) {
@@ -91,7 +92,7 @@ class ValuChooseIdentity extends Component {
             });
             
         } catch (error) {
-            console.error("Error checking identity availability:", error);
+            console.error("Error checking identity availability in Choose:", error);
             createAlert(
                 "Error", 
                 `Failed to check ${identityType.toLowerCase()} availability. Please try again.`,
@@ -158,10 +159,10 @@ class ValuChooseIdentity extends Component {
                         <Button
                             onPress={this.handleSubmit}
                             mode="contained"
-                            disabled={processing || identityName.length < 1}
+                            disabled={processing || identityName?.length < 1}
                             style={{
                                 borderRadius: 24,
-                                backgroundColor: (processing || identityName.length < 1) ? '#CFEAF2' : Colors.primaryColor,
+                                backgroundColor: (processing || identityName?.length < 1) ? '#CFEAF2' : Colors.primaryColor,
                                 elevation: 0,
                                 shadowColor: 'transparent',
                                 shadowOpacity: 0,

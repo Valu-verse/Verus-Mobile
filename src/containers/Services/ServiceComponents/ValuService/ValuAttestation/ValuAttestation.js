@@ -16,7 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { primitives, VerusIdInterface } from "verusid-ts-client"
-import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated } from 'react-native'
+import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated, Platform } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
 import ListSelectionModal from "../../../../../components/ListSelectionModal/ListSelectionModal";
@@ -289,8 +289,8 @@ const ValuAttestation = (props) => {
 
             // Open the SumSub URL in InAppBrowser
             await InAppBrowser.close();
-            if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(authenticatedUrl, {
+            if (Platform.OS === 'android' && await InAppBrowser.isAvailable()) {
+                const browserResult = await InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
                     dismissButtonStyle: 'close',
                     preferredBarTintColor: '#00A1CC',
@@ -320,15 +320,26 @@ const ValuAttestation = (props) => {
                         endEnter: 'slide_in_left',
                         endExit: 'slide_out_right'
                     }
-                }).then((result) => {
-                    fetchData();
-                    console.log("InAppBrowser result:", result);
-                });            
+                });
+
+                console.log("InAppBrowser result:", browserResult);
+
+                // Handle the browser close result
+                if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
+                    console.log("User closed the browser, refreshing data...");
+                    setLoading(true);
+                    await fetchData();
+                } else {
+                    // Browser was closed due to navigation/completion
+                    setLoading(true);
+                    await fetchData();
+                }
             } else {
                 Linking.openURL(authenticatedUrl);
+                setLoading(false);
             }
 
-            setLoading(false);
+            // Don't set loading false here since we handle it in the browser result
 
         } catch (error) {
             console.error("Error continuing proof of personhood:", error);
@@ -364,8 +375,14 @@ const ValuAttestation = (props) => {
     };
 
     const fetchData = useCallback(async () => {
+        console.log("fetchData called, current loading state:", loading);
+
+        if (!loading) {
+            setLoading(true);
+        }
         // Don't fetch data if we're currently provisioning an identity
         if (isProvisioningIdentity) {
+            setLoading(false);
             return;
         }
 
@@ -393,7 +410,6 @@ const ValuAttestation = (props) => {
             return;
         }
 
-        setLoading(true);
         try {
 
             const provisionRequest = new primitives.LoginConsentProvisioningRequest({
@@ -441,7 +457,7 @@ const ValuAttestation = (props) => {
                 `An error occurred while trying to start the Valu Proof of Personhood process. ${e.message}`, "RETRY")
         }
 
-    }, [props.navigation, isProvisioningIdentity]);
+    }, [props.navigation, isProvisioningIdentity, loading]);
 
     // useFocusEffect(fetchData);
 
@@ -452,7 +468,7 @@ const ValuAttestation = (props) => {
                 Animated.timing(pulse, { toValue: 0.6, duration: 700, useNativeDriver: true }),
                 Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true })
             ])
-        ).start();      
+        ).start();
         fetchData();
 
     }, []);
@@ -473,12 +489,12 @@ const ValuAttestation = (props) => {
                 continueWithIdentity(routeParams.chosenIdentity);
                 // Clear the params to avoid re-execution
                 props.navigation.setParams({ continueFlow: false, chosenIdentity: null });
-                    // Fallback if no parent navigator
-                    props.navigation.reset({
-                        index: 0,
-                       
-                    });
-                
+                // Fallback if no parent navigator
+                props.navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'SignedInStack' }]
+                });
+
             }
         }, [props.route?.params])
     );
@@ -582,8 +598,9 @@ const ValuAttestation = (props) => {
 
 
     // Continue with new ValuID flow
-    const continueWithNewValuId = () => {
+    const continueWithNewValuId = async () => {
         setIdentityChoiceModalVisible(false);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to ensure modal is closed before navigating
         // Navigate to ValuChooseIdentity screen, but pass a callback for when the user submits a new identity
         const parentNav = props.navigation?.getParent();
         if (parentNav) {
@@ -607,7 +624,7 @@ const ValuAttestation = (props) => {
         try {
 
             if (pendingIds[verusNetwork]) {
-                const identityAddresses = Object.keys(pendingIds[verusNetwork]);
+                const identityAddresses = Object.keys(pendingIds[verusNetwork] || {});
                 if (identityAddresses.length > 0) {
                     // Get the first pending identity (you might want to handle multiple differently)
                     const firstAddress = identityAddresses[0];
@@ -884,7 +901,7 @@ const ValuAttestation = (props) => {
             } else if (status === POP_RECEIVED) {
                 // User already has Proof of Personhood attestation, navigate to Services list
                 setLoading(false);
-                
+
                 props.navigation.reset({
                     index: 0,
                     routes: [{ name: 'ServicesHome' }],
@@ -1061,10 +1078,10 @@ const ValuAttestation = (props) => {
                                     <View style={{ width: '100%', marginBottom: 12 }}>
                                         <View style={{ flexDirection: 'column' }}>
                                             <View style={{ width: '100%', marginBottom: 16 }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
-                                                <MaterialCommunityIcons name={'shield-outline'} size={16} color={'black'} />
-                                            </View>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
+                                                        <MaterialCommunityIcons name={'shield-outline'} size={16} color={'black'} />
+                                                    </View>
                                                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
                                                 </View>
                                                 <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
@@ -1072,10 +1089,10 @@ const ValuAttestation = (props) => {
                                                 </Text>
                                             </View>
                                             <View style={{ width: '100%', marginBottom: 0 }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
-                                                <MaterialCommunityIcons name={'check-circle-outline'} size={16} color={'black'} />
-                                            </View>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                                                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
+                                                        <MaterialCommunityIcons name={'check-circle-outline'} size={16} color={'black'} />
+                                                    </View>
                                                     <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
                                                 </View>
                                                 <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
