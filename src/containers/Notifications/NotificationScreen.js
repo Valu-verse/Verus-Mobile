@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { View, FlatList, StyleSheet, Alert, Dimensions, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { dispatchRemoveNotification, dispatchClearNotifications } from '../../actions/actions/notifications/dispatchers/notifications';
 import NotificationItem from './NotificationItem';
@@ -17,6 +17,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 
 const NotificationScreen = ({ navigation }) => {
   const notifications = useObjectSelector(state => state.notifications);
+  const dispatch = useDispatch();
   const acchash = useSelector(state => state.authentication.activeAccount).accountHash;
   const [notificationList, setNotificationList] = useState([]);
 
@@ -69,7 +70,7 @@ const NotificationScreen = ({ navigation }) => {
 
   const handleNotificationPress = (notification) => {
     if (notification.isActionable()) {
-      notification.onAction({ navigation });
+      notification.onAction({ navigation, dispatch });
     }
   };
 

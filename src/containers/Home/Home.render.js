@@ -1,4 +1,5 @@
 // Home.render.js
+// 2025-10-27: Added NotificationWidget ahead of the grid to surface actionable VerusID alerts.
 
 import React from 'react';
 import { View, RefreshControl } from 'react-native';
@@ -33,6 +34,7 @@ import VerusIdWidget from './HomeWidgets/VerusIdWidget';
 import AttestationWidget from './HomeWidgets/AttestationWidget';
 import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
+import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 export const HomeRender = ({
   dragDetectionEnabled,
@@ -104,6 +106,7 @@ export const HomeRender = ({
       >
         {'Drag your cards into your desired configuration, then press done.'}
       </Banner>
+      <NotificationWidget />
       {HomeRenderCoinsList()}
     </Portal.Host>
   );
