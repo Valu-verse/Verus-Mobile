@@ -147,19 +147,22 @@ export const HomeRenderCoinsList = ({
             dispatch(setAndSaveAccountWidgets(positions, activeAccount.accountHash))
           }
         >
-          {widgets.map((widgetId, index) => (
-            <SortableTile key={index} id={widgetId}>
-              <View
-                style={{
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'visible',
-                }}
-              >
-                {HomeRenderWidget(widgetId)}
-              </View>
-            </SortableTile>
-          ))}
+          {widgets
+            .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
+            .filter(({ node }) => node != null)
+            .map(({ id, node }, index) => (
+              <SortableTile key={index} id={id}>
+                <View
+                  style={{
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'visible',
+                  }}
+                >
+                  {node}
+                </View>
+              </SortableTile>
+            ))}
         </SortableGrid>
       </SortableContainer>
     </View>

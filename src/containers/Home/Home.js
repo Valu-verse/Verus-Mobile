@@ -35,6 +35,7 @@ import {
   conditionallyUpdateService,
   conditionallyUpdateWallet,
   dispatchAddWidget,
+  dispatchRemoveWidget,
 } from '../../actions/actionDispatchers';
 import BigNumber from 'bignumber.js';
 import {
@@ -50,6 +51,7 @@ import {
   ATTESTATION_WIDGET_TYPE
 
 } from '../../utils/constants/widgets';
+import { VALU_ACCOUNT } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
 import { dragDetectionEnabled } from '../../utils/dragDetection';
@@ -172,6 +174,12 @@ const Home = () => {
 
     // Ensure VALU Buy/Sell widget is removed (replaced by floating buttons)
     widgetsList = widgetsList.filter((id) => id !== 'valu');
+
+    // Remove Valu account widget from layout and persist removal
+    if (widgetsList.includes(VALU_ACCOUNT)) {
+      widgetsList = widgetsList.filter((id) => id !== VALU_ACCOUNT);
+      dispatchRemoveWidget(VALU_ACCOUNT, activeAccount.accountHash);
+    }
 
     if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
       widgetsList.push(ATTESTATION_WIDGET_TYPE);
