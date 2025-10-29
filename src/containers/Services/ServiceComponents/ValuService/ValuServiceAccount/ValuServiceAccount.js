@@ -8,7 +8,7 @@ import { createAlert, resolveAlert } from "../../../../../actions/actions/alert/
 import { requestSeeds } from "../../../../../utils/auth/authBox";
 import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { VALU_SERVICE_ID } from "../../../../../utils/constants/services";
-import { requestServiceStoredData } from "../../../../../utils/auth/authBox";
+import ValuProvider from "../../../../../utils/services/ValuProvider";
 import { ValuOnRamp as ValuOnRampIcon, VUSDC } from "../../../../../images/customIcons";
 import ValuOnRampChooseSource from "../ValuOnRamp/ValuOnRampChooseSource";
 import ValuOffRampChooseSource from "../ValuOffRamp/ValuOffRampChooseSource";
@@ -81,6 +81,7 @@ class ValuServiceAccount extends Component {
     this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
 
     try {
+      console.log("Checking Valu account creation status");
       await this.checkAccountCreationStatus();
       this.props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
     } catch (e) {
@@ -156,27 +157,12 @@ updateTaxCountry() {
 }
 
   async checkAccountCreationStatus() {
- //   const serviceData = await requestServiceStoredData(VALU_SERVICE_ID);
-   // console.log("serviced data", serviceData)
-
-    // if (serviceData?.KYCState) {
-    //    this.props.dispatch(setPrimeTrustAccountStage(serviceData?.KYCState));
-    //  } else {
-    //   this.props.dispatch(setPrimeTrustAccountStage(0));
-    //  }
-
-
-    // if(serviceData?.loginDetails) {
-    //     console.log("serviceData?.loginDetails as: ", serviceData?.loginDetails); 
-    //     const {success} = await PrimeTrustProvider.authenticate(serviceData.loginDetails.accountID);
-    //     console.log("success: ", success); 
-    //     if (success) {
-    //       if (serviceData.loginDetails?.accountId)
-    //       this.props.dispatch(setPrimeTrustAccount({accountId: serviceData.loginDetails.accountId, KYCState: serviceData.KYCState || 0 }));
-    //     }
-    //    // this.props.dispatch(setPrimeTrustAccount({accountId: authenticatedAs, KYCState: serviceData.KYCState || 0 }));
-    //   }
-
+    if (!this.props.valuAuthenticated) {
+      console.log("Authenticating Valu service account");
+      const seed = (await requestSeeds())[VALU_SERVICE];
+      if (seed == null) throw new Error("No Valu seed present");
+      await ValuProvider.authenticate(seed);
+    }
   }
 
   setSubScreen = (subScreen, additionalData = null) => {
@@ -187,6 +173,11 @@ updateTaxCountry() {
   };
 
   render() {
+
+    if(!this.props.valuAuthenticated) {
+      console.log("Valu service account is not authenticated");
+      return null;
+    }
 
     if (this.state.subScreen == "attestation")
       return (<ValuAttestation {...this.props} />);
@@ -240,7 +231,7 @@ const mapStateToProps = (state) => {
     valuAuthenticated: state.channelStore_valu_service.authenticated,
     email: state.channelStore_valu_service.email,
     activeAccount: state.authentication.activeAccount,
-    encryptedPersonalData: state.personal
+    encryptedPersonalData: state.personal,
   };
 };
 

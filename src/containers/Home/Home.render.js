@@ -1,4 +1,5 @@
 // Home.render.js
+// 2025-10-27: Added NotificationWidget ahead of the grid to surface actionable VerusID alerts.
 
 import React from 'react';
 import { View, RefreshControl } from 'react-native';
@@ -35,6 +36,7 @@ import AttestationWidget from './HomeWidgets/AttestationWidget';
 import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import PersonalProfileWidget from './HomeWidgets/PersonalProfileWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
+import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 export const HomeRender = ({
   dragDetectionEnabled,
@@ -106,6 +108,7 @@ export const HomeRender = ({
       >
         {'Drag your cards into your desired configuration, then press done.'}
       </Banner>
+      <NotificationWidget />
       {HomeRenderCoinsList()}
     </Portal.Host>
   );
@@ -149,19 +152,22 @@ export const HomeRenderCoinsList = ({
             dispatch(setAndSaveAccountWidgets(positions, activeAccount.accountHash))
           }
         >
-          {widgets.map((widgetId, index) => (
-            <SortableTile key={index} id={widgetId}>
-              <View
-                style={{
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'visible',
-                }}
-              >
-                {HomeRenderWidget(widgetId)}
-              </View>
-            </SortableTile>
-          ))}
+          {widgets
+            .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
+            .filter(({ node }) => node != null)
+            .map(({ id, node }, index) => (
+              <SortableTile key={index} id={id}>
+                <View
+                  style={{
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'visible',
+                  }}
+                >
+                  {node}
+                </View>
+              </SortableTile>
+            ))}
         </SortableGrid>
       </SortableContainer>
     </View>

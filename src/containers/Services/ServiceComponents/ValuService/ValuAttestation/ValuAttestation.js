@@ -1,14 +1,10 @@
 /*
-  ValuAttestation (UX updates)
-  - Big gradient title "Proof of Personhood"; neutral layout and copy
-  - Price updated to $9.99 and improved first-visit explanation
-  - Primary button mirrors LandingScreen primary (no glow/shadow)
-  - "How it works" semi-modal using BuySellSheet modal styling (SemiModal)
-  - When Proof of Personhood is received (POP_RECEIVED):
-    • CTA label changed to "View my Proof of Personhood"
-    • Button navigates directly to Attestations list (not Services)
-  - Replaced emoji bullets (privacy-first, one-time setup) with MaterialCommunityIcons
-    inside grey circular badges to match the SemiModal "How it works" style
+  ValuAttestation (Timeline UI with persistent CTA)
+  - Always-visible 4-step timeline: Purchase → Choose/Link VerusID → Verify → Proof issued
+  - Replaced conditional content blocks with a compact TimelineList while preserving logic
+  - Kept large gradient header and primary CTA (48px) with caption "Step X of 4 · <action>"
+  - Moved "What you get" benefits into the initial (Purchase) step expanded area
+  - Maintains all existing alerts, SumSub/InAppBrowser flows, and notifications
 */
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
@@ -16,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { primitives, VerusIdInterface } from "verusid-ts-client"
-import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated } from 'react-native'
+import { SafeAreaView, ScrollView, View, Linking, AppState, Dimensions, TouchableOpacity, Animated, Platform } from 'react-native'
 
 import { Divider, List, Button, Text, Portal, Dialog } from 'react-native-paper';
 import ListSelectionModal from "../../../../../components/ListSelectionModal/ListSelectionModal";
@@ -59,6 +55,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Text as SvgText, 
 import SemiModal from '../../../../../components/SemiModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { set } from "lodash";
+import TimelineList from '../../../../../components/Timeline/TimelineList';
 
 
 const ValuAttestation = (props) => {
@@ -289,8 +286,8 @@ const ValuAttestation = (props) => {
 
             // Open the SumSub URL in InAppBrowser
             await InAppBrowser.close();
-            if (await InAppBrowser.isAvailable()) {
-                InAppBrowser.open(authenticatedUrl, {
+            if (Platform.OS === 'android' && await InAppBrowser.isAvailable()) {
+                const browserResult = await InAppBrowser.open(authenticatedUrl, {
                     // iOS Properties
                     dismissButtonStyle: 'close',
                     preferredBarTintColor: '#00A1CC',
@@ -320,15 +317,26 @@ const ValuAttestation = (props) => {
                         endEnter: 'slide_in_left',
                         endExit: 'slide_out_right'
                     }
-                }).then((result) => {
-                    fetchData();
-                    console.log("InAppBrowser result:", result);
-                });            
+                });
+
+                console.log("InAppBrowser result:", browserResult);
+
+                // Handle the browser close result
+                if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
+                    console.log("User closed the browser, refreshing data...");
+                    setLoading(true);
+                    await fetchData();
+                } else {
+                    // Browser was closed due to navigation/completion
+                    setLoading(true);
+                    await fetchData();
+                }
             } else {
                 Linking.openURL(authenticatedUrl);
+                setLoading(false);
             }
 
-            setLoading(false);
+            // Don't set loading false here since we handle it in the browser result
 
         } catch (error) {
             console.error("Error continuing proof of personhood:", error);
@@ -364,8 +372,14 @@ const ValuAttestation = (props) => {
     };
 
     const fetchData = useCallback(async () => {
+        console.log("fetchData called, current loading state:", loading);
+
+        if (!loading) {
+            setLoading(true);
+        }
         // Don't fetch data if we're currently provisioning an identity
         if (isProvisioningIdentity) {
+            setLoading(false);
             return;
         }
 
@@ -393,7 +407,6 @@ const ValuAttestation = (props) => {
             return;
         }
 
-        setLoading(true);
         try {
 
             const provisionRequest = new primitives.LoginConsentProvisioningRequest({
@@ -441,7 +454,7 @@ const ValuAttestation = (props) => {
                 `An error occurred while trying to start the Valu Proof of Personhood process. ${e.message}`, "RETRY")
         }
 
-    }, [props.navigation, isProvisioningIdentity]);
+    }, [props.navigation, isProvisioningIdentity, loading]);
 
     // useFocusEffect(fetchData);
 
@@ -452,7 +465,7 @@ const ValuAttestation = (props) => {
                 Animated.timing(pulse, { toValue: 0.6, duration: 700, useNativeDriver: true }),
                 Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true })
             ])
-        ).start();      
+        ).start();
         fetchData();
 
     }, []);
@@ -473,12 +486,12 @@ const ValuAttestation = (props) => {
                 continueWithIdentity(routeParams.chosenIdentity);
                 // Clear the params to avoid re-execution
                 props.navigation.setParams({ continueFlow: false, chosenIdentity: null });
-                    // Fallback if no parent navigator
-                    props.navigation.reset({
-                        index: 0,
-                       
-                    });
-                
+                // Fallback if no parent navigator
+                props.navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'SignedInStack' }]
+                });
+
             }
         }, [props.route?.params])
     );
@@ -582,8 +595,9 @@ const ValuAttestation = (props) => {
 
 
     // Continue with new ValuID flow
-    const continueWithNewValuId = () => {
+    const continueWithNewValuId = async () => {
         setIdentityChoiceModalVisible(false);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to ensure modal is closed before navigating
         // Navigate to ValuChooseIdentity screen, but pass a callback for when the user submits a new identity
         const parentNav = props.navigation?.getParent();
         if (parentNav) {
@@ -607,7 +621,7 @@ const ValuAttestation = (props) => {
         try {
 
             if (pendingIds[verusNetwork]) {
-                const identityAddresses = Object.keys(pendingIds[verusNetwork]);
+                const identityAddresses = Object.keys(pendingIds[verusNetwork] || {});
                 if (identityAddresses.length > 0) {
                     // Get the first pending identity (you might want to handle multiple differently)
                     const firstAddress = identityAddresses[0];
@@ -884,7 +898,7 @@ const ValuAttestation = (props) => {
             } else if (status === POP_RECEIVED) {
                 // User already has Proof of Personhood attestation, navigate to Services list
                 setLoading(false);
-                
+
                 props.navigation.reset({
                     index: 0,
                     routes: [{ name: 'ServicesHome' }],
@@ -907,12 +921,75 @@ const ValuAttestation = (props) => {
         [VALU_POL_PAYMENT_RECEIVED]: { title: 'Payment received', body: "Next, register a new VerusID for your Proof of Personhood. If you already have a VerusID in your wallet, you can select it instead.", cta: 'Register new VerusID' },
         [VALU_POL_PAYMENT_PENDING]: { title: 'Purchase in progress', body: 'Resume your purchase to finish payment.', cta: 'Resume purchase' },
         [VALU_POL_PAYMENT_FAILED]: { title: 'Payment failed', body: 'Please try again.', cta: 'Retry purchase' },
-        [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to check if your proof is ready.', cta: 'Check status' },
+        [VALU_POL_PENDING]: { title: 'Processing your details', body: 'Tap continue to start or resume verification.', cta: 'Verify identity' },
         [VALU_POL_READY]: { title: 'Your proof is ready', body: 'Retrieve your Proof of Personhood now.', cta: 'Get your proof' },
         [POP_RECEIVED]: { title: 'Proof of Personhood complete', body: 'View your attestations and manage your proof.', cta: 'View my Proof of Personhood' },
         [VALU_POL_IDENTITY_CONFIRMED]: { title: 'Identity confirmed', body: "Next, resume your personal details input", cta: 'Resume' },
     };
     const ctaLabel = isInitialStatus ? 'Purchase for $9.99' : (statusMeta[status]?.cta || mainButtonText);
+
+    const getTimelineSteps = () => {
+        // Map statuses/flags to 4-step timeline
+        const steps = [
+            {
+                key: 'purchase',
+                title: 'Purchase',
+                description: isInitialStatus ? 'Buy your Proof of Personhood to begin.' : undefined,
+                summary: undefined,
+                state: 'todo',
+            },
+            {
+                key: 'identity',
+                title: 'Register VerusID',
+                description: 'Register a new VerusID or use an existing one in your wallet.',
+                summary: undefined,
+                state: 'todo',
+            },
+            {
+                key: 'verify',
+                title: 'Verify identity',
+                description: 'Complete quick one‑time ID verification with SumSub.',
+                summary: undefined,
+                state: 'todo',
+            },
+            {
+                key: 'issued',
+                title: 'Proof issued',
+                description: undefined,
+                summary: 'Your reusable proof is added to your attestations.',
+                state: 'todo',
+            },
+        ];
+
+        if (status === null || status === '' || status === VALU_POL_PAYMENT_STARTED) {
+            steps[0].state = 'active';
+        } else if (status === VALU_POL_PAYMENT_PENDING) {
+            steps[0].state = 'active';
+        } else if (status === VALU_POL_PAYMENT_FAILED) {
+            steps[0].state = 'retry';
+        } else if (status === VALU_POL_PAYMENT_RECEIVED) {
+            steps[0].state = 'done';
+            steps[1].state = 'active';
+        } else if (showIdentityProvisioningProgress) {
+            steps[0].state = 'done';
+            steps[1].state = 'active';
+            // When provisioning is ongoing, reflect true processing label
+            steps[1].state = 'active';
+        } else if (status === VALU_POL_PENDING || status === VALU_POL_IDENTITY_CONFIRMED) {
+            steps[0].state = 'done';
+            steps[1].state = 'done';
+            steps[2].state = 'active';
+        } else if (status === VALU_POL_READY) {
+            steps[0].state = 'done';
+            steps[1].state = 'done';
+            steps[2].state = 'done';
+            steps[3].state = 'active';
+        } else if (status === POP_RECEIVED) {
+            steps.forEach(s => s.state = 'done');
+        }
+
+        return steps;
+    };
 
     return (
         <SafeAreaView style={Styles.defaultRoot}>
@@ -1045,62 +1122,40 @@ const ValuAttestation = (props) => {
                                 </Text>
                             </View>
 
-                            {/* Content area (no background) */}
-                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 20, marginTop: 16 }}>
-                                {/* What you get section (initial only) */}
-                                {isInitialStatus && (
-                                    <View style={{ marginBottom: 32 }}>
-                                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>What you get</Text>
-                                        <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>
-                                            You receive a reusable Proof of Personhood attestation linked to your VerusID. It lets you prove you're a unique, verified person—without exposing your personal details by default.
-                                        </Text>
-                                    </View>)}
-
-                                {/* Benefits list (initial only) */}
-                                {isInitialStatus && (
-                                    <View style={{ width: '100%', marginBottom: 12 }}>
-                                        <View style={{ flexDirection: 'column' }}>
-                                            <View style={{ width: '100%', marginBottom: 16 }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
-                                                <MaterialCommunityIcons name={'shield-outline'} size={16} color={'black'} />
-                                            </View>
-                                                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
-                                                </View>
-                                                <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
-                                                    Share a cryptographic proof, not your documents.
-                                                </Text>
-                                            </View>
-                                            <View style={{ width: '100%', marginBottom: 0 }}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                                            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10, marginTop: 2 }}>
-                                                <MaterialCommunityIcons name={'check-circle-outline'} size={16} color={'black'} />
-                                            </View>
-                                                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
-                                                </View>
-                                                <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
-                                                    Verify once and reuse across supported services.
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    </View>)}
-
-                                {/* Status copy (non-initial only) */}
-                                {!isInitialStatus && (
+                            {/* Content area (no background): show intro before purchase, timeline after */}
+                            <View style={{ alignSelf: 'stretch', paddingHorizontal: 24, paddingVertical: 16, marginTop: 12 }}>
+                                {isInitialStatus ? (
                                     <View>
-                                        {status === VALU_POL_PAYMENT_RECEIVED ? (
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                                                <MaterialCommunityIcons name={'check-circle'} size={22} color={Colors.verusGreenColor} />
-                                                <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginLeft: 6 }}>{statusMeta[status]?.title}</Text>
+                                        <View style={{ marginBottom: 12 }}>
+                                            <Text style={{ fontSize: 15, fontWeight: '600', color: '#1A1A1A', marginBottom: 6 }}>What you get</Text>
+                                            <Text style={{ fontSize: 13, color: '#555', lineHeight: 18 }}>
+                                                You receive a reusable Proof of Personhood attestation linked to your VerusID. It lets you prove you're a unique, verified person—without exposing your personal details by default.
+                                            </Text>
+                                        </View>
+                                        <View style={{ width: '100%' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+                                                <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                                    <MaterialCommunityIcons name={'shield-outline'} size={15} color={'black'} />
+                                                </View>
+                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>Privacy‑first</Text>
                                             </View>
-                                        ) : (
-                                            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 }}>{statusMeta[status]?.title}</Text>
-                                        )}
-                                        <Text style={{ fontSize: 15, color: '#555', lineHeight: 21 }}>{statusMeta[status]?.body}</Text>
+                                            <Text style={{ fontSize: 12, color: '#555', lineHeight: 16, marginBottom: 8 }}>
+                                                Share a cryptographic proof, not your documents.
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+                                                <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                                                    <MaterialCommunityIcons name={'check-circle-outline'} size={15} color={'black'} />
+                                                </View>
+                                                <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A' }}>One‑time setup</Text>
+                                            </View>
+                                            <Text style={{ fontSize: 12, color: '#555', lineHeight: 16 }}>
+                                                Verify once and reuse across supported services.
+                                            </Text>
+                                        </View>
                                     </View>
+                                ) : (
+                                    <TimelineList steps={getTimelineSteps()} />
                                 )}
-
-                                {/* old stage messages suppressed */}
                             </View>
 
                         </React.Fragment>

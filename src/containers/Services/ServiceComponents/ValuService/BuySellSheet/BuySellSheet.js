@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, TouchableOpacity, Platform, FlatList, Keyboard } from 'react-native';
-import { Portal, List, Button, Text, ActivityIndicator, TextInput } from 'react-native-paper';
+import { View, TouchableOpacity, Platform, FlatList, Keyboard, StyleSheet } from 'react-native';
+import { Portal, List, Button, Text, TextInput } from 'react-native-paper';
 import { useObjectSelector } from '../../../../../hooks/useObjectSelector';
 import { ISO_3166_COUNTRIES } from '../../../../../utils/constants/iso3166';
 // Removed ListSelectionModal to avoid nested modal issues
@@ -28,6 +28,7 @@ import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData
   - Updated "About vUSDC" intro copy with two small headers and body text
   - Replaced circular backgrounds on Buy/Sell icons with standalone plus/minus icons
   - Icons set to black, added more spacing between title/subtitle, added extra bottom padding
+  - Replaced ActivityIndicator spinner with skeleton loading that matches content structure and prevents height changes during initialization
 */
 
 const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id
@@ -50,6 +51,30 @@ const computeVusdcVethBalances = (balances, allSubWallets, ticker) => {
   }
   return { map, total };
 };
+
+const styles = StyleSheet.create({
+  skeletonListItem: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingLeft: 56, // Space for left icon
+    paddingRight: 16, // Space for right chevron
+  },
+  skeletonTitle: {
+    height: 22,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 4,
+    width: '30%',
+    marginBottom: 6,
+  },
+  skeletonDescription: {
+    height: 18,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 4,
+    width: '50%',
+  },
+});
 
 const BuySellSheet = ({ visible, onClose, onComplete }) => {
   const dispatch = useDispatch();
@@ -207,6 +232,24 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
     }
   }, [visible, step, prereqsSatisfied, loading]);
 
+  const renderSkeletonPrereq = () => {
+    return (
+      <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+        {/* Buy Option Skeleton */}
+        <View style={styles.skeletonListItem}>
+          <View style={styles.skeletonTitle} />
+          <View style={styles.skeletonDescription} />
+        </View>
+
+        {/* Sell Option Skeleton */}
+        <View style={styles.skeletonListItem}>
+          <View style={styles.skeletonTitle} />
+          <View style={styles.skeletonDescription} />
+        </View>
+      </View>
+    );
+  };
+
   return (
     <Portal>
       <SemiModal
@@ -234,9 +277,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
           </View>
 
           {loading ? (
-            <View style={{ padding: 24, alignItems: 'center' }}>
-              <ActivityIndicator />
-            </View>
+            renderSkeletonPrereq()
           ) : (
             <>
             {step === 'prereq' && (

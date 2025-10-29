@@ -5,10 +5,12 @@
   - Visual updates (this edit):
     • Primary button uses contained, rounded style with NO shadow/glow.
     • Themed secondary button (outlined, rounded) for "Create new profile".
-
     • Consistent typography (font size, weight, casing) and height.
   - Copy update (this edit):
     • Renamed secondary CTA from "Add a profile" to "Create new profile".
+  - UI restore (this edit):
+    • Reintroduced three-dot overflow menu (SignedOutDropdown) and repositioned it
+      below the blue header on the right for safe tap target.
 */
 import React, {useEffect} from 'react';
 import {View, ScrollView, Dimensions, SafeAreaView, Image} from 'react-native';
@@ -43,6 +45,7 @@ const Login = props => {
   );
   
   const accounts = useObjectSelector(state => state.authentication.accounts);
+  const hasAccount = accounts != null && accounts.length > 0;
 
   openAuthModal = ignoreDefault => {
     if (ignoreDefault) {
@@ -119,6 +122,15 @@ const Login = props => {
           Powered by
         </Text>
         <VerusLogoWhite width={110} height={24} />
+      </View>
+
+      {/* Top-right overflow menu (placed just below the blue header) */}
+      <View style={{ position: 'absolute', top: 168, right: 0, left: 0, zIndex: 20, paddingRight: 12 }}>
+        <SignedOutDropdown
+          hasAccount={hasAccount}
+          handleRecoverSeed={handleRecoverSeed}
+          handleRevokeRecover={handleRevokeRecover}
+        />
       </View>
 
       {/* Center hero with Valu logo and copy */}

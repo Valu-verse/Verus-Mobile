@@ -321,9 +321,9 @@ class ValuOnRampChooseSource extends Component {
     if (!hasAccepted) {
       createAlert(
         "Before you continue",
-        "• Checkout runs on Polygon behind the scenes.\n\n" +
+        "• Checkout runs on Ethereum behind the scenes.\n\n" +
         "• We convert your purchase to vUSDC at a 1:1 rate.\n\n" +
-        "• vUSDC is deposited to your Valu wallet; no Polygon wallet or gas needed.",
+        "• vUSDC is deposited to your Valu wallet; no Ethereum wallet or gas needed.",
         [
           {
             text: 'Cancel',
@@ -631,7 +631,7 @@ class ValuOnRampChooseSource extends Component {
                 ]}
                 icon="open-in-new"
               >
-                Choose payment method
+                Continue to buy
               </Button>
               </View>
             </View>
