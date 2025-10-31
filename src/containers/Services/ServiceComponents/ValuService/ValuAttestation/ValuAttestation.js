@@ -174,14 +174,14 @@ const ValuAttestation = (props) => {
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
             let formattedName = identityName;
-            const lastAtIndex = identityName.lastIndexOf('@');
-            if (lastAtIndex !== -1) {
-                formattedName = identityName.substring(0, lastAtIndex);
+            const lastDotIndex = identityName.lastIndexOf('.');
+            if (lastDotIndex !== -1) {
+                formattedName = identityName.substring(0, lastDotIndex);
             }
-            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest);
+            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest, identityName);
 
 
-            newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valuid@'];
+            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'Valuid@'];
             newLoadingNotification.acchash = activeAccount.accountHash;
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 
@@ -352,12 +352,13 @@ const ValuAttestation = (props) => {
         identityName,
         identityID,
         uri,
-        loginRequest
+        loginRequest,
+        fqn
     ) => {
 
         const verusIdState = {
             status: NOTIFICATION_TYPE_VERUSID_PENDING,
-            fqn: identityName,
+            fqn: fqn,
             loginRequest: loginRequest.toBuffer().toString('base64'),
             fromService: false,
             createdAt: Number((Date.now() / 1000).toFixed(0)),
