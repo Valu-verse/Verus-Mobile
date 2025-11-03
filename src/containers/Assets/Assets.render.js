@@ -1,10 +1,12 @@
 /*
-  New file: Assets.render
-  - Presentational components for the Assets screen
-  - List row with left logo+name and right fiat value + amount
+  Updated: Assets.render
+  - Render assets in list-style rows with subtle dividers
+  - Keep icon badges with theme-color backgrounds while preserving tap targets
+  - Tighten horizontal spacing between icons and labels
+  - Remove button-card styling ahead of upcoming non-interactive design
 */
 import React from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { List, Text, Button } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import { getCoinLogo } from '../../utils/CoinData/CoinData';
@@ -20,20 +22,12 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   return (
     <List.Item
       onPress={onPress}
+      rippleColor="transparent"
       title={coinObj.display_name}
       description={coinObj.display_ticker}
       left={(props) => (
-        <View style={[props.style, { width: 40, alignItems: 'center', justifyContent: 'center' }]}>
-          <View
-            style={{
-              width: 28,
-              height: 28,
-              borderRadius: 14,
-              backgroundColor: themeColor,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+        <View style={[props.style, styles.leftContainer]}>
+          <View style={[styles.iconCircle, { backgroundColor: themeColor }]}>
             {Logo ? (
               <Logo width={16} height={16} />
             ) : (
@@ -54,7 +48,8 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
       )}
       titleStyle={{ fontSize: 16, fontWeight: '600' }}
       descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 2 }}
-      style={{ backgroundColor: 'transparent' }}
+      style={styles.listItem}
+      contentStyle={styles.listItemContent}
     />
   );
 };
@@ -75,29 +70,23 @@ const AddAssetsInline = ({ onPress }) => (
 
 const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressAddAssets }) => {
   return (
-    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
+    <View style={styles.listContainer}>
       <AddAssetsInline onPress={onPressAddAssets} />
 
       {/* Buttons removed: use shared HomeFAB overlay for identical placement */}
       <FlatList
         data={assets}
         keyExtractor={(x) => x.coinObj.id}
-        ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+        ItemSeparatorComponent={() => <View style={styles.divider} />}
         renderItem={({ item }) => (
-          <View style={{ 
-            marginHorizontal: 12,
-            borderRadius: 8,
-            backgroundColor: 'white',
-          }}>
-            <Row
-              item={item}
-              displayCurrency={displayCurrency}
-              showBalance={showBalance}
-              onPress={() => onPressAsset(item.coinObj)}
-            />
-          </View>
+          <Row
+            item={item}
+            displayCurrency={displayCurrency}
+            showBalance={showBalance}
+            onPress={() => onPressAsset(item.coinObj)}
+          />
         )}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 16 }}
+        contentContainerStyle={styles.listContent}
       />
     </View>
   );
@@ -121,5 +110,40 @@ const AssetsRender = {
 };
 
 export default AssetsRender;
+
+const styles = StyleSheet.create({
+  listContainer: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+  },
+  listContent: {
+    paddingBottom: 16,
+  },
+  listItem: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
+  },
+  listItemContent: {
+    paddingVertical: 4,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#E2E2E2',
+    marginLeft: 60,
+  },
+  leftContainer: {
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
 
 
