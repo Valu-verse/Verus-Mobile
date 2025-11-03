@@ -11,24 +11,23 @@ import {
   Clipboard,
  } from "react-native"
 import { connect } from 'react-redux'
-import { coinsToSats, isNumber, truncateDecimal } from '../../../utils/math'
+import { isNumber, truncateDecimal } from '../../../utils/math'
 import { conditionallyUpdateWallet } from "../../../actions/actionDispatchers"
 import { API_GET_FIATPRICE, API_GET_BALANCES, GENERAL, DLIGHT_PRIVATE } from "../../../utils/constants/intervalConstants"
 import { USD } from '../../../utils/constants/currencies'
 import { expireCoinData } from "../../../actions/actionCreators"
 import Store from "../../../store"
 import selectAddresses from "../../../selectors/address"
-import VerusPayParser from '../../../utils/verusPay/index'
-import BigNumber from "bignumber.js";
 import { RenderReceiveCoin } from "./ReceiveCoin.render"
 import { createAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import selectRates from "../../../selectors/rates"
-import { createVerusPayInvoice } from "../../../utils/api/channels/vrpc/callCreators"
-import { primitives } from "verusid-ts-client"
-import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../utils/constants/constants"
-import { coinsList } from "../../../utils/CoinData/CoinsList"
-import { fromBase58Check } from "verus-typescript-primitives"
 import selectNetworkName from "../../../selectors/networkName"
+import {
+  sanitizeNumericInput,
+  validateAmountInput,
+  validateSlippageInput,
+  generateReceiveInvoice,
+} from '../../../features/receive/receiveInvoice'
 
 class ReceiveCoin extends Component {
   constructor(props) {
@@ -173,105 +172,35 @@ class ReceiveCoin extends Component {
   }
 
   createQRString = (coinObj, amount, address, memo, maxSlippage) => {
-    const { displayCurrency } = this.props
-    const rates = this.props.rates
+    const { displayCurrency, rates, subWallet } = this.props
 
-    let _price = rates[displayCurrency];
+    this.setState({ loadingBox: true }, async () => {
+      try {
+        const { qrString, showVerusIcon } = await generateReceiveInvoice({
+          coinObj,
+          subWallet,
+          address,
+          amountValue: amount,
+          amountFiat: this.state.amountFiat,
+          memo,
+          allowConversion: this.state.allowConversion && this.state.amount != 0,
+          maxSlippageValue: maxSlippage,
+          displayCurrency,
+          priceMap: rates || {},
+        });
 
-    try {
-      this.setState({
-        loadingBox: true
-      }, async () => {
-        try {
-          let qrString;
-          let showVerusIconInQr = false;
-          const wallet = this.props.subWallet;
-
-          const amountCrypto = this.state.amountFiat
-            ? BigNumber(amount).dividedBy(BigNumber(_price)).toString()
-            : amount.toString();
-    
-          if (coinObj.proto === 'vrsc' && wallet.id !== "PRIVATE_WALLET") {
-            const { hash, version } = fromBase58Check(address);
-            let destinationType;
-    
-            if (version === I_ADDRESS_VERSION) {
-              destinationType = primitives.DEST_ID;
-            } else if (version === R_ADDRESS_VERSION) {
-              destinationType = primitives.DEST_PKH;
-            } else throw new Error("Unknown or unsupported destination type");
-    
-            const verusSystem = coinObj.testnet ? coinsList.VRSCTEST.currency_id : coinsList.VRSC.currency_id;
-            const nonVerusSystems = wallet.network === verusSystem ? [] : [wallet.network];
-    
-            const amountBN = new primitives.BigNumber(
-              coinsToSats(BigNumber(amountCrypto)).toString(),
-              10,
-            );
-            const amountGtZero = amountBN.gt(new primitives.BigNumber(0));
-
-            const acceptsConversion = this.state.allowConversion && this.state.amount != 0;
-    
-            const invoice = await createVerusPayInvoice(
-              coinObj,
-              new primitives.VerusPayInvoiceDetails({
-                amount: amountGtZero ? new primitives.BigNumber(
-                  coinsToSats(BigNumber(amountCrypto)).toString(),
-                  10,
-                ) : undefined,
-                destination: new primitives.TransferDestination({
-                  type: destinationType,
-                  destination_bytes: hash,
-                }),
-                requestedcurrencyid: coinObj.currency_id,
-                acceptedsystems: nonVerusSystems,
-                maxestimatedslippage: acceptsConversion ? maxSlippage != null ? new primitives.BigNumber(
-                  coinsToSats(BigNumber(maxSlippage).dividedBy(100)).toString(),
-                  10,
-                ) : new primitives.BigNumber(
-                  coinsToSats(BigNumber('0.005')).toString(),
-                  10,
-                ) : undefined,
-              }),
-            );
-    
-            invoice.details.setFlags({
-              acceptsConversion,
-              isTestnet: !!(coinObj.testnet),
-              acceptsNonVerusSystems: nonVerusSystems.length > 0,
-              acceptsAnyAmount: !amountGtZero
-            })
-    
-            qrString = invoice.toWalletDeeplinkUri();
-            showVerusIconInQr = true;
-          } else {
-            qrString = VerusPayParser.v0.writeVerusPayQR(
-              coinObj,
-              amountCrypto,
-              address,
-              memo
-            )
-          }
-    
-          this.setState({
-            verusQRString: qrString,
-            showModal: true,
-            loadingBox: false,
-            showVerusIconInQr
-          });
-        } catch(e) {
-          console.warn(e)
-          createAlert("Error", "Error creating VerusPay invoice.")
-
-          this.setState({
-            loadingBox: false
-          })
-        }
-      })
-    } catch(e) {
-      console.warn(e)
-      createAlert("Error", "Error creating QR payment request.")
-    }
+        this.setState({
+          verusQRString: qrString,
+          showModal: true,
+          loadingBox: false,
+          showVerusIconInQr: showVerusIcon,
+        });
+      } catch (e) {
+        console.warn(e);
+        createAlert('Error', e.message || 'Error creating VerusPay invoice.');
+        this.setState({ loadingBox: false });
+      }
+    });
   }
 
   showAddressString = () => {
@@ -331,16 +260,8 @@ class ReceiveCoin extends Component {
       verusQRString: null,
       showVerusIconInQr: false
     }, async () => {
-      const processNumeric = (numericString) => {
-        return (numericString.toString().includes('.') &&
-          numericString.toString().includes(',')) ||
-          !numericString
-          ? numericString
-          : numericString.toString().replace(/,/g, '.');
-      }
-
       const _selectedCoin = this.state.selectedCoin;
-      const _amount = processNumeric(this.state.amount);
+      let _amount = sanitizeNumericInput(this.state.amount);
       let _maxSlippage = null;
       const _address = this.state.addresses[addressIndex];
       const _memo = this.state.memo;
@@ -357,32 +278,25 @@ class ReceiveCoin extends Component {
         _errors = true
       }
 
-      if (!(!(_amount.toString()) || _amount.toString().length < 1 || _amount == 0)) {
-        if (!(isNumber(_amount))) {
-          this.handleError("Invalid amount", "amount")
-          createAlert("Invalid Amount", "Please enter a valid amount.")
-          _errors = true
-        } else if (Number(_amount) <= 0) {
-          this.handleError("Enter an amount greater than 0", "amount")
-          createAlert("Invalid Amount", "Please enter an amount greater than 0.")
-          _errors = true
-        }
-      } 
+      if (Number(this.state.amount) === 0) {
+        _amount = '';
+      }
+
+      const amountError = validateAmountInput(_amount);
+      if (amountError) {
+        this.handleError(amountError, 'amount');
+        createAlert('Invalid Amount', amountError);
+        _errors = true;
+      }
 
       if (useMaxSlippageForm) {
-        _maxSlippage = processNumeric(this.state.maxSlippage);
-
-        if (!(!(_maxSlippage.toString()) || _maxSlippage.toString().length < 1)) {
-          if (!(isNumber(_maxSlippage))) {
-            this.handleError("Invalid slippage value", "maxSlippage")
-            createAlert("Invalid Slippage", "Please enter a valid slippage value.")
-            _errors = true
-          } else if (Number(_maxSlippage) <= 0 || (Number(_maxSlippage) > 100)) {
-            this.handleError("Enter a slippage value greater than 0", "maxSlippage")
-            createAlert("Invalid Slippage", "Please enter a slippage value greater than 0, and not greater than 100.")
-            _errors = true
-          }
-        }  
+        _maxSlippage = sanitizeNumericInput(this.state.maxSlippage);
+        const slippageError = validateSlippageInput(_maxSlippage);
+        if (slippageError) {
+          this.handleError(slippageError, 'maxSlippage');
+          createAlert('Invalid Slippage', slippageError);
+          _errors = true;
+        }
       }
 
       if (!_errors) {

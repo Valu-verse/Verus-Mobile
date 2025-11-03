@@ -21,6 +21,7 @@ import { setActiveCoin, setActiveApp, setActiveSection, setCoinSubWallet } from 
 import Colors from '../../globals/colors';
 import ManageAssetsSheet from '../Home/HomeFAB/ManageAssetsSheet';
 import HomeFAB from '../Home/HomeFAB/HomeFAB';
+import TransferSheet from '../Home/HomeFAB/TransferSheet';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
 import { VALU_SERVICE_ID } from '../../utils/constants/services';
 import { Portal } from 'react-native-paper';
@@ -45,6 +46,7 @@ const Assets = () => {
 
   const [manageVisible, setManageVisible] = useState(false);
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
+  const [transferSheetVisible, setTransferSheetVisible] = useState(false);
 
   const getRate = useCallback((coinId, currency) => {
     return rates[WYRE_SERVICE] &&
@@ -98,6 +100,15 @@ const Assets = () => {
     });
   };
 
+  const _handleTransferReceive = () => {
+    setTransferSheetVisible(false);
+    navigation.navigate('ReceiveAssetsList');
+  };
+
+  const _handleTransferSendConvert = () => {
+    setTransferSheetVisible(false);
+  };
+
   const _addPbaasCurrency = async () => {
     openAddPbaasCurrencyModal(
       CoinDirectory.findCoinObj(
@@ -133,13 +144,21 @@ const Assets = () => {
       {/* Shared HomeFAB for consistent bottom placement within this screen */}
       <HomeFAB
         handleOpenOnOffRamp={_openOnOffRamp}
-        handleTransfer={() => {}}
+        handleTransfer={() => setTransferSheetVisible(true)}
       />
       {buySellSheetVisible && (
         <BuySellSheet
           visible={true}
           onClose={() => setBuySellSheetVisible(false)}
           onComplete={_handleBuySellComplete}
+        />
+      )}
+      {transferSheetVisible && (
+        <TransferSheet
+          visible={true}
+          onClose={() => setTransferSheetVisible(false)}
+          onSelectReceive={_handleTransferReceive}
+          onSelectSendConvert={_handleTransferSendConvert}
         />
       )}
       <ManageAssetsSheet

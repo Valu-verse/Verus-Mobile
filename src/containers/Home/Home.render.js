@@ -8,6 +8,7 @@ import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet
 import { truncateDecimal } from '../../utils/math';
 import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
+import TransferSheet from './HomeFAB/TransferSheet';
 import CurrencyWidget from './HomeWidgets/CurrencyWidget';
 import {
   SortableContainer,
@@ -54,6 +55,11 @@ export const HomeRender = ({
   buySellSheetVisible,
   setBuySellSheetVisible,
   handleBuySellComplete,
+  handleTransferPress,
+  transferSheetVisible,
+  setTransferSheetVisible,
+  handleTransferReceive,
+  handleTransferSendConvert,
   forceUpdate,
   loading,
   HomeRenderCoinsList,
@@ -86,6 +92,14 @@ export const HomeRender = ({
             onComplete={handleBuySellComplete}
           />
         )}
+        {transferSheetVisible && (
+          <TransferSheet
+            visible={true}
+            onClose={() => setTransferSheetVisible(false)}
+            onSelectReceive={handleTransferReceive}
+            onSelectSendConvert={handleTransferSendConvert}
+          />
+        )}
       </Portal>
       <HomeFAB
         handleAddCoin={_addCoin}
@@ -94,6 +108,7 @@ export const HomeRender = ({
         handleAddPbaasCurrency={_addPbaasCurrency}
         handleAddErc20Token={_addErc20Token}
         handleOpenOnOffRamp={handleOpenOnOffRamp}
+        handleTransfer={handleTransferPress}
         showConfigureHomeCards={!dragDetection}
       />
       <Banner

@@ -114,7 +114,7 @@ export default AssetsRender;
 const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'white',
   },
   listContent: {
     paddingBottom: 16,

@@ -17,6 +17,8 @@ import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
 import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
 import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
+import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
+import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 
 const MainStack = createStackNavigator();
 
@@ -114,6 +116,22 @@ const MainStackScreens = props => {
         options={({ route }) => ({
           title: route.params != null ? route.params.title : null,
         })}
+      />
+
+      <MainStack.Screen
+        name="ReceiveAssetsList"
+        component={ReceiveAssetsList}
+        options={{
+          title: 'Receive assets',
+        }}
+      />
+
+      <MainStack.Screen
+        name="ReceiveAssetDetails"
+        component={ReceiveAssetDetails}
+        options={{
+          title: 'Receive',
+        }}
       />
 
       <MainStack.Screen

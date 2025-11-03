@@ -101,6 +101,7 @@ const Home = () => {
   const [editingCards, setEditingCards] = useState(false);
   const [expandedListItems, setExpandedListItems] = useState({});
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
+  const [transferSheetVisible, setTransferSheetVisible] = useState(false);
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
 
   const LIST_ITEM_INITIAL_HEIGHT = 58;
@@ -468,6 +469,19 @@ const Home = () => {
     });
   };
 
+  const _openTransferSheet = () => {
+    setTransferSheetVisible(true);
+  };
+
+  const _handleTransferReceive = () => {
+    setTransferSheetVisible(false);
+    navigation.navigate('ReceiveAssetsList');
+  };
+
+  const _handleTransferSendConvert = () => {
+    setTransferSheetVisible(false);
+  };
+
   return (
     <HomeRender
       dragDetectionEnabled={isDragDetectionEnabled}
@@ -485,6 +499,11 @@ const Home = () => {
       buySellSheetVisible={buySellSheetVisible}
       setBuySellSheetVisible={setBuySellSheetVisible}
       handleBuySellComplete={_handleBuySellComplete}
+      handleTransferPress={_openTransferSheet}
+      transferSheetVisible={transferSheetVisible}
+      setTransferSheetVisible={setTransferSheetVisible}
+      handleTransferReceive={_handleTransferReceive}
+      handleTransferSendConvert={_handleTransferSendConvert}
       forceUpdate={forceUpdate}
       loading={loading}
       HomeRenderCoinsList={() =>
