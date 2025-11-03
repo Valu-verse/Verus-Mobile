@@ -5,6 +5,7 @@
   - Kept large gradient header and primary CTA (48px) with caption "Step X of 4 · <action>"
   - Moved "What you get" benefits into the initial (Purchase) step expanded area
   - Maintains all existing alerts, SumSub/InAppBrowser flows, and notifications
+  - Added wait reminder copy to provisioning notification message
 */
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
@@ -174,14 +175,14 @@ const ValuAttestation = (props) => {
             const newLoadingNotification = new LoadingNotification();
             newLoadingNotification.body = "";
             let formattedName = identityName;
-            const lastAtIndex = identityName.lastIndexOf('@');
-            if (lastAtIndex !== -1) {
-                formattedName = identityName.substring(0, lastAtIndex);
+            const lastDotIndex = identityName.lastIndexOf('.');
+            if (lastDotIndex !== -1) {
+                formattedName = identityName.substring(0, lastDotIndex);
             }
-            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest);
+            await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest, identityName);
 
 
-            newLoadingNotification.title = [formattedName + '@', ' is being provisioned by ', 'Valuid@'];
+            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'Valuid@', '. Please wait a moment.'];
             newLoadingNotification.acchash = activeAccount.accountHash;
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 
@@ -352,12 +353,13 @@ const ValuAttestation = (props) => {
         identityName,
         identityID,
         uri,
-        loginRequest
+        loginRequest,
+        fqn
     ) => {
 
         const verusIdState = {
             status: NOTIFICATION_TYPE_VERUSID_PENDING,
-            fqn: identityName,
+            fqn: fqn,
             loginRequest: loginRequest.toBuffer().toString('base64'),
             fromService: false,
             createdAt: Number((Date.now() / 1000).toFixed(0)),

@@ -631,7 +631,7 @@ class ValuOnRampChooseSource extends Component {
                 ]}
                 icon="open-in-new"
               >
-                Continue to buy
+                Choose payment method
               </Button>
               </View>
             </View>
