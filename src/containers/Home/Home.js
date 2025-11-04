@@ -1,10 +1,10 @@
 /*
   Home (Dashboard)
+  - 2025-11-04: Locks widget order, removes drag/edit UI, prepares fixed single-column layout.
   - First screen after login with essential actions (VerusPay, add coins, coin menus)
   - Now restricted to Dashboard widgets only: total value, VerusID, Proof of Personhood
   - Currency widgets removed from Dashboard (moved to Assets list)
   - Keeps Buy & Sell as floating primary action
-  - Listens for a header "Edit" event to toggle card arrangement
   - Updates balances and rates upon load if flagged in redux store
 */
 
@@ -54,7 +54,6 @@ import {
 import { VALU_ACCOUNT } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
-import { dragDetectionEnabled } from '../../utils/dragDetection';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import {
   openAddErc20TokenModal,
@@ -84,9 +83,6 @@ const Home = () => {
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
   const widgetOrder = useObjectSelector((state) => state.widgets.order);
 
-  const homeCardDragDetection = useSelector(
-    (state) => state.settings.generalWalletSettings.homeCardDragDetection,
-  );
   const displayCurrency = useSelector(
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
@@ -95,33 +91,11 @@ const Home = () => {
   const [totalFiatBalance, setTotalFiatBalance] = useState(0);
   const [totalCryptoBalances, setTotalCryptoBalances] = useState({});
   const [loading, setLoading] = useState(false);
-  const [listItemHeights, setListItemHeights] = useState({});
   const [widgets, setWidgets] = useState([]);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
-  const [editingCards, setEditingCards] = useState(false);
-  const [expandedListItems, setExpandedListItems] = useState({});
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
   const [transferSheetVisible, setTransferSheetVisible] = useState(false);
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
-
-  const LIST_ITEM_INITIAL_HEIGHT = 58;
-  const LIST_ITEM_MARGIN = 8;
-  const LIST_ITEM_ANIMATION_DURATION = 250;
-
-  const isDragDetectionEnabled = () => {
-    return dragDetectionEnabled(homeCardDragDetection);
-  };
-
-  const handleSetEditingCards = (editing) => {
-    setEditingCards(editing);
-  };
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('toggle-edit-cards', () => {
-      setEditingCards((prev) => !prev);
-    });
-    return unsubscribe;
-  }, [navigation]);
 
   const sortWidgets = useCallback(() => {
     setWidgets((prevWidgets) => {
@@ -484,13 +458,10 @@ const Home = () => {
 
   return (
     <HomeRender
-      dragDetectionEnabled={isDragDetectionEnabled}
       displayCurrencyModalOpen={displayCurrencyModalOpen}
       displayCurrency={displayCurrency}
       setDisplayCurrency={setDisplayCurrencyFunc}
       setDisplayCurrencyModalOpen={setDisplayCurrencyModalOpen}
-      editingCards={editingCards}
-      setEditingCards={handleSetEditingCards}
       _addCoin={_addCoin}
       _verusPay={_verusPay}
       _addPbaasCurrency={_addPbaasCurrency}
@@ -509,16 +480,9 @@ const Home = () => {
       HomeRenderCoinsList={() =>
         HomeRenderCoinsList({
           widgets,
-          dragDetectionEnabled: isDragDetectionEnabled,
-          editingCards,
           loading,
           forceUpdate,
           handleWidgetPress,
-          dispatch,
-          navigation,
-          activeAccount,
-          totalCryptoBalances,
-          totalFiatBalance,
           HomeRenderWidget: (widgetId) =>
             HomeRenderWidget({
               widgetId,

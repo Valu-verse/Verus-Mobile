@@ -1,9 +1,9 @@
 // Home.render.js
-// 2025-10-27: Added NotificationWidget ahead of the grid to surface actionable VerusID alerts.
+// 2025-11-04: Converted widgets into a fixed single-column stack and removed drag-edit UI.
 
 import React from 'react';
-import { View, RefreshControl } from 'react-native';
-import { Provider, Portal, Banner } from 'react-native-paper';
+import { View, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
+import { Provider, Portal } from 'react-native-paper';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
 import { truncateDecimal } from '../../utils/math';
 import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
@@ -11,19 +11,12 @@ import HomeFAB from './HomeFAB/HomeFAB';
 import TransferSheet from './HomeFAB/TransferSheet';
 import CurrencyWidget from './HomeWidgets/CurrencyWidget';
 import {
-  SortableContainer,
-  SortableGrid,
-  SortableTile,
-} from '../../components/DragSort';
-import {
   CURRENCY_WIDGET_TYPE,
   TOTAL_UNI_BALANCE_WIDGET_TYPE,
   VERUSID_WIDGET_TYPE,
   ATTESTATION_WIDGET_TYPE,
-  VALU_ACCOUNT_TYPE,
   PERSONAL_PROFILE_WIDGET_TYPE
 } from '../../utils/constants/widgets';
-import { setAndSaveAccountWidgets } from '../../actions/actionCreators';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
 import ListSelectionModal from '../../components/ListSelectionModal/ListSelectionModal';
 import {
@@ -34,19 +27,15 @@ import VerusIdWidget from './HomeWidgets/VerusIdWidget';
 // ValuWidget removed in favor of floating Buy & sell button
 // import ValuWidget from './HomeWidgets/ValuWidget';
 import AttestationWidget from './HomeWidgets/AttestationWidget';
-import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
 import PersonalProfileWidget from './HomeWidgets/PersonalProfileWidget';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
 
 export const HomeRender = ({
-  dragDetectionEnabled,
   displayCurrencyModalOpen,
   displayCurrency,
   setDisplayCurrency,
   setDisplayCurrencyModalOpen,
-  editingCards,
-  setEditingCards,
   _addCoin,
   _verusPay,
   _addPbaasCurrency,
@@ -64,8 +53,6 @@ export const HomeRender = ({
   loading,
   HomeRenderCoinsList,
 }) => {
-  const dragDetection = dragDetectionEnabled();
-
   return (
     <Portal.Host>
       <Portal>
@@ -104,25 +91,11 @@ export const HomeRender = ({
       <HomeFAB
         handleAddCoin={_addCoin}
         handleVerusPay={_verusPay}
-        handleEditCards={() => setEditingCards(!editingCards)}
         handleAddPbaasCurrency={_addPbaasCurrency}
         handleAddErc20Token={_addErc20Token}
         handleOpenOnOffRamp={handleOpenOnOffRamp}
         handleTransfer={handleTransferPress}
-        showConfigureHomeCards={!dragDetection}
       />
-      <Banner
-        visible={editingCards}
-        elevation={5}
-        actions={[
-          {
-            label: 'Done',
-            onPress: () => setEditingCards(false),
-          },
-        ]}
-      >
-        {'Drag your cards into your desired configuration, then press done.'}
-      </Banner>
       <NotificationWidget />
       {HomeRenderCoinsList()}
     </Portal.Host>
@@ -131,61 +104,39 @@ export const HomeRender = ({
 
 export const HomeRenderCoinsList = ({
   widgets,
-  dragDetectionEnabled,
-  editingCards,
   loading,
   forceUpdate,
   handleWidgetPress,
-  dispatch,
-  navigation,
-  activeAccount,
   HomeRenderWidget,
 }) => {
-  const dragDetection = dragDetectionEnabled();
-
   return widgets.length == 0 ? (
     <View />
   ) : (
-    <View
-      style={{
-        height: '100%',
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={forceUpdate} />}
+      contentContainerStyle={{
         backgroundColor: 'white',
-        width: '100%',
-        overflow: 'visible',
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 220,
       }}
+      showsVerticalScrollIndicator={false}
     >
-      <SortableContainer customconfig={{}}>
-        <SortableGrid
-          minDist={dragDetection ? 60 : 0}
-          animate={dragDetection ? true : editingCards}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={forceUpdate} />
-          }
-          onPressDetected={!editingCards ? (id) => handleWidgetPress(id) : () => {}}
-          editing={true}
-          onDragEnd={(positions) =>
-            dispatch(setAndSaveAccountWidgets(positions, activeAccount.accountHash))
-          }
-        >
-          {widgets
-            .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
-            .filter(({ node }) => node != null)
-            .map(({ id, node }, index) => (
-              <SortableTile key={index} id={id}>
-                <View
-                  style={{
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    overflow: 'visible',
-                  }}
-                >
-                  {node}
-                </View>
-              </SortableTile>
-            ))}
-        </SortableGrid>
-      </SortableContainer>
-    </View>
+      {widgets
+        .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
+        .filter(({ node }) => node != null)
+        .map(({ id, node }) => (
+          <TouchableOpacity
+            key={id}
+            activeOpacity={0.8}
+            onPress={handleWidgetPress ? () => handleWidgetPress(id) : undefined}
+            disabled={!handleWidgetPress}
+            style={{ width: '100%', marginBottom: 8 }}
+          >
+            {node}
+          </TouchableOpacity>
+        ))}
+    </ScrollView>
   );
 };
 

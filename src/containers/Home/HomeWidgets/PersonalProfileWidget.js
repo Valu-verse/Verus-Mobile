@@ -1,47 +1,36 @@
 /*
   PersonalProfileWidget
-  - Matches Attestation/VerusID card format
-  - Simple title-only card: "Personal Profile"
-  - Opens Personal profile when pressed (handled by onPress in Home)
+  2025-11-04: Flattened to a full-width surface with subtle border and no card chrome.
 */
 import React from 'react';
-import { View, Dimensions } from 'react-native';
-import { Card, Paragraph } from 'react-native-paper';
+import { View, Text, StyleSheet } from 'react-native';
+import Colors from '../../../globals/colors';
 
 const PersonalProfileWidget = () => {
-  const { width } = Dimensions.get('window');
-  const cardWidth = width / 2 - 16;
-  const cardHeight = 110;
-
   return (
-    <Card
-      style={{
-        height: cardHeight,
-        width: cardWidth,
-        borderRadius: 10,
-        backgroundColor: '#FFFFFF',
-      }}
-      mode="elevated"
-      elevation={5}
-    >
-      <Card.Content style={{ height: cardHeight, padding: 12 }}>
-        <View
-          style={{
-            display: 'flex',
-            flex: 1,
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            justifyContent: 'flex-end',
-          }}
-        >
-          <Paragraph style={{ fontSize: 18, color: '#000', fontWeight: '700', letterSpacing: -0.2, lineHeight: 22 }}>
-            {'Personal profile'}
-          </Paragraph>
-        </View>
-      </Card.Content>
-    </Card>
+    <View style={styles.container}>
+      <Text style={styles.title}>{'Personal profile'}</Text>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+    backgroundColor: Colors.secondaryColor,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    letterSpacing: -0.2,
+  },
+});
 
 export default PersonalProfileWidget;
 

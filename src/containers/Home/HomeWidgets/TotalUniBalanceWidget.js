@@ -1,105 +1,123 @@
 // TotalUniBalanceWidget
-// Changes:
-// - Modernized visual hierarchy
-// - Label ('Total value') positioned snug at top-left
-// - Amount left-aligned and vertically centered
-// - Amount font size increased for emphasis
-import React, {useState, useEffect} from 'react';
-import {View, Dimensions, TouchableOpacity, Text} from 'react-native';
-import {Card, Paragraph} from 'react-native-paper';
-import {useDispatch, useSelector} from 'react-redux';
-import {USD} from '../../../utils/constants/currencies';
-import {formatCurrency} from 'react-native-format-currency';
+// 2025-11-04: Converted to a full-width hero row with inline currency symbol and no card chrome.
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { useSelector } from 'react-redux';
+import { USD } from '../../../utils/constants/currencies';
+import { formatCurrency } from 'react-native-format-currency';
 import Colors from '../../../globals/colors';
 
-const TotalUniBalanceWidget = props => {
-  const {totalBalance} = props;
-  const {width} = Dimensions.get('window');
-  const dispatch = useDispatch();
-  const showBalance = useSelector(state => state.coins.showBalance);
+const TOTAL_PLACEHOLDER = '—';
 
-  const displayCurrency = useSelector(state =>
+const TotalUniBalanceWidget = ({ totalBalance }) => {
+  const showBalance = useSelector((state) => state.coins.showBalance);
+  const displayCurrency = useSelector((state) =>
     state.settings.generalWalletSettings.displayCurrency
       ? state.settings.generalWalletSettings.displayCurrency
       : USD,
   );
 
-  const [uniValueDisplay, setUniValueDisplay] = useState('-');
+  const [valueDisplay, setValueDisplay] = useState({ symbol: '', value: TOTAL_PLACEHOLDER });
 
   useEffect(() => {
     if (totalBalance != null && displayCurrency != null) {
-      const [valueFormattedWithSymbol, valueFormattedWithoutSymbol, symbol] =
-        formatCurrency({
-          amount: Number(totalBalance.toFixed(2)),
+      const amount = Number(totalBalance.toFixed(2));
+      
+      // Show '0.00' when balance is zero
+      if (amount === 0) {
+        const [, , symbol] = formatCurrency({
+          amount: 0,
+          code: displayCurrency,
+        });
+        setValueDisplay({
+          symbol: symbol || displayCurrency,
+          value: '0.00',
+        });
+      } else {
+        const [, valueWithoutSymbol, symbol] = formatCurrency({
+          amount,
           code: displayCurrency,
         });
 
-      setUniValueDisplay(valueFormattedWithSymbol);
+        setValueDisplay({
+          symbol: symbol || displayCurrency,
+          value: valueWithoutSymbol.trim(),
+        });
+      }
+    } else {
+      setValueDisplay({ symbol: '', value: TOTAL_PLACEHOLDER });
     }
   }, [totalBalance, displayCurrency]);
 
-  return (
-    <Card
-      style={{
-        height: 110,
-        width: width / 2 - 16,
-        borderRadius: 10,
-        backgroundColor: Colors.ultraUltraLightGrey,
-        position: 'relative',
-      }}
-      mode="outlined">
-      <Card.Content>
-        {/* Top-left label */}
-        <Paragraph
-          style={{
-            position: 'absolute',
-            top: 8,
-            left: 12,
-            fontSize: 12,
-            color: Colors.quaternaryColor,
-            zIndex: 1,
-          }}
-        >
-          {'Total value'}
-        </Paragraph>
+  const hasResolvedValue = valueDisplay.value !== TOTAL_PLACEHOLDER;
+  const maskDisplay = '********';
 
-        {/* Vertically centered amount */}
-        <View style={{ height: '100%', justifyContent: 'center', alignItems: 'center', marginTop: 4, paddingLeft: 12, paddingRight: 12, zIndex: 2 }}>
-          {showBalance ? (
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.6}
-              style={{
-                fontSize: 32,
-                fontWeight: '700',
-                letterSpacing: -1,
-                includeFontPadding: false,
-                textAlign: 'center'
-              }}
-            >
-              {uniValueDisplay}
-            </Text>
-          ) : (
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit={true}
-              minimumFontScale={0.6}
-              style={{
-                fontSize: 32,
-                fontWeight: '700',
-                letterSpacing: -0.2,
-                includeFontPadding: false,
-                textAlign: 'center'
-              }}
-            >
-              ********
-            </Text>
-          )}
+  return (
+    <View style={styles.container}>
+      {showBalance ? (
+        <View style={styles.valueRow}>
+          {hasResolvedValue && valueDisplay.symbol ? (
+            <Text style={styles.symbol}>{valueDisplay.symbol}</Text>
+          ) : null}
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit={true}
+            minimumFontScale={0.35}
+            style={styles.amount}
+          >
+            {hasResolvedValue ? valueDisplay.value : TOTAL_PLACEHOLDER}
+          </Text>
         </View>
-      </Card.Content>
-    </Card>
+      ) : (
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit={true}
+          minimumFontScale={0.35}
+          style={styles.mask}
+        >
+          {maskDisplay}
+        </Text>
+      )}
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    paddingVertical: 28,
+    alignItems: 'center',
+  },
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  symbol: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: Colors.quinaryColor,
+    includeFontPadding: false,
+    lineHeight: 36,
+    marginRight: 4,
+    marginTop: 4,
+  },
+  amount: {
+    flexShrink: 1,
+    fontSize: 64,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    letterSpacing: -2,
+    includeFontPadding: false,
+    lineHeight: 66,
+  },
+  mask: {
+    fontSize: 64,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    letterSpacing: 3,
+    includeFontPadding: false,
+    lineHeight: 66,
+  },
+});
 
 export default TotalUniBalanceWidget;
