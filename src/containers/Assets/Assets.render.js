@@ -45,7 +45,7 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
 
 const ManageAssetsAction = ({ onPress, style }) => (
   <View style={[styles.manageAssetsContainer, style]}>
-    <Text style={styles.manageAssetsPrompt}>{'Missing an asset?'}</Text>
+    <Text style={styles.manageAssetsPrompt}>{'Add or remove assets'}</Text>
     <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.manageAssetsChip}>
       <Text style={styles.manageAssetsChipLabel}>{'Manage assets'}</Text>
     </TouchableOpacity>
