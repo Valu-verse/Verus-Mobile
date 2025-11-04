@@ -3,15 +3,14 @@
   - Render assets in list-style rows with subtle dividers
   - Keep icon badges with theme-color backgrounds while preserving tap targets
   - Tighten horizontal spacing between icons and labels
-  - Remove button-card styling ahead of upcoming non-interactive design
+  - Restyle manage assets CTA to chip format with inline prompt and header variant
 */
 import React from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
-import { List, Text, Button } from 'react-native-paper';
+import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
+import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import { getCoinLogo } from '../../utils/CoinData/CoinData';
 import { normalizeNum } from '../../utils/normalizeNum';
-import Colors from '../../globals/colors';
 
 const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   const { coinObj, fiat, crypto } = item;
@@ -54,19 +53,16 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   );
 };
 
-const AddAssetsInline = ({ onPress }) => (
-  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 4 }}>
-    <Button 
-      onPress={onPress}
-      textColor={Colors.primaryColor}
-      compact
-      uppercase={false}
-      labelStyle={{ letterSpacing: -0.2, textTransform: 'none' }}
-    >
-      Add assets
-    </Button>
+const ManageAssetsAction = ({ onPress, style }) => (
+  <View style={[styles.manageAssetsContainer, style]}>
+    <Text style={styles.manageAssetsPrompt}>{'Missing an asset?'}</Text>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7} style={styles.manageAssetsChip}>
+      <Text style={styles.manageAssetsChipLabel}>{'Manage assets'}</Text>
+    </TouchableOpacity>
   </View>
 );
+
+const AddAssetsInline = ({ onPress }) => <ManageAssetsAction onPress={onPress} style={styles.manageAssetsInline} />;
 
 const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressAddAssets }) => {
   return (
@@ -92,17 +88,7 @@ const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressA
   );
 };
 
-const HeaderButton = ({ onPress }) => (
-  <Button 
-    onPress={onPress} 
-    textColor={Colors.primaryColor} 
-    compact 
-    uppercase={false}
-    labelStyle={{ letterSpacing: -0.2 }}
-  >
-    Add Assets
-  </Button>
-);
+const HeaderButton = ({ onPress }) => <ManageAssetsAction onPress={onPress} style={styles.manageAssetsHeader} />;
 
 const AssetsRender = {
   List: ListView,
@@ -143,6 +129,40 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  manageAssetsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  manageAssetsInline: {
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  manageAssetsHeader: {
+    marginRight: 8,
+  },
+  manageAssetsPrompt: {
+    fontSize: 12,
+    color: '#666666',
+    marginRight: 8,
+  },
+  manageAssetsChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+  },
+  manageAssetsChipLabel: {
+    fontSize: 12,
+    color: '#333333',
+    fontWeight: '500',
   },
 });
 
