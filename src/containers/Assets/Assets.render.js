@@ -1,22 +1,20 @@
 /*
   Updated: Assets.render
-  - Render assets in list-style rows with subtle dividers
-  - Keep icon badges with theme-color backgrounds while preserving tap targets
-  - Tighten horizontal spacing between icons and labels
+  - Render assets in compact list rows without dividers (balanced spacing)
+  - Match icon styling to Add assets selection (40px square cards)
+  - Balance row spacing and reduce gaps between text stacks
   - Restyle manage assets CTA to chip format with inline prompt and header variant
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
-import { getCoinLogo } from '../../utils/CoinData/CoinData';
 import { normalizeNum } from '../../utils/normalizeNum';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 
 const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   const { coinObj, fiat, crypto } = item;
-  const Logo = getCoinLogo(coinObj.id, coinObj.proto); // light variant (white) by default
   const [fiatFormatted] = formatCurrency({ amount: fiat, code: displayCurrency });
-  const themeColor = coinObj.theme_color ? coinObj.theme_color : '#1C1C1C';
 
   return (
     <List.Item
@@ -24,29 +22,21 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
       rippleColor="transparent"
       title={coinObj.display_name}
       description={coinObj.display_ticker}
-      left={(props) => (
-        <View style={[props.style, styles.leftContainer]}>
-          <View style={[styles.iconCircle, { backgroundColor: themeColor }]}>
-            {Logo ? (
-              <Logo width={16} height={16} />
-            ) : (
-              <List.Icon {...props} color={'white'} icon="wallet" />
-            )}
-          </View>
-        </View>
+      left={() => (
+        <View style={styles.leftContainer}>{RenderSquareCoinLogo(coinObj.id, {}, 40, 40)}</View>
       )}
       right={(props) => (
         <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: 'black' }}>
             {showBalance ? fiatFormatted : '*****'}
           </Text>
-          <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+          <Text style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
             {showBalance ? `${normalizeNum(Number(crypto), 8)[3]} ${coinObj.display_ticker}` : '***'}
           </Text>
         </View>
       )}
       titleStyle={{ fontSize: 16, fontWeight: '600' }}
-      descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 2 }}
+      descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 1 }}
       style={styles.listItem}
       contentStyle={styles.listItemContent}
     />
@@ -73,7 +63,6 @@ const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressA
       <FlatList
         data={assets}
         keyExtractor={(x) => x.coinObj.id}
-        ItemSeparatorComponent={() => <View style={styles.divider} />}
         renderItem={({ item }) => (
           <Row
             item={item}
@@ -108,38 +97,29 @@ const styles = StyleSheet.create({
   listItem: {
     backgroundColor: 'transparent',
     paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   listItemContent: {
-    paddingVertical: 4,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E2E2E2',
-    marginLeft: 60,
+    paddingVertical: 2,
   },
   leftContainer: {
-    width: 40,
+    paddingHorizontal: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
-  },
-  iconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 52,
   },
   manageAssetsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
+    paddingVertical: 6,
   },
   manageAssetsInline: {
     justifyContent: 'flex-end',
     paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 22,
+    paddingBottom: 12,
+    marginBottom: 8,
   },
   manageAssetsHeader: {
     marginRight: 8,
