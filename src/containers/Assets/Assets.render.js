@@ -4,6 +4,7 @@
   - Match icon styling to Add assets selection (40px square cards)
   - Balance row spacing and reduce gaps between text stacks
   - Restyle manage assets CTA to chip format with inline prompt and header variant
+  - Round fiat balances to two decimals before formatting to match coin overview screens
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
@@ -11,10 +12,12 @@ import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import { normalizeNum } from '../../utils/normalizeNum';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
+import BigNumber from 'bignumber.js';
 
 const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   const { coinObj, fiat, crypto } = item;
-  const [fiatFormatted] = formatCurrency({ amount: fiat, code: displayCurrency });
+  const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+  const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
 
   return (
     <List.Item

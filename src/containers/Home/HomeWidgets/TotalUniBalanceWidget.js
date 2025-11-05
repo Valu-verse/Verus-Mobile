@@ -1,11 +1,13 @@
 // TotalUniBalanceWidget
 // 2025-11-04: Converted to a full-width hero row with inline currency symbol and no card chrome.
+// 2025-11-05: Round fiat display to two decimals before formatting to ensure trailing zeros are shown.
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSelector } from 'react-redux';
 import { USD } from '../../../utils/constants/currencies';
 import { formatCurrency } from 'react-native-format-currency';
 import Colors from '../../../globals/colors';
+import BigNumber from 'bignumber.js';
 
 const TOTAL_PLACEHOLDER = '—';
 
@@ -21,12 +23,12 @@ const TotalUniBalanceWidget = ({ totalBalance }) => {
 
   useEffect(() => {
     if (totalBalance != null && displayCurrency != null) {
-      const amount = Number(totalBalance.toFixed(2));
-      
+      const roundedAmount = BigNumber(totalBalance).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+
       // Show '0.00' when balance is zero
-      if (amount === 0) {
+      if (roundedAmount.isZero()) {
         const [, , symbol] = formatCurrency({
-          amount: 0,
+          amount: '0.00',
           code: displayCurrency,
         });
         setValueDisplay({
@@ -35,7 +37,7 @@ const TotalUniBalanceWidget = ({ totalBalance }) => {
         });
       } else {
         const [, valueWithoutSymbol, symbol] = formatCurrency({
-          amount,
+          amount: roundedAmount.toFixed(2),
           code: displayCurrency,
         });
 

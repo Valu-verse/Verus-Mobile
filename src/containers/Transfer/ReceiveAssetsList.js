@@ -2,6 +2,7 @@
   New file: ReceiveAssetsList
   - Lists activated assets with balances in fiat/crypto for selecting a receive target
   - Navigates to the redesigned receive flow after the user taps an asset
+  - Rounds fiat balances to two decimals before formatting to prevent incorrect separators
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
@@ -163,7 +164,8 @@ const ReceiveAssetsList = () => {
     ({ item }) => {
       const { coinObj, fiat, crypto } = item;
       const Logo = getCoinLogo(coinObj.id, coinObj.proto);
-      const [fiatFormatted] = formatCurrency({ amount: fiat, code: displayCurrency });
+      const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+      const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
       const [cryptoFormatted] = normalizeNum(Number(crypto), coinObj.decimals || 8);
 
       return (
