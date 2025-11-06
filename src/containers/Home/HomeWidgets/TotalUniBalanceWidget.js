@@ -52,7 +52,7 @@ const TotalUniBalanceWidget = ({ totalBalance }) => {
   }, [totalBalance, displayCurrency]);
 
   const hasResolvedValue = valueDisplay.value !== TOTAL_PLACEHOLDER;
-  const maskDisplay = '********';
+  const maskDisplay = '***';
 
   return (
     <View style={styles.container}>

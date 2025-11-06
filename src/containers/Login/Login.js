@@ -101,12 +101,11 @@ const Login = props => {
         ignoreSilentSwitch="obey"
       />
 
-      <View style={styles.poweredPill}>
-        <Text style={styles.poweredText}>Powered by</Text>
-        <VerusLogoWhite width={68} height={16} />
-      </View>
-
-      <View style={styles.dropdownWrap}>
+      <View style={styles.topPills}>
+        <View style={styles.poweredPill}>
+          <Text style={styles.poweredText}>Powered by</Text>
+          <VerusLogoWhite width={68} height={16} />
+        </View>
         <SignedOutDropdown
           hasAccount={hasAccount}
           handleRecoverSeed={handleRecoverSeed}
@@ -155,17 +154,22 @@ const styles = StyleSheet.create({
   video: {
     ...StyleSheet.absoluteFillObject,
   },
-  poweredPill: {
+  topPills: {
     position: 'absolute',
     top: 68,
     right: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  poweredPill: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(49, 101, 212, 0.95)',
-    zIndex: 2,
+    marginRight: 8,
   },
   poweredText: {
     color: Colors.secondaryColor,
@@ -173,12 +177,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginRight: 8,
     letterSpacing: -0.2,
-  },
-  dropdownWrap: {
-    position: 'absolute',
-    top: 132,
-    right: 12,
-    zIndex: 20,
   },
   overlay: {
     flex: 1,
