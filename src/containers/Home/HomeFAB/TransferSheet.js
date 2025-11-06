@@ -87,7 +87,7 @@ const TransferSheet = ({
             />
 
             <List.Item
-              title="Send & convert crypto"
+              title="Send or convert crypto"
               description="Send assets out or convert between assets"
               onPress={handleSendConvert}
               left={(props) => <List.Icon {...props} icon="arrow-top-right" color={'black'} />}
