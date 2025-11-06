@@ -78,7 +78,7 @@ class ValuOnRampChooseSource extends Component {
     }
 
     this.state = {
-      radioValue: 0,
+      radioValue: null, // Changed from 0 to null to force explicit selection
       amount: "100",
       converted: 0,
       taxCountry: null,
@@ -94,7 +94,8 @@ class ValuOnRampChooseSource extends Component {
       addresses,
       chosenAddress: (props.initialAddress ? props.initialAddress : (addresses[0] || {})),
       locations: {},
-      partnerUserId: partnerUserId
+      partnerUserId: partnerUserId,
+      showScrollIndicator: true
     };
     
     this.handleChange = this.handleChange.bind(this);
@@ -150,8 +151,9 @@ class ValuOnRampChooseSource extends Component {
         partnerUserId: this.state.partnerUserId 
       });
       
-      const fee = valuReply.options?.[this.state.radioValue]?.feePercentage || 0;
-      const cryptoReceived = valuReply.options?.[this.state.radioValue]?.amountReceived || 0;
+      const radioValue = this.state.radioValue !== null ? this.state.radioValue : 0;
+      const fee = valuReply.options?.[radioValue]?.feePercentage || 0;
+      const cryptoReceived = valuReply.options?.[radioValue]?.amountReceived || 0;
       const formattedValue = formatCurrency({ 
         amount: Number(cryptoReceived).toFixed(2), 
         code: 'USD' 
@@ -257,8 +259,8 @@ class ValuOnRampChooseSource extends Component {
   };
 
   async startOnRamp() {
-    // Extra safety: prevent starting if an inline error is present or amount is empty
-    if (this.state.error != null || this.state.amount === "") return;
+    // Extra safety: prevent starting if an inline error is present or amount is empty or no payment option selected
+    if (this.state.error != null || this.state.amount === "" || this.state.radioValue === null) return;
 
     const continueToCheckout = async () => {
       try {
@@ -392,7 +394,7 @@ class ValuOnRampChooseSource extends Component {
       amount: youPay 
     }, async () => {
       try {
-        const radioValue = this.state.radioValue;
+        const radioValue = this.state.radioValue !== null ? this.state.radioValue : 0;
         const selectedCountry = countryCode || this.state.taxCountry.country;
         
         const valuReply = await ValuProvider.getOnRampOptions({ 
@@ -430,6 +432,8 @@ class ValuOnRampChooseSource extends Component {
               country: countryCode,
             };
             updates.currency = valuReply.currency;
+            // Reset selection when country changes
+            updates.radioValue = null;
           }
 
           this.setState(updates, () => {
@@ -586,7 +590,7 @@ class ValuOnRampChooseSource extends Component {
   render() {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
-    const ctaDisabled = this.state.loading || this.state.error != null || this.state.amount === "";
+    const ctaDisabled = this.state.loading || this.state.error != null || this.state.amount === "" || this.state.radioValue === null;
     const allBalances = this.props.allBalances;
     const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
     const addrId = this.state.chosenAddress?.id;
@@ -609,10 +613,11 @@ class ValuOnRampChooseSource extends Component {
               
               
               {this.renderCurrencyInputs()}
-              {this.renderOptionsList()}
               
-              {/* Spacer to push keypad and button to bottom */}
-              <View style={{ flex: isSmall ? 0 : 1 }} />
+              {/* Options list - takes remaining space */}
+              <View style={{ flex: 1, minHeight: 0 }}>
+                {this.renderOptionsList()}
+              </View>
               
               {/* Modern CTA Button */}
               <View style={[styles.ctaContainer, isSmall ? { paddingBottom: 4 } : null ]}>
@@ -689,7 +694,7 @@ class ValuOnRampChooseSource extends Component {
   renderOptionsList() {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
-    const { options, loading } = this.state;
+    const { options, loading, radioValue, showScrollIndicator } = this.state;
 
     if (loading) return this.renderSkeletonOptions();
     if (!Array.isArray(options) || options.length === 0) return null;
@@ -708,34 +713,71 @@ class ValuOnRampChooseSource extends Component {
       return feeA - feeB;
     });
 
-    // Show max 3 options for better selection
-    const visibleOptions = sortedOptions.slice(0, 3);
-    const hasMoreOptions = sortedOptions.length > 3;
-
     return (
-      <View style={{ width: '100%', alignItems: 'center', marginTop: 4 }}>
+      <View style={{ width: '100%', alignItems: 'center', marginTop: 4, flex: 1 }}>
         <View style={{ width: '90%', marginBottom: 6, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <Text style={{ fontSize: 13, color: '#666' }}>Payment options</Text>
           <Text style={{ fontSize: 13, color: '#666' }}>Receive vUSDC</Text>
         </View>
-        <View style={styles.optionsContainer}>
-          {visibleOptions.map((route, idx) => (
-            <View key={`${route.paymentMethod}-${idx}`}>
-              <View style={[styles.optionRow3Column, isSmall ? { paddingVertical: 6 } : null]}>
-                <Text style={styles.optionMethod}>{route.paymentMethod}</Text>
-                <Text style={styles.optionFee}>{`${Number(route.feePercentage || 0).toFixed(1)}%`}</Text>
-                <Text style={styles.optionReceive}>{formatNum(route.amountReceived)}</Text>
-              </View>
-              {idx < visibleOptions.length - 1 && <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />}
+        <View style={{ flex: 1, width: '90%', position: 'relative' }}>
+          <ScrollView 
+            style={styles.optionsScrollContainer}
+            contentContainerStyle={{ flexGrow: 1 }}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+            onScroll={() => {
+              if (showScrollIndicator) {
+                this.setState({ showScrollIndicator: false });
+              }
+            }}
+            scrollEventThrottle={16}
+          >
+            <View style={styles.optionsContainer}>
+              {sortedOptions.map((route, idx) => {
+                const isSelected = radioValue === idx;
+                return (
+                  <TouchableOpacity
+                    key={`${route.paymentMethod}-${idx}`}
+                    onPress={() => this.setState({ radioValue: idx, showScrollIndicator: false })}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[
+                      styles.selectableOptionRow,
+                      isSelected && styles.selectedOptionRow,
+                      isSmall && { paddingVertical: 6 }
+                    ]}>
+                      <RadioButton
+                        value={idx.toString()}
+                        status={isSelected ? 'checked' : 'unchecked'}
+                        onPress={() => this.setState({ radioValue: idx, showScrollIndicator: false })}
+                        color={Colors.primaryColor}
+                      />
+                      <View style={styles.optionContent}>
+                        <Text style={[styles.optionMethod, isSelected && styles.selectedOptionText]}>
+                          {route.paymentMethod}
+                        </Text>
+                        <Text style={[styles.optionFee, isSelected && styles.selectedOptionText]}>
+                          {`${Number(route.feePercentage || 0).toFixed(1)}%`}
+                        </Text>
+                        <Text style={[styles.optionReceive, isSelected && styles.selectedOptionText]}>
+                          {formatNum(route.amountReceived)}
+                        </Text>
+                      </View>
+                    </View>
+                    {idx < sortedOptions.length - 1 && (
+                      <View style={[styles.optionDivider, isSmall && { marginVertical: 2 }]} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          ))}
-          {hasMoreOptions && (
-            <>
-              <View style={[styles.optionDivider, isSmall ? { marginVertical: 2 } : null]} />
-              <View style={styles.moreOptionsRow}>
-                <Text style={styles.moreOptionsText}>{`and ${sortedOptions.length - 3} more option${sortedOptions.length - 3 > 1 ? 's' : ''}`}</Text>
-              </View>
-            </>
+          </ScrollView>
+          
+          {/* Floating scroll indicator */}
+          {showScrollIndicator && sortedOptions.length > 3 && (
+            <View style={styles.scrollIndicatorContainer}>
+              <Text style={styles.scrollIndicatorArrow}>↓</Text>
+            </View>
           )}
         </View>
       </View>
@@ -924,8 +966,55 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   optionsContainer: {
-    width: '90%',
+    width: '100%',
     paddingVertical: 4,
+  },
+  optionsScrollContainer: {
+    width: '100%',
+  },
+  scrollIndicatorContainer: {
+    position: 'absolute',
+    bottom: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
+  scrollIndicatorArrow: {
+    fontSize: 32,
+    color: '#999',
+    opacity: 0.6,
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+  },
+  selectableOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    marginBottom: 2,
+  },
+  selectedOptionRow: {
+    backgroundColor: '#E6F7FF',
+    borderColor: Colors.primaryColor,
+    borderWidth: 2,
+  },
+  optionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  selectedOptionText: {
+    fontWeight: '600',
+    color: '#1A1A1A',
   },
   compactOptionRow: {
     paddingVertical: 8,
