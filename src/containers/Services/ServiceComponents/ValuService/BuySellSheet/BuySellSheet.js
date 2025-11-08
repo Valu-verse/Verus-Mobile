@@ -99,7 +99,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
   const { map: addrBalanceMap, total: totalVusdcVeth } = useMemo(() => computeVusdcVethBalances(balances, allSubWallets, ticker), [balances, allSubWallets, ticker]);
 
   const addresses = allSubWallets[ticker] || [];
-  const canSell = totalVusdcVeth > 0;
+  const canSell = true;
 
   useEffect(() => {
     const init = async () => {
@@ -459,7 +459,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                     : 'Select the address where you want to receive your vUSDC.'}
                 </Text>
                 <View>
-                  {(action === 'sell' ? addresses.filter((addr) => (addrBalanceMap[addr.id] || 0) > 0) : addresses).map((addr) => {
+                  {(action === 'sell' ? addresses : addresses).map((addr) => {
                     const amountNum = (addrBalanceMap[addr.id] || 0).toFixed(2);
                     return (
                       <List.Item
