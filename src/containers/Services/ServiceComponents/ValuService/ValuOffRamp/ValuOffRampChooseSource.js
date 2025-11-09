@@ -9,7 +9,8 @@
   - Compact responsive layout for small devices
   - Balance display shows available vUSDC.vETH with lighter .vETH suffix
   - MAX button sets amount to available balance (respecting provider limits)
-  - NEW: Payout methods moved into shared ValuPaymentMethodSheet with fee and limit details
+  - Payout methods moved into shared ValuPaymentMethodSheet with fee and limit details
+  - Normalizes payout method labels/icons using shared metadata helper
 */
 
 import React, { Component } from "react";
@@ -55,6 +56,8 @@ import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/
 import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
+import { normalizePaymentMethodLabel } from '../shared/valuPaymentMethodMeta';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 import { API_GET_BALANCES } from '../../../../../utils/constants/intervalConstants';
 
@@ -132,6 +135,9 @@ class ValuOffRampChooseSource extends Component {
       selectedOption && selectedOption.maxAmount != null
         ? this.formatCurrencyValue(selectedOption.maxAmount, { includeDecimals: false, includeSymbol: true })
         : null;
+    const payoutLabel = selectedOption
+      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
+      : null;
     
     return (
       <View style={styles.paymentSelectorContainer}>
@@ -146,7 +152,7 @@ class ValuOffRampChooseSource extends Component {
               <View style={styles.paymentSelectorTextColumn}>
                 <Text style={styles.paymentSelectorFlatLabel}>Payout to</Text>
                 <Text style={styles.paymentSelectorFlatValue}>
-                  {selectedOption ? selectedOption.paymentMethod : 'Select payout method'}
+                  {payoutLabel || 'Select payout method'}
                 </Text>
               </View>
               {selectedOption && rawMax ? (
@@ -248,6 +254,9 @@ class ValuOffRampChooseSource extends Component {
       selectedOption && selectedOption.maxAmount != null
         ? this.formatCurrencyValue(selectedOption.maxAmount, { includeDecimals: false, includeSymbol: true })
         : null;
+    const payoutLabel = selectedOption
+      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
+      : null;
     
     return (
       <View style={styles.paymentSelectorContainer}>
@@ -262,7 +271,7 @@ class ValuOffRampChooseSource extends Component {
               <View style={styles.paymentSelectorTextColumn}>
                 <Text style={styles.paymentSelectorFlatLabel}>Payout to</Text>
                 <Text style={styles.paymentSelectorFlatValue}>
-                  {selectedOption ? selectedOption.paymentMethod : 'Select payout method'}
+                  {payoutLabel || 'Select payout method'}
                 </Text>
               </View>
               {selectedOption && rawMax ? (
@@ -294,6 +303,9 @@ class ValuOffRampChooseSource extends Component {
     const selectedOption = this.getSelectedOption();
     const amountNumber = Number(this.state.amount || 0);
     const formattedSellAmount = this.formatTokenAmount(this.state.amount || 0);
+    const payoutLabel = selectedOption
+      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
+      : null;
 
     const fiatReceived =
       selectedOption && selectedOption.amountReceived != null
@@ -371,7 +383,7 @@ class ValuOffRampChooseSource extends Component {
             <View style={styles.reviewPaymentTextColumn}>
               <Text style={styles.reviewPaymentLabel}>Payout to</Text>
               <Text style={styles.reviewPaymentValue}>
-                {selectedOption?.paymentMethod || 'Select payout method'}
+                {payoutLabel || 'Select payout method'}
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
@@ -390,7 +402,7 @@ class ValuOffRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
             {feePercentage != null && formattedFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`incl. ${feePercentage.toFixed(1)}% fee + ${formattedFee}`}
+                {`incl. ${feePercentage.toFixed(1)}% fee (${formattedFee})`}
               </Text>
             ) : null}
           </View>
@@ -399,23 +411,52 @@ class ValuOffRampChooseSource extends Component {
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
             </View>
           ) : null}
-          <Button
-            mode="contained"
-            onPress={this.startOnRamp}
-            disabled={actionDisabled}
-            icon="open-in-new"
+          <View
             style={[
-              styles.reviewActionButton,
-              actionDisabled ? styles.modernActionButtonDisabled : null,
-            ]}
-            contentStyle={[styles.modernActionButtonContent, { flexDirection: 'row-reverse' }]}
-            labelStyle={[
-              styles.modernActionButtonLabel,
-              actionDisabled ? styles.modernActionButtonLabelDisabled : null,
+              styles.reviewActionWrapper,
+              actionDisabled ? styles.reviewActionWrapperDisabled : null,
             ]}
           >
-            Sell now
-          </Button>
+            {!actionDisabled && (
+              <Svg
+                width="100%"
+                height="100%"
+                style={styles.reviewActionGradient}
+                pointerEvents="none"
+              >
+                <Defs>
+                  <SvgLinearGradient id="reviewButtonGradientOfframp" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor="#00C8FF" />
+                    <Stop offset="1" stopColor="#0077A9" />
+                  </SvgLinearGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  rx={28}
+                  ry={28}
+                  fill="url(#reviewButtonGradientOfframp)"
+                />
+              </Svg>
+            )}
+            <Button
+              mode="contained"
+              onPress={this.startOnRamp}
+              disabled={actionDisabled}
+              icon="open-in-new"
+              style={styles.reviewActionButton}
+              contentStyle={[styles.modernActionButtonContent, styles.reviewActionButtonContent, { flexDirection: 'row-reverse' }]}
+              labelStyle={[
+                styles.modernActionButtonLabel,
+                styles.reviewActionButtonLabel,
+                actionDisabled ? styles.modernActionButtonLabelDisabled : null,
+              ]}
+            >
+              Sell now
+            </Button>
+          </View>
         </View>
       </View>
     );
@@ -1298,9 +1339,24 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 4,
   },
+  reviewActionWrapper: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  reviewActionWrapperDisabled: {
+    backgroundColor: '#CFEAF2',
+  },
+  reviewActionGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   reviewActionButton: {
-    borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
+    borderRadius: 28,
+    backgroundColor: 'transparent',
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -1326,14 +1382,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   modernActionButtonContent: {
-    height: 48,
+    height: 56,
+  },
+  reviewActionButtonContent: {
+    height: 56,
   },
   modernActionButtonLabel: {
     color: Colors.secondaryColor,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
+  },
+  reviewActionButtonLabel: {
+    fontSize: 18,
   },
   modernActionButtonLabelDisabled: {
     color: '#7DB8C9',

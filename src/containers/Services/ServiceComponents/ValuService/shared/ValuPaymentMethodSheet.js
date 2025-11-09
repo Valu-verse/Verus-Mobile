@@ -1,18 +1,23 @@
 /*
-  New file: ValuPaymentMethodSheet
+  Updated file: ValuPaymentMethodSheet
   - Shared semi-modal sheet for selecting on/off-ramp payment providers
   - Displays provider, fee percentage, and min/max limits with consistent styling
+  - Uses normalized labels and provider-specific icons (SVG or Material icons)
   - Used by both ValuOnRampChooseSource and ValuOffRampChooseSource flows
 */
 
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Portal, Button, List, Text } from 'react-native-paper';
+import { Portal, Button, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import SemiModal from '../../../../../components/SemiModal';
 import Colors from '../../../../../globals/colors';
+import {
+  getPaymentMethodMeta,
+  normalizePaymentMethodLabel,
+} from './valuPaymentMethodMeta';
 
 const currencyFormatter = (amount, code) => {
   if (amount == null || Number.isNaN(Number(amount))) return null;
@@ -26,6 +31,34 @@ const currencyFormatter = (amount, code) => {
     // Fallback simple formatting
     return `${Number(amount).toFixed(2)} ${code || ''}`.trim();
   }
+};
+
+const ICON_WIDTH = 58;
+const ICON_HEIGHT = 40;
+const ICON_BORDER_RADIUS = 4.5;
+
+const renderOptionIcon = (iconMeta) => {
+  if (!iconMeta) return null;
+
+  if (iconMeta.type === 'svg' && iconMeta.Component) {
+    const SvgIcon = iconMeta.Component;
+
+    return (
+      <View style={styles.optionSvgWrapper}>
+        <SvgIcon width={ICON_WIDTH} height={ICON_HEIGHT} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.optionIconWrapper}>
+      <MaterialCommunityIcons
+        name={iconMeta.name || 'credit-card-outline'}
+        size={26}
+        color={iconMeta.color || '#1A1A1A'}
+      />
+    </View>
+  );
 };
 
 // buildLimitLabel removed - no longer showing limits in the sheet
@@ -86,6 +119,9 @@ const ValuPaymentMethodSheet = ({
             showsVerticalScrollIndicator={true}
           >
             {options.map((option, index) => {
+              const meta = getPaymentMethodMeta(option?.paymentMethod);
+              const displayLabel =
+                meta.label || normalizePaymentMethodLabel(option?.paymentMethod) || 'Payment method';
               const isSelected = selectedIndex === index;
               const feePercentage =
                 option?.feePercentage != null && !Number.isNaN(Number(option.feePercentage))
@@ -99,15 +135,10 @@ const ValuPaymentMethodSheet = ({
                   activeOpacity={0.7}
                   style={styles.optionRowFlat}
                 >
-                  <MaterialCommunityIcons 
-                    name="credit-card-outline" 
-                    size={24} 
-                    color="#000" 
-                    style={{ marginRight: 12 }} 
-                  />
+                  {renderOptionIcon(meta.icon)}
                   <View style={styles.optionTextColumn}>
                     <Text style={styles.optionLabel}>
-                      {option?.paymentMethod || 'Payment method'}
+                      {displayLabel}
                     </Text>
                     <Text style={styles.optionValue}>{feePercentage}</Text>
                   </View>
@@ -162,6 +193,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: '#FAFAFA',
     marginBottom: 8,
+  },
+  optionIconWrapper: {
+    width: ICON_WIDTH,
+    height: ICON_HEIGHT,
+    borderRadius: ICON_BORDER_RADIUS,
+    borderWidth: 1,
+    borderColor: '#F2F4F7',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionSvgWrapper: {
+    width: ICON_WIDTH,
+    height: ICON_HEIGHT,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   optionTextColumn: {
     flex: 1,

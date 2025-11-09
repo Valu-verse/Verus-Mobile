@@ -12,7 +12,9 @@
     • Local compact rule: height <= 667 OR width <= 375 (iPhone SE class)
     • Reduce keypad height/spacing and typography sizes
     • Tighten options list spacing and ensure CTA remains visible
-  - NEW: Payment methods displayed in shared ValuPaymentMethodSheet with fee and limit details
+  - Payment methods displayed in shared ValuPaymentMethodSheet with fee and limit details
+  - Normalizes payment method labels/icons using shared metadata helper
+  - Updated disclosure copy to highlight Paybis partnership and vUSDC.vETH deposits
 */
 
 import React, { Component } from "react";
@@ -32,7 +34,7 @@ import {
   Dimensions,
   Image
 } from 'react-native';
-import { 
+import {
   Button, 
   Text, 
   Portal 
@@ -57,20 +59,21 @@ import { initiateOnrampRequest } from "../../../../../actions/actions/channels/v
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 import { saveGeneralSettings } from "../../../../../actions/actionCreators";
 import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
+import { normalizePaymentMethodLabel } from '../shared/valuPaymentMethodMeta';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 
 // Constants
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
-const ONRAMP_DISCLOSURE_POINTS = [
-  "Checkout runs on Ethereum behind the scenes.",
-  "We convert your purchase to vUSDC at a 1:1 rate.",
-  "vUSDC is deposited to your Valu wallet; no Ethereum wallet or gas needed."
+const ONRAMP_DISCLOSURE_PARAGRAPHS = [
+  "Paybis is our licensed payments partner and securely handles your checkout.",
+  "Your purchase is deposited to your wallet as vUSDC.vETH on the Verus blockchain."
 ];
 
-const ONRAMP_DISCLOSURE_MESSAGE = ONRAMP_DISCLOSURE_POINTS.map(
-  (entry) => `• ${entry}`
-).join("\n\n");
+const ONRAMP_DISCLOSURE_LEARN_MORE_URL = 'https://paybis.com';
+
+const ONRAMP_DISCLOSURE_MESSAGE = `${ONRAMP_DISCLOSURE_PARAGRAPHS[0]} Learn more at paybis.com.\n\n${ONRAMP_DISCLOSURE_PARAGRAPHS[1]}`;
 
 class ValuOnRampChooseSource extends Component {
   constructor(props) {
@@ -588,6 +591,9 @@ class ValuOnRampChooseSource extends Component {
       selectedOption && selectedOption.maxAmount != null
         ? this.formatCurrencyValue(selectedOption.maxAmount, { includeDecimals: false, includeSymbol: true })
         : null;
+    const paymentLabel = selectedOption
+      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
+      : null;
     return (
       <View style={styles.paymentSelectorContainer}>
         <View style={styles.paymentSelectorSurface}>
@@ -601,7 +607,7 @@ class ValuOnRampChooseSource extends Component {
               <View style={styles.paymentSelectorTextColumn}>
                 <Text style={styles.paymentSelectorFlatLabel}>Pay with</Text>
                 <Text style={styles.paymentSelectorFlatValue}>
-                  {selectedOption ? selectedOption.paymentMethod : 'Select payment method'}
+                  {paymentLabel || 'Select payment method'}
                 </Text>
               </View>
               {selectedOption && rawMax ? (
@@ -698,6 +704,9 @@ class ValuOnRampChooseSource extends Component {
     const formattedAmount =
       this.formatCurrencyValue(this.state.amount || 0, { includeDecimals: false, includeSymbol: true }) ||
       `${amountNumber.toFixed(2)} ${this.state.currency}`;
+    const paymentLabel = selectedOption
+      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
+      : null;
 
     const amountReceived =
       selectedOption && selectedOption.amountReceived != null
@@ -782,7 +791,7 @@ class ValuOnRampChooseSource extends Component {
             <View style={styles.reviewPaymentTextColumn}>
               <Text style={styles.reviewPaymentLabel}>Pay with</Text>
               <Text style={styles.reviewPaymentValue}>
-                {selectedOption?.paymentMethod || 'Select payment method'}
+                {paymentLabel || 'Select payment method'}
               </Text>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
@@ -790,19 +799,19 @@ class ValuOnRampChooseSource extends Component {
 
           {/* Disclosure */}
           <View style={styles.reviewDisclosure}>
-            {ONRAMP_DISCLOSURE_POINTS.map((entry, idx) => (
+            <Text style={styles.reviewDisclosureText}>
+              {ONRAMP_DISCLOSURE_PARAGRAPHS[0]}{' '}
               <Text
-                key={`disclosure-${idx}`}
-                style={[
-                  styles.reviewDisclosureText,
-                  idx === ONRAMP_DISCLOSURE_POINTS.length - 1
-                    ? { marginBottom: 0 }
-                    : null,
-                ]}
+                style={styles.reviewDisclosureLink}
+                onPress={this.handlePaybisLearnMore}
               >
-                {`• ${entry}`}
+                Learn more
               </Text>
-            ))}
+              .
+            </Text>
+            <Text style={[styles.reviewDisclosureText, { marginBottom: 0 }]}>
+              {ONRAMP_DISCLOSURE_PARAGRAPHS[1]}
+            </Text>
           </View>
         </ScrollView>
 
@@ -811,7 +820,7 @@ class ValuOnRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedAmount} total`}</Text>
             {feePercentage != null && formattedFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`incl. ${feePercentage.toFixed(1)}% fee + ${formattedFee}`}
+                {`incl. ${feePercentage.toFixed(1)}% fee (${formattedFee})`}
               </Text>
             ) : null}
           </View>
@@ -820,23 +829,52 @@ class ValuOnRampChooseSource extends Component {
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
             </View>
           ) : null}
-          <Button
-            mode="contained"
-            onPress={this.startOnRamp}
-            disabled={actionDisabled}
-            icon="open-in-new"
+          <View
             style={[
-              styles.reviewActionButton,
-              actionDisabled ? styles.modernActionButtonDisabled : null,
-            ]}
-            contentStyle={[styles.modernActionButtonContent, { flexDirection: 'row-reverse' }]}
-            labelStyle={[
-              styles.modernActionButtonLabel,
-              actionDisabled ? styles.modernActionButtonLabelDisabled : null,
+              styles.reviewActionWrapper,
+              actionDisabled ? styles.reviewActionWrapperDisabled : null,
             ]}
           >
-            Buy now
-          </Button>
+            {!actionDisabled && (
+              <Svg
+                width="100%"
+                height="100%"
+                style={styles.reviewActionGradient}
+                pointerEvents="none"
+              >
+                <Defs>
+                  <SvgLinearGradient id="reviewButtonGradient" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor="#00C8FF" />
+                    <Stop offset="1" stopColor="#0077A9" />
+                  </SvgLinearGradient>
+                </Defs>
+                <Rect
+                  x="0"
+                  y="0"
+                  width="100%"
+                  height="100%"
+                  rx={28}
+                  ry={28}
+                  fill="url(#reviewButtonGradient)"
+                />
+              </Svg>
+            )}
+            <Button
+              mode="contained"
+              onPress={this.startOnRamp}
+              disabled={actionDisabled}
+              icon="open-in-new"
+              style={styles.reviewActionButton}
+              contentStyle={[styles.modernActionButtonContent, styles.reviewActionButtonContent, { flexDirection: 'row-reverse' }]}
+              labelStyle={[
+                styles.modernActionButtonLabel,
+                styles.reviewActionButtonLabel,
+                actionDisabled ? styles.modernActionButtonLabelDisabled : null,
+              ]}
+            >
+              Buy now
+            </Button>
+          </View>
         </View>
       </View>
     );
@@ -931,6 +969,10 @@ class ValuOnRampChooseSource extends Component {
 
     // Navigate to attestation acceptance screen
     this.navigateToAttestationAccept(mockAttestation, transactionData);
+  };
+
+  handlePaybisLearnMore = () => {
+    Linking.openURL(ONRAMP_DISCLOSURE_LEARN_MORE_URL);
   };
 
   render() {
@@ -1325,6 +1367,11 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 6,
   },
+  reviewDisclosureLink: {
+    color: '#555',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   reviewFooter: {
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -1345,9 +1392,24 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 4,
   },
+  reviewActionWrapper: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  reviewActionWrapperDisabled: {
+    backgroundColor: '#CFEAF2',
+  },
+  reviewActionGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   reviewActionButton: {
-    borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
+    borderRadius: 28,
+    backgroundColor: 'transparent',
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -1373,14 +1435,20 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   modernActionButtonContent: {
-    height: 48,
+    height: 56,
+  },
+  reviewActionButtonContent: {
+    height: 56,
   },
   modernActionButtonLabel: {
     color: Colors.secondaryColor,
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
+  },
+  reviewActionButtonLabel: {
+    fontSize: 18,
   },
   modernActionButtonLabelDisabled: {
     color: '#7DB8C9',
