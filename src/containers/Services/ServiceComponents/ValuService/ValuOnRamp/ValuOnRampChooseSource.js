@@ -15,6 +15,7 @@
   - Payment methods displayed in shared ValuPaymentMethodSheet with fee and limit details
   - Normalizes payment method labels/icons using shared metadata helper
   - Updated disclosure copy to highlight Paybis partnership and vUSDC.vETH deposits
+  - Fixed review "Receive" value formatting to respect locale-specific separators
 */
 
 import React, { Component } from "react";
@@ -752,20 +753,13 @@ class ValuOnRampChooseSource extends Component {
         ? Number(selectedOption.amountReceived)
         : 0;
     
-    // Format the received amount with locale-aware thousands separator
-    const formattedReceived = (() => {
-      const [int, frac] = amountReceived.toFixed(2).split('.');
-      try {
-        const formatted = formatCurrency({
-          amount: int,
-          code: this.state.currency || 'USD',
-        });
-        const formattedInt = formatted?.[1] || int;
-        return `${formattedInt}.${frac}`;
-      } catch (error) {
-        return amountReceived.toFixed(2);
-      }
-    })();
+    const formattedReceivedBase =
+      this.formatCurrencyValue(amountReceived, { includeDecimals: true, includeSymbol: false }) ||
+      amountReceived.toFixed(2);
+    const formattedReceived =
+      this.state.currency && formattedReceivedBase.endsWith(` ${this.state.currency}`)
+        ? formattedReceivedBase.slice(0, -(` ${this.state.currency}`).length)
+        : formattedReceivedBase;
 
     const price =
       selectedOption && amountReceived > 0

@@ -11,6 +11,7 @@
   - MAX button sets amount to available balance (respecting provider limits)
   - Payout methods moved into shared ValuPaymentMethodSheet with fee and limit details
   - Normalizes payout method labels/icons using shared metadata helper
+  - Aligned loading skeleton visuals with ValuOnRampChooseSource
 */
 
 import React, { Component } from "react";
@@ -268,62 +269,6 @@ class ValuOffRampChooseSource extends Component {
   closeReview = () => {
     this.setState({ reviewVisible: false });
   };
-
-  renderPaymentSelector() {
-    const { options, radioValue, loading } = this.state;
-    const selectedOption =
-      radioValue != null && options && options[radioValue]
-        ? options[radioValue]
-        : null;
-
-    const rawMax =
-      selectedOption && selectedOption.maxAmount != null
-        ? this.formatCurrencyValue(selectedOption.maxAmount, { includeDecimals: false, includeSymbol: true })
-        : null;
-    const payoutLabel = selectedOption
-      ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
-      : null;
-    
-    return (
-      <View style={styles.paymentSelectorContainer}>
-        <View style={styles.paymentSelectorSurface}>
-          <TouchableOpacity
-            onPress={() => this.setState({ paymentSheetVisible: true })}
-            activeOpacity={0.7}
-            disabled={loading}
-          >
-            <View style={styles.paymentSelectorRowFlat}>
-              <MaterialCommunityIcons name="credit-card-outline" size={24} color="#000" style={{ marginRight: 12 }} />
-              <View style={styles.paymentSelectorTextColumn}>
-                <Text style={styles.paymentSelectorFlatLabel}>Payout to</Text>
-                <Text style={styles.paymentSelectorFlatValue}>
-                  {payoutLabel || 'Select payout method'}
-                </Text>
-              </View>
-              {selectedOption && rawMax ? (
-                <View style={styles.paymentSelectorLimitGroup}>
-                  <Text style={styles.paymentSelectorLimitValue}>{rawMax}</Text>
-                  <Text style={styles.paymentSelectorLimitLabel}>Limit</Text>
-                </View>
-              ) : null}
-              <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.paymentSelectorVerticalLine} />
-
-          <View style={styles.paymentSelectorRowFlat}>
-            <Image source={USDCIcon} style={styles.paymentSelectorUSDCIcon} />
-            <View style={styles.paymentSelectorTextColumn}>
-              <Text style={styles.paymentSelectorFlatLabel}>Sell</Text>
-              <Text style={styles.paymentSelectorFlatValue}>vUSDC</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="transparent" />
-          </View>
-        </View>
-      </View>
-    );
-  }
 
   renderReviewScreen(isSmall) {
     const selectedOption = this.getSelectedOption();
