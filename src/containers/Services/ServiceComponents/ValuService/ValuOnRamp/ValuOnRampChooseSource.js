@@ -518,6 +518,19 @@ class ValuOnRampChooseSource extends Component {
 
     // Use raw amount for display, only format if it has content
     const displayAmount = this.state.amount === "" ? "0" : formatAmount(this.state.amount);
+
+    if (this.state.loading) {
+      return (
+        <View style={{ alignItems: 'center', marginTop: 8 }}>
+          <View style={{ width: '90%' }}>
+            <View style={styles.skeletonAmountWrapper}>
+              <View style={[styles.skeletonBlockLarge, isSmall ? styles.skeletonBlockLargeSmall : null]} />
+            </View>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={{ alignItems: 'center', marginTop: 8 }}>
         {/* Large You Pay input - no background, very large */}
@@ -594,6 +607,32 @@ class ValuOnRampChooseSource extends Component {
     const paymentLabel = selectedOption
       ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
       : null;
+    if (loading) {
+      return (
+        <View style={styles.paymentSelectorContainer}>
+          <View style={styles.paymentSelectorSurface}>
+            <View style={styles.paymentSelectorRowFlat}>
+              <View style={styles.skeletonIconPlaceholder} />
+              <View style={styles.paymentSelectorTextColumn}>
+                <View style={styles.skeletonTextLine} />
+                <View style={styles.skeletonTextLineShort} />
+              </View>
+              <View style={styles.skeletonChevronPlaceholder} />
+            </View>
+            <View style={styles.paymentSelectorVerticalLine} />
+            <View style={styles.paymentSelectorRowFlat}>
+              <View style={styles.skeletonIconPlaceholder} />
+              <View style={styles.paymentSelectorTextColumn}>
+                <View style={styles.skeletonTextLine} />
+                <View style={styles.skeletonTextLineShort} />
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color="transparent" />
+            </View>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.paymentSelectorContainer}>
         <View style={styles.paymentSelectorSurface}>
@@ -887,6 +926,12 @@ class ValuOnRampChooseSource extends Component {
 
   renderCountrySelector() {
     const countryData = this.state.taxCountry?.country ? ISO_3166_COUNTRIES[this.state.taxCountry.country] : null;
+
+    if (this.state.loading) {
+      return (
+        <View style={styles.countryChipSkeleton} />
+      );
+    }
     
     return (
       <TouchableOpacity
@@ -1391,6 +1436,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#777',
     marginTop: 4,
+  },
+  skeletonAmountWrapper: {
+    height: 60,
+    justifyContent: 'center',
+  },
+  skeletonBlockLarge: {
+    height: 42,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 8,
+  },
+  skeletonBlockLargeSmall: {
+    height: 34,
+  },
+  skeletonIconPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E8E8E8',
+    marginRight: 12,
+  },
+  skeletonChevronPlaceholder: {
+    width: 24,
+    height: 24,
+    marginLeft: 12,
+    borderRadius: 12,
+    backgroundColor: '#E8E8E8',
+  },
+  skeletonTextLine: {
+    height: 16,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 6,
+    marginBottom: 6,
+    width: '60%',
+  },
+  skeletonTextLineShort: {
+    height: 14,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 6,
+    width: '40%',
+  },
+  countryChipSkeleton: {
+    width: 140,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E8E8E8',
   },
   reviewActionWrapper: {
     borderRadius: 28,
