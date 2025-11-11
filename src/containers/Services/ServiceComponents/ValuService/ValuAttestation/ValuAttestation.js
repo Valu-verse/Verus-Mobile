@@ -5,6 +5,7 @@
   - Kept large gradient header and primary CTA (48px) with caption "Step X of 4 · <action>"
   - Moved "What you get" benefits into the initial (Purchase) step expanded area
   - Maintains all existing alerts, SumSub/InAppBrowser flows, and notifications
+  - Added wait reminder copy to provisioning notification message
 */
 import React, { useEffect, useState, useCallback, useRef } from "react"
 import { connect, useSelector } from 'react-redux'
@@ -181,7 +182,7 @@ const ValuAttestation = (props) => {
             await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest, identityName);
 
 
-            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'Valuid@'];
+            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'Valuid@', '. Please wait a moment.'];
             newLoadingNotification.acchash = activeAccount.accountHash;
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 

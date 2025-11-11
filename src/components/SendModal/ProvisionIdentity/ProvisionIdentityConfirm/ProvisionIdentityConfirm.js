@@ -1,3 +1,7 @@
+/*
+  Updated file: ProvisionIdentityConfirm
+  - Added wait reminder copy to provisioning notification title
+*/
 import { fromBase58Check } from '@bitgo/utxo-lib/dist/src/address';
 import {Component} from 'react';
 import {Alert} from 'react-native';
@@ -143,7 +147,7 @@ class ProvisionIdentityConfirm extends Component {
           if (lastDotIndex === -1) formattedName = requestedFqn; // return the original string if there's no dot
           else formattedName = requestedFqn.substring(0, lastDotIndex);
 
-          newLoadingNotification.title =  [`${formattedName}@`, ` is being provisioned by `, `${provisioningName}@`]
+          newLoadingNotification.title =  [`${formattedName}@`, ` is being provisioned by `, `${provisioningName}@`, `. Please wait a moment.`]
           newLoadingNotification.acchash = this.props.activeAccount.accountHash;
           newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 

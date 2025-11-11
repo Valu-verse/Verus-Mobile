@@ -1,3 +1,8 @@
+/*
+  ValuServiceAccount
+  2025-11-06: Hide the standard bottom tab bar during Valu on/off-ramp flows via tabBarStyle overrides.
+*/
+
 import React, { Component } from "react"
 import { SafeAreaView, ScrollView, View, Image } from 'react-native'
 import { connect } from 'react-redux'
@@ -55,6 +60,13 @@ class ValuServiceAccount extends Component {
   constructor(props) {
     super(props);
     this.props.navigation.setOptions({ title: "Valu" });
+    this.tabNavigatorRef = null;
+    this.isTabBarHidden = false;
+    this.defaultTabBarStyle = {
+      backgroundColor: Colors.secondaryColor,
+      borderTopColor: 'transparent',
+    };
+    this.removeBlurListener = null;
     this.state = {
       KYCState: null,
       email: null,
@@ -75,7 +87,79 @@ class ValuServiceAccount extends Component {
 
     this.initAccountStatus()
     this.loadPersonalLocations();
+    this.updateTabBarVisibility(this.state.subScreen);
+
+    this.removeBlurListener = this.props.navigation.addListener('blur', () => {
+      this.setTabBarHidden(false);
+    });
   }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.subScreen !== this.state.subScreen) {
+      this.updateTabBarVisibility(this.state.subScreen);
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.removeBlurListener) {
+      this.removeBlurListener();
+    }
+    this.setTabBarHidden(false);
+  }
+
+  getTabNavigator = () => {
+    if (this.tabNavigatorRef && typeof this.tabNavigatorRef.setOptions === 'function') {
+      return this.tabNavigatorRef;
+    }
+
+    let parentNavigator = this.props.navigation;
+
+    while (parentNavigator && typeof parentNavigator.getParent === 'function') {
+      const nextParent = parentNavigator.getParent();
+      if (!nextParent) break;
+      parentNavigator = nextParent;
+
+      if (typeof parentNavigator.getState === 'function' && parentNavigator.getState()?.type === 'tab') {
+        this.tabNavigatorRef = parentNavigator;
+        break;
+      }
+    }
+
+    return this.tabNavigatorRef;
+  };
+
+  setTabBarHidden = (shouldHide) => {
+    const tabNavigator = this.getTabNavigator();
+
+    if (!tabNavigator || typeof tabNavigator.setOptions !== 'function') {
+      return;
+    }
+
+    if (this.isTabBarHidden === shouldHide) {
+      return;
+    }
+
+    if (shouldHide) {
+      tabNavigator.setOptions({
+        tabBarStyle: {
+          ...this.defaultTabBarStyle,
+          display: 'none',
+          height: 0,
+        },
+      });
+    } else {
+      tabNavigator.setOptions({
+        tabBarStyle: { ...this.defaultTabBarStyle },
+      });
+    }
+
+    this.isTabBarHidden = shouldHide;
+  };
+
+  updateTabBarVisibility = (subScreen) => {
+    const shouldHide = subScreen === 'onRamp' || subScreen === 'offRamp';
+    this.setTabBarHidden(shouldHide);
+  };
 
   initAccountStatus = async () => {
     this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
