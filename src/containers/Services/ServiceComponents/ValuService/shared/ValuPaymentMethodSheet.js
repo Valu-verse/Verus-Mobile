@@ -69,11 +69,13 @@ const ValuPaymentMethodSheet = ({
   options = [],
   selectedIndex = null,
   currency = 'USD',
-  title = 'Select payment method',
+  title = null,
   mode = 'buy',
   onSelect,
 }) => {
   if (!visible) return null;
+
+  const sheetTitle = title || (mode === 'sell' ? 'Select payout method' : 'Select payment method');
 
   const handleSelect = (option, index) => {
     if (typeof onSelect === 'function') {
@@ -87,7 +89,7 @@ const ValuPaymentMethodSheet = ({
   const emptyState =
     !options || options.length === 0 ? (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateTitle}>No payment methods</Text>
+        <Text style={styles.emptyStateTitle}>{mode === 'sell' ? 'No payout methods' : 'No payment methods'}</Text>
         <Text style={styles.emptyStateBody}>
           We could not load any {mode === 'sell' ? 'payout' : 'payment'} options right now. Please try again in a moment.
         </Text>
@@ -108,7 +110,7 @@ const ValuPaymentMethodSheet = ({
           <Button textColor={Colors.primaryColor} onPress={onDismiss}>
             Close
           </Button>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={styles.headerTitle}>{sheetTitle}</Text>
           <View style={{ width: 64 }} />
         </View>
 
