@@ -11,7 +11,7 @@
   - MAX button sets amount to available balance (respecting provider limits)
   - Payout methods moved into shared ValuPaymentMethodSheet with fee and limit details
   - Normalizes payout method labels/icons using shared metadata helper
-  - Aligned loading skeleton visuals with ValuOnRampChooseSource
+  - Aligned loading states, CTA styling, and fee breakdown with ValuOnRampChooseSource
 */
 
 import React, { Component } from "react";
@@ -31,10 +31,11 @@ import {
   Dimensions,
   Image
 } from 'react-native';
-import { 
-  Button, 
-  Text, 
-  Portal 
+import {
+  Button,
+  Text,
+  Portal,
+  ActivityIndicator,
 } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -67,6 +68,7 @@ const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI",
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
 class ValuOffRampChooseSource extends Component {
+  beforeRemoveUnsubscribe = null;
   constructor(props) {
     super(props);
 
@@ -107,8 +109,12 @@ class ValuOffRampChooseSource extends Component {
       locations: {},
       partnerUserId: partnerUserId,
       paymentSheetVisible: false,
-      reviewVisible: false
+      reviewVisible: false,
+      hasLoadedOptions: false,
     };
+
+    const decimalSample = (1.1).toLocaleString();
+    this.decimalSeparator = decimalSample.replace(/1/g, '').charAt(0) || '.';
     
     this.handleChange = this.handleChange.bind(this);
     this.openAddressModal = this.openAddressModal.bind(this);
@@ -139,8 +145,16 @@ class ValuOffRampChooseSource extends Component {
     const payoutLabel = selectedOption
       ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
       : null;
+    const amountReceivedRaw =
+      selectedOption && selectedOption.amountReceived != null
+        ? Number(selectedOption.amountReceived)
+        : null;
+    const formattedReceiveAmount =
+      amountReceivedRaw != null
+        ? this.formatCurrencyValue(amountReceivedRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
     
-    if (loading) {
+    if (loading && !this.state.updatingfee) {
       return (
         <View style={styles.paymentSelectorContainer}>
           <View style={styles.paymentSelectorSurface}>
@@ -195,10 +209,18 @@ class ValuOffRampChooseSource extends Component {
           <View style={styles.paymentSelectorVerticalLine} />
 
           <View style={styles.paymentSelectorRowFlat}>
-            <Image source={USDCIcon} style={styles.paymentSelectorUSDCIcon} />
+            <MaterialCommunityIcons name="wallet-outline" size={24} color="#000" style={{ marginRight: 12 }} />
             <View style={styles.paymentSelectorTextColumn}>
-              <Text style={styles.paymentSelectorFlatLabel}>Sell</Text>
-              <Text style={styles.paymentSelectorFlatValue}>vUSDC</Text>
+              <Text style={styles.paymentSelectorFlatLabel}>Receive</Text>
+              <View style={styles.paymentSelectorAmountRow}>
+                {this.state.updatingfee && selectedOption ? (
+                  <View style={styles.paymentSelectorAmountSkeleton} />
+                ) : formattedReceiveAmount ? (
+                  <Text style={styles.paymentSelectorAmountValue}>{formattedReceiveAmount}</Text>
+                ) : (
+                  <Text style={styles.paymentSelectorAmountPlaceholder}>--</Text>
+                )}
+              </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="transparent" />
           </View>
@@ -293,10 +315,38 @@ class ValuOffRampChooseSource extends Component {
       selectedOption && selectedOption.feePercentage != null
         ? Number(selectedOption.feePercentage)
         : null;
-    const feeAmount =
-      feePercentage != null ? amountNumber * (feePercentage / 100) : 0;
-    const formattedFee =
-      feePercentage != null ? this.formatCurrencyValue(feeAmount, { includeDecimals: true, includeSymbol: true }) : null;
+    const networkFeeFiatRaw =
+      selectedOption && selectedOption.networkFeeFiat != null
+        ? Number(selectedOption.networkFeeFiat)
+        : null;
+    const serviceFeePercentageRaw =
+      selectedOption && selectedOption.serviceFeePercentage != null
+        ? Number(selectedOption.serviceFeePercentage)
+        : feePercentage;
+    const serviceFeeFiatRaw =
+      selectedOption && selectedOption.serviceFeeFiat != null
+        ? Number(selectedOption.serviceFeeFiat)
+        : serviceFeePercentageRaw != null
+        ? Math.max(amountNumber * (serviceFeePercentageRaw / 100) - (networkFeeFiatRaw || 0), 0)
+        : null;
+    const totalFeeFiatRaw =
+      (networkFeeFiatRaw != null ? networkFeeFiatRaw : 0) +
+      (serviceFeeFiatRaw != null ? serviceFeeFiatRaw : 0);
+    const formattedNetworkFee =
+      networkFeeFiatRaw != null
+        ? this.formatCurrencyValue(networkFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
+    const formattedServiceFeePercentage =
+      serviceFeePercentageRaw != null && !Number.isNaN(serviceFeePercentageRaw)
+        ? `${serviceFeePercentageRaw.toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}%`
+        : null;
+    const formattedTotalFee =
+      totalFeeFiatRaw != null && totalFeeFiatRaw > 0
+        ? this.formatCurrencyValue(totalFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
 
     const chosenAddressLabel = this.state.chosenAddress?.name || this.state.chosenAddress?.address || 'Source address';
     const validation = this.getAmountValidationState();
@@ -345,10 +395,8 @@ class ValuOffRampChooseSource extends Component {
           </View>
 
           {/* Payout method row (flat style) */}
-          <TouchableOpacity
-            onPress={() => this.setState({ paymentSheetVisible: true })}
+          <View
             style={styles.reviewPaymentRow}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="credit-card-outline" size={24} color="#000" style={{ marginRight: 12 }} />
             <View style={styles.reviewPaymentTextColumn}>
@@ -357,8 +405,7 @@ class ValuOffRampChooseSource extends Component {
                 {payoutLabel || 'Select payout method'}
               </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
-          </TouchableOpacity>
+          </View>
 
           {/* Disclosure */}
           <View style={styles.reviewDisclosure}>
@@ -371,9 +418,9 @@ class ValuOffRampChooseSource extends Component {
         <View style={styles.reviewFooter}>
           <View style={styles.reviewTotalContainer}>
             <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
-            {feePercentage != null && formattedFee ? (
+            {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`incl. ${feePercentage.toFixed(1)}% fee (${formattedFee})`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
@@ -472,7 +519,44 @@ class ValuOffRampChooseSource extends Component {
   };
 
   async componentDidMount() {
-      this.initialize();
+    this.beforeRemoveUnsubscribe = this.props.navigation.addListener('beforeRemove', this.handleBeforeRemove);
+    this.updateNavigationForReview(this.state.reviewVisible);
+    await this.initialize();
+  }
+
+  componentWillUnmount() {
+    if (typeof this.beforeRemoveUnsubscribe === 'function') {
+      this.beforeRemoveUnsubscribe();
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.reviewVisible !== this.state.reviewVisible) {
+      this.updateNavigationForReview(this.state.reviewVisible);
+    }
+  }
+
+  handleBeforeRemove = (event) => {
+    if (this.state.reviewVisible) {
+      event.preventDefault();
+      this.setState({ reviewVisible: false });
+    }
+  };
+
+  updateNavigationForReview(isReview) {
+    if (!this.props.navigation?.setOptions) return;
+
+    if (isReview) {
+      this.props.navigation.setOptions({
+        headerTitle: 'Review order',
+        headerBackTitle: 'Edit order',
+      });
+    } else {
+      this.props.navigation.setOptions({
+        headerTitle: 'Valu',
+        headerBackTitle: 'Back',
+      });
+    }
   }
 
   async connectionError() {
@@ -541,6 +625,7 @@ class ValuOffRampChooseSource extends Component {
         converted: formattedValue?.[1] || this.state.converted,
         totalFee: selectedOption ? (Number(amount) * (fee / 100)).toFixed(2) : "0",
         loading: false,
+        hasLoadedOptions: true,
       });
     } catch (error) {
       this.connectionError();
@@ -667,11 +752,13 @@ class ValuOffRampChooseSource extends Component {
       return;
     }
 
-    this.setState({ 
-      loading: true, 
-      updatingfee: true, 
-      amount: youPay 
-    }, async () => {
+    const shouldShowFullLoading = !this.state.hasLoadedOptions;
+
+    this.setState(
+      shouldShowFullLoading
+        ? { loading: true, updatingfee: false, amount: youPay }
+        : { updatingfee: true, amount: youPay, loading: false },
+      async () => {
       try {
         const currentSelection = this.state.radioValue;
         const selectedCountry = countryCode || this.state.taxCountry.country;
@@ -712,7 +799,8 @@ class ValuOffRampChooseSource extends Component {
           options,
           converted: formattedValue?.[1] || this.state.converted,
           loading: false,
-          updatingfee: false
+          updatingfee: false,
+          hasLoadedOptions: true,
         };
 
         if (!hasSelection) {
@@ -735,10 +823,10 @@ class ValuOffRampChooseSource extends Component {
         });
       } catch (error) {
         console.error("Error handling change:", error);
-        this.setState({ 
-          loading: false, 
+        this.setState({
+          loading: false,
           updatingfee: false,
-          error: " - Failed to update values" 
+          error: " - Failed to update values"
         });
       }
     });
@@ -791,15 +879,24 @@ class ValuOffRampChooseSource extends Component {
     const isSmall = height <= 667 || width <= 375;
     const formatAmount = (raw = "") => {
       if (raw == null || raw === "") return "0";
-      const [int = "0", frac] = String(raw).split('.');
-      const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      return frac != null ? `${withCommas}.${frac}` : withCommas;
+      const stringValue = String(raw);
+      const [intPart = "0", fracPart] = stringValue.split('.');
+      let formattedInt = intPart;
+
+      if (/^-?\d+$/.test(intPart)) {
+        formattedInt = Number(intPart).toLocaleString(undefined, { useGrouping: true });
+      } else if (intPart === "" && stringValue.startsWith('.')) {
+        formattedInt = "0";
+      }
+
+      const decimalSeparator = this.decimalSeparator || '.';
+      return fracPart != null ? `${formattedInt}${decimalSeparator}${fracPart}` : formattedInt;
     };
 
     // Use raw amount for display, only format if it has content
     const displayAmount = this.state.amount === "" ? "0" : formatAmount(this.state.amount);
 
-    if (this.state.loading) {
+    if (this.state.loading && !this.state.updatingfee) {
       return (
         <View style={{ alignItems: 'center', marginTop: 8 }}>
           <View style={{ width: '90%' }}>
@@ -851,7 +948,7 @@ class ValuOffRampChooseSource extends Component {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, color: balanceColor }}>
-                Available: {(Math.floor(available * 100) / 100).toFixed(2)} vUSDC<Text style={{ fontSize: 11, color: balanceColor === '#FF4444' ? '#FF6666' : '#aaa' }}>.vETH</Text>
+                Available: {this.formatTokenAmount(available)} vUSDC<Text style={{ fontSize: 11, color: balanceColor === '#FF4444' ? '#FF6666' : '#aaa' }}>.vETH</Text>
               </Text>
               {/* Micro validation feedback */}
               {validationState === 'exceeds' && (
@@ -954,9 +1051,15 @@ class ValuOffRampChooseSource extends Component {
     const isSmall = height <= 667 || width <= 375;
     
     const validation = this.getAmountValidationState();
-    const ctaDisabled = this.state.loading || this.state.amount === "" || validation.state !== 'valid' || this.state.radioValue === null;
+    const ctaDisabled =
+      this.state.loading ||
+      this.state.amount === "" ||
+      validation.state !== 'valid' ||
+      this.state.radioValue === null ||
+      this.state.updatingfee;
     const primaryButtonLabel = this.state.radioValue === null ? 'Select payout method' : 'Review order';
     const reviewVisible = this.state.reviewVisible;
+    const spinnerColor = this.state.updatingfee ? Colors.primaryColor : Colors.secondaryColor;
     let errorMessage = null;
     if (this.state.error) {
       errorMessage = this.state.error.replace(/^ -\s*/, '');
@@ -999,22 +1102,66 @@ class ValuOffRampChooseSource extends Component {
                         <Text style={styles.errorBannerText}>{errorMessage}</Text>
                       </View>
                     ) : (
-                      <Button
-                        onPress={this.handleReviewPress}
-                        mode="contained"
-                        disabled={ctaDisabled}
+                      <View
                         style={[
-                          styles.modernActionButton,
-                          ctaDisabled ? styles.modernActionButtonDisabled : null,
-                        ]}
-                        contentStyle={styles.modernActionButtonContent}
-                        labelStyle={[
-                          styles.modernActionButtonLabel,
-                          ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                          styles.ctaActionWrapper,
+                          ctaDisabled ? styles.ctaActionWrapperDisabled : null,
                         ]}
                       >
-                        {primaryButtonLabel}
-                      </Button>
+                        {!ctaDisabled && (
+                          <Svg
+                            width="100%"
+                            height="100%"
+                            style={styles.ctaActionGradient}
+                            pointerEvents="none"
+                          >
+                            <Defs>
+                              <SvgLinearGradient id="ctaButtonGradientOffRamp" x1="0" y1="0" x2="1" y2="1">
+                                <Stop offset="0" stopColor="#00C8FF" />
+                                <Stop offset="1" stopColor="#0077A9" />
+                              </SvgLinearGradient>
+                            </Defs>
+                            <Rect
+                              x="0"
+                              y="0"
+                              width="100%"
+                              height="100%"
+                              rx={24}
+                              ry={24}
+                              fill="url(#ctaButtonGradientOffRamp)"
+                            />
+                          </Svg>
+                        )}
+                        <Button
+                          onPress={this.handleReviewPress}
+                          mode="contained"
+                          disabled={ctaDisabled}
+                          style={[
+                            styles.modernActionButton,
+                            ctaDisabled ? styles.modernActionButtonDisabled : null,
+                          ]}
+                          contentStyle={styles.modernActionButtonContent}
+                        >
+                          <View style={styles.ctaLabelRow}>
+                            <View style={styles.ctaSpinnerSlotLeft}>
+                              {this.state.updatingfee ? (
+                                <ActivityIndicator color={spinnerColor} size={16} />
+                              ) : null}
+                            </View>
+                            <Text
+                              style={[
+                                styles.modernActionButtonLabel,
+                                ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                                styles.ctaLabelText,
+                                styles.reviewActionButtonLabel,
+                              ]}
+                            >
+                              {primaryButtonLabel}
+                            </Text>
+                            <View style={styles.ctaSpinnerSlotRight} />
+                          </View>
+                        </Button>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -1151,6 +1298,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 0,
   },
+  ctaActionWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  ctaActionWrapperDisabled: {
+    backgroundColor: '#CFEAF2',
+  },
+  ctaActionGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  ctaLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+  },
+  ctaSpinnerSlotLeft: {
+    width: 24,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaSpinnerSlotRight: {
+    width: 24,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaLabelText: {
+    marginTop: 4,
+  },
   paymentSelectorContainer: {
     alignItems: 'center',
     marginTop: 12,
@@ -1179,6 +1364,28 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: 'rgba(26, 26, 26, 0.7)',
   },
+  paymentSelectorAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentSelectorAmountValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginRight: 6,
+  },
+  paymentSelectorAmountPlaceholder: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#999',
+  },
+  paymentSelectorAmountSkeleton: {
+    width: 64,
+    height: 16,
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+    marginRight: 6,
+  },
   paymentSelectorLimitGroup: {
     marginRight: 8,
     alignItems: 'flex-end',
@@ -1200,12 +1407,6 @@ const styles = StyleSheet.create({
     width: 1,
     height: 18,
     backgroundColor: '#E6E6E6',
-  },
-  paymentSelectorUSDCIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
-    marginRight: 12,
   },
   errorBanner: {
     backgroundColor: '#FFE8E6',
@@ -1319,14 +1520,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewTotalLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1A1A1A',
   },
   reviewTotalSubLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#777',
-    marginTop: 4,
+    marginTop: 6,
+    letterSpacing: -0.2,
   },
   skeletonAmountWrapper: {
     height: 60,
@@ -1399,7 +1601,7 @@ const styles = StyleSheet.create({
   },
   modernActionButton: {
     borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
+    backgroundColor: 'transparent',
     // Remove any platform shadows
     elevation: 0,
     shadowColor: 'transparent',
@@ -1408,7 +1610,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   modernActionButtonDisabled: {
-    backgroundColor: '#CFEAF2',
+    backgroundColor: 'transparent',
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -1417,6 +1619,7 @@ const styles = StyleSheet.create({
   },
   modernActionButtonContent: {
     height: 56,
+    justifyContent: 'center',
   },
   reviewActionButtonContent: {
     height: 56,
@@ -1427,6 +1630,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   reviewActionButtonLabel: {
     fontSize: 18,

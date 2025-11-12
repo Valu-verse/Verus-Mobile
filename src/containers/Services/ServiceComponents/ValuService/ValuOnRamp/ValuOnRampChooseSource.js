@@ -18,6 +18,7 @@
   - Fixed review "Receive" value formatting to respect locale-specific separators
   - Keeps UI active during quote refresh with inline spinner and receive skeleton
   - Intercepts back navigation from review screen to return user to amount selection step
+  - Aligns CTA typography across review flow buttons
 */
 
 import React, { Component } from "react";
@@ -115,6 +116,9 @@ class ValuOnRampChooseSource extends Component {
       paymentSheetVisible: false,
       reviewVisible: false
     };
+    
+    const decimalSample = (1.1).toLocaleString();
+    this.decimalSeparator = decimalSample.replace(/1/g, '').charAt(0) || '.';
     
     this.handleChange = this.handleChange.bind(this);
     this.openAddressModal = this.openAddressModal.bind(this);
@@ -538,27 +542,20 @@ class ValuOnRampChooseSource extends Component {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
     
-    // Format amount using locale-aware formatting
     const formatAmount = (raw = "") => {
       if (raw == null || raw === "") return "0";
-      
-      const { currency } = this.state;
-      const [int = "0", frac] = String(raw).split('.');
-      
-      try {
-        // Use formatCurrency to get locale-appropriate thousands separator
-        const formatted = formatCurrency({
-          amount: int,
-          code: currency || 'USD',
-        });
-        // Extract just the number part (index 1), which has proper separators
-        const formattedInt = formatted?.[1] || int;
-        return frac != null ? `${formattedInt}.${frac}` : formattedInt;
-      } catch (error) {
-        // Fallback to comma separator
-        const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return frac != null ? `${withCommas}.${frac}` : withCommas;
+      const stringValue = String(raw);
+      const [intPart = "0", fracPart] = stringValue.split('.');
+      let formattedInt = intPart;
+
+      if (/^-?\d+$/.test(intPart)) {
+        formattedInt = Number(intPart).toLocaleString(undefined, { useGrouping: true });
+      } else if (intPart === "" && stringValue.startsWith('.')) {
+        formattedInt = "0";
       }
+
+      const decimalSeparator = this.decimalSeparator || '.';
+      return fracPart != null ? `${formattedInt}${decimalSeparator}${fracPart}` : formattedInt;
     };
 
     // Use raw amount for display, only format if it has content
@@ -837,20 +834,53 @@ class ValuOnRampChooseSource extends Component {
         ? formattedReceivedBase.slice(0, -(` ${this.state.currency}`).length)
         : formattedReceivedBase;
 
-    const price =
-      selectedOption && amountReceived > 0
-        ? amountNumber / amountReceived
-        : null;
-    const formattedPrice = price ? this.formatCurrencyValue(price, { includeDecimals: true, includeSymbol: true }) : null;
-
     const feePercentage =
       selectedOption && selectedOption.feePercentage != null
         ? Number(selectedOption.feePercentage)
         : null;
     const feeAmount =
       feePercentage != null ? amountNumber * (feePercentage / 100) : 0;
-    const formattedFee =
-      feePercentage != null ? this.formatCurrencyValue(feeAmount, { includeDecimals: true, includeSymbol: true }) : null;
+    const networkFeeFiatRaw =
+      selectedOption && selectedOption.networkFeeFiat != null
+        ? Number(selectedOption.networkFeeFiat)
+        : null;
+    const serviceFeePercentageRaw =
+      selectedOption && selectedOption.serviceFeePercentage != null
+        ? Number(selectedOption.serviceFeePercentage)
+        : feePercentage;
+    const serviceFeeFiatRaw =
+      selectedOption && selectedOption.serviceFeeFiat != null
+        ? Number(selectedOption.serviceFeeFiat)
+        : serviceFeePercentageRaw != null
+        ? Math.max(amountNumber * (serviceFeePercentageRaw / 100) - (networkFeeFiatRaw || 0), 0)
+        : null;
+    const totalFeeFiatRaw =
+      (networkFeeFiatRaw != null ? networkFeeFiatRaw : 0) +
+      (serviceFeeFiatRaw != null ? serviceFeeFiatRaw : 0);
+    const formattedNetworkFee =
+      networkFeeFiatRaw != null
+        ? this.formatCurrencyValue(networkFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
+    const formattedServiceFeePercentage =
+      serviceFeePercentageRaw != null && !Number.isNaN(serviceFeePercentageRaw)
+        ? `${serviceFeePercentageRaw.toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}%`
+        : null;
+    const formattedTotalFee =
+      totalFeeFiatRaw != null && totalFeeFiatRaw > 0
+        ? this.formatCurrencyValue(totalFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
+    const netAmountNumber =
+      totalFeeFiatRaw != null ? Math.max(amountNumber - totalFeeFiatRaw, 0) : amountNumber;
+    const effectivePrice =
+      selectedOption && amountReceived > 0 && netAmountNumber != null
+        ? netAmountNumber / amountReceived
+        : null;
+    const formattedPrice = effectivePrice
+      ? this.formatCurrencyValue(effectivePrice, { includeDecimals: true, includeSymbol: true })
+      : null;
 
     const baseError = this.state.error
       ? this.state.error.replace(/^ -\s*/, '')
@@ -924,9 +954,9 @@ class ValuOnRampChooseSource extends Component {
         <View style={styles.reviewFooter}>
           <View style={styles.reviewTotalContainer}>
             <Text style={styles.reviewTotalLabel}>{`${formattedAmount} total`}</Text>
-            {feePercentage != null && formattedFee ? (
+            {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`incl. ${feePercentage.toFixed(1)}% fee (${formattedFee})`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
@@ -1193,6 +1223,7 @@ class ValuOnRampChooseSource extends Component {
                                 styles.modernActionButtonLabel,
                                 ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
                                 styles.ctaLabelText,
+                                styles.reviewActionButtonLabel,
                               ]}
                             >
                               {primaryButtonLabel}
@@ -1392,7 +1423,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaLabelText: {
-    marginTop: 2,
+    marginTop: 4,
   },
   paymentSelectorContainer: {
     alignItems: 'center',
@@ -1605,14 +1636,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewTotalLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1A1A1A',
   },
   reviewTotalSubLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#777',
-    marginTop: 4,
+    marginTop: 6,
+    letterSpacing: -0.2,
   },
   skeletonAmountWrapper: {
     height: 60,

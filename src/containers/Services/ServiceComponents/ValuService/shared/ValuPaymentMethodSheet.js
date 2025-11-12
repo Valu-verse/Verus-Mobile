@@ -26,10 +26,10 @@ const currencyFormatter = (amount, code) => {
       amount: Number(amount).toFixed(2),
       code: code || 'USD',
     });
-    return formatted?.[1] || null;
+    return formatted?.[0] || null;
   } catch (e) {
     // Fallback simple formatting
-    return `${Number(amount).toFixed(2)} ${code || ''}`.trim();
+    return `${code || ''}${Number(amount).toFixed(2)}`.trim();
   }
 };
 
@@ -123,9 +123,18 @@ const ValuPaymentMethodSheet = ({
               const displayLabel =
                 meta.label || normalizePaymentMethodLabel(option?.paymentMethod) || 'Payment method';
               const isSelected = selectedIndex === index;
-              const feePercentage =
-                option?.feePercentage != null && !Number.isNaN(Number(option.feePercentage))
-                  ? `${Number(option.feePercentage).toFixed(1)}% fee`
+              const networkFeeFormatted = currencyFormatter(option?.networkFeeFiat, currency);
+              const serviceFeePercentageRaw =
+                option?.serviceFeePercentage != null
+                  ? option.serviceFeePercentage
+                  : option?.feePercentage;
+              const serviceFeeFormatted =
+                serviceFeePercentageRaw != null && !Number.isNaN(Number(serviceFeePercentageRaw))
+                  ? `${Number(serviceFeePercentageRaw).toFixed(1)}%`
+                  : null;
+              const feeDisplay =
+                networkFeeFormatted || serviceFeeFormatted
+                  ? `Fee: ${networkFeeFormatted || '—'} + ${serviceFeeFormatted || '—'}`
                   : 'Fee unavailable';
 
               return (
@@ -140,7 +149,7 @@ const ValuPaymentMethodSheet = ({
                     <Text style={styles.optionLabel}>
                       {displayLabel}
                     </Text>
-                    <Text style={styles.optionValue}>{feePercentage}</Text>
+                    <Text style={styles.optionValue}>{feeDisplay}</Text>
                   </View>
                   <MaterialCommunityIcons 
                     name={isSelected ? 'check-circle' : 'chevron-right'} 
