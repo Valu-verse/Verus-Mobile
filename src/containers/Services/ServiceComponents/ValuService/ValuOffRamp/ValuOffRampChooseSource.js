@@ -305,7 +305,7 @@ class ValuOffRampChooseSource extends Component {
         ? Number(selectedOption.amountReceived)
         : 0;
     const formattedFiat =
-      this.formatCurrencyValue(fiatReceived, { includeDecimals: false, includeSymbol: true }) || this.state.converted;
+      this.formatCurrencyValue(fiatReceived, { includeDecimals: true, includeSymbol: true }) || this.state.converted;
 
     const price =
       amountNumber > 0 && fiatReceived > 0 ? fiatReceived / amountNumber : null;
@@ -410,7 +410,11 @@ class ValuOffRampChooseSource extends Component {
           {/* Disclosure */}
           <View style={styles.reviewDisclosure}>
             <Text style={[styles.reviewDisclosureText, { marginBottom: 0 }]}>
-              Payouts are processed by our partner. Depending on your payout method, funds may take up to a few business days to arrive.
+              Payouts are processed by our partner,{' '}
+              <Text style={styles.reviewDisclosureLink} onPress={() => Linking.openURL('https://paybis.com')}>
+                Paybis
+              </Text>
+              . Depending on your payout method, funds may take up to a few business days to arrive.
             </Text>
           </View>
         </ScrollView>
@@ -1495,9 +1499,7 @@ const styles = StyleSheet.create({
     color: 'rgba(26, 26, 26, 0.7)',
   },
   reviewDisclosure: {
-    backgroundColor: '#F3F8FA',
-    borderRadius: 12,
-    padding: 16,
+    padding: 0,
     marginBottom: 24,
   },
   reviewDisclosureText: {
@@ -1505,6 +1507,11 @@ const styles = StyleSheet.create({
     color: '#555',
     lineHeight: 18,
     marginBottom: 6,
+  },
+  reviewDisclosureLink: {
+    color: '#555',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   reviewFooter: {
     paddingHorizontal: 20,
