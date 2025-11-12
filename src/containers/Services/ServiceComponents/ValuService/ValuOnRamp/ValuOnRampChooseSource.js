@@ -1180,13 +1180,14 @@ class ValuOnRampChooseSource extends Component {
                           contentStyle={styles.modernActionButtonContent}
                         >
                           <View style={styles.ctaLabelRow}>
-                            {this.state.updatingfee ? (
-                              <ActivityIndicator
-                                color={spinnerColor}
-                                size={16}
-                                style={styles.ctaSpinner}
-                              />
-                            ) : null}
+                            <View style={styles.ctaSpinnerSlotLeft}>
+                              {this.state.updatingfee ? (
+                                <ActivityIndicator
+                                  color={spinnerColor}
+                                  size={16}
+                                />
+                              ) : null}
+                            </View>
                             <Text
                               style={[
                                 styles.modernActionButtonLabel,
@@ -1196,6 +1197,7 @@ class ValuOnRampChooseSource extends Component {
                             >
                               {primaryButtonLabel}
                             </Text>
+                            <View style={styles.ctaSpinnerSlotRight} />
                           </View>
                         </Button>
                       </View>
@@ -1377,9 +1379,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: '100%',
   },
-  ctaSpinner: {
+  ctaSpinnerSlotLeft: {
+    width: 24,
     marginRight: 8,
-    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaSpinnerSlotRight: {
+    width: 24,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ctaLabelText: {
     marginTop: 2,
