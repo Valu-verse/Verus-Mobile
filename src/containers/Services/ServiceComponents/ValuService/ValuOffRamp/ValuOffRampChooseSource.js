@@ -951,9 +951,6 @@ class ValuOffRampChooseSource extends Component {
                 Available: {this.formatTokenAmount(available)} vUSDC<Text style={{ fontSize: 11, color: balanceColor === '#FF4444' ? '#FF6666' : '#aaa' }}>.vETH</Text>
               </Text>
               {/* Micro validation feedback */}
-              {validationState === 'exceeds' && (
-                <Text style={{ fontSize: 10, color: '#FF4444', marginTop: 2 }}>Exceeds available</Text>
-              )}
               {validationState === 'below_min' && (
                 <Text style={{ fontSize: 10, color: '#FF8C00', marginTop: 2 }}>Min {validation.providerMin}</Text>
               )}
