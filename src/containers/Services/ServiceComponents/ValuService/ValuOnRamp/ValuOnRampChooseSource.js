@@ -16,6 +16,9 @@
   - Normalizes payment method labels/icons using shared metadata helper
   - Updated disclosure copy to highlight Paybis partnership and vUSDC.vETH deposits
   - Fixed review "Receive" value formatting to respect locale-specific separators
+  - Keeps UI active during quote refresh with inline spinner and receive skeleton
+  - Intercepts back navigation from review screen to return user to amount selection step
+  - Aligns CTA typography across review flow buttons
 */
 
 import React, { Component } from "react";
@@ -36,9 +39,10 @@ import {
   Image
 } from 'react-native';
 import {
-  Button, 
-  Text, 
-  Portal 
+  Button,
+  Text,
+  Portal,
+  ActivityIndicator,
 } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import InAppBrowser from 'react-native-inappbrowser-reborn';
@@ -77,6 +81,8 @@ const ONRAMP_DISCLOSURE_LEARN_MORE_URL = 'https://paybis.com';
 const ONRAMP_DISCLOSURE_MESSAGE = `${ONRAMP_DISCLOSURE_PARAGRAPHS[0]} Learn more at paybis.com.\n\n${ONRAMP_DISCLOSURE_PARAGRAPHS[1]}`;
 
 class ValuOnRampChooseSource extends Component {
+  beforeRemoveUnsubscribe = null;
+
   constructor(props) {
     super(props);
 
@@ -111,13 +117,53 @@ class ValuOnRampChooseSource extends Component {
       reviewVisible: false
     };
     
+    const decimalSample = (1.1).toLocaleString();
+    this.decimalSeparator = decimalSample.replace(/1/g, '').charAt(0) || '.';
+    
     this.handleChange = this.handleChange.bind(this);
     this.openAddressModal = this.openAddressModal.bind(this);
     this.startOnRamp = this.startOnRamp.bind(this);
   }
 
   async componentDidMount() {
-      this.initialize();
+    this.beforeRemoveUnsubscribe = this.props.navigation.addListener('beforeRemove', this.handleBeforeRemove);
+    this.updateNavigationForReview(this.state.reviewVisible);
+    await this.initialize();
+  }
+
+  componentWillUnmount() {
+    if (typeof this.beforeRemoveUnsubscribe === 'function') {
+      this.beforeRemoveUnsubscribe();
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.reviewVisible !== this.state.reviewVisible) {
+      this.updateNavigationForReview(this.state.reviewVisible);
+    }
+  }
+
+  handleBeforeRemove = (event) => {
+    if (this.state.reviewVisible) {
+      event.preventDefault();
+      this.setState({ reviewVisible: false });
+    }
+  };
+
+  updateNavigationForReview(isReview) {
+    if (!this.props.navigation?.setOptions) return;
+
+    if (isReview) {
+      this.props.navigation.setOptions({
+        headerTitle: 'Review order',
+        headerBackTitle: 'Edit order',
+      });
+    } else {
+      this.props.navigation.setOptions({
+        headerTitle: 'Valu',
+        headerBackTitle: 'Back',
+      });
+    }
   }
 
   async connectionError() {
@@ -408,11 +454,13 @@ class ValuOnRampChooseSource extends Component {
       return;
     }
 
-    this.setState({ 
-      loading: true, 
-      updatingfee: true, 
-      amount: youPay 
-    }, async () => {
+    const shouldShowFullLoading = !this.state.options || this.state.options.length === 0;
+
+    this.setState(
+      shouldShowFullLoading
+        ? { loading: true, updatingfee: false, amount: youPay }
+        : { updatingfee: true, amount: youPay },
+      async () => {
       try {
         const currentSelection = this.state.radioValue;
         const selectedCountry = countryCode || this.state.taxCountry.country;
@@ -476,10 +524,10 @@ class ValuOnRampChooseSource extends Component {
         });
       } catch (error) {
         console.error("Error handling change:", error);
-        this.setState({ 
-          loading: false, 
+        this.setState({
+          loading: false,
           updatingfee: false,
-          error: " - Failed to update values" 
+          error: " - Failed to update values"
         });
       }
     });
@@ -494,27 +542,20 @@ class ValuOnRampChooseSource extends Component {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
     
-    // Format amount using locale-aware formatting
     const formatAmount = (raw = "") => {
       if (raw == null || raw === "") return "0";
-      
-      const { currency } = this.state;
-      const [int = "0", frac] = String(raw).split('.');
-      
-      try {
-        // Use formatCurrency to get locale-appropriate thousands separator
-        const formatted = formatCurrency({
-          amount: int,
-          code: currency || 'USD',
-        });
-        // Extract just the number part (index 1), which has proper separators
-        const formattedInt = formatted?.[1] || int;
-        return frac != null ? `${formattedInt}.${frac}` : formattedInt;
-      } catch (error) {
-        // Fallback to comma separator
-        const withCommas = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return frac != null ? `${withCommas}.${frac}` : withCommas;
+      const stringValue = String(raw);
+      const [intPart = "0", fracPart] = stringValue.split('.');
+      let formattedInt = intPart;
+
+      if (/^-?\d+$/.test(intPart)) {
+        formattedInt = Number(intPart).toLocaleString(undefined, { useGrouping: true });
+      } else if (intPart === "" && stringValue.startsWith('.')) {
+        formattedInt = "0";
       }
+
+      const decimalSeparator = this.decimalSeparator || '.';
+      return fracPart != null ? `${formattedInt}${decimalSeparator}${fracPart}` : formattedInt;
     };
 
     // Use raw amount for display, only format if it has content
@@ -585,6 +626,21 @@ class ValuOnRampChooseSource extends Component {
     }
   };
 
+  formatTokenAmount = (amount) => {
+    if (amount == null) return null;
+    const numericAmount = Number(amount);
+    if (Number.isNaN(numericAmount)) return null;
+
+    try {
+      return numericAmount.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch (error) {
+      return numericAmount.toFixed(2);
+    }
+  };
+
   buildLimitLabel = (option) => {
     if (!option) return null;
 
@@ -608,6 +664,14 @@ class ValuOnRampChooseSource extends Component {
     const paymentLabel = selectedOption
       ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
       : null;
+    const amountReceivedRaw =
+      selectedOption && selectedOption.amountReceived != null
+        ? Number(selectedOption.amountReceived)
+        : null;
+    const formattedReceived =
+      amountReceivedRaw != null && !Number.isNaN(amountReceivedRaw)
+        ? this.formatTokenAmount(amountReceivedRaw)
+        : null;
     if (loading) {
       return (
         <View style={styles.paymentSelectorContainer}>
@@ -666,7 +730,16 @@ class ValuOnRampChooseSource extends Component {
             <Image source={USDCIcon} style={styles.paymentSelectorUSDCIcon} />
             <View style={styles.paymentSelectorTextColumn}>
               <Text style={styles.paymentSelectorFlatLabel}>Buy</Text>
-              <Text style={styles.paymentSelectorFlatValue}>vUSDC</Text>
+              <View style={styles.paymentSelectorAmountRow}>
+                {selectedOption ? (
+                  this.state.updatingfee ? (
+                    <View style={styles.paymentSelectorAmountSkeleton} />
+                  ) : formattedReceived ? (
+                    <Text style={styles.paymentSelectorAmountValue}>{formattedReceived}</Text>
+                  ) : null
+                ) : null}
+                <Text style={styles.paymentSelectorTokenText}>vUSDC</Text>
+              </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="transparent" />
           </View>
@@ -761,20 +834,53 @@ class ValuOnRampChooseSource extends Component {
         ? formattedReceivedBase.slice(0, -(` ${this.state.currency}`).length)
         : formattedReceivedBase;
 
-    const price =
-      selectedOption && amountReceived > 0
-        ? amountNumber / amountReceived
-        : null;
-    const formattedPrice = price ? this.formatCurrencyValue(price, { includeDecimals: true, includeSymbol: true }) : null;
-
     const feePercentage =
       selectedOption && selectedOption.feePercentage != null
         ? Number(selectedOption.feePercentage)
         : null;
     const feeAmount =
       feePercentage != null ? amountNumber * (feePercentage / 100) : 0;
-    const formattedFee =
-      feePercentage != null ? this.formatCurrencyValue(feeAmount, { includeDecimals: true, includeSymbol: true }) : null;
+    const networkFeeFiatRaw =
+      selectedOption && selectedOption.networkFeeFiat != null
+        ? Number(selectedOption.networkFeeFiat)
+        : null;
+    const serviceFeePercentageRaw =
+      selectedOption && selectedOption.serviceFeePercentage != null
+        ? Number(selectedOption.serviceFeePercentage)
+        : feePercentage;
+    const serviceFeeFiatRaw =
+      selectedOption && selectedOption.serviceFeeFiat != null
+        ? Number(selectedOption.serviceFeeFiat)
+        : serviceFeePercentageRaw != null
+        ? Math.max(amountNumber * (serviceFeePercentageRaw / 100) - (networkFeeFiatRaw || 0), 0)
+        : null;
+    const totalFeeFiatRaw =
+      (networkFeeFiatRaw != null ? networkFeeFiatRaw : 0) +
+      (serviceFeeFiatRaw != null ? serviceFeeFiatRaw : 0);
+    const formattedNetworkFee =
+      networkFeeFiatRaw != null
+        ? this.formatCurrencyValue(networkFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
+    const formattedServiceFeePercentage =
+      serviceFeePercentageRaw != null && !Number.isNaN(serviceFeePercentageRaw)
+        ? `${serviceFeePercentageRaw.toLocaleString(undefined, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1,
+          })}%`
+        : null;
+    const formattedTotalFee =
+      totalFeeFiatRaw != null && totalFeeFiatRaw > 0
+        ? this.formatCurrencyValue(totalFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
+        : null;
+    const netAmountNumber =
+      totalFeeFiatRaw != null ? Math.max(amountNumber - totalFeeFiatRaw, 0) : amountNumber;
+    const effectivePrice =
+      selectedOption && amountReceived > 0 && netAmountNumber != null
+        ? netAmountNumber / amountReceived
+        : null;
+    const formattedPrice = effectivePrice
+      ? this.formatCurrencyValue(effectivePrice, { includeDecimals: true, includeSymbol: true })
+      : null;
 
     const baseError = this.state.error
       ? this.state.error.replace(/^ -\s*/, '')
@@ -815,10 +921,8 @@ class ValuOnRampChooseSource extends Component {
           </View>
 
           {/* Pay with row (flat style) */}
-          <TouchableOpacity
-            onPress={() => this.setState({ paymentSheetVisible: true })}
+          <View
             style={styles.reviewPaymentRow}
-            activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="credit-card-outline" size={24} color="#000" style={{ marginRight: 12 }} />
             <View style={styles.reviewPaymentTextColumn}>
@@ -827,8 +931,7 @@ class ValuOnRampChooseSource extends Component {
                 {paymentLabel || 'Select payment method'}
               </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
-          </TouchableOpacity>
+          </View>
 
           {/* Disclosure */}
           <View style={styles.reviewDisclosure}>
@@ -851,9 +954,9 @@ class ValuOnRampChooseSource extends Component {
         <View style={styles.reviewFooter}>
           <View style={styles.reviewTotalContainer}>
             <Text style={styles.reviewTotalLabel}>{`${formattedAmount} total`}</Text>
-            {feePercentage != null && formattedFee ? (
+            {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`incl. ${feePercentage.toFixed(1)}% fee (${formattedFee})`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
@@ -1017,12 +1120,18 @@ class ValuOnRampChooseSource extends Component {
   render() {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
-    const ctaDisabled = this.state.loading || this.state.error != null || this.state.amount === "" || this.state.radioValue === null;
+    const ctaDisabled =
+      this.state.loading ||
+      this.state.error != null ||
+      this.state.amount === "" ||
+      this.state.radioValue === null ||
+      this.state.updatingfee;
     const primaryButtonLabel = this.state.radioValue === null ? 'Select payment method' : 'Review order';
     const reviewVisible = this.state.reviewVisible;
     const errorMessage = this.state.error
       ? this.state.error.replace(/^ -\s*/, '')
       : null;
+    const spinnerColor = this.state.updatingfee ? Colors.primaryColor : Colors.secondaryColor;
     const allBalances = this.props.allBalances;
     const vusdcId = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
     const addrId = this.state.chosenAddress?.id;
@@ -1060,22 +1169,69 @@ class ValuOnRampChooseSource extends Component {
                         <Text style={styles.errorBannerText}>{errorMessage}</Text>
                       </View>
                     ) : (
-                      <Button
-                        onPress={this.handleReviewPress}
-                        mode="contained"
-                        disabled={ctaDisabled}
+                      <View
                         style={[
-                          styles.modernActionButton,
-                          ctaDisabled ? styles.modernActionButtonDisabled : null,
-                        ]}
-                        contentStyle={styles.modernActionButtonContent}
-                        labelStyle={[
-                          styles.modernActionButtonLabel,
-                          ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                          styles.ctaActionWrapper,
+                          ctaDisabled ? styles.ctaActionWrapperDisabled : null,
                         ]}
                       >
-                        {primaryButtonLabel}
-                      </Button>
+                        {!ctaDisabled && (
+                          <Svg
+                            width="100%"
+                            height="100%"
+                            style={styles.ctaActionGradient}
+                            pointerEvents="none"
+                          >
+                            <Defs>
+                              <SvgLinearGradient id="ctaButtonGradient" x1="0" y1="0" x2="1" y2="1">
+                                <Stop offset="0" stopColor="#00C8FF" />
+                                <Stop offset="1" stopColor="#0077A9" />
+                              </SvgLinearGradient>
+                            </Defs>
+                            <Rect
+                              x="0"
+                              y="0"
+                              width="100%"
+                              height="100%"
+                              rx={24}
+                              ry={24}
+                              fill="url(#ctaButtonGradient)"
+                            />
+                          </Svg>
+                        )}
+                        <Button
+                          onPress={this.handleReviewPress}
+                          mode="contained"
+                          disabled={ctaDisabled}
+                          style={[
+                            styles.modernActionButton,
+                            ctaDisabled ? styles.modernActionButtonDisabled : null,
+                          ]}
+                          contentStyle={styles.modernActionButtonContent}
+                        >
+                          <View style={styles.ctaLabelRow}>
+                            <View style={styles.ctaSpinnerSlotLeft}>
+                              {this.state.updatingfee ? (
+                                <ActivityIndicator
+                                  color={spinnerColor}
+                                  size={16}
+                                />
+                              ) : null}
+                            </View>
+                            <Text
+                              style={[
+                                styles.modernActionButtonLabel,
+                                ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
+                                styles.ctaLabelText,
+                                styles.reviewActionButtonLabel,
+                              ]}
+                            >
+                              {primaryButtonLabel}
+                            </Text>
+                            <View style={styles.ctaSpinnerSlotRight} />
+                          </View>
+                        </Button>
+                      </View>
                     )}
                   </View>
                 </View>
@@ -1231,6 +1387,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 0,
   },
+  ctaActionWrapper: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    position: 'relative',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  ctaActionWrapperDisabled: {
+    backgroundColor: '#CFEAF2',
+  },
+  ctaActionGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  ctaLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+  },
+  ctaSpinnerSlotLeft: {
+    width: 24,
+    marginRight: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaSpinnerSlotRight: {
+    width: 24,
+    marginLeft: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaLabelText: {
+    marginTop: 4,
+  },
   paymentSelectorContainer: {
     alignItems: 'center',
     marginTop: 12,
@@ -1258,6 +1452,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: 'rgba(26, 26, 26, 0.7)',
+  },
+  paymentSelectorAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentSelectorAmountValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginRight: 6,
+  },
+  paymentSelectorTokenText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: 'rgba(26, 26, 26, 0.7)',
+  },
+  paymentSelectorAmountSkeleton: {
+    width: 64,
+    height: 16,
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+    marginRight: 6,
   },
   paymentSelectorLimitGroup: {
     marginRight: 8,
@@ -1395,9 +1611,7 @@ const styles = StyleSheet.create({
     color: 'rgba(26, 26, 26, 0.7)',
   },
   reviewDisclosure: {
-    backgroundColor: '#F3F8FA',
-    borderRadius: 12,
-    padding: 16,
+    padding: 0,
     marginBottom: 24,
   },
   reviewDisclosureText: {
@@ -1422,14 +1636,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewTotalLabel: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#1A1A1A',
   },
   reviewTotalSubLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#777',
-    marginTop: 4,
+    marginTop: 6,
+    letterSpacing: -0.2,
   },
   skeletonAmountWrapper: {
     height: 60,
@@ -1502,7 +1717,7 @@ const styles = StyleSheet.create({
   },
   modernActionButton: {
     borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
+    backgroundColor: 'transparent',
     // Remove any platform shadows
     elevation: 0,
     shadowColor: 'transparent',
@@ -1511,7 +1726,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   modernActionButtonDisabled: {
-    backgroundColor: '#CFEAF2',
+    backgroundColor: 'transparent',
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -1520,6 +1735,7 @@ const styles = StyleSheet.create({
   },
   modernActionButtonContent: {
     height: 56,
+    justifyContent: 'center',
   },
   reviewActionButtonContent: {
     height: 56,
@@ -1530,6 +1746,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   reviewActionButtonLabel: {
     fontSize: 18,

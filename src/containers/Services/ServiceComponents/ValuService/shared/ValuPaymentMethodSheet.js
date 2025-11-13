@@ -26,10 +26,10 @@ const currencyFormatter = (amount, code) => {
       amount: Number(amount).toFixed(2),
       code: code || 'USD',
     });
-    return formatted?.[1] || null;
+    return formatted?.[0] || null;
   } catch (e) {
     // Fallback simple formatting
-    return `${Number(amount).toFixed(2)} ${code || ''}`.trim();
+    return `${code || ''}${Number(amount).toFixed(2)}`.trim();
   }
 };
 
@@ -69,11 +69,13 @@ const ValuPaymentMethodSheet = ({
   options = [],
   selectedIndex = null,
   currency = 'USD',
-  title = 'Select payment method',
+  title = null,
   mode = 'buy',
   onSelect,
 }) => {
   if (!visible) return null;
+
+  const sheetTitle = title || (mode === 'sell' ? 'Select payout method' : 'Select payment method');
 
   const handleSelect = (option, index) => {
     if (typeof onSelect === 'function') {
@@ -87,7 +89,7 @@ const ValuPaymentMethodSheet = ({
   const emptyState =
     !options || options.length === 0 ? (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateTitle}>No payment methods</Text>
+        <Text style={styles.emptyStateTitle}>{mode === 'sell' ? 'No payout methods' : 'No payment methods'}</Text>
         <Text style={styles.emptyStateBody}>
           We could not load any {mode === 'sell' ? 'payout' : 'payment'} options right now. Please try again in a moment.
         </Text>
@@ -108,7 +110,7 @@ const ValuPaymentMethodSheet = ({
           <Button textColor={Colors.primaryColor} onPress={onDismiss}>
             Close
           </Button>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={styles.headerTitle}>{sheetTitle}</Text>
           <View style={{ width: 64 }} />
         </View>
 
@@ -123,9 +125,18 @@ const ValuPaymentMethodSheet = ({
               const displayLabel =
                 meta.label || normalizePaymentMethodLabel(option?.paymentMethod) || 'Payment method';
               const isSelected = selectedIndex === index;
-              const feePercentage =
-                option?.feePercentage != null && !Number.isNaN(Number(option.feePercentage))
-                  ? `${Number(option.feePercentage).toFixed(1)}% fee`
+              const networkFeeFormatted = currencyFormatter(option?.networkFeeFiat, currency);
+              const serviceFeePercentageRaw =
+                option?.serviceFeePercentage != null
+                  ? option.serviceFeePercentage
+                  : option?.feePercentage;
+              const serviceFeeFormatted =
+                serviceFeePercentageRaw != null && !Number.isNaN(Number(serviceFeePercentageRaw))
+                  ? `${Number(serviceFeePercentageRaw).toFixed(1)}%`
+                  : null;
+              const feeDisplay =
+                networkFeeFormatted || serviceFeeFormatted
+                  ? `Fee: ${networkFeeFormatted || '—'} + ${serviceFeeFormatted || '—'}`
                   : 'Fee unavailable';
 
               return (
@@ -140,7 +151,7 @@ const ValuPaymentMethodSheet = ({
                     <Text style={styles.optionLabel}>
                       {displayLabel}
                     </Text>
-                    <Text style={styles.optionValue}>{feePercentage}</Text>
+                    <Text style={styles.optionValue}>{feeDisplay}</Text>
                   </View>
                   <MaterialCommunityIcons 
                     name={isSelected ? 'check-circle' : 'chevron-right'} 
