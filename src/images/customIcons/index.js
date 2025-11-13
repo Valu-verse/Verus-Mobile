@@ -53,6 +53,7 @@ import ValuWhiteIcon from './valu-white.svg';
 import AttesationBadge from './attestation.png';
 import ValuOnRamp from './ValuOnRamp.png';
 import VUSDC from './vUSDC.png';
+import USDCIcon from './usdc-icon.webp';
 
 export {
   Open,
@@ -101,7 +102,8 @@ export {
   ValuOnRamp,
   VUSDC,
   ValuIcon,
-  ValuWhiteIcon
+  ValuWhiteIcon,
+  USDCIcon
 };
 
 export default Open;

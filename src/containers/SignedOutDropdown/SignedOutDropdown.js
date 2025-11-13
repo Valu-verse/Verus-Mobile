@@ -19,11 +19,11 @@ const SignedOutDropdown = (props) => {
       ? []
       : [
           {
-            label: 'Recover account seeds',
+            label: 'Recover profile seed',
             onPress: handleRecoverSeed,
           },
           {
-            label: 'Revoke/Recover VerusID',
+            label: 'Revoke or recover VerusID',
             onPress: handleRevokeRecover,
           }
         ];
