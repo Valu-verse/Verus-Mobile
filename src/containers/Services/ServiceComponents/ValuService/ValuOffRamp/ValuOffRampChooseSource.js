@@ -361,7 +361,8 @@ class ValuOffRampChooseSource extends Component {
       : null;
     const errorMessage = baseError || validationError;
     const actionDisabled = this.state.loading || !!errorMessage;
-
+     const bankFee = formatCurrency(selectedOption?.payoutfee, { includeDecimals: true, includeSymbol: true })
+   const serviceFeeFiatFormatted = selectedOption?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
     return (
       <View style={styles.reviewContainer}>
         <ScrollView
@@ -424,7 +425,7 @@ class ValuOffRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
             {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee ${serviceFeeFiatFormatted}${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>

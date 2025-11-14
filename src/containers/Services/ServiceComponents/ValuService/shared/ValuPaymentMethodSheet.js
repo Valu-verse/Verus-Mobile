@@ -126,6 +126,7 @@ const ValuPaymentMethodSheet = ({
                 meta.label || normalizePaymentMethodLabel(option?.paymentMethod) || 'Payment method';
               const isSelected = selectedIndex === index;
               const networkFeeFormatted = currencyFormatter(option?.networkFeeFiat, currency);
+              const bankFee = currencyFormatter(option?.payoutfee, currency);
               const serviceFeePercentageRaw =
                 option?.serviceFeePercentage != null
                   ? option.serviceFeePercentage
@@ -134,9 +135,10 @@ const ValuPaymentMethodSheet = ({
                 serviceFeePercentageRaw != null && !Number.isNaN(Number(serviceFeePercentageRaw))
                   ? `${Number(serviceFeePercentageRaw).toFixed(1)}%`
                   : null;
+              const serviceFeeFiatFormatted = option?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
               const feeDisplay =
                 networkFeeFormatted || serviceFeeFormatted
-                  ? `Fee: ${networkFeeFormatted || '—'} + ${serviceFeeFormatted || '—'}`
+                  ? `Network Fee: ${networkFeeFormatted || '—'}\nService Fee: ${serviceFeeFormatted || '—'}${serviceFeeFiatFormatted}`
                   : 'Fee unavailable';
 
               return (

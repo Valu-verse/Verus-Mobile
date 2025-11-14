@@ -887,7 +887,8 @@ class ValuOnRampChooseSource extends Component {
       : null;
     const errorMessage = baseError;
     const actionDisabled = this.state.loading || !!errorMessage;
-
+     const bankFee = this.formatCurrencyValue(selectedOption?.payoutfee || '0.00', { includeDecimals: true, includeSymbol: true })
+   const serviceFeeFiatFormatted = selectedOption?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
     return (
       <View style={styles.reviewContainer}>
         <ScrollView
@@ -956,7 +957,7 @@ class ValuOnRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedAmount} total`}</Text>
             {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${serviceFeeFiatFormatted}${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
