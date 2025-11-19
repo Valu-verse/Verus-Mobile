@@ -887,7 +887,8 @@ class ValuOnRampChooseSource extends Component {
       : null;
     const errorMessage = baseError;
     const actionDisabled = this.state.loading || !!errorMessage;
-
+     const bankFee = this.formatCurrencyValue(selectedOption?.payoutfee || '0.00', { includeDecimals: true, includeSymbol: true })
+   const serviceFeeFiatFormatted = selectedOption?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
     return (
       <View style={styles.reviewContainer}>
         <ScrollView
@@ -956,7 +957,7 @@ class ValuOnRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedAmount} total`}</Text>
             {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${serviceFeeFiatFormatted}${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
@@ -965,7 +966,10 @@ class ValuOnRampChooseSource extends Component {
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
             </View>
           ) : null}
-          <View
+          <TouchableOpacity
+            onPress={this.startOnRamp}
+            disabled={actionDisabled}
+            activeOpacity={0.8}
             style={[
               styles.reviewActionWrapper,
               actionDisabled ? styles.reviewActionWrapperDisabled : null,
@@ -995,22 +999,26 @@ class ValuOnRampChooseSource extends Component {
                 />
               </Svg>
             )}
-            <Button
-              mode="contained"
-              onPress={this.startOnRamp}
-              disabled={actionDisabled}
-              icon="open-in-new"
-              style={styles.reviewActionButton}
-              contentStyle={[styles.modernActionButtonContent, styles.reviewActionButtonContent, { flexDirection: 'row-reverse' }]}
-              labelStyle={[
-                styles.modernActionButtonLabel,
-                styles.reviewActionButtonLabel,
-                actionDisabled ? styles.modernActionButtonLabelDisabled : null,
-              ]}
-            >
-              Buy now
-            </Button>
-          </View>
+            <View style={styles.reviewButtonContentContainer}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Text
+                  style={[
+                    styles.modernActionButtonLabel,
+                    styles.reviewActionButtonLabel,
+                    actionDisabled ? styles.modernActionButtonLabelDisabled : null,
+                  ]}
+                >
+                  Buy now
+                </Text>
+                <MaterialCommunityIcons 
+                  name="open-in-new" 
+                  size={20} 
+                  color={actionDisabled ? '#7DB8C9' : Colors.secondaryColor}
+                  style={{ marginLeft: 8 }}
+                />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1169,7 +1177,10 @@ class ValuOnRampChooseSource extends Component {
                         <Text style={styles.errorBannerText}>{errorMessage}</Text>
                       </View>
                     ) : (
-                      <View
+                      <TouchableOpacity
+                        onPress={this.handleReviewPress}
+                        disabled={ctaDisabled}
+                        activeOpacity={0.8}
                         style={[
                           styles.ctaActionWrapper,
                           ctaDisabled ? styles.ctaActionWrapperDisabled : null,
@@ -1199,16 +1210,7 @@ class ValuOnRampChooseSource extends Component {
                             />
                           </Svg>
                         )}
-                        <Button
-                          onPress={this.handleReviewPress}
-                          mode="contained"
-                          disabled={ctaDisabled}
-                          style={[
-                            styles.modernActionButton,
-                            ctaDisabled ? styles.modernActionButtonDisabled : null,
-                          ]}
-                          contentStyle={styles.modernActionButtonContent}
-                        >
+                        <View style={styles.ctaButtonContentContainer}>
                           <View style={styles.ctaLabelRow}>
                             <View style={styles.ctaSpinnerSlotLeft}>
                               {this.state.updatingfee ? (
@@ -1223,15 +1225,14 @@ class ValuOnRampChooseSource extends Component {
                                 styles.modernActionButtonLabel,
                                 ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
                                 styles.ctaLabelText,
-                                styles.reviewActionButtonLabel,
                               ]}
                             >
                               {primaryButtonLabel}
                             </Text>
                             <View style={styles.ctaSpinnerSlotRight} />
                           </View>
-                        </Button>
-                      </View>
+                        </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -1393,6 +1394,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     alignSelf: 'stretch',
+    height: 56,
   },
   ctaActionWrapperDisabled: {
     backgroundColor: '#CFEAF2',
@@ -1404,11 +1406,15 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  ctaButtonContentContainer: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   ctaLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
   },
   ctaSpinnerSlotLeft: {
     width: 24,
@@ -1695,6 +1701,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: 'hidden',
     position: 'relative',
+    height: 56,
   },
   reviewActionWrapperDisabled: {
     backgroundColor: '#CFEAF2',
@@ -1706,14 +1713,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  reviewActionButton: {
-    borderRadius: 28,
-    backgroundColor: 'transparent',
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
+  reviewButtonContentContainer: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modernActionButton: {
     borderRadius: 24,

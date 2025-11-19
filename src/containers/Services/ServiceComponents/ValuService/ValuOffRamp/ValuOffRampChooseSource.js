@@ -361,7 +361,8 @@ class ValuOffRampChooseSource extends Component {
       : null;
     const errorMessage = baseError || validationError;
     const actionDisabled = this.state.loading || !!errorMessage;
-
+     const bankFee = formatCurrency(selectedOption?.payoutfee, { includeDecimals: true, includeSymbol: true })
+   const serviceFeeFiatFormatted = selectedOption?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
     return (
       <View style={styles.reviewContainer}>
         <ScrollView
@@ -424,7 +425,7 @@ class ValuOffRampChooseSource extends Component {
             <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
             {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
               <Text style={styles.reviewTotalSubLabel}>
-                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
+                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee ${serviceFeeFiatFormatted}${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
               </Text>
             ) : null}
           </View>
@@ -1103,7 +1104,10 @@ class ValuOffRampChooseSource extends Component {
                         <Text style={styles.errorBannerText}>{errorMessage}</Text>
                       </View>
                     ) : (
-                      <View
+                      <TouchableOpacity
+                        onPress={this.handleReviewPress}
+                        disabled={ctaDisabled}
+                        activeOpacity={0.8}
                         style={[
                           styles.ctaActionWrapper,
                           ctaDisabled ? styles.ctaActionWrapperDisabled : null,
@@ -1133,16 +1137,7 @@ class ValuOffRampChooseSource extends Component {
                             />
                           </Svg>
                         )}
-                        <Button
-                          onPress={this.handleReviewPress}
-                          mode="contained"
-                          disabled={ctaDisabled}
-                          style={[
-                            styles.modernActionButton,
-                            ctaDisabled ? styles.modernActionButtonDisabled : null,
-                          ]}
-                          contentStyle={styles.modernActionButtonContent}
-                        >
+                        <View style={styles.ctaButtonContentContainer}>
                           <View style={styles.ctaLabelRow}>
                             <View style={styles.ctaSpinnerSlotLeft}>
                               {this.state.updatingfee ? (
@@ -1154,15 +1149,14 @@ class ValuOffRampChooseSource extends Component {
                                 styles.modernActionButtonLabel,
                                 ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
                                 styles.ctaLabelText,
-                                styles.reviewActionButtonLabel,
                               ]}
                             >
                               {primaryButtonLabel}
                             </Text>
                             <View style={styles.ctaSpinnerSlotRight} />
                           </View>
-                        </Button>
-                      </View>
+                        </View>
+                      </TouchableOpacity>
                     )}
                   </View>
                 </View>
@@ -1305,6 +1299,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: '100%',
     alignSelf: 'stretch',
+    height: 56,
   },
   ctaActionWrapperDisabled: {
     backgroundColor: '#CFEAF2',
@@ -1316,11 +1311,15 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  ctaButtonContentContainer: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   ctaLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100%',
   },
   ctaSpinnerSlotLeft: {
     width: 24,
