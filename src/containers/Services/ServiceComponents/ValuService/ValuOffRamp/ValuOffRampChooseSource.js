@@ -12,6 +12,8 @@
   - Payout methods moved into shared ValuPaymentMethodSheet with fee and limit details
   - Normalizes payout method labels/icons using shared metadata helper
   - Aligned loading states, CTA styling, and fee breakdown with ValuOnRampChooseSource
+  - Fixed vertical alignment of CTA button label
+  - Selected payout method now shows provider-specific icon with 32px footprint
 */
 
 import React, { Component } from "react";
@@ -29,7 +31,7 @@ import {
   TouchableOpacity,
   Platform,
   Dimensions,
-  Image
+  Image,
 } from 'react-native';
 import {
   Button,
@@ -58,7 +60,7 @@ import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/
 import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
-import { normalizePaymentMethodLabel } from '../shared/valuPaymentMethodMeta';
+import { normalizePaymentMethodLabel, getPaymentMethodMeta } from '../shared/valuPaymentMethodMeta';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 import { API_GET_BALANCES } from '../../../../../utils/constants/intervalConstants';
@@ -180,6 +182,9 @@ class ValuOffRampChooseSource extends Component {
       );
     }
 
+    const renderSelectedPaymentIcon = () =>
+      this.renderPaymentMethodIcon(selectedOption?.paymentMethod);
+
     return (
       <View style={styles.paymentSelectorContainer}>
         <View style={styles.paymentSelectorSurface}>
@@ -189,7 +194,7 @@ class ValuOffRampChooseSource extends Component {
             disabled={loading}
           >
             <View style={styles.paymentSelectorRowFlat}>
-              <MaterialCommunityIcons name="credit-card-outline" size={24} color="#000" style={{ marginRight: 12 }} />
+              {renderSelectedPaymentIcon()}
               <View style={styles.paymentSelectorTextColumn}>
                 <Text style={styles.paymentSelectorFlatLabel}>Payout to</Text>
                 <Text style={styles.paymentSelectorFlatValue}>
@@ -209,7 +214,9 @@ class ValuOffRampChooseSource extends Component {
           <View style={styles.paymentSelectorVerticalLine} />
 
           <View style={styles.paymentSelectorRowFlat}>
-            <MaterialCommunityIcons name="wallet-outline" size={24} color="#000" style={{ marginRight: 12 }} />
+            <View style={styles.paymentMethodIconWrapper}>
+              <MaterialCommunityIcons name="wallet-outline" size={24} color="#000" />
+            </View>
             <View style={styles.paymentSelectorTextColumn}>
               <Text style={styles.paymentSelectorFlatLabel}>Receive</Text>
               <View style={styles.paymentSelectorAmountRow}>
@@ -229,6 +236,38 @@ class ValuOffRampChooseSource extends Component {
     );
   }
 
+  renderPaymentMethodIcon(method) {
+    const meta = getPaymentMethodMeta(method);
+    const iconConfig = meta?.icon || {};
+
+    if (iconConfig.type === 'svg' && iconConfig.Component) {
+      const SvgIcon = iconConfig.Component;
+      return (
+        <View style={styles.paymentMethodIconWrapper}>
+          <SvgIcon width={32} height={16} preserveAspectRatio="xMidYMid meet" />
+        </View>
+      );
+    }
+
+    if (iconConfig.type === 'image' && iconConfig.source) {
+      return (
+        <View style={styles.paymentMethodIconWrapper}>
+          <Image source={iconConfig.source} style={styles.paymentMethodImage} resizeMode="contain" />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.paymentMethodIconWrapper}>
+        <MaterialCommunityIcons
+          name={iconConfig.name || 'credit-card-outline'}
+          size={24}
+          color={iconConfig.color || '#1A1A1A'}
+        />
+      </View>
+    );
+  }
+
   renderPaymentMethodSheet() {
     return (
       <ValuPaymentMethodSheet
@@ -237,6 +276,7 @@ class ValuOffRampChooseSource extends Component {
         options={this.state.options}
         selectedIndex={this.state.radioValue}
         currency={this.state.currency}
+        amount={this.state.amount}
         mode="sell"
         onSelect={(option, index) => {
           const amountValue = this.state.amount === "" ? "0" : this.state.amount;
@@ -347,6 +387,21 @@ class ValuOffRampChooseSource extends Component {
       totalFeeFiatRaw != null && totalFeeFiatRaw > 0
         ? this.formatCurrencyValue(totalFeeFiatRaw, { includeDecimals: true, includeSymbol: true })
         : null;
+    const bankFeeFiatRaw =
+      selectedOption && selectedOption.payoutfee != null
+        ? Number(selectedOption.payoutfee)
+        : 0;
+    const formatFeeAmount = (value) =>
+      value != null && value > 0
+        ? this.formatCurrencyValue(value, { includeDecimals: true, includeSymbol: true })
+        : '—';
+    const formattedNetworkFeeAmount = formatFeeAmount(networkFeeFiatRaw);
+    const formattedServiceFeeAmount = formatFeeAmount(serviceFeeFiatRaw);
+    const formattedBankFeeAmount = formatFeeAmount(bankFeeFiatRaw);
+    const formattedTotalFeeAmount = formatFeeAmount(
+      (networkFeeFiatRaw || 0) + (serviceFeeFiatRaw || 0) + (bankFeeFiatRaw || 0)
+    );
+    const showBankFee = bankFeeFiatRaw != null && bankFeeFiatRaw > 0;
 
     const chosenAddressLabel = this.state.chosenAddress?.name || this.state.chosenAddress?.address || 'Source address';
     const validation = this.getAmountValidationState();
@@ -361,8 +416,6 @@ class ValuOffRampChooseSource extends Component {
       : null;
     const errorMessage = baseError || validationError;
     const actionDisabled = this.state.loading || !!errorMessage;
-     const bankFee = formatCurrency(selectedOption?.payoutfee, { includeDecimals: true, includeSymbol: true })
-   const serviceFeeFiatFormatted = selectedOption?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
     return (
       <View style={styles.reviewContainer}>
         <ScrollView
@@ -399,7 +452,7 @@ class ValuOffRampChooseSource extends Component {
           <View
             style={styles.reviewPaymentRow}
           >
-            <MaterialCommunityIcons name="credit-card-outline" size={24} color="#000" style={{ marginRight: 12 }} />
+            {this.renderPaymentMethodIcon(selectedOption?.paymentMethod)}
             <View style={styles.reviewPaymentTextColumn}>
               <Text style={styles.reviewPaymentLabel}>Payout to</Text>
               <Text style={styles.reviewPaymentValue}>
@@ -423,11 +476,15 @@ class ValuOffRampChooseSource extends Component {
         <View style={styles.reviewFooter}>
           <View style={styles.reviewTotalContainer}>
             <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
-            {formattedNetworkFee || formattedServiceFeePercentage || formattedTotalFee ? (
-              <Text style={styles.reviewTotalSubLabel}>
-                {`Incl. fees: ${formattedNetworkFee || '—'} network fee + ${formattedServiceFeePercentage || '—'} service fee ${serviceFeeFiatFormatted}${formattedTotalFee ? ` (total fees: ${formattedTotalFee})` : ''}`}
-              </Text>
-            ) : null}
+            <View style={styles.feeBreakdown}>
+              <Text style={styles.feeBreakdownText}>{`Network fee: ${formattedNetworkFeeAmount}`}</Text>
+              <Text style={styles.feeBreakdownText}>{`Service fee: ${formattedServiceFeeAmount}`}</Text>
+              {showBankFee ? (
+                <Text style={styles.feeBreakdownText}>{`Bank fee: ${formattedBankFeeAmount}`}</Text>
+              ) : null}
+              <View style={styles.feeBreakdownDivider} />
+              <Text style={styles.feeBreakdownTextBold}>{`Total fee: ${formattedTotalFeeAmount}`}</Text>
+            </View>
           </View>
           {errorMessage ? (
             <View style={[styles.errorBanner, { marginBottom: 12 }]}>
@@ -1334,7 +1391,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaLabelText: {
-    marginTop: 4,
+    marginTop: 0,
   },
   paymentSelectorContainer: {
     alignItems: 'center',
@@ -1348,6 +1405,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  paymentMethodIconWrapper: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  paymentMethodImage: {
+    width: 32,
+    height: 16,
   },
   paymentSelectorTextColumn: {
     flex: 1,
@@ -1532,6 +1600,26 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 6,
     letterSpacing: -0.2,
+  },
+  feeBreakdown: {
+    marginTop: 8,
+    gap: 2,
+  },
+  feeBreakdownText: {
+    fontSize: 12,
+    color: '#777',
+  },
+  feeBreakdownTextBold: {
+    fontSize: 12,
+    color: '#1A1A1A',
+    fontWeight: '600',
+  },
+  feeBreakdownDivider: {
+    height: 1,
+    backgroundColor: '#E6E6E6',
+    marginVertical: 4,
+    width: '50%',
+    alignSelf: 'flex-start',
   },
   skeletonAmountWrapper: {
     height: 60,

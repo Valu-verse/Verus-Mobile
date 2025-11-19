@@ -3,11 +3,15 @@
   - Shared semi-modal sheet for selecting on/off-ramp payment providers
   - Displays provider, fee percentage, and min/max limits with consistent styling
   - Uses normalized labels and provider-specific icons (SVG or Material icons)
+  - Simplified icons to generic credit card
+  - Uses bank icon for SEPA/SPEI/SWIFT payment options
+  - Supports Apple Pay SVG icon
+  - Adjusted fee text size and capitalization
   - Used by both ValuOnRampChooseSource and ValuOffRampChooseSource flows
 */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { Portal, Button, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -33,29 +37,37 @@ const currencyFormatter = (amount, code) => {
   }
 };
 
-const ICON_WIDTH = 58;
-const ICON_HEIGHT = 40;
-const ICON_BORDER_RADIUS = 4.5;
+const BANK_ICON_LABELS = new Set([
+  'SEPA bank transfer',
+  'SPEI',
+  'SWIFT bank transfer',
+]);
 
-const renderOptionIcon = (iconMeta) => {
-  if (!iconMeta) return null;
-
-  if (iconMeta.type === 'svg' && iconMeta.Component) {
-    const SvgIcon = iconMeta.Component;
-
+const renderOptionIcon = (iconConfig) => {
+  if (iconConfig?.type === 'svg' && iconConfig.Component) {
+    const SvgIcon = iconConfig.Component;
     return (
       <View style={styles.optionSvgWrapper}>
-        <SvgIcon width={ICON_WIDTH} height={ICON_HEIGHT} />
+        <SvgIcon width={32} height={16} preserveAspectRatio="xMidYMid meet" />
+      </View>
+    );
+  }
+  if (iconConfig?.type === 'image' && iconConfig.source) {
+    return (
+      <View style={styles.optionImageWrapper}>
+        <Image source={iconConfig.source} style={styles.optionImage} resizeMode="contain" />
       </View>
     );
   }
 
+  const iconName = iconConfig?.name || 'credit-card-outline';
+
   return (
-    <View style={styles.optionIconWrapper}>
+    <View style={styles.optionIconWrapperSimple}>
       <MaterialCommunityIcons
-        name={iconMeta.name || 'credit-card-outline'}
-        size={26}
-        color={iconMeta.color || '#1A1A1A'}
+        name={iconName}
+        size={24}
+        color={iconConfig?.color || '#1A1A1A'}
       />
     </View>
   );
@@ -63,16 +75,17 @@ const renderOptionIcon = (iconMeta) => {
 
 // buildLimitLabel removed - no longer showing limits in the sheet
 
-const ValuPaymentMethodSheet = ({
-  visible,
-  onDismiss,
-  options = [],
-  selectedIndex = null,
-  currency = 'USD',
-  title = null,
-  mode = 'buy',
-  onSelect,
-}) => {
+const ValuPaymentMethodSheet = (props) => {
+  const {
+    visible,
+    onDismiss,
+    options = [],
+    selectedIndex = null,
+    currency = 'USD',
+    title = null,
+    mode = 'buy',
+    onSelect,
+  } = props;
   if (!visible) return null;
 
   const sheetTitle = title || (mode === 'sell' ? 'Select payout method' : 'Select payment method');
@@ -125,21 +138,39 @@ const ValuPaymentMethodSheet = ({
               const displayLabel =
                 meta.label || normalizePaymentMethodLabel(option?.paymentMethod) || 'Payment method';
               const isSelected = selectedIndex === index;
-              const networkFeeFormatted = currencyFormatter(option?.networkFeeFiat, currency);
-              const bankFee = currencyFormatter(option?.payoutfee, currency);
-              const serviceFeePercentageRaw =
-                option?.serviceFeePercentage != null
-                  ? option.serviceFeePercentage
-                  : option?.feePercentage;
-              const serviceFeeFormatted =
-                serviceFeePercentageRaw != null && !Number.isNaN(Number(serviceFeePercentageRaw))
-                  ? `${Number(serviceFeePercentageRaw).toFixed(1)}%`
-                  : null;
-              const serviceFeeFiatFormatted = option?.payoutfee != '0.00' ?  `\nBank Fee: ${bankFee}` : '';
-              const feeDisplay =
-                networkFeeFormatted || serviceFeeFormatted
-                  ? `Network Fee: ${networkFeeFormatted || '—'}\nService Fee: ${serviceFeeFormatted || '—'}${serviceFeeFiatFormatted}`
-                  : 'Fee unavailable';
+              let iconConfig = meta.icon;
+              if (BANK_ICON_LABELS.has(displayLabel)) {
+                iconConfig = {
+                  type: 'mcicon',
+                  name: 'bank',
+                  color: '#1A1A1A',
+                };
+              }
+              
+              // Calculate Total Fee
+              const amountNum = Number(props.amount) || 0;
+              const networkFee = Number(option?.networkFeeFiat) || 0;
+              const bankFee = Number(option?.payoutfee) || 0;
+              
+              let serviceFee = Number(option?.serviceFeeFiat) || 0;
+              
+              // If service fee fiat is not provided, try to calculate from percentage
+              if (!serviceFee) {
+                const serviceFeePercent = Number(option?.serviceFeePercentage) || Number(option?.feePercentage) || 0;
+                if (serviceFeePercent > 0) {
+                  // Calculate gross fee based on percentage
+                  const grossFee = amountNum * (serviceFeePercent / 100);
+                  // Net service fee is gross fee minus network fee (clamped to 0)
+                  serviceFee = Math.max(grossFee - networkFee, 0);
+                }
+              }
+              
+              const totalFee = networkFee + serviceFee + bankFee;
+              const formattedTotalFee = currencyFormatter(totalFee, currency);
+              
+              const feeDisplay = formattedTotalFee 
+                ? `${formattedTotalFee} fee`
+                : 'Fee unavailable';
 
               return (
                 <TouchableOpacity
@@ -148,7 +179,7 @@ const ValuPaymentMethodSheet = ({
                   activeOpacity={0.7}
                   style={styles.optionRowFlat}
                 >
-                  {renderOptionIcon(meta.icon)}
+                  {renderOptionIcon(iconConfig)}
                   <View style={styles.optionTextColumn}>
                     <Text style={styles.optionLabel}>
                       {displayLabel}
@@ -207,23 +238,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     marginBottom: 8,
   },
-  optionIconWrapper: {
-    width: ICON_WIDTH,
-    height: ICON_HEIGHT,
-    borderRadius: ICON_BORDER_RADIUS,
-    borderWidth: 1,
-    borderColor: '#F2F4F7',
-    backgroundColor: '#FFFFFF',
+  optionIconWrapperSimple: {
+    width: 32,
+    height: 32,
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
   optionSvgWrapper: {
-    width: ICON_WIDTH,
-    height: ICON_HEIGHT,
-    marginRight: 12,
+    width: 32,
+    height: 32,
+    marginRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  optionImageWrapper: {
+    width: 32,
+    height: 32,
+    marginRight: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionImage: {
+    width: 32,
+    height: 16,
   },
   optionTextColumn: {
     flex: 1,
@@ -235,9 +273,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   optionValue: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '400',
-    color: 'rgba(26, 26, 26, 0.7)',
+    color: '#666',
+    lineHeight: 18,
   },
   emptyState: {
     paddingHorizontal: 24,
