@@ -43,6 +43,18 @@ const BANK_ICON_LABELS = new Set([
   'SWIFT bank transfer',
 ]);
 
+const formatMinAmountLabel = (value, mode, currency) => {
+  if (value == null || Number.isNaN(Number(value)) || Number(value) <= 0) return null;
+  const minNumber = Number(value);
+  if (mode === 'sell') {
+    return `${minNumber.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} vUSDC`;
+  }
+  return currencyFormatter(minNumber, currency) || minNumber.toFixed(2);
+};
+
 const renderOptionIcon = (iconConfig) => {
   if (iconConfig?.type === 'svg' && iconConfig.Component) {
     const SvgIcon = iconConfig.Component;
@@ -167,29 +179,50 @@ const ValuPaymentMethodSheet = (props) => {
               
               const totalFee = networkFee + serviceFee + bankFee;
               const formattedTotalFee = currencyFormatter(totalFee, currency);
+
+              const minAmount = Number(option?.minAmount) || 0;
+              const meetsMinimum = minAmount === 0 || amountNum >= minAmount;
+              const minLabel = formatMinAmountLabel(minAmount, mode, currency);
               
-              const feeDisplay = formattedTotalFee 
-                ? `${formattedTotalFee} fee`
-                : 'Fee unavailable';
+              const feeDisplay = !meetsMinimum
+                ? minLabel
+                  ? `Min ${minLabel}`
+                  : 'Minimum amount not met'
+                : formattedTotalFee 
+                  ? `${formattedTotalFee} fee`
+                  : 'Fee unavailable';
+
+              const optionDisabled = !meetsMinimum;
 
               return (
                 <TouchableOpacity
                   key={`${option?.paymentMethod || 'method'}-${index}`}
                   onPress={() => handleSelect(option, index)}
                   activeOpacity={0.7}
-                  style={styles.optionRowFlat}
+                  style={[
+                    styles.optionRowFlat,
+                    optionDisabled ? styles.optionRowDisabled : null,
+                  ]}
+                  disabled={optionDisabled}
                 >
                   {renderOptionIcon(iconConfig)}
                   <View style={styles.optionTextColumn}>
                     <Text style={styles.optionLabel}>
                       {displayLabel}
                     </Text>
-                    <Text style={styles.optionValue}>{feeDisplay}</Text>
+                    <Text
+                      style={[
+                        styles.optionValue,
+                        optionDisabled ? styles.optionValueWarning : null,
+                      ]}
+                    >
+                      {feeDisplay}
+                    </Text>
                   </View>
                   <MaterialCommunityIcons 
                     name={isSelected ? 'check-circle' : 'chevron-right'} 
                     size={24} 
-                    color={isSelected ? Colors.primaryColor : '#888'} 
+                    color={isSelected ? Colors.primaryColor : optionDisabled ? '#CCC' : '#888'} 
                   />
                 </TouchableOpacity>
               );
@@ -238,6 +271,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
     marginBottom: 8,
   },
+  optionRowDisabled: {
+    opacity: 0.5,
+  },
   optionIconWrapperSimple: {
     width: 32,
     height: 32,
@@ -277,6 +313,9 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#666',
     lineHeight: 18,
+  },
+  optionValueWarning: {
+    color: '#D35400',
   },
   emptyState: {
     paddingHorizontal: 24,

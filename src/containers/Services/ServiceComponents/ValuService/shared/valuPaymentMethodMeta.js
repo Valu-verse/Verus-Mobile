@@ -8,11 +8,14 @@
 import RevolutPaySvg from '../../../../../images/paymentIcons/revolut1.svg';
 import SkrillSvg from '../../../../../images/paymentIcons/skrill1.svg';
 import SepaSvg from '../../../../../images/paymentIcons/sepa.svg';
-import NetellerSvg from '../../../../../images/paymentIcons/neteller.svg';
-import AstroPaySvg from '../../../../../images/paymentIcons/astropay.svg';
+import NetellerAltSvg from '../../../../../images/paymentIcons/neteller1.svg';
+import AstroPayPng from '../../../../../images/paymentIcons/astropay.png';
 import ApplePaySvg from '../../../../../images/paymentIcons/apple-pay.svg';
 import GooglePaySvg from '../../../../../images/paymentIcons/googlepay.svg';
 import PayPalSvg from '../../../../../images/paymentIcons/PayPal.svg';
+import PaysafeCardSvg from '../../../../../images/paymentIcons/paysafecard.svg';
+import MPesaPng from '../../../../../images/paymentIcons/mpesa.png';
+import PixSvg from '../../../../../images/paymentIcons/pix.svg';
 
 const ICON_COLOR_DEFAULT = '#1A1A1A';
 
@@ -61,9 +64,8 @@ const PAYMENT_METHOD_MAP = {
   astropay: {
     label: 'AstroPay',
     icon: {
-      type: 'mcicon',
-      name: 'credit-card-outline',
-      color: ICON_COLOR_DEFAULT,
+      type: 'image',
+      source: AstroPayPng,
     },
   },
   skrill: {
@@ -76,9 +78,8 @@ const PAYMENT_METHOD_MAP = {
   neteller: {
     label: 'Neteller',
     icon: {
-      type: 'mcicon',
-      name: 'credit-card-outline',
-      color: ICON_COLOR_DEFAULT,
+      type: 'svg',
+      Component: NetellerAltSvg,
     },
   },
   'sepa bank transfer': {
@@ -132,6 +133,34 @@ const PAYMENT_METHOD_MAP = {
     icon: {
       type: 'svg',
       Component: PayPalSvg,
+    },
+  },
+  'paysafe card': {
+    label: 'Paysafe Card',
+    icon: {
+      type: 'svg',
+      Component: PaysafeCardSvg,
+    },
+  },
+  paysafecard: {
+    label: 'Paysafe Card',
+    icon: {
+      type: 'svg',
+      Component: PaysafeCardSvg,
+    },
+  },
+  'm-pesa': {
+    label: 'M-Pesa',
+    icon: {
+      type: 'image',
+      source: MPesaPng,
+    },
+  },
+  pix: {
+    label: 'PIX',
+    icon: {
+      type: 'svg',
+      Component: PixSvg,
     },
   },
 };

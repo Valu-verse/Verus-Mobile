@@ -347,10 +347,6 @@ class ValuOffRampChooseSource extends Component {
     const formattedFiat =
       this.formatCurrencyValue(fiatReceived, { includeDecimals: true, includeSymbol: true }) || this.state.converted;
 
-    const price =
-      amountNumber > 0 && fiatReceived > 0 ? fiatReceived / amountNumber : null;
-    const formattedPrice = price ? this.formatCurrencyValue(price, { includeDecimals: true, includeSymbol: true }) : null;
-
     const feePercentage =
       selectedOption && selectedOption.feePercentage != null
         ? Number(selectedOption.feePercentage)
@@ -391,6 +387,16 @@ class ValuOffRampChooseSource extends Component {
       selectedOption && selectedOption.payoutfee != null
         ? Number(selectedOption.payoutfee)
         : 0;
+
+    const totalFeeComponents =
+      (networkFeeFiatRaw || 0) + (serviceFeeFiatRaw || 0) + (bankFeeFiatRaw || 0);
+    const grossFiat = fiatReceived + totalFeeComponents;
+
+    const price =
+      amountNumber > 0 && grossFiat > 0 ? grossFiat / amountNumber : null;
+    const formattedPrice = price
+      ? this.formatCurrencyValue(price, { includeDecimals: true, includeSymbol: true })
+      : null;
     const formatFeeAmount = (value) =>
       value != null && value > 0
         ? this.formatCurrencyValue(value, { includeDecimals: true, includeSymbol: true })
@@ -398,10 +404,12 @@ class ValuOffRampChooseSource extends Component {
     const formattedNetworkFeeAmount = formatFeeAmount(networkFeeFiatRaw);
     const formattedServiceFeeAmount = formatFeeAmount(serviceFeeFiatRaw);
     const formattedBankFeeAmount = formatFeeAmount(bankFeeFiatRaw);
-    const formattedTotalFeeAmount = formatFeeAmount(
-      (networkFeeFiatRaw || 0) + (serviceFeeFiatRaw || 0) + (bankFeeFiatRaw || 0)
-    );
+    const formattedTotalFeeAmount = formatFeeAmount(totalFeeComponents);
     const showBankFee = bankFeeFiatRaw != null && bankFeeFiatRaw > 0;
+    const formattedGrossFiat =
+      grossFiat > 0
+        ? this.formatCurrencyValue(grossFiat, { includeDecimals: true, includeSymbol: true })
+        : formattedFiat;
 
     const chosenAddressLabel = this.state.chosenAddress?.name || this.state.chosenAddress?.address || 'Source address';
     const validation = this.getAmountValidationState();
@@ -475,7 +483,6 @@ class ValuOffRampChooseSource extends Component {
 
         <View style={styles.reviewFooter}>
           <View style={styles.reviewTotalContainer}>
-            <Text style={styles.reviewTotalLabel}>{`${formattedFiat} total`}</Text>
             <View style={styles.feeBreakdown}>
               <Text style={styles.feeBreakdownText}>{`Network fee: ${formattedNetworkFeeAmount}`}</Text>
               <Text style={styles.feeBreakdownText}>{`Service fee: ${formattedServiceFeeAmount}`}</Text>
@@ -1012,10 +1019,6 @@ class ValuOffRampChooseSource extends Component {
               <Text style={{ fontSize: 12, color: balanceColor }}>
                 Available: {this.formatTokenAmount(available)} vUSDC<Text style={{ fontSize: 11, color: balanceColor === '#FF4444' ? '#FF6666' : '#aaa' }}>.vETH</Text>
               </Text>
-              {/* Micro validation feedback */}
-              {validationState === 'below_min' && (
-                <Text style={{ fontSize: 10, color: '#FF8C00', marginTop: 2 }}>Min {validation.providerMin}</Text>
-              )}
             </View>
             <TouchableOpacity
               onPress={this.handleMaxPress}
