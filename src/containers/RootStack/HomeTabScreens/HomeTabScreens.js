@@ -2,8 +2,10 @@
   Updated HomeTabScreens:
   - Switched to createBottomTabNavigator to enable explicit tabBarStyle control
   - Preserved the previous color scheme for active/inactive icons and background
+  - Restored Feather icon import after merge to resolve runtime crash
 */
 import React from 'react';
+import Feather from 'react-native-vector-icons/Feather';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../../../globals/colors';
