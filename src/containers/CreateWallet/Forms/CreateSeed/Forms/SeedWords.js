@@ -15,6 +15,9 @@ import {
   TouchableWithoutFeedback,
   Alert,
   SafeAreaView,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {Text, Card} from 'react-native-paper';
 import TallButton from '../../../../../components/LargerButton';
@@ -142,226 +145,237 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
 
   return (
     <SafeAreaView style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: Colors.secondaryColor,
-            paddingHorizontal: 24,
-            paddingTop: height < SMALL_DEVICE_HEGHT ? 40 : 60,
-          }}>
-          {/* Title - top-aligned, left-aligned, black */}
-          <Text
-            style={{
-              textAlign: 'left',
-              color: '#1A1A1A',
-              fontSize: 32,
-              fontWeight: '700',
-              letterSpacing: -0.5,
-              marginBottom: 12,
-            }}>
-            {getTitle()}
-          </Text>
+      <KeyboardAvoidingView
+        style={{flex: 1}}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}>
+        <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
+          <ScrollView
+            contentContainerStyle={{
+              flexGrow: 1,
+              paddingHorizontal: 24,
+              paddingTop: height < SMALL_DEVICE_HEGHT ? 40 : 60,
+              paddingBottom: 24,
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+              <View style={{flex: 1}}>
+                {/* Title - top-aligned, left-aligned, black */}
+                <Text
+                  style={{
+                    textAlign: 'left',
+                    color: '#1A1A1A',
+                    fontSize: 32,
+                    fontWeight: '700',
+                    letterSpacing: -0.5,
+                    marginBottom: 12,
+                  }}>
+                  {getTitle()}
+                </Text>
 
-          {/* Subtitle - left-aligned, improved typography */}
-          <Text
-            style={{
-              textAlign: 'left',
-              fontSize: 16,
-              lineHeight: 22,
-              color: '#555',
-              marginBottom: 24,
-            }}>
-            {getSubtitle()}
-          </Text>
+                {/* Subtitle - left-aligned, improved typography */}
+                <Text
+                  style={{
+                    textAlign: 'left',
+                    fontSize: 16,
+                    lineHeight: 22,
+                    color: '#555',
+                    marginBottom: 24,
+                  }}>
+                  {getSubtitle()}
+                </Text>
 
-          {isAtEnd ? (
-            /* Verification inputs */
-            <View style={{marginBottom: 16}}>
-              {randomIndices.map((randomI, index) => (
-                <View key={index} style={{marginBottom: 16}}>
+                {isAtEnd ? (
+                  /* Verification inputs */
+                  <View style={{marginBottom: 16}}>
+                    {randomIndices.map((randomI, index) => (
+                      <View key={index} style={{marginBottom: 16}}>
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: '600',
+                            color: '#1A1A1A',
+                            marginBottom: 8,
+                          }}>
+                          {`Word ${randomI + 1}`}
+                        </Text>
+                        <RNTextInput
+                          value={wordGuesses[index]}
+                          onChangeText={text => {
+                            let newGuesses = [...wordGuesses];
+                            newGuesses[index] = text.toLowerCase().trim();
+                            setWordGuesses(newGuesses);
+                          }}
+                          onFocus={() => setFocusedInput(index)}
+                          onBlur={() => setFocusedInput(-1)}
+                          placeholder={`Enter word ${randomI + 1}...`}
+                          placeholderTextColor="#999"
+                          returnKeyType={index === 2 ? 'done' : 'next'}
+                          autoCorrect={false}
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          style={{
+                            height: 56,
+                            borderRadius: 12,
+                            borderWidth: 2,
+                            borderColor: wordErrors[index]
+                              ? Colors.warningButtonColor
+                              : focusedInput === index
+                              ? Colors.primaryColor
+                              : '#E0E0E0',
+                            paddingHorizontal: 16,
+                            fontSize: 16,
+                            color: '#1A1A1A',
+                            backgroundColor: wordErrors[index] ? '#FFF5F5' : '#FAFAFA',
+                          }}
+                        />
+                        {wordErrors[index] && (
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: Colors.warningButtonColor,
+                              marginTop: 4,
+                              marginLeft: 4,
+                            }}>
+                            {'This word does not match'}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  /* Word display card */
+                  <Card
+                    mode="outlined"
+                    style={{
+                      borderRadius: 12,
+                      backgroundColor: '#FAFAFA',
+                      borderWidth: 1,
+                      borderColor: '#E0E0E0',
+                      marginBottom: 24,
+                    }}>
+                    <Card.Content style={{paddingVertical: 16, paddingHorizontal: 16}}>
+                      {displayWords.map((word, index) => (
+                        <View
+                          key={index}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 12,
+                            borderBottomWidth: index < displayWords.length - 1 ? 1 : 0,
+                            borderBottomColor: '#E8E8E8',
+                          }}>
+                          <Text
+                            style={{
+                              fontSize: 14,
+                              fontWeight: '600',
+                              color: '#888',
+                              width: 60,
+                            }}>
+                            {`Word ${firstIndex + index + 1}`}
+                          </Text>
+                          <Text
+                            style={{
+                              fontSize: 18,
+                              color: '#1A1A1A',
+                              fontWeight: '600',
+                              flex: 1,
+                            }}>
+                            {word}
+                          </Text>
+                        </View>
+                      ))}
+                    </Card.Content>
+                  </Card>
+                )}
+
+                {/* Spacer - now uses minHeight instead of flex */}
+                <View style={{minHeight: 20, flex: 1}} />
+
+                {/* Instruction text */}
+                {!isAtEnd && (
                   <Text
                     style={{
-                      fontSize: 13,
-                      fontWeight: '600',
-                      color: '#1A1A1A',
-                      marginBottom: 8,
+                      textAlign: 'center',
+                      fontSize: 14,
+                      color: '#666',
+                      marginBottom: 16,
                     }}>
-                    {`Word ${randomI + 1}`}
+                    {"When you've written them down, press next."}
                   </Text>
-                  <RNTextInput
-                    value={wordGuesses[index]}
-                    onChangeText={text => {
-                      let newGuesses = [...wordGuesses];
-                      newGuesses[index] = text.toLowerCase().trim();
-                      setWordGuesses(newGuesses);
-                    }}
-                    onFocus={() => setFocusedInput(index)}
-                    onBlur={() => setFocusedInput(-1)}
-                    placeholder={`Enter word ${randomI + 1}...`}
-                    placeholderTextColor="#999"
-                    returnKeyType={index === 2 ? 'done' : 'next'}
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    style={{
-                      height: 56,
-                      borderRadius: 12,
-                      borderWidth: 2,
-                      borderColor: wordErrors[index]
-                        ? Colors.warningButtonColor
-                        : focusedInput === index
-                        ? Colors.primaryColor
-                        : '#E0E0E0',
-                      paddingHorizontal: 16,
-                      fontSize: 16,
-                      color: '#1A1A1A',
-                      backgroundColor: wordErrors[index] ? '#FFF5F5' : '#FAFAFA',
-                    }}
-                  />
-                  {wordErrors[index] && (
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        color: Colors.warningButtonColor,
-                        marginTop: 4,
-                        marginLeft: 4,
-                      }}>
-                      {'This word does not match'}
-                    </Text>
-                  )}
-                </View>
-              ))}
-            </View>
-          ) : (
-            /* Word display card */
-            <Card
-              mode="outlined"
-              style={{
-                borderRadius: 12,
-                backgroundColor: '#FAFAFA',
-                borderWidth: 1,
-                borderColor: '#E0E0E0',
-                marginBottom: 24,
-              }}>
-              <Card.Content style={{paddingVertical: 16, paddingHorizontal: 16}}>
-                {displayWords.map((word, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 12,
-                      borderBottomWidth: index < displayWords.length - 1 ? 1 : 0,
-                      borderBottomColor: '#E8E8E8',
-                    }}>
-                    <Text
-                      style={{
-                        fontSize: 14,
+                )}
+
+                {/* Buttons */}
+                <View style={{flexDirection: 'row', gap: 12}}>
+                  {formStep > 0 && (
+                    <TallButton
+                      onPress={back}
+                      mode="text"
+                      labelStyle={{
                         fontWeight: '600',
-                        color: '#888',
-                        width: 60,
-                      }}>
-                      {`Word ${firstIndex + index + 1}`}
-                    </Text>
-                    <Text
+                        fontSize: 16,
+                        color: '#666',
+                        textTransform: 'none',
+                      }}
+                      contentStyle={{height: 56}}
                       style={{
-                        fontSize: 18,
-                        color: '#1A1A1A',
-                        fontWeight: '600',
                         flex: 1,
+                        borderRadius: 24,
                       }}>
-                      {word}
-                    </Text>
-                  </View>
-                ))}
-              </Card.Content>
-            </Card>
-          )}
-
-          {/* Spacer */}
-          <View style={{flex: 1}} />
-
-          {/* Instruction text */}
-          {!isAtEnd && (
-            <Text
-              style={{
-                textAlign: 'center',
-                fontSize: 14,
-                color: '#666',
-                marginBottom: 16,
-              }}>
-              {"When you've written them down, press next."}
-            </Text>
-          )}
-
-          {/* Buttons */}
-          <View style={{flexDirection: 'row', marginBottom: 24, gap: 12}}>
-            {formStep > 0 && (
-              <TallButton
-                onPress={back}
-                mode="text"
-                labelStyle={{
-                  fontWeight: '600',
-                  fontSize: 16,
-                  color: '#666',
-                  textTransform: 'none',
-                }}
-                contentStyle={{height: 56}}
-                style={{
-                  flex: 1,
-                  borderRadius: 24,
-                }}>
-                {'Back'}
-              </TallButton>
-            )}
-            <TallButton
-              onPress={next}
-              mode="contained"
-              disabled={
-                isAtEnd &&
-                (wordGuesses[0].length === 0 ||
-                  wordGuesses[1].length === 0 ||
-                  wordGuesses[2].length === 0)
-              }
-              labelStyle={[
-                {
-                  color: Colors.secondaryColor,
-                  fontWeight: '600',
-                  fontSize: 18,
-                  letterSpacing: 0,
-                  textTransform: 'none',
-                },
-                isAtEnd &&
-                  (wordGuesses[0].length === 0 ||
-                    wordGuesses[1].length === 0 ||
-                    wordGuesses[2].length === 0) && {color: '#F0F9FC'},
-              ]}
-              contentStyle={{height: 56}}
-              style={[
-                {
-                  flex: formStep > 0 ? 1 : undefined,
-                  width: formStep > 0 ? undefined : '100%',
-                  borderRadius: 24,
-                  backgroundColor: Colors.primaryColor,
-                  elevation: 0,
-                  shadowColor: 'transparent',
-                  shadowOpacity: 0,
-                  shadowRadius: 0,
-                  shadowOffset: {width: 0, height: 0},
-                },
-                isAtEnd &&
-                  (wordGuesses[0].length === 0 ||
-                    wordGuesses[1].length === 0 ||
-                    wordGuesses[2].length === 0) && {
-                  backgroundColor: '#CFEAF2',
-                },
-              ]}>
-              {isAtEnd ? 'Complete' : 'Next'}
-            </TallButton>
-          </View>
+                      {'Back'}
+                    </TallButton>
+                  )}
+                  <TallButton
+                    onPress={next}
+                    mode="contained"
+                    disabled={
+                      isAtEnd &&
+                      (wordGuesses[0].length === 0 ||
+                        wordGuesses[1].length === 0 ||
+                        wordGuesses[2].length === 0)
+                    }
+                    labelStyle={[
+                      {
+                        color: Colors.secondaryColor,
+                        fontWeight: '600',
+                        fontSize: 18,
+                        letterSpacing: 0,
+                        textTransform: 'none',
+                      },
+                      isAtEnd &&
+                        (wordGuesses[0].length === 0 ||
+                          wordGuesses[1].length === 0 ||
+                          wordGuesses[2].length === 0) && {color: '#F0F9FC'},
+                    ]}
+                    contentStyle={{height: 56}}
+                    style={[
+                      {
+                        flex: formStep > 0 ? 1 : undefined,
+                        width: formStep > 0 ? undefined : '100%',
+                        borderRadius: 24,
+                        backgroundColor: Colors.primaryColor,
+                        elevation: 0,
+                        shadowColor: 'transparent',
+                        shadowOpacity: 0,
+                        shadowRadius: 0,
+                        shadowOffset: {width: 0, height: 0},
+                      },
+                      isAtEnd &&
+                        (wordGuesses[0].length === 0 ||
+                          wordGuesses[1].length === 0 ||
+                          wordGuesses[2].length === 0) && {
+                        backgroundColor: '#CFEAF2',
+                      },
+                    ]}>
+                    {isAtEnd ? 'Complete' : 'Next'}
+                  </TallButton>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </ScrollView>
         </View>
-      </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

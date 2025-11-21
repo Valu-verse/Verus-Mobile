@@ -78,7 +78,7 @@ export const TOTAL = 'total'
 
 // Payment Methods
 export const WYRE_URL = 'https://api.sendwyre.com';
-export const VALU_URL = 'https://stagingapi.valu.earth';
+export const VALU_URL = 'https://api.valu.earth';
 export const WYRE_REFERRER_ACCOUNT_ID = 'verus-valu';
 
 // Biometry

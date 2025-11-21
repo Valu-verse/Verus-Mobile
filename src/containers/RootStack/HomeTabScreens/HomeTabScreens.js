@@ -1,12 +1,11 @@
 /*
   Updated HomeTabScreens:
-  - Set bottom tab bar background to white (secondaryColor)
-  - Added activeColor (primaryColor) and inactiveColor (verusDarkGray)
+  - Switched to createBottomTabNavigator to enable explicit tabBarStyle control
+  - Preserved the previous color scheme for active/inactive icons and background
 */
 import React from 'react';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import Feather from 'react-native-vector-icons/Feather';
-import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
 import AssetsStackScreens from '../AssetsStackScreens/AssetsStackScreens';
@@ -14,17 +13,25 @@ import ActivityStackScreens from '../ActivityStackScreens/ActivityStackScreens';
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
 import VerusPay from '../../VerusPay/VerusPay';
-import ConvertStackScreens from '../ConvertStackScreens/ConvertStackScreens';
 
-const HomeTabs = createMaterialBottomTabNavigator()
+const HomeTabs = createBottomTabNavigator();
 
 const HomeTabScreens = props => {
   return (
     <HomeTabs.Navigator
-      barStyle={{ backgroundColor: Colors.secondaryColor }}
-      activeColor={Colors.primaryColor}
-      inactiveColor={Colors.verusDarkGray}
-      shifting={false}
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primaryColor,
+        tabBarInactiveTintColor: Colors.verusDarkGray,
+        tabBarStyle: {
+          backgroundColor: Colors.secondaryColor,
+          borderTopColor: 'transparent',
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
+      }}
     >
       <HomeTabs.Screen
         name="WalletHome"
@@ -88,7 +95,11 @@ const HomeTabScreens = props => {
         options={{
           title: "Scan",
           tabBarIcon: ({ color }) => (
-            <Feather name="camera" color={color} size={22} style={{ marginBottom: 2 }} />
+            <MaterialCommunityIcons
+              name="qrcode-scan"
+              color={color}
+              size={26}
+            />
           ),
         }}
       />

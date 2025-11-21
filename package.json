@@ -22,6 +22,7 @@
     "@react-native-community/cli": "8.0.4",
     "@react-native-community/datetimepicker": "7.0.1",
     "@react-native-community/netinfo": "6.0.2",
+    "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/compat": "5.3.20",
     "@react-navigation/drawer": "6.5.0",
     "@react-navigation/material-bottom-tabs": "6.2.4",
