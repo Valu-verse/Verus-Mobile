@@ -3,6 +3,7 @@
   - 2025-11-21: Renamed to Wallet. 
   - Merged Assets functionality.
   - Removed widgets (moved to Services).
+  - 2025-11-22: Removed legacy drawer close call (bottom tabs own settings).
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -148,7 +149,7 @@ const Home = () => {
       ],
     });
 
-    navigation.closeDrawer();
+    navigation?.closeDrawer?.();
     navigation.dispatch(resetAction);
   };
 

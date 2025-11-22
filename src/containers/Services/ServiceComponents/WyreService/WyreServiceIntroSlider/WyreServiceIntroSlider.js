@@ -1,3 +1,6 @@
+/*
+  2025-11-22: Safe-guarded drawer calls for bottom-tab navigation.
+*/
 import React from "react";
 import { Component } from "react"
 import { connect } from 'react-redux'
@@ -99,7 +102,7 @@ class WyreServiceIntroSlider extends Component {
       })
     }
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

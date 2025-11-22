@@ -2,6 +2,7 @@
   This component displays the different coin setting menu options a user
   has. This includes general coin settings and specific settings for each 
   active coin.
+  2025-11-22: Removed hard dependency on drawer navigation.
 */
 
 import React, { useState, useCallback, useEffect } from "react";
@@ -45,7 +46,7 @@ const WalletSettings = ({ navigation, dispatch, activeCoinsForUser }) => {
       ],
     });
 
-    navigation.closeDrawer();
+    navigation?.closeDrawer?.();
     navigation.dispatch(resetAction);
   }, [navigation]);
 

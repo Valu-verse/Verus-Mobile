@@ -2,6 +2,7 @@
   This component's purpose is to display the user seeds in 
   plaintext upon authorization. It uses the users password 
   to decrypt it from their userData stored in AsyncStorage.
+  2025-11-22: Guarded drawer references now that UI uses bottom tabs.
 */
 
 import React, { Component } from "react";
@@ -86,7 +87,7 @@ class DisplaySeed extends Component {
       routes: [{ name: route }],
     });
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction);
   };
 

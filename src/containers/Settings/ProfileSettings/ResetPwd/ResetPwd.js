@@ -4,6 +4,7 @@
   enter their password, if it is correct, they are asked to confirm, 
   and if they continue, their password is reset in memory by decrypting
   their wallet seed and re-encrypting it with their new password.
+  2025-11-22: Guarded drawer close while migrating to bottom tabs.
 */
 
 import React, { Component } from "react";
@@ -100,7 +101,7 @@ class ResetPwd extends Component {
       })
     }
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

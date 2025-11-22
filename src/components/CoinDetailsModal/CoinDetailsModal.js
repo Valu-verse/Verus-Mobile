@@ -1,6 +1,7 @@
 /*
   This component displays the details of ta transaction selected
   from the Overview component.
+  2025-11-22: Guarded navigation.closeDrawer for drawerless layout.
 */
 
 import React, { Component } from "react";
@@ -48,7 +49,7 @@ class CoinDetailsModal extends Component {
       ],
     })
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

@@ -1,6 +1,6 @@
 /*
-  The settings reducer contains information to do with
-  user-decided app settings.
+  2025-11-22: Default settings landing tab to settings-profile, guard
+  against null active config sections, and normalize persisted settings.
 */
 
 import { MAX_VERIFICATION, DEFAULT_PRIVATE_ADDRS, ADDRESS_BLOCKLIST_FROM_WEBSERVER } from '../utils/constants/constants'
@@ -15,12 +15,16 @@ import {
 import { DLIGHT_PRIVATE } from '../utils/constants/intervalConstants'
 import { USD } from '../utils/constants/currencies'
 
+const DEFAULT_CONFIG_SECTION = 'settings-profile';
+const normalizeConfigSection = (section) =>
+  section == null ? DEFAULT_CONFIG_SECTION : section;
+
 export const settings = (state = {
   btcFeesAdvanced: false,
   extendedCoinInfo: false,
   extendedTxInfo: false,
   pinForTxs: false,
-  activeConfigSection: null,
+  activeConfigSection: DEFAULT_CONFIG_SECTION,
   generalWalletSettings: {
     maxTxCount: 10,
     minGasPriceGwei: 1,
@@ -78,15 +82,19 @@ export const settings = (state = {
           ...newCoinSettings
         },
       };
-    case SET_ALL_SETTINGS: 
+    case SET_ALL_SETTINGS: {
+      const nextConfigSection =
+        action.settings?.activeConfigSection ?? state.activeConfigSection;
       return {
         ...state,
-        ...action.settings
+        ...action.settings,
+        activeConfigSection: normalizeConfigSection(nextConfigSection),
       }
+    }
     case SET_CONFIG_SECTION:
       return {
         ...state,
-        activeConfigSection: action.activeConfigSection,
+        activeConfigSection: normalizeConfigSection(action.activeConfigSection),
       };
     case SET_GENERAL_WALLET_SETTINGS_STATE:
       return {

@@ -1,8 +1,6 @@
 /*
-  Updated HomeTabScreens:
-  - Switched to createBottomTabNavigator to enable explicit tabBarStyle control
-  - Preserved the previous color scheme for active/inactive icons and background
-  - Restored Feather icon import after merge to resolve runtime crash
+  2025-11-22: Added a dedicated Settings tab (powered by SettingsStackScreens)
+  so users can reach Settings without the drawer and kept icon styling intact.
 */
 import React from 'react';
 import Feather from 'react-native-vector-icons/Feather';
@@ -11,13 +9,17 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
 import ActivityStackScreens from '../ActivityStackScreens/ActivityStackScreens';
-import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
 import VerusPay from '../../VerusPay/VerusPay';
+import SettingsStackScreens from '../SettingsStackScreens/SettingsStackScreens';
+import { useDispatch } from 'react-redux';
+import { setConfigSection } from '../../../actions/actionCreators';
 
 const HomeTabs = createBottomTabNavigator();
 
 const HomeTabScreens = props => {
+  const dispatch = useDispatch();
+
   return (
     <HomeTabs.Navigator
       screenOptions={{
@@ -64,6 +66,19 @@ const HomeTabScreens = props => {
           tabBarIcon: ({ color }) => (
             <Feather name="clock" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
+        }}
+      />
+      <HomeTabs.Screen
+        name="SettingsHome"
+        component={SettingsStackScreens}
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color }) => (
+            <Feather name="settings" color={color} size={22} style={{ marginBottom: 2 }} />
+          ),
+        }}
+        listeners={{
+          focus: () => dispatch(setConfigSection('settings-profile')),
         }}
       />
       {/* <HomeTabs.Screen

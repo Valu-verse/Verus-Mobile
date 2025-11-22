@@ -1,128 +1,87 @@
 /*
-  This component's purpose is to display a tab bar of 
-  all the different options a specific setting type has 
+  2025-11-24: Replaced the Settings bottom tabs with a single list of
+  destinations so users pick Profile, Wallet, or App Info like other list
+  screens before drilling into each section.
 */
 
 import React, { Component } from "react";
+import { View, StyleSheet } from 'react-native';
 import { connect } from 'react-redux';
-import AppInfo from './AppInfo/AppInfo'
-import ProfileSettings from './ProfileSettings/ProfileSettings'
-import WalletSettings from './WalletSettings/WalletSettings'
-import { BottomNavigation } from "react-native-paper"
+import { List } from "react-native-paper"
+import { setConfigSection } from '../../actions/actionCreators';
+
+const SETTINGS_BACKGROUND = '#FFFFFF';
+
+const SETTINGS_DESTINATIONS = [
+  {
+    key: 'settings-profile',
+    title: 'Profile',
+    description: 'Identity, security, and Wyre account controls',
+    icon: 'account-settings',
+    route: 'ProfileSettings',
+  },
+  {
+    key: 'settings-wallet',
+    title: 'Wallet',
+    description: 'General preferences, RPC overrides, and cache options',
+    icon: 'credit-card-settings',
+    route: 'WalletSettings',
+  },
+  {
+    key: 'settings-info',
+    title: 'App Info',
+    description: 'Version details, licenses, and diagnostics',
+    icon: 'information',
+    route: 'AppInfo',
+  },
+];
 
 class SettingsMenus extends Component {
-  constructor(props) {
-    super(props)
-    let stateObj = this.generateTabs();
-    this.state = {
-      tabs: stateObj.tabs,
-      activeTab: stateObj.activeTab,
-      activeTabIndex: stateObj.activeTabIndex
-    };
-
-    this.Routes = {
-      ['settings-profile']: ProfileSettings,
-      ['settings-wallet']: WalletSettings,
-      ['settings-info']: AppInfo
-    }
+  componentDidMount() {
+    this.props.navigation.setOptions({ title: 'Settings' });
   }
 
-  static navigationOptions = ({ route }) => {
-    return {
-      title: typeof(route.params)==='undefined' || 
-      typeof(route.params.title) === 'undefined' ? 
-      'undefined': route.params.title,
-    };
+  handleNavigate = (destination) => {
+    const { dispatch, navigation } = this.props;
+    dispatch(setConfigSection(destination.key));
+    navigation.navigate(destination.route);
   };
-
-  generateTabs = () => {
-    let tabArray = [
-      {
-        key: "settings-profile",
-        focusedIcon: "account-settings",
-        unfocusedIcon: "account-settings",
-        title: "Profile",
-        screen: "ProfileSettings"
-      },
-      {
-        key: "settings-wallet",
-        focusedIcon: "credit-card-settings",
-        unfocusedIcon: "account-settings",
-        title: "Wallet",
-        screen: "WalletSettings"
-      },
-      {
-        key: "settings-info",
-        focusedIcon: "information",
-        unfocusedIcon: "account-settings",
-        title: "App Info",
-        screen: "AppInfo"
-      },
-    ]
-    let activeTab
-    let activeTabIndex
-    let index = 0
-
-    while (index < tabArray.length && tabArray[index].key !== this.props.activeConfigSection) {
-      index++
-    }
-
-    if (index < tabArray.length) {
-      activeTab = tabArray[index]
-      activeTabIndex = index
-    } else {
-      throw new Error("Tab not found for active section " + this.props.activeConfigSection)
-    }
-
-    this.props.navigation.setOptions({ title: activeTab.title })
-
-    return {
-      tabs: tabArray,
-      activeTab: activeTab,
-      activeTabIndex
-    };
-  }
-
-  renderScene = ({ route, jumpTo }) => {
-    if (this.Routes[route.key] == null) return null
-    else {
-      const Route = this.Routes[route.key]
-
-      return (
-        <Route
-          navigation={this.props.navigation}
-        />
-      );
-    }
-  }
-
-  switchTab = (index) => {
-    const newTab = this.state.tabs[index]
-
-    this.props.navigation.setOptions({ title: newTab.title })
-    this.setState({ activeTab: newTab, activeTabIndex: index })
-  }
 
   render() {
     return (
-      <BottomNavigation
-        navigationState={{
-          index: this.state.activeTabIndex,
-          routes: this.state.tabs,
-        }}
-        onIndexChange={this.switchTab}
-        renderScene={this.renderScene}
-        style={{ display: 'flex' }}
-      />
+      <View style={styles.container}>
+        <List.Section style={styles.section}>
+          {SETTINGS_DESTINATIONS.map((destination) => (
+            <List.Item
+              key={destination.key}
+              title={destination.title}
+              description={destination.description}
+              style={styles.listItem}
+              left={(props) => <List.Icon {...props} icon={destination.icon} />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => this.handleNavigate(destination)}
+            />
+          ))}
+        </List.Section>
+      </View>
     );
   }
 }
 
-const mapStateToProps = (state) => {
-  return {
-    activeConfigSection: state.settings.activeConfigSection
-  }
-};
+export default connect()(SettingsMenus);
 
-export default connect(mapStateToProps)(SettingsMenus);
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: SETTINGS_BACKGROUND,
+  },
+  section: {
+    backgroundColor: SETTINGS_BACKGROUND,
+    margin: 0,
+    paddingTop: 8,
+  },
+  listItem: {
+    backgroundColor: SETTINGS_BACKGROUND,
+  },
+});
 

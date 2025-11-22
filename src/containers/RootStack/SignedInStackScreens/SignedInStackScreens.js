@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import SideMenu from '../../SideMenu/SideMenu';
+/*
+  2025-11-22: Removed the drawer/SideMenu wrapper so signed-in users land
+  directly in MainStack with the new Settings bottom tab.
+*/
+import React, { useEffect } from 'react';
 import MainStackScreens from '../MainStackScreens/MainStackScreens';
 import { useDispatch, useSelector } from 'react-redux';
 import { setDeeplinkUrl } from '../../../actions/actionCreators';
 import { closeOffRamp } from '../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
 import { VALU_SERVICE_ID } from '../../../utils/constants/services';
 import { useNavigation } from '@react-navigation/native';
-
-const MainDrawer = createDrawerNavigator()
 
 const SignedInStackScreens = props => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
@@ -39,18 +39,7 @@ const SignedInStackScreens = props => {
     }
   }, [offRampRequest, openOffRamp]);
 
-  return (
-    <MainDrawer.Navigator
-      drawerWidth={250}
-      drawerContent={props => <SideMenu {...props} />}
-      screenOptions={{
-        swipeEnabled: false,
-        headerShown: false,
-        drawerPosition: "right"
-      }}>
-      <MainDrawer.Screen name="MainStack" component={MainStackScreens} />
-    </MainDrawer.Navigator>
-  );
+  return <MainStackScreens {...props} />;
 };
 
 export default SignedInStackScreens;

@@ -11,6 +11,7 @@
 
   This screen should always be reset to, not just navigated to, so that the 
   user cannot go back.
+  2025-11-22: Guarded drawer close for drawerless navigation shell.
 */
 
 import React, { Component } from "react";
@@ -145,7 +146,7 @@ class SecureLoading extends Component {
       ],
     });
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

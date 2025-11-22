@@ -15,14 +15,13 @@
     spacing.
   Update 2025-10-03:
   - Added notification bell icon with badge count
+  Update 2025-11-22:
+  - Removed the obsolete hamburger trigger now that the drawer is gone.
 */
-import {DrawerActions} from '@react-navigation/compat';
 import React, {useMemo} from 'react';
-import {Text, TouchableOpacity, View} from 'react-native';
-import {Icon} from 'react-native-elements';
+import {TouchableOpacity, View} from 'react-native';
 import {Badge} from 'react-native-paper';
 import Colors from '../../globals/colors';
-import styles from '../../styles';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import {useNavigation} from '@react-navigation/native';
 import {useDispatch, useSelector} from 'react-redux';
@@ -147,11 +146,6 @@ const Header = () => {
               {notificationCount > 99 ? '99+' : notificationCount}
             </Badge>
           )}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}>
-          <Icon name="menu" size={28} color={Colors.verusDarkGray} />
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
