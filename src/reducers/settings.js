@@ -90,7 +90,7 @@ export const settings = (state = {
         ...action.settings,
         activeConfigSection: normalizeConfigSection(nextConfigSection),
       }
-    }
+      }
     case SET_CONFIG_SECTION:
       return {
         ...state,

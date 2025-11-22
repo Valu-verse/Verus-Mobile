@@ -21,7 +21,7 @@ export const ServicesOverviewRender = ({
 }) => {
   const centralized = [];
   const decentralized = [];
-  const { disabledServices } = activeAccount;
+  const disabledServices = activeAccount ? activeAccount.disabledServices : {};
 
   CONNECTED_SERVICES.map((service, index) => {
     if (disabledServices[service] || service === VALU_SERVICE_ID || service === VERUSID_SERVICE_ID) {

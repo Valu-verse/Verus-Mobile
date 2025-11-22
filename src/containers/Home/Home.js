@@ -58,7 +58,7 @@ const Home = () => {
 
   const activeAccount = useObjectSelector((state) => state.authentication.activeAccount);
   const testnetOverrides = useObjectSelector(
-    (state) => state.authentication.activeAccount.testnetOverrides,
+    (state) => state.authentication.activeAccount ? state.authentication.activeAccount.testnetOverrides : {},
   );
   const balances = useObjectSelector((state) =>
     extractLedgerData(state, 'balances', API_GET_BALANCES),
