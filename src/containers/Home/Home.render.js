@@ -1,9 +1,12 @@
 // Home.render.js
 // 2025-11-21: Tightened header spacing and sized Crypto quick action button + manage sheet trigger.
+// 2025-11-22: Inlined the balance visibility toggle, removed reliance on the stack header, and added SafeAreaView
+//             padding so hero balances never overlap iPhone notches.
 
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Provider, Portal } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
 import { HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
@@ -18,6 +21,7 @@ import NotificationWidget from './HomeWidgets/NotificationWidget';
 import Colors from '../../globals/colors';
 import AssetsRender from '../Assets/Assets.render';
 import ManageAssetsSheet from './HomeFAB/ManageAssetsSheet';
+import BalanceVisibilityToggle from './HomeWidgets/BalanceVisibilityToggle';
 
 export const HomeRender = ({
   displayCurrencyModalOpen,
@@ -54,17 +58,20 @@ export const HomeRender = ({
   const data = isCrypto ? assets : identities;
   const listHeaderComponent = (
     <View style={styles.headerContainer}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() => setDisplayCurrencyModalOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Change display currency"
-        style={styles.totalBalanceTouchable}
-      >
-        <Provider theme={HomeListItemThemeLight}>
-          <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
-        </Provider>
-      </TouchableOpacity>
+      <View style={styles.balanceRow}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setDisplayCurrencyModalOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Change display currency"
+          style={styles.totalBalanceTouchable}
+        >
+          <Provider theme={HomeListItemThemeLight}>
+            <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
+          </Provider>
+        </TouchableOpacity>
+        <BalanceVisibilityToggle style={styles.balanceToggle} />
+      </View>
       <View style={styles.tabsWrapper}>
         <View style={styles.tabsRow}>
           <View style={styles.tabButtonsContainer}>
@@ -115,83 +122,97 @@ export const HomeRender = ({
   ) : null;
 
   return (
-    <Portal.Host>
-      <Portal>
-        {displayCurrencyModalOpen && (
-          <ListSelectionModal
-            title="Currencies"
-            selectedKey={displayCurrency}
-            visible={displayCurrencyModalOpen}
-            onSelect={(item) => setDisplayCurrency(item.key)}
-            data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map((key) => {
-              return {
-                key,
-                title: key,
-                description: CURRENCY_NAMES[key],
-              };
-            })}
-            cancel={() => setDisplayCurrencyModalOpen(false)}
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <Portal.Host>
+        <Portal>
+          {displayCurrencyModalOpen && (
+            <ListSelectionModal
+              title="Currencies"
+              selectedKey={displayCurrency}
+              visible={displayCurrencyModalOpen}
+              onSelect={(item) => setDisplayCurrency(item.key)}
+              data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map((key) => {
+                return {
+                  key,
+                  title: key,
+                  description: CURRENCY_NAMES[key],
+                };
+              })}
+              cancel={() => setDisplayCurrencyModalOpen(false)}
+            />
+          )}
+          {buySellSheetVisible && (
+            <BuySellSheet
+              visible={true}
+              onClose={() => setBuySellSheetVisible(false)}
+              onComplete={handleBuySellComplete}
+            />
+          )}
+          {transferSheetVisible && (
+            <TransferSheet
+              visible={true}
+              onClose={() => setTransferSheetVisible(false)}
+              onSelectReceive={handleTransferReceive}
+              onSelectSendConvert={handleTransferSendConvert}
+            />
+          )}
+          <ManageAssetsSheet
+            visible={manageVisible}
+            onClose={() => setManageVisible(false)}
+            showConfigureHomeCards={false}
+            onBrowseAll={_addCoin}
+            onAddErc20={_addErc20Token}
+            onAddPbaas={_addPbaasCurrency}
+            onArrangeCards={() => {}}
           />
-        )}
-        {buySellSheetVisible && (
-          <BuySellSheet
-            visible={true}
-            onClose={() => setBuySellSheetVisible(false)}
-            onComplete={handleBuySellComplete}
-          />
-        )}
-        {transferSheetVisible && (
-          <TransferSheet
-            visible={true}
-            onClose={() => setTransferSheetVisible(false)}
-            onSelectReceive={handleTransferReceive}
-            onSelectSendConvert={handleTransferSendConvert}
-          />
-        )}
-        <ManageAssetsSheet
-          visible={manageVisible}
-          onClose={() => setManageVisible(false)}
-          showConfigureHomeCards={false}
-          onBrowseAll={_addCoin}
-          onAddErc20={_addErc20Token}
-          onAddPbaas={_addPbaasCurrency}
-          onArrangeCards={() => {}}
+        </Portal>
+        <HomeFAB
+          handleAddCoin={_addCoin}
+          handleVerusPay={_verusPay}
+          handleAddPbaasCurrency={_addPbaasCurrency}
+          handleAddErc20Token={_addErc20Token}
+          handleOpenOnOffRamp={handleOpenOnOffRamp}
+          handleTransfer={handleTransferPress}
         />
-      </Portal>
-      <HomeFAB
-        handleAddCoin={_addCoin}
-        handleVerusPay={_verusPay}
-        handleAddPbaasCurrency={_addPbaasCurrency}
-        handleAddErc20Token={_addErc20Token}
-        handleOpenOnOffRamp={handleOpenOnOffRamp}
-        handleTransfer={handleTransferPress}
-      />
-      <NotificationWidget />
-      <AssetsRender.List
-        assets={data}
-        displayCurrency={displayCurrency}
-        showBalance={showBalance}
-        onPressAsset={isCrypto ? openCoin : undefined}
-        onPressAddAssets={isCrypto ? () => setManageVisible(true) : undefined}
-        listHeaderComponent={listHeaderComponent}
-        listFooterComponent={listFooterComponent}
-        showManageAssets={false}
-        emptyComponent={listEmptyComponent}
-        refreshing={loading}
-        onRefresh={forceUpdate}
-      />
-    </Portal.Host>
+        <NotificationWidget />
+        <AssetsRender.List
+          assets={data}
+          displayCurrency={displayCurrency}
+          showBalance={showBalance}
+          onPressAsset={isCrypto ? openCoin : undefined}
+          onPressAddAssets={isCrypto ? () => setManageVisible(true) : undefined}
+          listHeaderComponent={listHeaderComponent}
+          listFooterComponent={listFooterComponent}
+          showManageAssets={false}
+          emptyComponent={listEmptyComponent}
+          refreshing={loading}
+          onRefresh={forceUpdate}
+        />
+      </Portal.Host>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   headerContainer: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 4,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  balanceToggle: {
+    marginLeft: 4,
   },
   totalBalanceTouchable: {
     paddingBottom: 0,
+    flex: 1,
   },
   tabsWrapper: {
     borderBottomWidth: StyleSheet.hairlineWidth,

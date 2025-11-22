@@ -1,3 +1,7 @@
+/*
+  WalletStackScreens
+  - 2025-11-22: Hid the Wallets header so the Home screen can own its chrome.
+*/
 import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
@@ -19,8 +23,7 @@ const WalletStackScreens = props => {
         name="Wallets"
         component={Home}
         options={{
-          title: "Home",
-          // No custom headerRight: restore default header controls from defaultHeaderOptions
+          headerShown: false,
         }}
       />
       <WalletStack.Screen
