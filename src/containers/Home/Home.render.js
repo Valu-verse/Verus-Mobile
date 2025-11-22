@@ -1,35 +1,23 @@
 // Home.render.js
-// 2025-11-04: Converted widgets into a fixed single-column stack and removed drag-edit UI.
+// 2025-11-21: Tightened header spacing and sized Crypto quick action button + manage sheet trigger.
 
 import React from 'react';
-import { View, RefreshControl, ScrollView, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Provider, Portal } from 'react-native-paper';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
-import { truncateDecimal } from '../../utils/math';
-import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
+import { HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
 import TransferSheet from './HomeFAB/TransferSheet';
-import CurrencyWidget from './HomeWidgets/CurrencyWidget';
-import {
-  CURRENCY_WIDGET_TYPE,
-  TOTAL_UNI_BALANCE_WIDGET_TYPE,
-  VERUSID_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE,
-  PERSONAL_PROFILE_WIDGET_TYPE
-} from '../../utils/constants/widgets';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
 import ListSelectionModal from '../../components/ListSelectionModal/ListSelectionModal';
 import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../utils/constants/currencies';
-import VerusIdWidget from './HomeWidgets/VerusIdWidget';
-// ValuWidget removed in favor of floating Buy & sell button
-// import ValuWidget from './HomeWidgets/ValuWidget';
-import AttestationWidget from './HomeWidgets/AttestationWidget';
-import PersonalProfileWidget from './HomeWidgets/PersonalProfileWidget';
-import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
+import Colors from '../../globals/colors';
+import AssetsRender from '../Assets/Assets.render';
+import ManageAssetsSheet from './HomeFAB/ManageAssetsSheet';
 
 export const HomeRender = ({
   displayCurrencyModalOpen,
@@ -51,8 +39,81 @@ export const HomeRender = ({
   handleTransferSendConvert,
   forceUpdate,
   loading,
-  HomeRenderCoinsList,
+  assets,
+  showBalance,
+  openCoin,
+  manageVisible,
+  setManageVisible,
+  activeCategory,
+  setActiveCategory,
+  identities,
+  identitiesPlaceholder,
 }) => {
+  const totalFiatBalance = assets.reduce((sum, item) => sum + (item.fiat || 0), 0);
+  const isCrypto = activeCategory === 'crypto';
+  const data = isCrypto ? assets : identities;
+  const listHeaderComponent = (
+    <View style={styles.headerContainer}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => setDisplayCurrencyModalOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Change display currency"
+        style={styles.totalBalanceTouchable}
+      >
+        <Provider theme={HomeListItemThemeLight}>
+          <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
+        </Provider>
+      </TouchableOpacity>
+      <View style={styles.tabsWrapper}>
+        <View style={styles.tabsRow}>
+          <View style={styles.tabButtonsContainer}>
+            {[
+              { key: 'crypto', label: 'Crypto' },
+              { key: 'identities', label: 'Identities' },
+            ].map((tab) => {
+              const selected = activeCategory === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  activeOpacity={0.85}
+                  style={[styles.tabButton, selected && styles.tabButtonSelected]}
+                  onPress={() => {
+                    if (!selected) {
+                      setActiveCategory(tab.key);
+                    }
+                  }}
+                >
+                  <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
+                  <View style={[styles.tabUnderline, selected && styles.tabUnderlineSelected]} />
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {isCrypto ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.tabActionButton}
+              accessibilityRole="button"
+              accessibilityLabel="Manage assets"
+              onPress={() => setManageVisible(true)}
+            >
+              <Text style={styles.tabActionPlus}>+</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+
+  const listFooterComponent = <View style={{ height: 220 }} />;
+  const listEmptyComponent = !isCrypto ? (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>No identities yet</Text>
+      <Text style={styles.emptySubtitle}>{identitiesPlaceholder}</Text>
+    </View>
+  ) : null;
+
   return (
     <Portal.Host>
       <Portal>
@@ -87,6 +148,15 @@ export const HomeRender = ({
             onSelectSendConvert={handleTransferSendConvert}
           />
         )}
+        <ManageAssetsSheet
+          visible={manageVisible}
+          onClose={() => setManageVisible(false)}
+          showConfigureHomeCards={false}
+          onBrowseAll={_addCoin}
+          onAddErc20={_addErc20Token}
+          onAddPbaas={_addPbaasCurrency}
+          onArrangeCards={() => {}}
+        />
       </Portal>
       <HomeFAB
         handleAddCoin={_addCoin}
@@ -97,107 +167,104 @@ export const HomeRender = ({
         handleTransfer={handleTransferPress}
       />
       <NotificationWidget />
-      {HomeRenderCoinsList()}
+      <AssetsRender.List
+        assets={data}
+        displayCurrency={displayCurrency}
+        showBalance={showBalance}
+        onPressAsset={isCrypto ? openCoin : undefined}
+        onPressAddAssets={isCrypto ? () => setManageVisible(true) : undefined}
+        listHeaderComponent={listHeaderComponent}
+        listFooterComponent={listFooterComponent}
+        showManageAssets={false}
+        emptyComponent={listEmptyComponent}
+        refreshing={loading}
+        onRefresh={forceUpdate}
+      />
     </Portal.Host>
   );
 };
 
-export const HomeRenderCoinsList = ({
-  widgets,
-  loading,
-  forceUpdate,
-  handleWidgetPress,
-  HomeRenderWidget,
-}) => {
-  return widgets.length == 0 ? (
-    <View />
-  ) : (
-    <ScrollView
-      refreshControl={<RefreshControl refreshing={loading} onRefresh={forceUpdate} />}
-      contentContainerStyle={{
-        backgroundColor: 'white',
-        paddingHorizontal: 12,
-        paddingTop: 12,
-        paddingBottom: 220,
-      }}
-      showsVerticalScrollIndicator={false}
-    >
-      {widgets
-        .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
-        .filter(({ node }) => node != null)
-        .map(({ id, node }) => (
-          <TouchableOpacity
-            key={id}
-            activeOpacity={0.8}
-            onPress={handleWidgetPress ? () => handleWidgetPress(id) : undefined}
-            disabled={!handleWidgetPress}
-            style={{ width: '100%', marginBottom: 8 }}
-          >
-            {node}
-          </TouchableOpacity>
-        ))}
-    </ScrollView>
-  );
-};
-
-export const HomeRenderWidget = ({
-  widgetId,
-  totalCryptoBalances,
-  totalFiatBalance,
-  hasValuProofOfPersonhood,
-}) => {
-  const widgetSplit = widgetId.split(':');
-  const widgetType = widgetSplit[0];
-
-  const renderers = {
-    [CURRENCY_WIDGET_TYPE]: () => {
-      const coinId = widgetSplit[1];
-      const coinObj = CoinDirectory.findCoinObj(coinId);
-
-      const balance =
-        totalCryptoBalances[coinObj.id] == null
-          ? null
-          : truncateDecimal(totalCryptoBalances[coinObj.id], 8);
-
-      return (
-        <Provider theme={HomeListItemThemeDark}>
-          <CurrencyWidget currencyBalance={balance} coinObj={coinObj} />
-        </Provider>
-      );
-    },
-    [TOTAL_UNI_BALANCE_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <TotalUniBalanceWidget totalBalance={totalFiatBalance} />
-        </Provider>
-      );
-    },
-    [VERUSID_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <VerusIdWidget />
-        </Provider>
-      );
-    },
-    [ATTESTATION_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <AttestationWidget hasValuProofOfPersonhood={hasValuProofOfPersonhood} />
-        </Provider>
-      );
-    },
-    [PERSONAL_PROFILE_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <PersonalProfileWidget />
-        </Provider>
-      );
-    }
-  }
-
-  if (renderers[widgetType]) {
-    return renderers[widgetType]();
-  } else {
-    return null; // Return null instead of an empty View to prevent rendering
-  }
-};
+const styles = StyleSheet.create({
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 4,
+  },
+  totalBalanceTouchable: {
+    paddingBottom: 0,
+  },
+  tabsWrapper: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
+    position: 'relative',
+    marginTop: -4,
+  },
+  tabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  tabButtonsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  tabButton: {
+    paddingVertical: 10,
+    marginRight: 24,
+    position: 'relative',
+  },
+  tabButtonSelected: {},
+  tabLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#5F6A7A',
+  },
+  tabLabelSelected: {
+    color: Colors.primaryColor,
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: -4 - StyleSheet.hairlineWidth, // Push down to overlap the border (4px padding + linewidth)
+    left: 0,
+    right: 0,
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
+  },
+  tabUnderlineSelected: {
+    backgroundColor: Colors.primaryColor,
+  },
+  tabActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 21.6,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  tabActionPlus: {
+    fontSize: 26,
+    color: '#333333',
+    fontWeight: '600',
+    marginTop: -2,
+  },
+  emptyState: {
+    paddingHorizontal: 24,
+    paddingTop: 48,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1D1F24',
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#5F6A7A',
+    lineHeight: 20,
+  },
+});

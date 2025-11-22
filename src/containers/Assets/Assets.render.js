@@ -1,16 +1,14 @@
 /*
   Updated: Assets.render
-  - Render assets in compact list rows without dividers (balanced spacing)
-  - Match icon styling to Add assets selection (40px square cards)
-  - Balance row spacing and reduce gaps between text stacks
-  - Restyle manage assets CTA to chip format with inline prompt and header variant
+  - Compact asset rows with balanced spacing and chip-style Manage Assets CTAs
+  - Match icon styling to Add assets selection (square cards) with refined sizing
+  - Align coin name with fiat balance, widen spacing before crypto amount, and show 4 decimal places
   - Round fiat balances to two decimals before formatting to match coin overview screens
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
-import { normalizeNum } from '../../utils/normalizeNum';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import BigNumber from 'bignumber.js';
 
@@ -18,28 +16,31 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   const { coinObj, fiat, crypto } = item;
   const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
   const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
+  const cryptoAmount = BigNumber(crypto || 0);
+  const cryptoFormatted = cryptoAmount.isFinite()
+    ? cryptoAmount.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)
+    : '0.0000';
 
   return (
     <List.Item
       onPress={onPress}
       rippleColor="transparent"
-      title={coinObj.display_name}
-      description={coinObj.display_ticker}
-      left={() => (
-        <View style={styles.leftContainer}>{RenderSquareCoinLogo(coinObj.id, {}, 40, 40)}</View>
-      )}
-      right={(props) => (
-        <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: 'black' }}>
+      title={() => (
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{coinObj.display_name}</Text>
+          <Text style={styles.fiatValue}>
             {showBalance ? fiatFormatted : '*****'}
-          </Text>
-          <Text style={{ fontSize: 12, color: '#666', marginTop: 1 }}>
-            {showBalance ? `${normalizeNum(Number(crypto), 8)[3]} ${coinObj.display_ticker}` : '***'}
           </Text>
         </View>
       )}
-      titleStyle={{ fontSize: 16, fontWeight: '600' }}
-      descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 1 }}
+      description={() => (
+        <Text style={styles.cryptoValue}>
+          {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : '***'}
+        </Text>
+      )}
+      left={() => (
+        <View style={styles.leftContainer}>{RenderSquareCoinLogo(coinObj.id, {}, 38, 38)}</View>
+      )}
       style={styles.listItem}
       contentStyle={styles.listItemContent}
     />
@@ -57,12 +58,30 @@ const ManageAssetsAction = ({ onPress, style }) => (
 
 const AddAssetsInline = ({ onPress }) => <ManageAssetsAction onPress={onPress} style={styles.manageAssetsInline} />;
 
-const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressAddAssets }) => {
+const ListView = ({
+  assets,
+  displayCurrency,
+  showBalance,
+  onPressAsset,
+  onPressAddAssets,
+  listHeaderComponent,
+  listFooterComponent,
+  refreshing = false,
+  onRefresh = () => {},
+  showManageAssets = true,
+  emptyComponent,
+}) => {
+  const headerContent = () => (
+    <View>
+      {listHeaderComponent}
+      {showManageAssets && onPressAddAssets ? (
+        <AddAssetsInline onPress={onPressAddAssets} />
+      ) : null}
+    </View>
+  );
+
   return (
     <View style={styles.listContainer}>
-      <AddAssetsInline onPress={onPressAddAssets} />
-
-      {/* Buttons removed: use shared HomeFAB overlay for identical placement */}
       <FlatList
         data={assets}
         keyExtractor={(x) => x.coinObj.id}
@@ -71,9 +90,18 @@ const ListView = ({ assets, displayCurrency, showBalance, onPressAsset, onPressA
             item={item}
             displayCurrency={displayCurrency}
             showBalance={showBalance}
-            onPress={() => onPressAsset(item.coinObj)}
+            onPress={
+              onPressAsset
+                ? () => onPressAsset(item.coinObj)
+                : undefined
+            }
           />
         )}
+        ListHeaderComponent={headerContent}
+        ListFooterComponent={listFooterComponent}
+        ListEmptyComponent={emptyComponent}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
         contentContainerStyle={styles.listContent}
       />
     </View>
@@ -99,17 +127,39 @@ const styles = StyleSheet.create({
   },
   listItem: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   listItemContent: {
-    paddingVertical: 2,
+    paddingVertical: 0,
   },
   leftContainer: {
-    paddingHorizontal: 8,
+    paddingRight: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 52,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fiatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 12,
+  },
+  cryptoValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666666',
+    marginTop: 6,
   },
   manageAssetsContainer: {
     flexDirection: 'row',
@@ -148,5 +198,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-
-

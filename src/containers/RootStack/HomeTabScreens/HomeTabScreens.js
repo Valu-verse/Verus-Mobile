@@ -10,7 +10,6 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
-import AssetsStackScreens from '../AssetsStackScreens/AssetsStackScreens';
 import ActivityStackScreens from '../ActivityStackScreens/ActivityStackScreens';
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import ServicesStackScreens from '../ServicesStackScreens/ServicesStackScreens';
@@ -39,23 +38,13 @@ const HomeTabScreens = props => {
         name="WalletHome"
         component={WalletStackScreens}
         options={{
-          title: "Home",
+          title: "Wallet",
           tabBarIcon: ({ color }) => (
-            <Feather name="home" color={color} size={22} style={{ marginBottom: 2 }} />
+            <Feather name="credit-card" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
 
-      <HomeTabs.Screen
-        name="AssetsHome"
-        component={AssetsStackScreens}
-        options={{
-          title: "Assets",
-          tabBarIcon: ({ color }) => (
-            <Feather name="list" color={color} size={22} style={{ marginBottom: 2 }} />
-          ),
-        }}
-      />
       {/* Personal tab removed: surfaced as a Home card */}
       <HomeTabs.Screen
         name="ServicesHome"
