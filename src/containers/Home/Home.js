@@ -37,6 +37,8 @@ import BigNumber from 'bignumber.js';
 import {
   extractLedgerData,
 } from '../../utils/ledger/extractLedgerData';
+import { requestAttestationData } from '../../utils/auth/authBox';
+import { ATTESTATIONS_PROVISIONED } from '../../utils/constants/attestations';
 import { HomeRender } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
@@ -64,6 +66,7 @@ const Home = () => {
     extractLedgerData(state, 'balances', API_GET_BALANCES),
   );
   const rates = useObjectSelector((state) => state.ledger.rates);
+  const attestation = useSelector((state) => state.attestation);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
   const activeSubWallets = useObjectSelector((state) => state.coinMenus.activeSubWallets);
   
@@ -78,6 +81,36 @@ const Home = () => {
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
   const [transferSheetVisible, setTransferSheetVisible] = useState(false);
   const [manageVisible, setManageVisible] = useState(false);
+  const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
+
+  useEffect(() => {
+    // Check for specific "Valu Proof of Personhood" attestation
+    const checkForValuProofOfPersonhood = async () => {
+      if (attestation && attestation.attestations_provisioned) {
+        try {
+          const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+          if (attestationData) {
+            // Check if any attestation has the name "Valu Proof of Personhood"
+            const hasValuAttestation = Object.values(attestationData).some(attestationItem => 
+              attestationItem && 
+              typeof attestationItem === 'object' && 
+              attestationItem.name === "Valu Proof of Personhood"
+            );
+            setHasValuProofOfPersonhood(hasValuAttestation);
+          } else {
+            setHasValuProofOfPersonhood(false);
+          }
+        } catch (e) {
+          console.warn('Could not check attestations:', e.message);
+          setHasValuProofOfPersonhood(false);
+        }
+      } else {
+        setHasValuProofOfPersonhood(false);
+      }
+    };
+
+    checkForValuProofOfPersonhood();
+  }, [attestation]);
 
   const setDisplayCurrencyFunc = async (currency) => {
     try {
@@ -285,6 +318,7 @@ const Home = () => {
       openCoin={openCoin}
       manageVisible={manageVisible}
       setManageVisible={setManageVisible}
+      hasValuProofOfPersonhood={hasValuProofOfPersonhood}
     />
   );
 };

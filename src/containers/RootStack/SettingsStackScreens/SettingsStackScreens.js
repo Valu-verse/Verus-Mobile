@@ -43,7 +43,7 @@ const SettingsStackScreens = () => {
       <SettingsStack.Screen
         name="AppInfo"
         component={AppInfo}
-        options={{ title: 'App Info' }}
+        options={{ title: 'App info' }}
       />
       <SettingsStack.Screen
         name="ProfileInfo"

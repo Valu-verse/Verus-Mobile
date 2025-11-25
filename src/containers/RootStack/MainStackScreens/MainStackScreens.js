@@ -13,6 +13,7 @@ import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
 import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
 import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
+import ValuSocialScreen from '../../ValuSocial/ValuSocialScreen';
 
 const MainStack = createStackNavigator();
 
@@ -76,6 +77,13 @@ const MainStackScreens = props => {
           title: "Loading",
           headerRight: () => null,
           headerLeft: () => null,
+        }}
+      />
+      <MainStack.Screen
+        name="ValuSocial"
+        component={ValuSocialScreen}
+        options={{
+          title: "Valu Social",
         }}
       />
     </MainStack.Navigator>

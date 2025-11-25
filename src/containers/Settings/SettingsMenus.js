@@ -19,21 +19,21 @@ const SETTINGS_BACKGROUND = '#FFFFFF';
 const SETTINGS_DESTINATIONS = [
   {
     key: 'settings-profile',
-    title: 'Profile',
+    title: 'Profile & security',
     description: 'Identity, security and seed recovery',
-    icon: 'account-settings',
+    icon: 'account',
     route: 'ProfileSettings',
   },
   {
     key: 'settings-wallet',
     title: 'Wallet',
     description: 'General preferences, RPC overrides, and cache options',
-    icon: 'credit-card-settings',
+    icon: 'wallet',
     route: 'WalletSettings',
   },
   {
     key: 'settings-info',
-    title: 'App Info',
+    title: 'App info',
     description: 'Version details, licenses, and diagnostics',
     icon: 'information',
     route: 'AppInfo',
@@ -119,8 +119,10 @@ class SettingsMenus extends Component {
               key={destination.key}
               title={destination.title}
               description={destination.description}
-              style={styles.listItem}
-              left={(props) => <List.Icon {...props} icon={destination.icon} color={Colors.verusDarkGray} />}
+              titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
+              descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 6 }}
+              style={[styles.listItem, { paddingVertical: 8 }]}
+              left={(props) => <List.Icon {...props} icon={destination.icon} color={'black'} />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}
               onPress={() => this.handleNavigate(destination)}
             />

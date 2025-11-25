@@ -52,11 +52,16 @@ export const HomeRender = ({
   setActiveCategory,
   identities,
   identitiesPlaceholder,
+  hasValuProofOfPersonhood,
 }) => {
-  const totalFiatBalance = assets.reduce((sum, item) => sum + (item.fiat || 0), 0);
+  const [widgetVisible, setWidgetVisible] = React.useState(false);
+  
+  const totalFiatBalanceRaw = assets.reduce((sum, item) => sum + (item.fiat || 0), 0);
+  const totalFiatBalance = (typeof totalFiatBalanceRaw === 'number' && !isNaN(totalFiatBalanceRaw)) ? totalFiatBalanceRaw : 0;
+
   const isCrypto = activeCategory === 'crypto';
   const data = isCrypto ? assets : identities;
-  const listHeaderComponent = (
+  const fixedHeader = (
     <View style={styles.headerContainer}>
       <View style={styles.balanceRow}>
         <TouchableOpacity
@@ -66,12 +71,11 @@ export const HomeRender = ({
           accessibilityLabel="Change display currency"
           style={styles.totalBalanceTouchable}
         >
-          <Provider theme={HomeListItemThemeLight}>
-            <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
-          </Provider>
+          <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
         </TouchableOpacity>
         <BalanceVisibilityToggle style={styles.balanceToggle} />
       </View>
+      <NotificationWidget />
       <View style={styles.tabsWrapper}>
         <View style={styles.tabsRow}>
           <View style={styles.tabButtonsContainer}>
@@ -113,7 +117,8 @@ export const HomeRender = ({
     </View>
   );
 
-  const listFooterComponent = <View style={{ height: 220 }} />;
+  const footerHeight = widgetVisible ? 260 : 140; 
+  const listFooterComponent = <View style={{ height: footerHeight }} />;
   const listEmptyComponent = !isCrypto ? (
     <View style={styles.emptyState}>
       <Text style={styles.emptyTitle}>No identities yet</Text>
@@ -166,6 +171,7 @@ export const HomeRender = ({
             onArrangeCards={() => {}}
           />
         </Portal>
+        {fixedHeader}
         <HomeFAB
           handleAddCoin={_addCoin}
           handleVerusPay={_verusPay}
@@ -173,15 +179,16 @@ export const HomeRender = ({
           handleAddErc20Token={_addErc20Token}
           handleOpenOnOffRamp={handleOpenOnOffRamp}
           handleTransfer={handleTransferPress}
+          hasValuProofOfPersonhood={hasValuProofOfPersonhood}
+          onWidgetVisibilityChange={setWidgetVisible}
         />
-        <NotificationWidget />
         <AssetsRender.List
           assets={data}
           displayCurrency={displayCurrency}
           showBalance={showBalance}
           onPressAsset={isCrypto ? openCoin : undefined}
           onPressAddAssets={isCrypto ? () => setManageVisible(true) : undefined}
-          listHeaderComponent={listHeaderComponent}
+          listHeaderComponent={null}
           listFooterComponent={listFooterComponent}
           showManageAssets={false}
           emptyComponent={listEmptyComponent}
@@ -206,12 +213,14 @@ const styles = StyleSheet.create({
   balanceRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 8,
   },
   balanceToggle: {
-    marginLeft: 4,
+    marginLeft: 8,
+    marginTop: 12,
   },
   totalBalanceTouchable: {
-    paddingBottom: 0,
     flex: 1,
   },
   tabsWrapper: {
