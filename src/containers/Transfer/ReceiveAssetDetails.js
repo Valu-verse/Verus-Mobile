@@ -1,6 +1,10 @@
 /*
   ReceiveAssetDetails
   2025-11-25:
+  - Added "Supported Networks" feature:
+    - Implemented automatic discovery of Verus ecosystem networks for PBaaS currencies.
+    - Replaced "Wallet address QR" text with an interactive "Supported networks" pill showing icons.
+    - Added a detailed "Supported Networks" sheet listing compatible chains (e.g., VRSC, vDEX, CHIPS).
   - Overhauled "Create easy payment" modal:
     - Decoupled invoice QR state from main screen (main screen always shows address QR).
     - Implemented multi-step flow (Configuration -> Result).
@@ -57,8 +61,9 @@ import {
   generateReceiveInvoice,
 } from '../../features/receive/receiveInvoice';
 import { API_GET_FIATPRICE, API_GET_BALANCES, DLIGHT_PRIVATE } from '../../utils/constants/intervalConstants';
-import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
+import { RenderSquareCoinLogo, RenderPlainCoinLogo } from '../../utils/CoinData/Graphics';
 import SemiModal from '../../components/SemiModal';
+import { getSupportedNetworks } from '../../utils/CoinData/SupportedNetworks';
 
 const FLAT_INPUT_THEME = {
   roundness: 10,
@@ -98,6 +103,7 @@ const ReceiveAssetDetails = () => {
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [showCopiedLabel, setShowCopiedLabel] = useState(false);
   const [explorerSheetVisible, setExplorerSheetVisible] = useState(false);
+  const [supportedNetworksVisible, setSupportedNetworksVisible] = useState(false);
   
   // Invoice Modal State
   const [invoiceQr, setInvoiceQr] = useState(null);
@@ -147,6 +153,8 @@ const ReceiveAssetDetails = () => {
     }
     return truncatedTicker;
   }, [mappedCoinObj, mappedToEth]);
+
+  const supportedNetworks = useMemo(() => getSupportedNetworks(coinObj), [coinObj]);
 
   const getExplorerUrl = useCallback(() => {
     if (!mappedCoinObj || mappedCoinObj.proto !== 'erc20') return '';
@@ -431,9 +439,49 @@ const ReceiveAssetDetails = () => {
             logoBackgroundColor={undefined}
             logoBorderRadius={undefined}
           />
-          <Text style={styles.qrLabel}>
-            {'Wallet address QR'}
-          </Text>
+          {supportedNetworks.length > 0 && (
+            <TouchableOpacity
+              style={styles.supportedNetworksPill}
+              onPress={() => setSupportedNetworksVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.networkIconsContainer}>
+                {supportedNetworks.slice(0, 3).map((net, index) => (
+                  <View 
+                    key={net.id} 
+                    style={[
+                      styles.networkIconWrapper, 
+                      { 
+                        marginLeft: index > 0 ? -12 : 0, 
+                        zIndex: index + 1,
+                        backgroundColor: net.theme_color || Colors.verusDarkGray
+                      }
+                    ]}
+                  >
+                     {RenderPlainCoinLogo(net.id, {}, 20, 20)}
+                  </View>
+                ))}
+                {supportedNetworks.length > 3 && (
+                  <View 
+                    style={[
+                      styles.networkIconWrapper,
+                      styles.moreNetworksWrapper,
+                      { 
+                        marginLeft: -12,
+                        zIndex: 10
+                      }
+                    ]}
+                  >
+                    <Text style={styles.moreNetworksText}>
+                      {`+${supportedNetworks.length - 3}`}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.supportedNetworksText}>Supported blockchains</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color={Colors.verusDarkGray} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {renderAddressSection()}
@@ -787,6 +835,57 @@ const ReceiveAssetDetails = () => {
             </View>
           </SemiModal>
         )}
+
+        {supportedNetworksVisible && (
+          <SemiModal
+            animationType="slide"
+            transparent={true}
+            visible={true}
+            onRequestClose={() => setSupportedNetworksVisible(false)}
+            flexHeight={0.01}
+            contentContainerStyle={{
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              flex: 0,
+              alignSelf: 'flex-end',
+              width: '100%',
+              maxHeight: '70%',
+            }}
+          >
+            <View>
+              <View style={styles.sheetHeader}>
+                <Button onPress={() => setSupportedNetworksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
+                <Text style={styles.sheetTitle}>{'Supported networks'}</Text>
+                <View style={styles.sheetHeaderSpacer} />
+              </View>
+              <View style={styles.sheetBody}>
+                <Text style={styles.infoParagraph}>
+                  {'This address supports currencies on these blockchains in the Verus ecosystem.'}
+                </Text>
+                <View style={styles.networksListContainer}>
+                  {supportedNetworks.map((net) => (
+                    <View key={net.id} style={styles.networkListItem}>
+                      {RenderSquareCoinLogo(net.id, {}, 32, 32)}
+                      <View style={styles.networkListItemTextContainer}>
+                        <Text style={styles.networkListItemTitle}>{net.display_name}</Text>
+                        <Text style={styles.networkListItemSubtitle}>{net.display_ticker}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <Button
+                  mode="contained"
+                  onPress={() => setSupportedNetworksVisible(false)}
+                  style={styles.sheetPrimaryButton}
+                  contentStyle={styles.sheetPrimaryButtonContent}
+                  labelStyle={styles.sheetPrimaryButtonLabel}
+                >
+                  {'Got it'}
+                </Button>
+              </View>
+            </View>
+          </SemiModal>
+        )}
       </Portal>
     </View>
   );
@@ -1124,6 +1223,64 @@ const styles = StyleSheet.create({
   resultActions: {
     width: '100%',
     marginTop: 8,
+  },
+  supportedNetworksPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    marginTop: 16,
+  },
+  networkIconsContainer: {
+    flexDirection: 'row',
+    marginRight: 8,
+  },
+  networkIconWrapper: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  moreNetworksWrapper: {
+    backgroundColor: Colors.verusDarkGray,
+  },
+  moreNetworksText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  supportedNetworksText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#666666',
+    marginRight: 4,
+  },
+  networksListContainer: {
+    marginTop: 8,
+    marginBottom: 24,
+  },
+  networkListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  networkListItemTextContainer: {
+    marginLeft: 12,
+  },
+  networkListItemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.quinaryColor,
+  },
+  networkListItemSubtitle: {
+    fontSize: 13,
+    color: '#666666',
   },
 });
 
