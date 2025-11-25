@@ -3,10 +3,11 @@
   - Lists activated assets with balances in fiat/crypto for selecting a receive target
   - Navigates to the redesigned receive flow after the user taps an asset
   - Rounds fiat balances to two decimals before formatting to prevent incorrect separators
+  - Updated 2025-11-25: Matched visual style to Wallet screen (square icons, clean layout, masked header)
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { View, FlatList, TextInput as RNTextInput } from 'react-native';
+import { View, FlatList, TextInput as RNTextInput, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
@@ -16,7 +17,7 @@ import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallet
 import { extractLedgerData } from '../../utils/ledger/extractLedgerData';
 import { API_GET_BALANCES, GENERAL, WYRE_SERVICE } from '../../utils/constants/intervalConstants';
 import { USD } from '../../utils/constants/currencies';
-import { getCoinLogo } from '../../utils/CoinData/CoinData';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import { normalizeNum } from '../../utils/normalizeNum';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
@@ -48,7 +49,15 @@ const ReceiveAssetsList = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Receive assets',
+      title: '',
+      headerRight: () => null,
+      headerBackTitle: 'Back',
+      headerShadowVisible: false,
+      headerStyle: {
+        backgroundColor: 'white',
+        elevation: 0,
+        shadowOpacity: 0,
+      },
     });
   }, [navigation]);
 
@@ -163,90 +172,51 @@ const ReceiveAssetsList = () => {
   const renderItem = useCallback(
     ({ item }) => {
       const { coinObj, fiat, crypto } = item;
-      const Logo = getCoinLogo(coinObj.id, coinObj.proto);
       const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
       const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
-      const [cryptoFormatted] = normalizeNum(Number(crypto), coinObj.decimals || 8);
+      const cryptoAmount = BigNumber(crypto || 0);
+      const cryptoFormatted = cryptoAmount.isFinite()
+        ? cryptoAmount.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)
+        : '0.0000';
 
       return (
-        <View
-          style={{
-            marginHorizontal: 16,
-            marginBottom: 12,
-            borderRadius: 12,
-            backgroundColor: 'white',
-          }}
-        >
-          <List.Item
-            title={coinObj.display_name}
-            description={coinObj.display_ticker}
-            onPress={() => handleAssetPress(coinObj)}
-            left={(props) => (
-              <View
-                style={{
-                  width: 40,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: coinObj.theme_color || Colors.primaryColor,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {Logo ? (
-                    <Logo width={18} height={18} />
-                  ) : (
-                    <List.Icon {...props} color={'white'} icon="wallet" />
-                  )}
-                </View>
-              </View>
-            )}
-            right={(props) => (
-              <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: 'black' }}>
-                  {showBalance ? fiatFormatted : '*****'}
-                </Text>
-                <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
-                  {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : '***'}
-                </Text>
-              </View>
-            )}
-            titleStyle={{ fontSize: 16, fontWeight: '600' }}
-            descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 2 }}
-            style={{ backgroundColor: 'transparent' }}
-          />
-        </View>
+        <List.Item
+          onPress={() => handleAssetPress(coinObj)}
+          rippleColor="transparent"
+          title={() => (
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{coinObj.display_name}</Text>
+              <Text style={styles.fiatValue}>
+                {showBalance ? fiatFormatted : '*****'}
+              </Text>
+            </View>
+          )}
+          description={() => (
+            <Text style={styles.cryptoValue}>
+              {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : '***'}
+            </Text>
+          )}
+          left={() => (
+            <View style={styles.leftContainer}>{RenderSquareCoinLogo(coinObj.id, {}, 38, 38)}</View>
+          )}
+          style={styles.listItem}
+          contentStyle={styles.listItemContent}
+        />
       );
     },
     [displayCurrency, handleAssetPress, showBalance],
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F5F5F5' }}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
-        <Text style={{ fontSize: 18, fontWeight: '600', color: 'black' }}>
-          {'Choose an asset to receive'}
-        </Text>
-        <Text style={{ fontSize: 14, color: '#666', marginTop: 6 }}>
-          {'Select the asset you would like to receive into your wallet.'}
-        </Text>
-      </View>
-      <View style={{ paddingHorizontal: 16, marginBottom: 12 }}>
-        <Text style={{ fontSize: 12, fontWeight: '600', color: '#1A1A1A', marginBottom: 6 }}>
-          {'Search assets'}
-        </Text>
+    <View style={styles.listContainer}>
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <Text style={styles.mainTitle}>Receive assets</Text>
         <RNTextInput
           value={searchTerm}
           onChangeText={setSearchTerm}
           onFocus={() => setSearchFocused(true)}
           onBlur={() => setSearchFocused(false)}
-          placeholder="Search by name or ticker"
+          placeholder="Search assets"
           placeholderTextColor="#999"
           autoCorrect={false}
           autoCapitalize="none"
@@ -254,12 +224,12 @@ const ReceiveAssetsList = () => {
           style={{
             height: 48,
             borderRadius: 12,
-            borderWidth: 2,
+            borderWidth: 1,
             borderColor: searchFocused ? Colors.primaryColor : '#E0E0E0',
             paddingHorizontal: 14,
             fontSize: 15,
             color: '#1A1A1A',
-            backgroundColor: '#FAFAFA',
+            backgroundColor: '#F5F5F5',
           }}
         />
       </View>
@@ -267,7 +237,7 @@ const ReceiveAssetsList = () => {
         data={filteredAssets}
         keyExtractor={(item) => item.coinObj.id}
         renderItem={renderItem}
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 24, flexGrow: filteredAssets.length === 0 ? 1 : 0 }}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={() => (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
@@ -299,6 +269,59 @@ const ReceiveAssetsList = () => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  listContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  listContent: {
+    paddingBottom: 16,
+  },
+  listItem: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  listItemContent: {
+    paddingVertical: 0,
+  },
+  leftContainer: {
+    paddingRight: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+    flexShrink: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  fiatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 12,
+  },
+  cryptoValue: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666666',
+    marginTop: 6,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+});
 
 export default ReceiveAssetsList;
 

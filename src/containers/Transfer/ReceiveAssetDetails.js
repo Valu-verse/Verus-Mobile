@@ -1,5 +1,19 @@
 /*
   ReceiveAssetDetails
+  2025-11-25:
+  - Overhauled "Create easy payment" modal:
+    - Decoupled invoice QR state from main screen (main screen always shows address QR).
+    - Implemented multi-step flow (Configuration -> Result).
+    - Improved UI with currency segmented control and clearer conversion text.
+    - Simplified result view to focus on the invoice QR.
+  - Updated mapped currency pill styling to use Ethereum branding colors (#F0F0FF/#627EEA) and a double arrow icon.
+  - Added modern "View on Etherscan" modal that displays the full destination URL.
+  - Added mapped currency pill next to ticker (e.g., "↔ USDC (0xa0b0...eb48)") with Etherscan link.
+  - Added sticky "Done" button with gradient styling matching Buy now button.
+  - Simplified QR code display (removed background card).
+  - Refactored address section: tappable row, fixed-width copy area to prevent layout shift on "Copied".
+  - Compacted layout for better small screen compatibility.
+  - Matched visual style to Wallet screen (square icons, clean layout, masked header).
   2025-11-06: Flattened layout, added coin icon header, refreshed address field, and replaced the inline invoice form with payment action sheets.
   2025-11-04: Redesigned receive experience with inline QR preview, address actions, and invoice creation controls.
 */
@@ -11,7 +25,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Text, Button, TextInput, Checkbox, Portal } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
+import { coinsList } from '../../utils/CoinData/CoinsList';
+import {
+  VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT,
+  VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT,
+} from '../../utils/constants/web3Constants';
+import { openUrl } from '../../utils/linking';
+import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import selectAddresses from '../../selectors/address';
@@ -27,7 +49,6 @@ import { WALLET_APP_RECEIVE } from '../../utils/constants/apps';
 import ReceiveSubwalletSheet from './ReceiveSubwalletSheet';
 import Colors from '../../globals/colors';
 import AnimatedActivityIndicatorBox from '../../components/AnimatedActivityIndicatorBox';
-import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { isNumber, truncateDecimal } from '../../utils/math';
 import {
   sanitizeNumericInput,
@@ -70,24 +91,90 @@ const ReceiveAssetDetails = () => {
   const [allowConversion, setAllowConversion] = useState(false);
   const [maxSlippage, setMaxSlippage] = useState('0.5');
   const [qrValue, setQrValue] = useState('-');
-  const [showingInvoice, setShowingInvoice] = useState(false);
   const [showVerusIcon, setShowVerusIcon] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({ amount: null, maxSlippage: null });
   const [infoSheetVisible, setInfoSheetVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [showCopiedLabel, setShowCopiedLabel] = useState(false);
+  const [explorerSheetVisible, setExplorerSheetVisible] = useState(false);
+  
+  // Invoice Modal State
+  const [invoiceQr, setInvoiceQr] = useState(null);
+  const [invoiceAmount, setInvoiceAmount] = useState(null);
+  const [invoiceStep, setInvoiceStep] = useState('config'); // 'config' | 'result'
 
   const selectedSubWallet = useMemo(() => {
     if (!availableSubWallets.length) return null;
     return availableSubWallets.find((wallet) => wallet.id === selectedSubWalletId) || availableSubWallets[0];
   }, [availableSubWallets, selectedSubWalletId]);
 
+  // Get mapped coin object (e.g., USDC on Ethereum for vUSDC.vETH)
+  const mappedCoinObj = useMemo(() => {
+    if (!coinObj || coinObj.mapped_to == null || coinObj.id === coinsList.VRSC?.id) {
+      return null;
+    }
+    try {
+      return CoinDirectory.getBasicCoinObj(coinObj.mapped_to);
+    } catch (e) {
+      console.warn('Failed to get mapped coin:', e);
+      return null;
+    }
+  }, [coinObj]);
+
+  // Check if mapped to Ethereum itself (not an ERC20 token)
+  const mappedToEth = useMemo(() => {
+    if (!coinObj || coinObj.mapped_to == null || !mappedCoinObj) return false;
+    const currencyId = mappedCoinObj.currency_id?.toLowerCase();
+    return (
+      currencyId === VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT?.toLowerCase() ||
+      currencyId === VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT?.toLowerCase()
+    );
+  }, [coinObj, mappedCoinObj]);
+
+  // Format the mapped currency display text
+  const mappedDisplayText = useMemo(() => {
+    if (!mappedCoinObj) return null;
+    if (mappedToEth) return 'Ethereum';
+    
+    const ticker = mappedCoinObj.display_ticker;
+    const truncatedTicker = ticker.length > 12 ? ticker.substring(0, 12) + '…' : ticker;
+    
+    if (mappedCoinObj.proto === 'erc20') {
+      const addr = mappedCoinObj.currency_id;
+      const shortAddr = addr ? `${addr.substring(0, 6)}…${addr.substring(addr.length - 4)}` : '';
+      return `${truncatedTicker} (${shortAddr})`;
+    }
+    return truncatedTicker;
+  }, [mappedCoinObj, mappedToEth]);
+
+  const getExplorerUrl = useCallback(() => {
+    if (!mappedCoinObj || mappedCoinObj.proto !== 'erc20') return '';
+    
+    const baseUrl = mappedCoinObj.testnet
+      ? 'https://goerli.etherscan.io/token/'
+      : 'https://etherscan.io/token/';
+    return baseUrl + mappedCoinObj.currency_id;
+  }, [mappedCoinObj]);
+
+  const openTokenAddressExplorer = useCallback(() => {
+    if (!mappedCoinObj || mappedCoinObj.proto !== 'erc20') return;
+    setExplorerSheetVisible(true);
+  }, [mappedCoinObj]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: coinObj ? `Receive ${coinObj.display_ticker}` : 'Receive',
+      title: '',
+      headerRight: () => null,
+      headerBackTitle: 'Back',
+      headerShadowVisible: false,
+      headerStyle: {
+        backgroundColor: 'white',
+        elevation: 0,
+        shadowOpacity: 0,
+      },
     });
-  }, [coinObj, navigation]);
+  }, [navigation]);
 
   useEffect(() => {
     if (coinObj && selectedSubWallet) {
@@ -131,11 +218,11 @@ const ReceiveAssetDetails = () => {
   const generalSettings = useSelector((state) => state.settings.generalWalletSettings);
 
   useEffect(() => {
-    if (address && !showingInvoice) {
+    if (address) {
       setQrValue(address);
       setShowVerusIcon(false);
     }
-  }, [address, showingInvoice]);
+  }, [address]);
 
   const conversionEligible = useMemo(() => {
     if (!coinObj || !selectedSubWallet) return false;
@@ -167,20 +254,36 @@ const ReceiveAssetDetails = () => {
     return Number(processed) > 0;
   }, [amount]);
 
-  const resetToAddressQr = useCallback(() => {
-    if (address) {
-      setQrValue(address);
-      setShowingInvoice(false);
-      setShowVerusIcon(false);
-    }
-  }, [address]);
-
   const copyAddress = useCallback(() => {
     if (!address) return;
     Clipboard.setString(address);
     setShowCopiedLabel(true);
     setTimeout(() => setShowCopiedLabel(false), 2000);
   }, [address]);
+
+  const renderAddressSection = () => (
+    <View style={styles.compactSection}>
+      <Text style={styles.sectionLabel}>Address</Text>
+      <TouchableOpacity 
+        onPress={copyAddress} 
+        style={styles.addressContainerCompact}
+        activeOpacity={0.7}
+        accessibilityRole="button" 
+        accessibilityLabel="Copy address"
+      >
+        <Text style={styles.addressValue} numberOfLines={1} ellipsizeMode="middle">
+          {address || 'Fetching address…'}
+        </Text>
+        <View style={styles.copyIconContainer}>
+          {showCopiedLabel ? (
+            <Text style={styles.copiedLabelCompact}>Copied!</Text>
+          ) : (
+            <MaterialCommunityIcons name="content-copy" size={18} color={Colors.verusDarkGray} />
+          )}
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
 
   const validateInputs = useCallback(() => {
     const sanitizedAmount = sanitizeNumericInput(amount);
@@ -231,9 +334,10 @@ const ReceiveAssetDetails = () => {
           priceMap,
         });
 
-        setQrValue(qrString);
+        setInvoiceQr(qrString);
+        setInvoiceAmount(processedAmount);
+        setInvoiceStep('result');
         setShowVerusIcon(showVerusIcon);
-        setShowingInvoice(true);
       } catch (e) {
         console.warn(e);
         createAlert('Error', e.message || 'Error creating VerusPay invoice.');
@@ -262,15 +366,51 @@ const ReceiveAssetDetails = () => {
   return (
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.assetHeader}>
-          <View style={styles.assetInfo}>
-            <View style={styles.assetTitleRow}>
-              <View style={styles.assetIconWrapper}>
-                {RenderSquareCoinLogo(coinObj.id, {}, 32, 32)}
-              </View>
-              <Text style={styles.assetName}>{coinObj.display_name}</Text>
-            </View>
+        <View style={styles.headerContainer}>
+          <View style={styles.titleRow}>
+            {RenderSquareCoinLogo(coinObj.id, {}, 32, 32)}
+            <Text style={styles.headerTitle}>
+              {coinObj.display_name}
+            </Text>
           </View>
+          <View style={styles.tickerRow}>
+            <Text style={styles.headerTicker}>
+              {coinObj.display_ticker}
+            </Text>
+            {mappedCoinObj && mappedDisplayText && (
+              <TouchableOpacity
+                onPress={openTokenAddressExplorer}
+                disabled={mappedCoinObj.proto !== 'erc20'}
+                style={styles.mappedPill}
+                activeOpacity={0.7}
+              >
+                {mappedCoinObj.proto === 'erc20' ? (
+                   <MaterialCommunityIcons 
+                     name="swap-horizontal" 
+                     size={16} 
+                     color="#627EEA" 
+                     style={{ marginRight: 4 }}
+                   />
+                ) : (
+                  <Text style={[styles.mappedPillText, { marginRight: 4 }]}>{'↔'}</Text>
+                )}
+                <Text style={styles.mappedPillText}>
+                  {mappedDisplayText}
+                </Text>
+                {mappedCoinObj.proto === 'erc20' && (
+                  <MaterialCommunityIcons 
+                    name="open-in-new" 
+                    size={12} 
+                    color="#627EEA" 
+                    style={styles.mappedPillIcon}
+                  />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+        <View style={styles.assetHeader}>
+          <View style={styles.assetInfo} />
           {availableSubWallets.length > 1 && (
             <TouchableOpacity
               onPress={() => setSubwalletSheetVisible(true)}
@@ -282,71 +422,64 @@ const ReceiveAssetDetails = () => {
           )}
         </View>
 
-        <View style={styles.qrSection}>
+        <View style={styles.qrContainer}>
           <QRCode
             value={qrValue || '-'}
-            size={232}
-            logo={showVerusIcon ? require('../../images/customIcons/Verus.png') : undefined}
-            logoSize={showVerusIcon ? 56 : undefined}
-            logoBackgroundColor={showVerusIcon ? 'white' : undefined}
-            logoBorderRadius={showVerusIcon ? 100 : undefined}
+            size={200}
+            logo={undefined}
+            logoSize={undefined}
+            logoBackgroundColor={undefined}
+            logoBorderRadius={undefined}
           />
           <Text style={styles.qrLabel}>
-            {showingInvoice ? 'VerusPay invoice QR' : 'Wallet address QR'}
+            {'Wallet address QR'}
           </Text>
-          {showingInvoice && (
-            <Button
-              style={styles.qrActionButton}
-              textColor={Colors.primaryColor}
-              onPress={resetToAddressQr}
-            >
-              {'Show address QR'}
-            </Button>
-          )}
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.addressHeaderRow}>
-            <Text style={styles.sectionLabel}>Address</Text>
-            {showCopiedLabel && <Text style={styles.copiedLabel}>Copied</Text>}
-          </View>
-          <View style={styles.addressContainer}>
-            <Text style={styles.addressValue} selectable>
-              {address || 'Fetching address…'}
-            </Text>
-            <TouchableOpacity onPress={copyAddress} style={styles.copyIconButton} accessibilityRole="button" accessibilityLabel="Copy address">
-              <MaterialCommunityIcons name="content-copy" size={20} color={Colors.verusDarkGray} />
-            </TouchableOpacity>
-          </View>
-        </View>
+        {renderAddressSection()}
 
-        <View style={styles.paymentCard}>
-          <View style={styles.paymentCardContent}>
-            <Text style={styles.paymentCardTitle}>{'Create easy payment'}</Text>
-            <Text style={styles.paymentCardSubtitle}>{'Request payments with VerusPay invoices'}</Text>
+        <TouchableOpacity style={styles.compactPaymentCard} onPress={() => setCreateSheetVisible(true)} activeOpacity={0.8}>
+          <View style={styles.compactPaymentContent}>
+            <Text style={styles.compactPaymentTitle}>{'Create easy payment'}</Text>
+            <Text style={styles.compactPaymentSubtitle}>{'Request payments with invoices'}</Text>
           </View>
-          <View style={styles.paymentCardButtons}>
-            <Button
-              mode="contained"
-              onPress={() => setCreateSheetVisible(true)}
-              style={styles.createButton}
-              contentStyle={styles.createButtonContent}
-              labelStyle={styles.createButtonLabel}
-            >
-              {'Create'}
-            </Button>
-            <TouchableOpacity
-              onPress={() => setInfoSheetVisible(true)}
-              activeOpacity={0.7}
-              style={styles.howItWorksLink}
-              accessibilityRole="button"
-              accessibilityLabel="How it works"
-            >
-              <Text style={styles.howItWorksLinkText}>{'How it works'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
+        </TouchableOpacity>
       </ScrollView>
+
+      <View style={styles.footerContainer}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Home')}
+          activeOpacity={0.8}
+          style={styles.doneButtonWrapper}
+        >
+          <Svg
+            width="100%"
+            height="100%"
+            style={styles.doneButtonGradient}
+            pointerEvents="none"
+          >
+            <Defs>
+              <SvgLinearGradient id="doneButtonGradient" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#00C8FF" />
+                <Stop offset="1" stopColor="#0077A9" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect
+              x="0"
+              y="0"
+              width="100%"
+              height="100%"
+              rx={28}
+              ry={28}
+              fill="url(#doneButtonGradient)"
+            />
+          </Svg>
+          <View style={styles.doneButtonContent}>
+            <Text style={styles.doneButtonLabel}>{'Done'}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {loading && <AnimatedActivityIndicatorBox />}
 
@@ -399,7 +532,11 @@ const ReceiveAssetDetails = () => {
             animationType="slide"
             transparent={true}
             visible={true}
-            onRequestClose={() => setCreateSheetVisible(false)}
+            onRequestClose={() => {
+              setCreateSheetVisible(false);
+              setInvoiceStep('config');
+              setInvoiceQr(null);
+            }}
             flexHeight={0.01}
             contentContainerStyle={{
               borderTopLeftRadius: 16,
@@ -407,120 +544,183 @@ const ReceiveAssetDetails = () => {
               flex: 0,
               alignSelf: 'flex-end',
               width: '100%',
-              maxHeight: '80%',
+              maxHeight: '90%',
             }}
           >
             <View>
               <View style={styles.sheetHeader}>
-                <Button onPress={() => setCreateSheetVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                <Text style={styles.sheetTitle}>{'Create easy payment'}</Text>
+                <Button 
+                  onPress={() => {
+                    setCreateSheetVisible(false);
+                    setInvoiceStep('config');
+                    setInvoiceQr(null);
+                  }} 
+                  textColor={Colors.primaryColor}
+                >
+                  {'Close'}
+                </Button>
+                <Text style={styles.sheetTitle}>
+                  {invoiceStep === 'config' ? 'Create easy payment' : 'Payment invoice'}
+                </Text>
                 <View style={styles.sheetHeaderSpacer} />
               </View>
+              
               <ScrollView
                 contentContainerStyle={styles.sheetBody}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
               >
-                <Text style={styles.sheetSubtitle}>
-                  {'Choose how much to request and we will generate a VerusPay invoice with optional conversion support.'}
-                </Text>
+                {invoiceStep === 'config' ? (
+                  <>
+                    <Text style={styles.sheetSubtitle}>
+                      {'Enter an amount to generate a VerusPay invoice. Sender can scan to pay instantly.'}
+                    </Text>
 
-                <View style={styles.sheetFieldGroup}>
-                  <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>{'Invoice amount'}</Text>
-                    {amountPreview && <Text style={styles.sectionHint}>{amountPreview}</Text>}
-                  </View>
-                  <View style={styles.amountRow}>
-                    <View style={styles.amountInputContainer}>
-                      <TextInput
-                        mode="flat"
-                        label={amountFiat ? displayCurrency : coinObj.display_ticker}
-                        value={amount}
-                        onChangeText={setAmount}
-                        keyboardType="decimal-pad"
-                        error={errors.amount != null}
-                        style={styles.amountInput}
-                        theme={FLAT_INPUT_THEME}
-                        underlineColor={Colors.tertiaryColor}
-                        activeUnderlineColor={Colors.primaryColor}
-                      />
-                      {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+                    <View style={styles.sheetFieldGroup}>
+                      <View style={styles.sectionHeaderRow}>
+                        <Text style={styles.sectionLabel}>{'Amount'}</Text>
+                        {amountPreview && <Text style={styles.sectionHint}>{amountPreview}</Text>}
+                      </View>
+                      
+                      <View style={styles.amountRow}>
+                        <View style={styles.amountInputContainer}>
+                          <TextInput
+                            mode="flat"
+                            label={amountFiat ? displayCurrency : coinObj.display_ticker}
+                            value={amount}
+                            onChangeText={setAmount}
+                            keyboardType="decimal-pad"
+                            error={errors.amount != null}
+                            style={styles.amountInput}
+                            theme={FLAT_INPUT_THEME}
+                            underlineColor={Colors.tertiaryColor}
+                            activeUnderlineColor={Colors.primaryColor}
+                          />
+                          {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
+                        </View>
+                      </View>
+                      
+                      <View style={styles.currencyToggleContainer}>
+                        <TouchableOpacity 
+                          style={[styles.currencyToggleBtn, !amountFiat && styles.currencyToggleBtnActive]} 
+                          onPress={() => setAmountFiat(false)}
+                        >
+                          <Text style={[styles.currencyToggleText, !amountFiat && styles.currencyToggleTextActive]}>
+                            {coinObj.display_ticker}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.currencyToggleBtn, amountFiat && styles.currencyToggleBtnActive]} 
+                          onPress={() => setAmountFiat(true)}
+                        >
+                          <Text style={[styles.currencyToggleText, amountFiat && styles.currencyToggleTextActive]}>
+                            {displayCurrency}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                    <Button
-                      mode="outlined"
-                      textColor={Colors.primaryColor}
-                      style={styles.amountToggle}
-                      onPress={() => setAmountFiat(!amountFiat)}
-                    >
-                      {amountFiat ? coinObj.display_ticker : displayCurrency}
-                    </Button>
-                  </View>
-                </View>
 
-                {conversionEligible && amountHasValue && (
-                  <View style={styles.sheetFieldGroup}>
-                    <Checkbox.Item
-                      label={'Allow payment with conversion from a PBaaS currency'}
-                      status={allowConversion ? 'checked' : 'unchecked'}
-                      onPress={() => setAllowConversion(!allowConversion)}
-                      color={Colors.primaryColor}
-                      uncheckedColor={Colors.tertiaryColor}
-                      style={styles.checkboxRow}
-                      labelStyle={styles.checkboxLabel}
-                    />
-                    {generalSettings.allowSettingVerusPaySlippage && allowConversion && (
-                      <View style={styles.slippageRow}>
-                        <Text style={styles.sectionLabel}>{'Maximum slippage (%)'}</Text>
-                        <TextInput
-                          mode="flat"
-                          value={maxSlippage}
-                          onChangeText={setMaxSlippage}
-                          keyboardType="decimal-pad"
-                          error={errors.maxSlippage != null}
-                          style={styles.amountInput}
-                          theme={FLAT_INPUT_THEME}
-                          underlineColor={Colors.tertiaryColor}
-                          activeUnderlineColor={Colors.primaryColor}
-                        />
-                        {errors.maxSlippage && <Text style={styles.errorText}>{errors.maxSlippage}</Text>}
+                    {conversionEligible && (
+                      <View style={styles.sheetFieldGroup}>
+                        <TouchableOpacity 
+                          style={styles.checkboxRow} 
+                          activeOpacity={0.8}
+                          onPress={() => setAllowConversion(!allowConversion)}
+                        >
+                          <View style={{flex: 1, paddingRight: 12}}>
+                            <Text style={styles.checkboxLabel}>{'Allow payment in other currencies'}</Text>
+                            <Text style={styles.checkboxSubtitle}>
+                              {`Sender can pay with PBaaS currencies, auto-converting to ${coinObj.display_ticker}.`}
+                            </Text>
+                          </View>
+                          <Checkbox.Android
+                            status={allowConversion ? 'checked' : 'unchecked'}
+                            onPress={() => setAllowConversion(!allowConversion)}
+                            color={Colors.primaryColor}
+                            uncheckedColor={Colors.tertiaryColor}
+                          />
+                        </TouchableOpacity>
+                        
+                        {generalSettings.allowSettingVerusPaySlippage && allowConversion && (
+                          <View style={styles.slippageRow}>
+                            <Text style={styles.sectionLabel}>{'Max slippage (%)'}</Text>
+                            <TextInput
+                              mode="flat"
+                              value={maxSlippage}
+                              onChangeText={setMaxSlippage}
+                              keyboardType="decimal-pad"
+                              error={errors.maxSlippage != null}
+                              style={styles.amountInput}
+                              theme={FLAT_INPUT_THEME}
+                              underlineColor={Colors.tertiaryColor}
+                              activeUnderlineColor={Colors.primaryColor}
+                            />
+                            {errors.maxSlippage && <Text style={styles.errorText}>{errors.maxSlippage}</Text>}
+                          </View>
+                        )}
                       </View>
                     )}
-                  </View>
-                )}
 
-                <Button
-                  mode="contained"
-                  onPress={handleGenerateInvoice}
-                  disabled={loading || !address}
-                  style={styles.sheetPrimaryButton}
-                  contentStyle={styles.sheetPrimaryButtonContent}
-                  labelStyle={styles.sheetPrimaryButtonLabel}
-                >
-                  {loading ? 'Generating…' : 'Generate invoice'}
-                </Button>
-
-                {showingInvoice && (
-                  <View style={styles.sheetQrPreview}>
-                    <QRCode
-                      value={qrValue || '-'}
-                      size={200}
-                      logo={showVerusIcon ? require('../../images/customIcons/Verus.png') : undefined}
-                      logoSize={showVerusIcon ? 48 : undefined}
-                      logoBackgroundColor={showVerusIcon ? 'white' : undefined}
-                      logoBorderRadius={showVerusIcon ? 80 : undefined}
-                    />
-                    <Text style={styles.qrLabel}>
-                      {showingInvoice ? 'VerusPay invoice QR' : 'Wallet address QR'}
-                    </Text>
                     <Button
-                      mode="text"
-                      onPress={resetToAddressQr}
-                      textColor={Colors.primaryColor}
-                      contentStyle={styles.sheetTextButtonContent}
-                      labelStyle={styles.sheetTextButtonLabel}
+                      mode="contained"
+                      onPress={handleGenerateInvoice}
+                      disabled={loading || !address || !amountHasValue}
+                      style={styles.sheetPrimaryButton}
+                      contentStyle={styles.sheetPrimaryButtonContent}
+                      labelStyle={styles.sheetPrimaryButtonLabel}
                     >
-                      {'Show address QR'}
+                      {loading ? 'Generating…' : 'Generate invoice'}
                     </Button>
+                  </>
+                ) : (
+                  <View style={styles.resultContainer}>
+                    <View style={styles.qrContainer}>
+                      <QRCode
+                        value={invoiceQr || '-'}
+                        size={220}
+                        logo={showVerusIcon ? require('../../images/customIcons/Verus.png') : undefined}
+                        logoSize={showVerusIcon ? 48 : undefined}
+                        logoBackgroundColor={showVerusIcon ? 'white' : undefined}
+                        logoBorderRadius={showVerusIcon ? 80 : undefined}
+                      />
+                    </View>
+                    
+                    <Text style={styles.resultAmountText}>
+                      {`Scan to pay ${amount} ${amountFiat ? displayCurrency : coinObj.display_ticker}`}
+                    </Text>
+                    {amountFiat && amountPreview && (
+                      <Text style={styles.resultAmountSubText}>{amountPreview}</Text>
+                    )}
+
+                    <View style={styles.resultActions}>
+                      <Button
+                        mode="contained"
+                        onPress={() => {
+                          setCreateSheetVisible(false);
+                          setInvoiceStep('config');
+                          setInvoiceQr(null);
+                        }}
+                        style={styles.sheetPrimaryButton}
+                        contentStyle={styles.sheetPrimaryButtonContent}
+                        labelStyle={styles.sheetPrimaryButtonLabel}
+                      >
+                        {'Done'}
+                      </Button>
+                      
+                      <Button
+                        mode="text"
+                        onPress={() => {
+                          setInvoiceStep('config');
+                          setInvoiceQr(null);
+                        }}
+                        textColor={Colors.primaryColor}
+                        contentStyle={styles.sheetTextButtonContent}
+                        labelStyle={styles.sheetTextButtonLabel}
+                        style={{marginTop: 8}}
+                      >
+                        {'Create another invoice'}
+                      </Button>
+                    </View>
                   </View>
                 )}
               </ScrollView>
@@ -542,6 +742,51 @@ const ReceiveAssetDetails = () => {
             }}
           />
         )}
+
+        {explorerSheetVisible && mappedCoinObj && (
+          <SemiModal
+            animationType="slide"
+            transparent={true}
+            visible={true}
+            onRequestClose={() => setExplorerSheetVisible(false)}
+            flexHeight={0.01}
+            contentContainerStyle={{
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              flex: 0,
+              alignSelf: 'flex-end',
+              width: '100%',
+            }}
+          >
+            <View>
+              <View style={styles.sheetHeader}>
+                <Button onPress={() => setExplorerSheetVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
+                <Text style={styles.sheetTitle}>{'View on Etherscan'}</Text>
+                <View style={styles.sheetHeaderSpacer} />
+              </View>
+              <View style={styles.sheetBody}>
+                 <Text style={styles.infoParagraph}>
+                  {'You are about to visit the following URL:'}
+                </Text>
+                <View style={styles.urlBox}>
+                    <Text style={styles.urlText}>{getExplorerUrl()}</Text>
+                </View>
+                <Button
+                  mode="contained"
+                  onPress={() => {
+                      setExplorerSheetVisible(false);
+                      openUrl(getExplorerUrl());
+                  }}
+                  style={styles.sheetPrimaryButton}
+                  contentStyle={styles.sheetPrimaryButtonContent}
+                  labelStyle={styles.sheetPrimaryButtonLabel}
+                >
+                  {'Open browser'}
+                </Button>
+              </View>
+            </View>
+          </SemiModal>
+        )}
       </Portal>
     </View>
   );
@@ -550,35 +795,64 @@ const ReceiveAssetDetails = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.secondaryColor,
+    backgroundColor: 'white',
   },
   scrollContent: {
-    paddingTop: 18,
+    paddingTop: 0,
     paddingBottom: 64,
     paddingHorizontal: 20,
+  },
+  headerContainer: {
+    marginBottom: 24,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+    marginLeft: 12,
+  },
+  tickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 44, // 32 (icon width) + 12 (margin left)
+    flexWrap: 'wrap',
+  },
+  headerTicker: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666666',
+  },
+  mappedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0FF', // Ethereum light purple background
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  mappedPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#627EEA', // Ethereum logo purple-blue
+  },
+  mappedPillIcon: {
+    marginLeft: 4,
   },
   assetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 32,
+    marginBottom: 16,
   },
   assetInfo: {
     flex: 1,
     paddingRight: 16,
-  },
-  assetTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  assetIconWrapper: {
-    marginRight: 12,
-  },
-  assetName: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.quinaryColor,
-    letterSpacing: -0.5,
   },
   switchChip: {
     flexDirection: 'row',
@@ -595,168 +869,112 @@ const styles = StyleSheet.create({
     color: Colors.quinaryColor,
     letterSpacing: 0.2,
   },
-  qrSection: {
+  qrContainer: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 24,
   },
   qrLabel: {
     fontSize: 13,
     color: Colors.verusDarkGray,
-    marginTop: 14,
+    marginTop: 16,
+    fontWeight: '500',
   },
   qrActionButton: {
-    marginTop: 6,
+    marginTop: 8,
   },
-  section: {
+  compactSection: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 16,
   },
-  sectionHeaderRow: {
+  addressContainerCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.quinaryColor,
-  },
-  sectionHint: {
-    fontSize: 12,
-    color: Colors.verusDarkGray,
-  },
-  addressHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  copiedLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.verusGreenColor,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  addressContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 12,
     paddingVertical: 14,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F5F5F5',
+    marginTop: 8,
   },
   addressValue: {
     flex: 1,
     fontSize: 14,
     color: Colors.quinaryColor,
     fontWeight: '500',
-    lineHeight: 20,
-    letterSpacing: -0.1,
-    paddingRight: 12,
+    marginRight: 12,
   },
-  copyIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    alignItems: 'center',
+  copyIconContainer: {
+    width: 56,
+    height: 20,
+    alignItems: 'flex-end',
     justifyContent: 'center',
-    marginTop: -4,
   },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  amountInputContainer: {
-    flex: 1,
-    marginRight: 16,
-  },
-  amountInput: {
-    backgroundColor: 'transparent',
-    fontSize: 20,
-  },
-  errorText: {
+  copiedLabelCompact: {
     fontSize: 12,
-    color: Colors.warningButtonColor,
-    marginTop: 6,
+    fontWeight: '600',
+    color: Colors.verusGreenColor,
+    lineHeight: 18,
   },
-  amountToggle: {
-    borderRadius: 18,
-    borderColor: Colors.primaryColor,
-  },
-  checkboxRow: {
-    paddingHorizontal: 0,
-    marginLeft: -8,
-  },
-  checkboxLabel: {
-    color: Colors.quinaryColor,
+  sectionLabel: {
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '600',
+    color: Colors.quinaryColor,
   },
-  slippageRow: {
-    marginTop: 16,
-  },
-  paymentCard: {
+  compactPaymentCard: {
     width: '100%',
     borderRadius: 16,
-    paddingTop: 20,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#F0F0F0',
-    backgroundColor: '#F8F9FA',
-  },
-  paymentCardContent: {
-    marginBottom: 20,
-  },
-  paymentCardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.quinaryColor,
-    letterSpacing: -0.2,
-    marginBottom: 6,
-  },
-  paymentCardSubtitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#666666',
-    lineHeight: 20,
-  },
-  paymentCardButtons: {
+    padding: 16,
+    backgroundColor: '#F5F5F5',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
+    marginBottom: 24,
   },
-  createButton: {
-    borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
+  compactPaymentContent: {
+    flex: 1,
+    paddingRight: 12,
   },
-  createButtonContent: {
-    height: 40,
-    paddingHorizontal: 12,
-  },
-  createButtonLabel: {
-    color: Colors.secondaryColor,
+  compactPaymentTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    fontSize: 15,
-    letterSpacing: 0,
-    textTransform: 'none',
+    color: Colors.quinaryColor,
+    marginBottom: 2,
   },
-  howItWorksLink: {
-    paddingVertical: 8,
-  },
-  howItWorksLinkText: {
-    fontSize: 14,
+  compactPaymentSubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
     color: '#666666',
-    textDecorationLine: 'underline',
+  },
+  footerContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 32,
+    paddingTop: 16,
+    backgroundColor: 'white',
+  },
+  doneButtonWrapper: {
+    borderRadius: 28,
+    overflow: 'hidden',
+    position: 'relative',
+    height: 56,
+  },
+  doneButtonGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  doneButtonContent: {
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneButtonLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: 'white',
+    letterSpacing: 0.5,
+    textTransform: 'none',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -825,6 +1043,87 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0,
     textTransform: 'none',
+  },
+  urlBox: {
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  urlText: {
+    fontSize: 14,
+    color: '#333333',
+    lineHeight: 20,
+    fontFamily: 'Courier', 
+  },
+  currencyToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    padding: 4,
+    height: 40,
+    marginBottom: 16,
+  },
+  currencyToggleBtn: {
+    flex: 1,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  currencyToggleBtnActive: {
+    backgroundColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  currencyToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666666',
+  },
+  currencyToggleTextActive: {
+    color: Colors.primaryColor,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.quinaryColor,
+    marginBottom: 4,
+  },
+  checkboxSubtitle: {
+    fontSize: 13,
+    color: '#666666',
+    lineHeight: 18,
+  },
+  resultContainer: {
+    alignItems: 'center',
+    paddingTop: 16,
+  },
+  resultAmountText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.quinaryColor,
+    textAlign: 'center',
+    marginTop: 24,
+    marginBottom: 4,
+  },
+  resultAmountSubText: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  resultActions: {
+    width: '100%',
+    marginTop: 8,
   },
 });
 
