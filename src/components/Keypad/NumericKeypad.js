@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 
@@ -9,14 +9,14 @@ import { Text } from 'react-native-paper';
   - Added configurable sizing and styling props for modern layouts
   - Full-width keypad layout with flex-based button sizing
   - Enhanced typography with medium font weight
+  - 2025-11-26: Added locale-aware decimal separator support
 */
 
-const KEYS = [
-  ['1', '2', '3'],
-  ['4', '5', '6'],
-  ['7', '8', '9'],
-  ['.', '0', '⌫'],
-];
+// Get the locale decimal separator (e.g., "." for en-US, "," for de-DE)
+const getDecimalSeparator = () => {
+  const n = 1.1;
+  return n.toLocaleString().replace(/1/g, '');
+};
 
 const NumericKeypad = ({
   value,
@@ -32,30 +32,45 @@ const NumericKeypad = ({
   containerPaddingHorizontal = 0,
   rowSpacing = 8,
 }) => {
+  const decimalSeparator = useMemo(() => getDecimalSeparator(), []);
+  
+  const KEYS = useMemo(() => [
+    ['1', '2', '3'],
+    ['4', '5', '6'],
+    ['7', '8', '9'],
+    [decimalSeparator, '0', '⌫'],
+  ], [decimalSeparator]);
+
   const handlePress = (key) => {
     if (disabled) return;
 
     let next = value || '';
     if (key === '⌫') {
       next = next.slice(0, -1);
-    } else if (key === '.') {
-      if (!next.includes('.')) next = next.length === 0 ? '0.' : `${next}.`;
+    } else if (key === decimalSeparator) {
+      // Check if there's already a decimal separator (either . or ,)
+      if (!next.includes('.') && !next.includes(',')) {
+        next = next.length === 0 ? `0${decimalSeparator}` : `${next}${decimalSeparator}`;
+      }
     } else {
       // digit
       if (next.length >= maxLength) return;
       // prevent leading zeros like 00
-      if (next === '0' && key !== '.') next = key;
+      if (next === '0' && key !== decimalSeparator) next = key;
       else next = `${next}${key}`;
     }
 
-    // enforce decimal precision
-    if (next.includes('.')) {
-      const [, frac] = next.split('.');
-      if (frac != null && frac.length > decimalPlaces) return;
+    // enforce decimal precision - check for both separators
+    const sepIndex = Math.max(next.indexOf('.'), next.indexOf(','));
+    if (sepIndex !== -1) {
+      const frac = next.slice(sepIndex + 1);
+      if (frac.length > decimalPlaces) return;
     }
 
     // prevent multiple leading zeros before decimal
-    if (/^0\d+/.test(next)) next = String(parseInt(next, 10));
+    if (/^0\d+/.test(next) && next[1] !== '.' && next[1] !== ',') {
+      next = String(parseInt(next, 10));
+    }
 
     onChange(next);
   };

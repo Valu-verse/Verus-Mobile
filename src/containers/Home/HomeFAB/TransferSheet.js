@@ -72,7 +72,7 @@ const TransferSheet = ({
           <View style={{ paddingHorizontal: 12 }}>
             <List.Item
               title="Receive crypto"
-              description="Receive assets or generate an invoice"
+              description="Receive assets or create a payment request"
               onPress={handleReceive}
               left={(props) => <List.Icon {...props} icon="arrow-bottom-left" color={'black'} />}
               right={(props) => <List.Icon {...props} icon="chevron-right" />}

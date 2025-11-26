@@ -1,5 +1,7 @@
 /*
   ReceiveAssetDetails
+  2025-11-26:
+  - Updated payment request flow to clear amount and subject fields when closing the modal or starting a new payment.
   2025-11-25:
   - Added "Supported Networks" feature:
     - Implemented automatic discovery of Verus ecosystem networks for PBaaS currencies.
@@ -22,14 +24,16 @@
   2025-11-04: Redesigned receive experience with inline QR preview, address actions, and invoice creation controls.
 */
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
-import { View, ScrollView, Clipboard, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
+import { View, ScrollView, Clipboard, TouchableOpacity, StyleSheet, Dimensions, Platform, Share, ImageBackground, Image } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
 import { Text, Button, TextInput, Checkbox, Portal } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
+import NumericKeypad from '../../components/Keypad/NumericKeypad';
+import GradientButton from '../../components/GradientButton';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import { coinsList } from '../../utils/CoinData/CoinsList';
 import {
@@ -75,7 +79,17 @@ const FLAT_INPUT_THEME = {
   },
 };
 
+// Get the locale decimal separator (e.g., "." for en-US, "," for de-DE)
+const getDecimalSeparator = () => {
+  const n = 1.1;
+  return n.toLocaleString().replace(/1/g, '');
+};
+
 const ReceiveAssetDetails = () => {
+  const { height, width } = Dimensions.get('window');
+  const isSmall = height <= 667 || width <= 375;
+  const decimalSeparator = useMemo(() => getDecimalSeparator(), []);
+
   const navigation = useNavigation();
   const route = useRoute();
   const dispatch = useDispatch();
@@ -93,7 +107,7 @@ const ReceiveAssetDetails = () => {
   const [subwalletSheetVisible, setSubwalletSheetVisible] = useState(false);
   const [amount, setAmount] = useState('');
   const [amountFiat, setAmountFiat] = useState(false);
-  const [allowConversion, setAllowConversion] = useState(false);
+  const [allowConversion, setAllowConversion] = useState(true);
   const [maxSlippage, setMaxSlippage] = useState('0.5');
   const [qrValue, setQrValue] = useState('-');
   const [showVerusIcon, setShowVerusIcon] = useState(false);
@@ -108,7 +122,10 @@ const ReceiveAssetDetails = () => {
   // Invoice Modal State
   const [invoiceQr, setInvoiceQr] = useState(null);
   const [invoiceAmount, setInvoiceAmount] = useState(null);
-  const [invoiceStep, setInvoiceStep] = useState('config'); // 'config' | 'result'
+  const [invoiceSubject, setInvoiceSubject] = useState('');
+  const [invoiceStep, setInvoiceStep] = useState('amount'); // 'amount' | 'subject' | 'settings' | 'result'
+  const [subjectFocused, setSubjectFocused] = useState(false);
+  const subjectInputRef = useRef(null);
 
   const selectedSubWallet = useMemo(() => {
     if (!availableSubWallets.length) return null;
@@ -224,6 +241,7 @@ const ReceiveAssetDetails = () => {
     (state) => state.settings.generalWalletSettings.displayCurrency || 'USD',
   );
   const generalSettings = useSelector((state) => state.settings.generalWalletSettings);
+  const keyboardState = useSelector((state) => state.keyboard);
 
   useEffect(() => {
     if (address) {
@@ -363,6 +381,21 @@ const ReceiveAssetDetails = () => {
     createInvoice(validated.amount, validated.maxSlippage || '');
   }, [createInvoice, validateInputs]);
 
+  const handleShare = useCallback(async () => {
+    if (!invoiceQr) return;
+
+    try {
+      const currency = amountFiat ? displayCurrency : coinObj.display_ticker;
+      const message = `Please could you pay me ${invoiceAmount} ${currency}${invoiceSubject ? ` for '${invoiceSubject}'` : ''} with ${invoiceQr}`;
+
+      await Share.share({
+        message,
+      });
+    } catch (error) {
+      console.error(error.message);
+    }
+  }, [invoiceQr, address, invoiceAmount, amountFiat, displayCurrency, coinObj]);
+
   if (!coinObj) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -486,47 +519,33 @@ const ReceiveAssetDetails = () => {
 
         {renderAddressSection()}
 
-        <TouchableOpacity style={styles.compactPaymentCard} onPress={() => setCreateSheetVisible(true)} activeOpacity={0.8}>
-          <View style={styles.compactPaymentContent}>
-            <Text style={styles.compactPaymentTitle}>{'Create payment requests'}</Text>
-            <Text style={styles.compactPaymentSubtitle}>{'Request payments with easy-to-scan QR codes'}</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
+        <TouchableOpacity 
+          style={styles.compactPaymentCard} 
+          onPress={() => setCreateSheetVisible(true)} 
+          activeOpacity={0.8}
+        >
+            <View style={styles.paymentCardContent}>
+              <Text style={styles.compactPaymentTitle}>{'Easy to share payment request'}</Text>
+            </View>
+            <View style={styles.paymentImageContainer}>
+              <Image
+                source={require('../../images/customIcons/requestImage.png')}
+                style={styles.paymentRequestImage}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={{paddingRight: 16}}>
+              <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
+            </View>
         </TouchableOpacity>
       </ScrollView>
 
       <View style={styles.footerContainer}>
-        <TouchableOpacity
+        <GradientButton
           onPress={() => navigation.navigate('Home')}
-          activeOpacity={0.8}
-          style={styles.doneButtonWrapper}
         >
-          <Svg
-            width="100%"
-            height="100%"
-            style={styles.doneButtonGradient}
-            pointerEvents="none"
-          >
-            <Defs>
-              <SvgLinearGradient id="doneButtonGradient" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#00C8FF" />
-                <Stop offset="1" stopColor="#0077A9" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect
-              x="0"
-              y="0"
-              width="100%"
-              height="100%"
-              rx={28}
-              ry={28}
-              fill="url(#doneButtonGradient)"
-            />
-          </Svg>
-          <View style={styles.doneButtonContent}>
-            <Text style={styles.doneButtonLabel}>{'Done'}</Text>
-          </View>
-        </TouchableOpacity>
+          {'Done'}
+        </GradientButton>
       </View>
 
       {loading && <AnimatedActivityIndicatorBox />}
@@ -561,15 +580,11 @@ const ReceiveAssetDetails = () => {
                 <Text style={styles.infoParagraph}>
                   {'Invoices capture the destination, currency, and optional conversion rules so the sender sees exactly what to pay.'}
                 </Text>
-                <Button
-                  mode="contained"
+                <GradientButton
                   onPress={() => setInfoSheetVisible(false)}
-                  style={styles.sheetPrimaryButton}
-                  contentStyle={styles.sheetPrimaryButtonContent}
-                  labelStyle={styles.sheetPrimaryButtonLabel}
                 >
                   {'Got it'}
-                </Button>
+                </GradientButton>
               </View>
             </View>
           </SemiModal>
@@ -582,8 +597,10 @@ const ReceiveAssetDetails = () => {
             visible={true}
             onRequestClose={() => {
               setCreateSheetVisible(false);
-              setInvoiceStep('config');
+              setInvoiceStep('amount');
               setInvoiceQr(null);
+              setAmount('');
+              setInvoiceSubject('');
             }}
             flexHeight={0.01}
             contentContainerStyle={{
@@ -593,92 +610,193 @@ const ReceiveAssetDetails = () => {
               alignSelf: 'flex-end',
               width: '100%',
               maxHeight: '90%',
+              backgroundColor: 'white',
+              // When keyboard is active on Subject or Settings step, add keyboard height to push content up
+              ...((invoiceStep === 'subject' || invoiceStep === 'settings') && Platform.OS === 'ios' && keyboardState.active
+                ? { marginBottom: keyboardState.height }
+                : {}),
             }}
           >
-            <View>
+            <View style={{backgroundColor: 'white'}}>
               <View style={styles.sheetHeader}>
                 <Button 
                   onPress={() => {
                     setCreateSheetVisible(false);
-                    setInvoiceStep('config');
+                    setInvoiceStep('amount');
                     setInvoiceQr(null);
+                    setAmount('');
+                    setInvoiceSubject('');
                   }} 
                   textColor={Colors.primaryColor}
                 >
                   {'Close'}
                 </Button>
                 <Text style={styles.sheetTitle}>
-                  {invoiceStep === 'config' ? 'Create easy payment' : 'Payment invoice'}
+                  {invoiceStep === 'result' ? 'Payment request' : 'Payment request'}
                 </Text>
                 <View style={styles.sheetHeaderSpacer} />
               </View>
               
-              <ScrollView
-                contentContainerStyle={styles.sheetBody}
-                keyboardShouldPersistTaps="handled"
-                showsVerticalScrollIndicator={false}
-              >
-                {invoiceStep === 'config' ? (
-                  <>
-                    <Text style={styles.sheetSubtitle}>
-                      {'Enter an amount to generate a VerusPay invoice. Sender can scan to pay instantly.'}
-                    </Text>
-
-                    <View style={styles.sheetFieldGroup}>
-                      <View style={styles.sectionHeaderRow}>
-                        <Text style={styles.sectionLabel}>{'Amount'}</Text>
-                        {amountPreview && <Text style={styles.sectionHint}>{amountPreview}</Text>}
-                      </View>
-                      
-                      <View style={styles.amountRow}>
-                        <View style={styles.amountInputContainer}>
-                          <TextInput
-                            mode="flat"
-                            label={amountFiat ? displayCurrency : coinObj.display_ticker}
-                            value={amount}
-                            onChangeText={setAmount}
-                            keyboardType="decimal-pad"
-                            error={errors.amount != null}
-                            style={styles.amountInput}
-                            theme={FLAT_INPUT_THEME}
-                            underlineColor={Colors.tertiaryColor}
-                            activeUnderlineColor={Colors.primaryColor}
-                          />
-                          {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
-                        </View>
-                      </View>
-                      
-                      <View style={styles.currencyToggleContainer}>
-                        <TouchableOpacity 
-                          style={[styles.currencyToggleBtn, !amountFiat && styles.currencyToggleBtnActive]} 
-                          onPress={() => setAmountFiat(false)}
-                        >
-                          <Text style={[styles.currencyToggleText, !amountFiat && styles.currencyToggleTextActive]}>
-                            {coinObj.display_ticker}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={[styles.currencyToggleBtn, amountFiat && styles.currencyToggleBtnActive]} 
-                          onPress={() => setAmountFiat(true)}
-                        >
-                          <Text style={[styles.currencyToggleText, amountFiat && styles.currencyToggleTextActive]}>
-                            {displayCurrency}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
+              <View>
+              {invoiceStep === 'amount' ? (
+                <View style={{justifyContent: 'space-between'}}>
+                  <View style={styles.amountStepContainer}>
+                    <Text style={styles.amountStepTitle}>What's the amount?</Text>
+                    
+                    <View style={styles.amountInputRow}>
+                      <Text style={styles.amountValueText}>
+                        {amount ? amount.replace('.', decimalSeparator) : `0${decimalSeparator}00`}
+                      </Text>
+                      <Text style={styles.amountCurrencySymbol}>
+                        {amountFiat ? displayCurrency : coinObj.display_ticker}
+                      </Text>
                     </View>
+                    
+                    <View style={styles.amountPreviewContainer}>
+                      {amountPreview && (
+                        <Text style={styles.amountPreviewText}>{amountPreview}</Text>
+                      )}
+                    </View>
+                    
+                    <TouchableOpacity 
+                        style={styles.currencySwitchButton}
+                        onPress={() => {
+                            const price = priceMap ? priceMap[displayCurrency] : null;
+                            if (amount && price && Number(price) > 0) {
+                                const currentVal = Number(sanitizeNumericInput(amount));
+                                let newAmount;
+                                if (amountFiat) {
+                                    // Fiat -> Crypto
+                                    newAmount = truncateDecimal(currentVal / Number(price), 8);
+                                } else {
+                                    // Crypto -> Fiat
+                                    newAmount = truncateDecimal(currentVal * Number(price), 2);
+                                }
+                                setAmount(newAmount.toString());
+                            }
+                            setAmountFiat(!amountFiat);
+                        }}
+                    >
+                         <MaterialCommunityIcons name="swap-vertical" size={16} color="#666" />
+                         <Text style={styles.currencySwitchText}>
+                            {amountFiat ? `Switch to ${coinObj.display_ticker}` : `Switch to ${displayCurrency}`}
+                         </Text>
+                    </TouchableOpacity>
+                  </View>
 
-                    {conversionEligible && (
-                      <View style={styles.sheetFieldGroup}>
+                  <View>
+                      <View style={styles.keypadContainer}>
+                        <NumericKeypad
+                            value={amount}
+                            onChange={setAmount}
+                            decimalPlaces={amountFiat ? 2 : 8}
+                            keyHeight={isSmall ? 40 : 48}
+                            fontSize={isSmall ? 22 : 26}
+                            keyBackground="transparent"
+                            rowSpacing={4}
+                        />
+                      </View>
+                      <View style={styles.amountStepFooter}>
+                          <GradientButton
+                            onPress={() => {
+                                if (conversionEligible) {
+                                    setInvoiceStep('subject');
+                                } else {
+                                    handleGenerateInvoice();
+                                }
+                            }}
+                            disabled={!amountHasValue}
+                          >
+                            {'Next'}
+                          </GradientButton>
+                      </View>
+                  </View>
+                </View>
+              ) : invoiceStep === 'subject' ? (
+                  <View style={{minHeight: 220}}>
+                    <View style={{paddingHorizontal: 24, paddingTop: 8}}>
+                      <Text style={styles.amountStepTitle}>
+                        {'What is it for?'}
+                      </Text>
+                      <Text style={styles.sheetSubtitle}>
+                        {'Optional'}
+                      </Text>
+                      <TextInput
+                        ref={(ref) => {
+                          subjectInputRef.current = ref;
+                          if (ref && invoiceStep === 'subject') {
+                             setTimeout(() => ref.focus(), 100);
+                          }
+                        }}
+                        placeholder="e.g. Dinner"
+                        value={invoiceSubject}
+                        onChangeText={setInvoiceSubject}
+                        mode="outlined"
+                        onFocus={() => setSubjectFocused(true)}
+                        onBlur={() => setSubjectFocused(false)}
+                        style={{
+                          backgroundColor: '#FAFAFA',
+                          fontSize: 16,
+                          height: 56,
+                        }}
+                        outlineStyle={{
+                          borderRadius: 12,
+                          borderWidth: 2,
+                          borderColor: subjectFocused ? Colors.primaryColor : '#E0E0E0',
+                        }}
+                        theme={{
+                          colors: {
+                            primary: Colors.primaryColor, 
+                            text: '#1A1A1A',
+                            placeholder: '#999',
+                            background: '#FAFAFA'
+                          },
+                          roundness: 12
+                        }}
+                        returnKeyType="next"
+                        onSubmitEditing={() => setInvoiceStep('settings')}
+                      />
+                    </View>
+                    <View style={{paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32}}>
+                        <GradientButton
+                            onPress={() => setInvoiceStep('settings')}
+                        >
+                            {'Next'}
+                        </GradientButton>
+                    </View>
+                  </View>
+              ) : invoiceStep === 'settings' ? (
+                  <View style={{paddingHorizontal: 24}}>
+                    <View style={{marginTop: 8, marginBottom: 24}}>
+                        <Text style={styles.amountStepTitle}>
+                            {'Allow conversions'}
+                        </Text>
+                        <Text style={styles.sheetSubtitle}>
+                            {`Sender can pay with currencies that can auto-convert to ${coinObj.display_ticker}. Easy for them, easy for you.`}
+                        </Text>
+                    </View>
+                
+                    <View style={styles.sheetFieldGroup}>
                         <TouchableOpacity 
-                          style={styles.checkboxRow} 
+                          style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              backgroundColor: '#FAFAFA',
+                              padding: 16,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: '#F0F0F0'
+                          }}
                           activeOpacity={0.8}
                           onPress={() => setAllowConversion(!allowConversion)}
                         >
                           <View style={{flex: 1, paddingRight: 12}}>
-                            <Text style={styles.checkboxLabel}>{'Allow payment in other currencies'}</Text>
-                            <Text style={styles.checkboxSubtitle}>
-                              {`Sender can pay with PBaaS currencies, auto-converting to ${coinObj.display_ticker}.`}
+                            <Text style={{fontSize: 16, fontWeight: '600', color: Colors.quinaryColor}}>
+                                {'Enable conversions'}
+                            </Text>
+                            <Text style={{fontSize: 12, color: '#888', marginTop: 2}}>
+                                {'Max. slippage: 0.5%'}
                             </Text>
                           </View>
                           <Checkbox.Android
@@ -689,38 +807,35 @@ const ReceiveAssetDetails = () => {
                           />
                         </TouchableOpacity>
                         
-                        {generalSettings.allowSettingVerusPaySlippage && allowConversion && (
-                          <View style={styles.slippageRow}>
-                            <Text style={styles.sectionLabel}>{'Max slippage (%)'}</Text>
+                         {generalSettings.allowSettingVerusPaySlippage && allowConversion && (
+                          <View style={{marginTop: 16}}>
+                            <Text style={{...styles.sectionLabel, marginBottom: 8}}>{'Max slippage (%)'}</Text>
                             <TextInput
-                              mode="flat"
+                              mode="outlined"
                               value={maxSlippage}
                               onChangeText={setMaxSlippage}
                               keyboardType="decimal-pad"
                               error={errors.maxSlippage != null}
-                              style={styles.amountInput}
-                              theme={FLAT_INPUT_THEME}
-                              underlineColor={Colors.tertiaryColor}
-                              activeUnderlineColor={Colors.primaryColor}
+                              style={{backgroundColor: 'white', height: 44}}
+                              theme={{colors: {primary: Colors.primaryColor, background: 'white'}}}
+                              outlineColor={Colors.tertiaryColor}
+                              activeOutlineColor={Colors.primaryColor}
                             />
-                            {errors.maxSlippage && <Text style={styles.errorText}>{errors.maxSlippage}</Text>}
+                            {errors.maxSlippage && <Text style={{color: 'red', fontSize: 12, marginTop: 4}}>{errors.maxSlippage}</Text>}
                           </View>
                         )}
-                      </View>
-                    )}
+                    </View>
 
-                    <Button
-                      mode="contained"
-                      onPress={handleGenerateInvoice}
-                      disabled={loading || !address || !amountHasValue}
-                      style={styles.sheetPrimaryButton}
-                      contentStyle={styles.sheetPrimaryButtonContent}
-                      labelStyle={styles.sheetPrimaryButtonLabel}
-                    >
-                      {loading ? 'Generating…' : 'Generate invoice'}
-                    </Button>
-                  </>
-                ) : (
+                    <View style={{paddingBottom: 32, paddingTop: 16}}>
+                      <GradientButton
+                        onPress={handleGenerateInvoice}
+                        disabled={loading}
+                      >
+                        {loading ? 'Generating…' : 'Create payment link'}
+                      </GradientButton>
+                    </View>
+                  </View>
+              ) : (
                   <View style={styles.resultContainer}>
                     <View style={styles.qrContainer}>
                       <QRCode
@@ -734,44 +849,46 @@ const ReceiveAssetDetails = () => {
                     </View>
                     
                     <Text style={styles.resultAmountText}>
-                      {`Scan to pay ${amount} ${amountFiat ? displayCurrency : coinObj.display_ticker}`}
+                      {`Scan to pay ${invoiceAmount} ${amountFiat ? displayCurrency : coinObj.display_ticker} to ${(address || '').length > 10 ? `${(address || '').substring(0, 5)}...${(address || '').substring((address || '').length - 5)}` : (address || '')}`}
                     </Text>
-                    {amountFiat && amountPreview && (
-                      <Text style={styles.resultAmountSubText}>{amountPreview}</Text>
-                    )}
-
+                    
                     <View style={styles.resultActions}>
-                      <Button
-                        mode="contained"
-                        onPress={() => {
-                          setCreateSheetVisible(false);
-                          setInvoiceStep('config');
-                          setInvoiceQr(null);
-                        }}
-                        style={styles.sheetPrimaryButton}
-                        contentStyle={styles.sheetPrimaryButtonContent}
-                        labelStyle={styles.sheetPrimaryButtonLabel}
-                      >
-                        {'Done'}
-                      </Button>
+                      <View style={{width: '80%', alignSelf: 'center', marginBottom: 12}}>
+                        <GradientButton
+                          onPress={handleShare}
+                          contentStyle={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}
+                        >
+                          <MaterialCommunityIcons name="share-variant" size={20} color="white" style={{marginRight: 8}} />
+                        <Text style={{
+                          fontSize: 16, 
+                          fontWeight: '700', 
+                          color: 'white',
+                          textShadowColor: 'rgba(0, 0, 0, 0.3)',
+                          textShadowOffset: { width: 0, height: 1 },
+                          textShadowRadius: 4,
+                        }}>
+                          {'Share payment link'}
+                        </Text>
+                        </GradientButton>
+                      </View>
                       
-                      <Button
-                        mode="text"
-                        onPress={() => {
-                          setInvoiceStep('config');
-                          setInvoiceQr(null);
-                        }}
-                        textColor={Colors.primaryColor}
-                        contentStyle={styles.sheetTextButtonContent}
-                        labelStyle={styles.sheetTextButtonLabel}
-                        style={{marginTop: 8}}
-                      >
-                        {'Create another invoice'}
-                      </Button>
+                      <View style={{width: '80%', alignSelf: 'center'}}>
+                        <GradientButton
+                          onPress={() => {
+                            setInvoiceStep('amount');
+                            setInvoiceQr(null);
+                            setInvoiceSubject('');
+                            setAmount('');
+                          }}
+                          mode="outlined"
+                        >
+                          {'New payment request'}
+                        </GradientButton>
+                      </View>
                     </View>
                   </View>
-                )}
-              </ScrollView>
+              )}
+              </View>
             </View>
           </SemiModal>
         )}
@@ -819,18 +936,14 @@ const ReceiveAssetDetails = () => {
                 <View style={styles.urlBox}>
                     <Text style={styles.urlText}>{getExplorerUrl()}</Text>
                 </View>
-                <Button
-                  mode="contained"
+                <GradientButton
                   onPress={() => {
                       setExplorerSheetVisible(false);
                       openUrl(getExplorerUrl());
                   }}
-                  style={styles.sheetPrimaryButton}
-                  contentStyle={styles.sheetPrimaryButtonContent}
-                  labelStyle={styles.sheetPrimaryButtonLabel}
                 >
                   {'Open browser'}
-                </Button>
+                </GradientButton>
               </View>
             </View>
           </SemiModal>
@@ -873,15 +986,11 @@ const ReceiveAssetDetails = () => {
                     </View>
                   ))}
                 </View>
-                <Button
-                  mode="contained"
+                <GradientButton
                   onPress={() => setSupportedNetworksVisible(false)}
-                  style={styles.sheetPrimaryButton}
-                  contentStyle={styles.sheetPrimaryButtonContent}
-                  labelStyle={styles.sheetPrimaryButtonLabel}
                 >
                   {'Got it'}
-                </Button>
+                </GradientButton>
               </View>
             </View>
           </SemiModal>
@@ -1022,58 +1131,42 @@ const styles = StyleSheet.create({
   compactPaymentCard: {
     width: '100%',
     borderRadius: 16,
-    padding: 16,
-    backgroundColor: '#F5F5F5',
+    overflow: 'hidden',
+    marginBottom: 0,
+    height: 65,
+    backgroundColor: 'white',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
   },
-  compactPaymentContent: {
+  paymentCardContent: {
+    paddingLeft: 20,
+    justifyContent: 'center',
     flex: 1,
-    paddingRight: 12,
   },
   compactPaymentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
     color: Colors.quinaryColor,
-    marginBottom: 2,
   },
-  compactPaymentSubtitle: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: '#666666',
+  paymentImageContainer: {
+    height: '100%',
+    width: 160,
+    alignSelf: 'flex-end',
+    justifyContent: 'flex-end',
+    marginBottom: -10,
+  },
+  paymentRequestImage: {
+    width: 160,
+    height: 70,
   },
   footerContainer: {
     paddingHorizontal: 20,
     paddingBottom: 32,
     paddingTop: 16,
     backgroundColor: 'white',
-  },
-  doneButtonWrapper: {
-    borderRadius: 28,
-    overflow: 'hidden',
-    position: 'relative',
-    height: 56,
-  },
-  doneButtonGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  doneButtonContent: {
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  doneButtonLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'white',
-    letterSpacing: 0.5,
-    textTransform: 'none',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1109,26 +1202,6 @@ const styles = StyleSheet.create({
   },
   sheetFieldGroup: {
     marginBottom: 24,
-  },
-  sheetPrimaryButton: {
-    borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-    marginTop: 4,
-  },
-  sheetPrimaryButtonContent: {
-    height: 48,
-  },
-  sheetPrimaryButtonLabel: {
-    color: Colors.secondaryColor,
-    fontWeight: '600',
-    fontSize: 15,
-    letterSpacing: 0,
-    textTransform: 'none',
   },
   sheetQrPreview: {
     marginTop: 28,
@@ -1205,14 +1278,15 @@ const styles = StyleSheet.create({
   resultContainer: {
     alignItems: 'center',
     paddingTop: 16,
+    paddingBottom: 32,
   },
   resultAmountText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: Colors.quinaryColor,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#888',
     textAlign: 'center',
-    marginTop: 24,
-    marginBottom: 4,
+    marginTop: 16,
+    marginBottom: 16,
   },
   resultAmountSubText: {
     fontSize: 14,
@@ -1281,6 +1355,66 @@ const styles = StyleSheet.create({
   networkListItemSubtitle: {
     fontSize: 13,
     color: '#666666',
+  },
+  // Amount step styles (inspired by modern payment apps)
+  amountStepContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  amountStepTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    marginBottom: 16,
+  },
+  amountInputRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  amountCurrencySymbol: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666', // Neutral gray instead of primary color
+    marginLeft: 8, // Margin left since it's now on the right
+  },
+  amountValueText: {
+    fontSize: 48, // Slightly larger for emphasis
+    fontWeight: '400',
+    color: Colors.quinaryColor, // Dark color for value
+  },
+  amountPreviewContainer: {
+    height: 24, // Fixed height to reserve space for preview text
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  amountPreviewText: {
+    fontSize: 15,
+    color: '#888',
+    fontWeight: '500',
+  },
+  currencySwitchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+    alignSelf: 'flex-start',
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  currencySwitchText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#444', // Neutral dark gray
+    marginLeft: 6,
+  },
+  keypadContainer: {
+    paddingBottom: 8,
+  },
+  amountStepFooter: {
+    paddingHorizontal: 20,
+    paddingBottom: 32,
   },
 });
 
