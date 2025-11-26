@@ -478,7 +478,7 @@ const ReceiveAssetDetails = () => {
                   </View>
                 )}
               </View>
-              <Text style={styles.supportedNetworksText}>Supported blockchains</Text>
+              <Text style={styles.supportedNetworksText}>Supported chains</Text>
               <MaterialCommunityIcons name="chevron-right" size={16} color={Colors.verusDarkGray} />
             </TouchableOpacity>
           )}
@@ -488,8 +488,8 @@ const ReceiveAssetDetails = () => {
 
         <TouchableOpacity style={styles.compactPaymentCard} onPress={() => setCreateSheetVisible(true)} activeOpacity={0.8}>
           <View style={styles.compactPaymentContent}>
-            <Text style={styles.compactPaymentTitle}>{'Create easy payment'}</Text>
-            <Text style={styles.compactPaymentSubtitle}>{'Request payments with invoices'}</Text>
+            <Text style={styles.compactPaymentTitle}>{'Create payment requests'}</Text>
+            <Text style={styles.compactPaymentSubtitle}>{'Request payments with easy-to-scan QR codes'}</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
         </TouchableOpacity>
@@ -855,12 +855,12 @@ const ReceiveAssetDetails = () => {
             <View>
               <View style={styles.sheetHeader}>
                 <Button onPress={() => setSupportedNetworksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                <Text style={styles.sheetTitle}>{'Supported networks'}</Text>
+                <Text style={styles.sheetTitle}>{'Supported chains'}</Text>
                 <View style={styles.sheetHeaderSpacer} />
               </View>
               <View style={styles.sheetBody}>
                 <Text style={styles.infoParagraph}>
-                  {'This address supports currencies on these blockchains in the Verus ecosystem.'}
+                  {'This address supports all currencies on all chains in the Verus ecosystem.'}
                 </Text>
                 <View style={styles.networksListContainer}>
                   {supportedNetworks.map((net) => (
