@@ -91,8 +91,6 @@ const GradientButton = ({
             y="0"
             width="100%"
             height="100%"
-            rx={24}
-            ry={24}
             fill="url(#gradientButton)"
           />
         </Svg>

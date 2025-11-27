@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Colors from '../../../globals/colors';
 import WalletPromotionalWidgets from '../HomeWidgets/WalletPromotionalWidgets';
+import GradientButton from '../../../components/GradientButton';
 
 const HomeFAB = (props) => {
   const {
@@ -98,25 +99,16 @@ const HomeFAB = (props) => {
             </Button>
 
             {/* Primary Buy & sell button on the right */}
-            <Button
-              mode="contained"
+            <GradientButton
               onPress={handleOpenOnOffRamp}
               style={{
-                borderRadius: 22,
-                backgroundColor: Colors.primaryColor,
                 width: 160,
-                elevation: 0,
-                shadowColor: 'transparent',
-                shadowOpacity: 0,
-                shadowRadius: 0,
-                shadowOffset: { width: 0, height: 0 },
+                height: 44,
+                borderRadius: 22,
               }}
-              contentStyle={{ height: 44 }}
-              uppercase={false}
-              labelStyle={{ color: Colors.secondaryColor, fontWeight: '700', fontSize: 16, letterSpacing: 0, textTransform: 'none', textAlign: 'center' }}
             >
               Buy & sell
-            </Button>
+            </GradientButton>
           </View>
         </View>
       </View>
