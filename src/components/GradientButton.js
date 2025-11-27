@@ -13,8 +13,46 @@ const GradientButton = ({
   topColor = '#53C6F4',
   bottomColor = '#30A1CE',
   mode = 'contained',
+  leftIcon,
+  rightIcon,
+  iconGap = 8,
 }) => {
   const isOutlined = mode === 'outlined';
+  
+  const renderContent = () => {
+    if (typeof children !== 'string') {
+      return children;
+    }
+
+    const textComponent = (
+      <Text 
+        style={[
+          styles.gradientButtonLabel, 
+          isOutlined && { 
+            color: bottomColor, 
+            textShadowColor: 'transparent',
+            textShadowOffset: { width: 0, height: 0 },
+            textShadowRadius: 0
+          },
+          labelStyle
+        ]}
+      >
+        {children}
+      </Text>
+    );
+
+    if (leftIcon || rightIcon) {
+      return (
+        <View style={[styles.rowContent, { gap: iconGap }]}>
+          {leftIcon}
+          {textComponent}
+          {rightIcon}
+        </View>
+      );
+    }
+
+    return textComponent;
+  };
   
   return (
     <TouchableOpacity
@@ -60,24 +98,7 @@ const GradientButton = ({
         </Svg>
       )}
       <View style={[styles.gradientButtonContent, contentStyle]}>
-        {typeof children === 'string' ? (
-          <Text 
-            style={[
-              styles.gradientButtonLabel, 
-              isOutlined && { 
-                color: bottomColor, 
-                textShadowColor: 'transparent',
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 0
-              },
-              labelStyle
-            ]}
-          >
-            {children}
-          </Text>
-        ) : (
-          children
-        )}
+        {renderContent()}
       </View>
     </TouchableOpacity>
   );
@@ -102,6 +123,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  rowContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   gradientButtonLabel: {
     fontSize: 16,
     fontWeight: '700',
@@ -114,5 +140,3 @@ const styles = StyleSheet.create({
 });
 
 export default GradientButton;
-
-

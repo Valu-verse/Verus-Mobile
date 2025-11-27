@@ -63,6 +63,7 @@ import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
 import { normalizePaymentMethodLabel, getPaymentMethodMeta } from '../shared/valuPaymentMethodMeta';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
+import GradientButton from "../../../../../components/GradientButton";
 import { API_GET_BALANCES } from '../../../../../utils/constants/intervalConstants';
 
 // Constants
@@ -498,52 +499,20 @@ class ValuOffRampChooseSource extends Component {
               <Text style={styles.errorBannerText}>{errorMessage}</Text>
             </View>
           ) : null}
-          <View
-            style={[
-              styles.reviewActionWrapper,
-              actionDisabled ? styles.reviewActionWrapperDisabled : null,
-            ]}
+          <GradientButton
+            onPress={this.startOnRamp}
+            disabled={actionDisabled}
+            style={styles.reviewActionWrapper}
+            rightIcon={
+              <MaterialCommunityIcons 
+                name="open-in-new" 
+                size={20} 
+                color={'white'}
+              />
+            }
           >
-            {!actionDisabled && (
-              <Svg
-                width="100%"
-                height="100%"
-                style={styles.reviewActionGradient}
-                pointerEvents="none"
-              >
-                <Defs>
-                  <SvgLinearGradient id="reviewButtonGradientOfframp" x1="0" y1="0" x2="1" y2="1">
-                    <Stop offset="0" stopColor="#00C8FF" />
-                    <Stop offset="1" stopColor="#0077A9" />
-                  </SvgLinearGradient>
-                </Defs>
-                <Rect
-                  x="0"
-                  y="0"
-                  width="100%"
-                  height="100%"
-                  rx={28}
-                  ry={28}
-                  fill="url(#reviewButtonGradientOfframp)"
-                />
-              </Svg>
-            )}
-            <Button
-              mode="contained"
-              onPress={this.startOnRamp}
-              disabled={actionDisabled}
-              icon="open-in-new"
-              style={styles.reviewActionButton}
-              contentStyle={[styles.modernActionButtonContent, styles.reviewActionButtonContent, { flexDirection: 'row-reverse' }]}
-              labelStyle={[
-                styles.modernActionButtonLabel,
-                styles.reviewActionButtonLabel,
-                actionDisabled ? styles.modernActionButtonLabelDisabled : null,
-              ]}
-            >
-              Sell now
-            </Button>
-          </View>
+            Sell now
+          </GradientButton>
         </View>
       </View>
     );
@@ -615,14 +584,26 @@ class ValuOffRampChooseSource extends Component {
   updateNavigationForReview(isReview) {
     if (!this.props.navigation?.setOptions) return;
 
+    const commonOptions = {
+      headerRight: () => null,
+      headerShadowVisible: false,
+      headerStyle: {
+        backgroundColor: 'white',
+        elevation: 0,
+        shadowOpacity: 0,
+      },
+    };
+
     if (isReview) {
       this.props.navigation.setOptions({
-        headerTitle: 'Review order',
+        ...commonOptions,
+        headerTitle: '',
         headerBackTitle: 'Edit order',
       });
     } else {
       this.props.navigation.setOptions({
-        headerTitle: 'Valu',
+        ...commonOptions,
+        headerTitle: '',
         headerBackTitle: 'Back',
       });
     }
@@ -1133,7 +1114,7 @@ class ValuOffRampChooseSource extends Component {
     }
     
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={{ flex: 1 }}>
             {this.renderModals()}
@@ -1164,59 +1145,21 @@ class ValuOffRampChooseSource extends Component {
                         <Text style={styles.errorBannerText}>{errorMessage}</Text>
                       </View>
                     ) : (
-                      <TouchableOpacity
+                      <GradientButton
                         onPress={this.handleReviewPress}
                         disabled={ctaDisabled}
-                        activeOpacity={0.8}
-                        style={[
-                          styles.ctaActionWrapper,
-                          ctaDisabled ? styles.ctaActionWrapperDisabled : null,
-                        ]}
-                      >
-                        {!ctaDisabled && (
-                          <Svg
-                            width="100%"
-                            height="100%"
-                            style={styles.ctaActionGradient}
-                            pointerEvents="none"
-                          >
-                            <Defs>
-                              <SvgLinearGradient id="ctaButtonGradientOffRamp" x1="0" y1="0" x2="1" y2="1">
-                                <Stop offset="0" stopColor="#00C8FF" />
-                                <Stop offset="1" stopColor="#0077A9" />
-                              </SvgLinearGradient>
-                            </Defs>
-                            <Rect
-                              x="0"
-                              y="0"
-                              width="100%"
-                              height="100%"
-                              rx={24}
-                              ry={24}
-                              fill="url(#ctaButtonGradientOffRamp)"
-                            />
-                          </Svg>
-                        )}
-                        <View style={styles.ctaButtonContentContainer}>
-                          <View style={styles.ctaLabelRow}>
-                            <View style={styles.ctaSpinnerSlotLeft}>
-                              {this.state.updatingfee ? (
-                                <ActivityIndicator color={spinnerColor} size={16} />
-                              ) : null}
-                            </View>
-                            <Text
-                              style={[
-                                styles.modernActionButtonLabel,
-                                ctaDisabled ? styles.modernActionButtonLabelDisabled : null,
-                                styles.ctaLabelText,
-                              ]}
-                            >
-                              {primaryButtonLabel}
-                            </Text>
-                            <View style={styles.ctaSpinnerSlotRight} />
+                        style={{ width: '100%' }}
+                        leftIcon={
+                          <View style={{ width: 24, alignItems: 'center' }}>
+                            {this.state.updatingfee ? (
+                              <ActivityIndicator color={'white'} size={16} />
+                            ) : null}
                           </View>
-                        </View>
-                      </TouchableOpacity>
+                        }
+                        rightIcon={<View style={{ width: 24 }} />}
+                      >
+                        {primaryButtonLabel}
+                      </GradientButton>
                     )}
                   </View>
                 </View>
@@ -1253,7 +1196,7 @@ const styles = StyleSheet.create({
   },
   modernContainer: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
   },
   header: {
     flexDirection: 'row',
@@ -1495,7 +1438,7 @@ const styles = StyleSheet.create({
   },
   reviewContainer: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
   },
   reviewScroll: {
     flex: 1,
@@ -1533,7 +1476,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
   },
   reviewSummaryLabelFlat: {
     fontSize: 16,
@@ -1551,7 +1494,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
     marginBottom: 20,
   },
   reviewPaymentTextColumn: {
@@ -1588,7 +1531,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: '#E6E6E6',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
   },
   reviewTotalContainer: {
     marginBottom: 12,
@@ -1739,7 +1682,7 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   fullWidthKeypadContainer: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'white',
     paddingTop: 0,
     paddingBottom: Platform.OS === 'ios' ? 6 : 4,
     width: '100%',
