@@ -7,7 +7,7 @@
   - Maintains all existing alerts, SumSub/InAppBrowser flows, and notifications
   - Added wait reminder copy to provisioning notification message
 */
-import React, { useEffect, useState, useCallback, useRef } from "react"
+import React, { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react"
 import { connect, useSelector } from 'react-redux'
 import { useFocusEffect } from '@react-navigation/native';
 import { CommonActions } from '@react-navigation/native';
@@ -57,6 +57,7 @@ import SemiModal from '../../../../../components/SemiModal';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { set } from "lodash";
 import TimelineList from '../../../../../components/Timeline/TimelineList';
+import GradientButton from "../../../../../components/GradientButton";
 
 
 const ValuAttestation = (props) => {
@@ -87,6 +88,21 @@ const ValuAttestation = (props) => {
     );
     const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
     const pendingIds = useSelector(state => state.channelStore_verusid.pendingIds);
+
+    useLayoutEffect(() => {
+        props.navigation.setOptions({
+            headerTitle: '',
+            headerRight: () => null,
+            headerBackTitle: 'Back',
+            headerShadowVisible: false,
+            headerStyle: {
+                backgroundColor: 'white',
+                elevation: 0,
+                shadowOpacity: 0,
+            },
+        });
+    }, [props.navigation]);
+
     // While registering identity, hide back button and disable gestures to avoid leaving mid-flow
     useEffect(() => {
         if (props.navigation?.setOptions) {
@@ -1177,32 +1193,13 @@ const ValuAttestation = (props) => {
                                 </TouchableOpacity>
                             )}
                             <View style={{ paddingHorizontal: 20, paddingBottom: 24, width: '100%', alignSelf: 'stretch' }}>
-                                <Button
+                                <GradientButton
                                     onPress={() => { startOnRamp() }}
-                                    mode="contained"
                                     disabled={status === 'error' || showIdentityProvisioningProgress}
-                                    style={{
-                                        borderRadius: 24,
-                                        backgroundColor: (status === 'error' || showIdentityProvisioningProgress) ? '#CFEAF2' : Colors.primaryColor,
-                                        elevation: 0,
-                                        shadowColor: 'transparent',
-                                        shadowOpacity: 0,
-                                        shadowRadius: 0,
-                                        shadowOffset: { width: 0, height: 0 },
-                                        width: '100%',
-                                        alignSelf: 'stretch'
-                                    }}
-                                    contentStyle={{ height: 48 }}
-                                    labelStyle={{
-                                        color: Colors.secondaryColor,
-                                        fontWeight: '600',
-                                        fontSize: 15,
-                                        letterSpacing: 0,
-                                        textTransform: 'none',
-                                    }}
+                                    style={{ width: '100%' }}
                                 >
                                     {ctaLabel}
-                                </Button>
+                                </GradientButton>
                             </View>
                         </React.Fragment>
                     )}
@@ -1271,32 +1268,12 @@ const ValuAttestation = (props) => {
                                 <Text style={{ fontSize: 14, color: '#666', marginBottom: 24 }}>{'Estimated time: About 5–10 minutes'}</Text>
 
                                 {/* Got it button */}
-                                <Button
+                                <GradientButton
                                     onPress={() => setHowItWorksVisible(false)}
-                                    mode="contained"
-                                    style={{
-                                        borderRadius: 24,
-                                        backgroundColor: Colors.primaryColor,
-                                        elevation: 0,
-                                        shadowColor: 'transparent',
-                                        shadowOpacity: 0,
-                                        shadowRadius: 0,
-                                        shadowOffset: { width: 0, height: 0 },
-                                        width: '100%',
-                                        alignSelf: 'stretch',
-                                        marginBottom: 20
-                                    }}
-                                    contentStyle={{ height: 48 }}
-                                    labelStyle={{
-                                        color: Colors.secondaryColor,
-                                        fontWeight: '600',
-                                        fontSize: 15,
-                                        letterSpacing: 0,
-                                        textTransform: 'none',
-                                    }}
+                                    style={{ width: '100%', marginBottom: 20 }}
                                 >
                                     Got it
-                                </Button>
+                                </GradientButton>
                             </View>
                         </View>
                     </SemiModal>
