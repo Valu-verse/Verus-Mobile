@@ -1,5 +1,13 @@
 /*
   ReceiveAssetDetails
+  2025-11-27:
+  - Updated "Easy to share payment request" card to dynamically change based on coin capabilities:
+    - For coins supporting invoices (conversionEligible): Show "Easy to share payment request" with image.
+    - For others: Show "Create payment request" without image.
+  - Updated Payment Request Result modal:
+    - For coins supporting invoices: Show "Share payment link".
+    - For others: Show "Save QR to camera roll" which saves the code to camera roll.
+    - Added success state ("QR image saved" with checkmark) after saving.
   2025-11-26:
   - Updated payment request flow to clear amount and subject fields when closing the modal or starting a new payment.
   2025-11-25:
@@ -32,6 +40,8 @@ import { Text, Button, TextInput, Checkbox, Portal } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import RNFS from "react-native-fs";
 import NumericKeypad from '../../components/Keypad/NumericKeypad';
 import GradientButton from '../../components/GradientButton';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
@@ -125,7 +135,10 @@ const ReceiveAssetDetails = () => {
   const [invoiceSubject, setInvoiceSubject] = useState('');
   const [invoiceStep, setInvoiceStep] = useState('amount'); // 'amount' | 'subject' | 'settings' | 'result'
   const [subjectFocused, setSubjectFocused] = useState(false);
+  const [qrSaved, setQrSaved] = useState(false);
+  
   const subjectInputRef = useRef(null);
+  const qrCodeRef = useRef(null);
 
   const selectedSubWallet = useMemo(() => {
     if (!availableSubWallets.length) return null;
@@ -396,6 +409,29 @@ const ReceiveAssetDetails = () => {
     }
   }, [invoiceQr, address, invoiceAmount, amountFiat, displayCurrency, coinObj]);
 
+  const saveQRToDisk = useCallback(() => {
+    if (!qrCodeRef.current) return;
+
+    const fileName = `VerusPayQR_${Date.now()}`;
+    
+    qrCodeRef.current.toDataURL((data) => {
+      RNFS.writeFile(RNFS.CachesDirectoryPath + `/${fileName}.png`, data, 'base64')
+        .then(() => {
+          return CameraRoll.save(RNFS.CachesDirectoryPath + `/${fileName}.png`, { type: 'photo' });
+        })
+        .then(() => {
+          return RNFS.unlink(RNFS.CachesDirectoryPath + `/${fileName}.png`);
+        })
+        .then(() => {
+          setQrSaved(true);
+        })
+        .catch(e => {
+          console.warn(e);
+          createAlert("Error", e.message || "Failed to save QR code");
+        });
+    });
+  }, [qrCodeRef]);
+
   if (!coinObj) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -525,15 +561,19 @@ const ReceiveAssetDetails = () => {
           activeOpacity={0.8}
         >
             <View style={styles.paymentCardContent}>
-              <Text style={styles.compactPaymentTitle}>{'Easy to share payment request'}</Text>
+              <Text style={styles.compactPaymentTitle}>
+                {conversionEligible ? 'Easy to share payment request' : 'Create payment request'}
+              </Text>
             </View>
-            <View style={styles.paymentImageContainer}>
-              <Image
-                source={require('../../images/customIcons/requestImage.png')}
-                style={styles.paymentRequestImage}
-                resizeMode="contain"
-              />
-            </View>
+            {conversionEligible && (
+              <View style={styles.paymentImageContainer}>
+                <Image
+                  source={require('../../images/customIcons/requestImage.png')}
+                  style={styles.paymentRequestImage}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
             <View style={{paddingRight: 16}}>
               <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
             </View>
@@ -601,6 +641,7 @@ const ReceiveAssetDetails = () => {
               setInvoiceQr(null);
               setAmount('');
               setInvoiceSubject('');
+              setQrSaved(false);
             }}
             flexHeight={0.01}
             contentContainerStyle={{
@@ -626,6 +667,7 @@ const ReceiveAssetDetails = () => {
                     setInvoiceQr(null);
                     setAmount('');
                     setInvoiceSubject('');
+                    setQrSaved(false);
                   }} 
                   textColor={Colors.primaryColor}
                 >
@@ -841,6 +883,7 @@ const ReceiveAssetDetails = () => {
                       <QRCode
                         value={invoiceQr || '-'}
                         size={220}
+                        getRef={(c) => (qrCodeRef.current = c)}
                         logo={showVerusIcon ? require('../../images/customIcons/Verus.png') : undefined}
                         logoSize={showVerusIcon ? 48 : undefined}
                         logoBackgroundColor={showVerusIcon ? 'white' : undefined}
@@ -855,10 +898,19 @@ const ReceiveAssetDetails = () => {
                     <View style={styles.resultActions}>
                       <View style={{width: '80%', alignSelf: 'center', marginBottom: 12}}>
                         <GradientButton
-                          onPress={handleShare}
+                          onPress={conversionEligible ? handleShare : (qrSaved ? () => {} : saveQRToDisk)}
                           contentStyle={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}
+                          disabled={!conversionEligible && qrSaved}
+                          style={(!conversionEligible && qrSaved) ? { opacity: 1 } : {}}
+                          topColor={(!conversionEligible && qrSaved) ? Colors.verusGreenColor : undefined}
+                          bottomColor={(!conversionEligible && qrSaved) ? Colors.verusGreenColor : undefined}
                         >
-                          <MaterialCommunityIcons name="share-variant" size={20} color="white" style={{marginRight: 8}} />
+                          <MaterialCommunityIcons 
+                            name={conversionEligible ? "share-variant" : (qrSaved ? "check" : "content-save")} 
+                            size={20} 
+                            color="white" 
+                            style={{marginRight: 8}} 
+                          />
                         <Text style={{
                           fontSize: 16, 
                           fontWeight: '700', 
@@ -867,7 +919,7 @@ const ReceiveAssetDetails = () => {
                           textShadowOffset: { width: 0, height: 1 },
                           textShadowRadius: 4,
                         }}>
-                          {'Share payment link'}
+                          {conversionEligible ? 'Share payment link' : (qrSaved ? 'QR image saved' : 'Save QR to camera roll')}
                         </Text>
                         </GradientButton>
                       </View>
@@ -879,6 +931,7 @@ const ReceiveAssetDetails = () => {
                             setInvoiceQr(null);
                             setInvoiceSubject('');
                             setAmount('');
+                            setQrSaved(false);
                           }}
                           mode="outlined"
                         >
