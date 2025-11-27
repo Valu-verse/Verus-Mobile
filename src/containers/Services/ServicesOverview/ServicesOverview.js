@@ -3,7 +3,7 @@
   services they can connect to Verus Mobile
 */  
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useLayoutEffect } from "react"
 import { useDispatch, useSelector } from 'react-redux'
 import { clearSecureLoadingData } from "../../../actions/actionCreators";
 import { ServicesOverviewRender } from "./ServicesOverview.render"
@@ -19,6 +19,12 @@ const ServicesOverview = ({ navigation }) => {
   const attestation = useSelector((state) => state.attestation);
 
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     if (passthrough && passthrough.service) {

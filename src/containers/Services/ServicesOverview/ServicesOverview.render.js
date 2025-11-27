@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Divider, List, Provider } from 'react-native-paper';
 import Styles from '../../../styles';
 import {
@@ -52,6 +52,9 @@ export const ServicesOverviewRender = ({
   return (
     <SafeAreaView style={Styles.defaultRoot}>
       <ScrollView style={Styles.fullWidth} contentContainerStyle={{ paddingBottom: 40 }}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.mainTitle}>Services</Text>
+        </View>
         <View style={{ padding: 16 }}>
            <TouchableOpacity
             activeOpacity={0.8}
@@ -93,3 +96,17 @@ export const ServicesOverviewRender = ({
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    paddingHorizontal: 16,
+    backgroundColor: 'white',
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+    marginBottom: 0,
+    marginTop: 8,
+  },
+});

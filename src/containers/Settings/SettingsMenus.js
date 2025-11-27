@@ -6,7 +6,7 @@
 */
 
 import React, { Component } from "react";
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, SafeAreaView } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { connect } from 'react-redux';
 import { List, Button } from "react-native-paper"
@@ -42,7 +42,9 @@ const SETTINGS_DESTINATIONS = [
 
 class SettingsMenus extends Component {
   componentDidMount() {
-    this.props.navigation.setOptions({ title: 'Settings' });
+    this.props.navigation.setOptions({
+      headerShown: false,
+    });
   }
 
   handleNavigate = (destination) => {
@@ -112,8 +114,12 @@ class SettingsMenus extends Component {
 
   render() {
     return (
-      <ScrollView style={styles.container}>
-        <List.Section>
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.container}>
+          <View style={styles.headerContainer}>
+            <Text style={styles.mainTitle}>Settings</Text>
+          </View>
+          <List.Section>
           {SETTINGS_DESTINATIONS.map((destination) => (
             <List.Item
               key={destination.key}
@@ -142,6 +148,7 @@ class SettingsMenus extends Component {
           </Button>
         </View>
       </ScrollView>
+    </SafeAreaView>
     );
   }
 }
@@ -152,6 +159,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: SETTINGS_BACKGROUND,
+  },
+  headerContainer: {
+    paddingHorizontal: 16,
+    backgroundColor: SETTINGS_BACKGROUND,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+    marginBottom: 8,
+    marginTop: 8,
   },
   listItem: {
     backgroundColor: SETTINGS_BACKGROUND,
