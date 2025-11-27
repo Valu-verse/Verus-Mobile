@@ -13,6 +13,7 @@ import { List, Button } from "react-native-paper"
 import { setConfigSection, signOut } from '../../actions/actionCreators';
 import { clearActiveAccountLifecycles } from '../../actions/actionDispatchers';
 import Colors from '../../globals/colors';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const SETTINGS_BACKGROUND = '#FFFFFF';
 
@@ -143,6 +144,14 @@ class SettingsMenus extends Component {
             contentStyle={{ height: 44 }}
             uppercase={false}
             labelStyle={styles.logoutLabel}
+            icon={({ size, color }) => (
+              <MaterialCommunityIcons
+                name="logout"
+                size={size}
+                color={color}
+                style={{ opacity: 0.9 }}
+              />
+            )}
           >
             Log out
           </Button>
@@ -180,14 +189,14 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     borderRadius: 22,
-    borderColor: Colors.verusDarkGray,
+    borderColor: Colors.primaryColor,
     borderWidth: 1,
-    backgroundColor: SETTINGS_BACKGROUND,
+    backgroundColor: Colors.secondaryColor,
     width: 160,
     elevation: 0,
   },
   logoutLabel: {
-    color: Colors.verusDarkGray,
+    color: Colors.primaryColor,
     fontWeight: '700',
     fontSize: 16,
     textTransform: 'none',
