@@ -18,7 +18,7 @@ import {
   SEND_MODAL_USER_TO_AUTHENTICATE,
 } from '../../utils/constants/sendModal';
 import {useSelector} from 'react-redux';
-import TallButton from '../../components/LargerButton';
+import GradientButton from '../../components/GradientButton';
 import SignedOutDropdown from '../SignedOutDropdown/SignedOutDropdown';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 
@@ -121,24 +121,21 @@ const Login = props => {
           </Text>
         </View>
       </View>
-      <TallButton
+      <GradientButton
         onPress={() => openAuthModal()}
         mode="contained"
-        labelStyle={{ color: Colors.secondaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
-        uppercase={false}
-        contentStyle={{ height: 56 }}
-        style={styles.loginCta}>
+        style={styles.loginCta}
+      >
         {'Login'}
-      </TallButton>
-      <TallButton
+      </GradientButton>
+      <GradientButton
         onPress={() => handleAddUser()}
         mode="outlined"
-        labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
-        uppercase={false}
-        contentStyle={{ height: 56 }}
-        style={styles.secondaryCta}>
+        labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 16 }}
+        style={styles.secondaryCta}
+      >
         {'Create new profile'}
-      </TallButton>
+      </GradientButton>
     </SafeAreaView>
   );
 };
@@ -208,10 +205,8 @@ const styles = StyleSheet.create({
   loginCta: {
     position: 'absolute',
     bottom: 100,
-    alignSelf: 'center',
-    width: 300,
-    borderRadius: 24,
-    backgroundColor: Colors.primaryColor,
+    left: 20,
+    right: 20,
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
@@ -221,8 +216,8 @@ const styles = StyleSheet.create({
   secondaryCta: {
     position: 'absolute',
     bottom: 30,
-    alignSelf: 'center',
-    width: 300,
+    left: 20,
+    right: 20,
     borderRadius: 24,
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderWidth: 2,

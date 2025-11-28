@@ -10,7 +10,7 @@ import React from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import Video from 'react-native-video';
-import TallButton from '../../../components/LargerButton';
+import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
 import VerusLogoWhite from '../../../images/customIcons/verus-logo-white.svg';
 
@@ -60,22 +60,12 @@ export default function LandingScreen(props) {
         </Text>
       </View>
 
-      <TallButton
+      <GradientButton
         onPress={() => props.navigation.navigate('CreateProfile')}
-        mode="contained"
-        labelStyle={{
-          color: Colors.primaryColor,
-          fontWeight: '600',
-          fontSize: 18,
-          letterSpacing: 0,
-          textTransform: 'none',
-        }}
-        uppercase={false}
-        contentStyle={{ height: 56 }}
         style={styles.primaryCta}
       >
         {"Get started"}
-      </TallButton>
+      </GradientButton>
     </View>
   );
 }
@@ -156,12 +146,8 @@ const styles = StyleSheet.create({
   primaryCta: {
     position: 'absolute',
     bottom: 120,
-    alignSelf: 'center',
-    width: 300,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderWidth: 2,
-    borderColor: Colors.primaryColor,
+    left: 20,
+    right: 20,
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,
