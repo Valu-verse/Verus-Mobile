@@ -7,48 +7,84 @@ import { coinsList } from "./CoinsList";
 
 export const RenderSquareLogo = (LogoComponent, color, width = 40, height = 40) => {
   return (
-    <Card
+    <View
       style={{
-        backgroundColor: color,
         width,
         height,
-        display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "row"
+        backgroundColor: 'transparent',
       }}
-      elevation={0}
     >
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        {LogoComponent}
-      </View>
-    </Card>
+      {LogoComponent}
+    </View>
   );
 };
 
 export const RenderCircleLogo = (LogoComponent, color, width = 40, height = 40) => {
   return (
-    <Card
+    <View
       style={{
-        backgroundColor: color,
         width,
         height,
-        display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "row",
-        borderRadius: width
+        borderRadius: width / 2,
+        backgroundColor: 'transparent',
       }}
-      elevation={0}
     >
-      <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-        {LogoComponent}
-      </View>
-    </Card>
+      {LogoComponent}
+    </View>
   );
 };
 
-export const getSimpleLogo = (chainTicker, theme = 'light') => {
+export const LayeredCoinLogo = (MainLogo, SubLogo, width = 40, height = 40) => {
+  const subLogoSize = width * 0.55; // Badge size relative to main logo
+  const overflowOffset = subLogoSize * 0.3; // How much the badge hangs "out"
+
+  return (
+    <View
+      style={{
+        width,
+        height,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: 'transparent',
+        overflow: 'visible', // Allow badge to hang out
+        zIndex: 1,
+      }}
+    >
+      <MainLogo
+        width={width}
+        height={height}
+      />
+      {SubLogo && (
+        <View
+          style={{
+            position: 'absolute',
+            bottom: -overflowOffset, // Hang off the bottom
+            right: -overflowOffset, // Hang off the right
+            width: subLogoSize,
+            height: subLogoSize,
+            borderRadius: subLogoSize / 2,
+            backgroundColor: 'white',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 2,
+            zIndex: 2, // Ensure badge is on top
+          }}
+        >
+          <SubLogo
+            width={subLogoSize - 4}
+            height={subLogoSize - 4}
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
+export const getSimpleLogo = (chainTicker, theme = 'dark') => {
   let proto;
   let color;
 
@@ -67,12 +103,44 @@ export const getSimpleLogo = (chainTicker, theme = 'light') => {
 }
 
 export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
-  const { Logo, color } = getSimpleLogo(chainTicker);
+  const { Logo, color } = getSimpleLogo(chainTicker, 'dark');
+  let SubLogo = null;
+
+  try {
+    const coinObj = CoinDirectory.findCoinObj(chainTicker);
+    
+    // Determine if we need a badge (SubLogo)
+    if (
+      (coinObj.display_ticker.includes('.vETH') || 
+      coinObj.display_name.includes('on Verus')) &&
+      !coinObj.display_ticker.includes('Bridge.vETH') // Exception for Bridge.vETH
+    ) {
+      // It's a mapped token on Verus -> Badge is Verus
+      const verusLogoData = getSimpleLogo('VRSC', 'dark');
+      SubLogo = verusLogoData.Logo;
+    } else if (
+      coinObj.display_name.includes('on Ethereum')
+    ) {
+      // It's a mapped token on Ethereum -> Badge is Ethereum
+      const ethLogoData = getSimpleLogo('ETH', 'dark');
+      SubLogo = ethLogoData.Logo;
+    }
+  } catch (e) {
+    console.warn("Failed to determine badge for", chainTicker, e);
+  }
+
+  if (SubLogo) {
+    return (
+      <View style={{ ...style }}>
+        {LayeredCoinLogo(Logo, SubLogo, width, height)}
+      </View>
+    );
+  }
 
   return RenderSquareLogo(
     <Logo
-      width={width - 16}
-      height={height - 16}
+      width={width}
+      height={height}
       style={{
         alignSelf: "center",
         ...style
@@ -85,12 +153,12 @@ export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height
 };
 
 export const RenderCircleCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
-  const { Logo, color } = getSimpleLogo(chainTicker);
+  const { Logo, color } = getSimpleLogo(chainTicker, 'dark');
 
   return RenderCircleLogo(
     <Logo
-      width={width - 16}
-      height={height - 16}
+      width={width}
+      height={height}
       style={{
         alignSelf: "center",
         ...style

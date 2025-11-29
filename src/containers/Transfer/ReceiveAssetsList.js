@@ -4,6 +4,7 @@
   - Navigates to the redesigned receive flow after the user taps an asset
   - Rounds fiat balances to two decimals before formatting to prevent incorrect separators
   - Updated 2025-11-25: Matched visual style to Wallet screen (square icons, clean layout, masked header)
+  - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
@@ -193,7 +194,7 @@ const ReceiveAssetsList = () => {
           )}
           description={() => (
             <Text style={styles.cryptoValue}>
-              {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : '***'}
+              {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : `*** ${coinObj.display_ticker}`}
             </Text>
           )}
           left={() => (

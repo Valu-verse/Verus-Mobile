@@ -158,6 +158,8 @@ export const CoinLogos = {
   ["iC5TQFrFXSYLQGkiZ8FYmZHFJzaRF5CYgE"]: CoinLogoIcons.web3.EURC, // EURC on Verus
   ["iExBJfZYK7KREDpuhj6PzZBzqMAKaFg7d2"]: CoinLogoIcons.pbaas.VARRR,
   ["iJ3WZocnjG9ufv7GKUA4LijQno5gTMb7tP"]: CoinLogoIcons.pbaas.CHIPS,
+  ["i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj"]: CoinLogoIcons.web3.SCRVUSD, // scrvUSD on Verus
+  ["iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB"]: CoinLogoIcons.web3.CRVUSD, // crvUSD on Verus
 
   // web3 protocol
   BAT: CoinLogoIcons.web3.BAT,
@@ -185,6 +187,7 @@ export const CoinLogos = {
   SUSHI: CoinLogoIcons.web3.SUSHI,
   MKR: CoinLogoIcons.web3.MKR,
   WBTC: CoinLogoIcons.web3.WBTC,
+  SCRVUSD: CoinLogoIcons.web3.SCRVUSD,
   ["0xBc2738BA63882891094C99E59a02141Ca1A1C36a"]: CoinLogoIcons.btc.VRSC, // VRSC on Ethereum
   ["0x18084fbA666a33d37592fA2633fD49a74DD93a88"]: CoinLogoIcons.web3.TBTC, // TBTC
   ["0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c"]: CoinLogoIcons.web3.EURC, // EURC

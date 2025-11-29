@@ -4,6 +4,7 @@
   - Match icon styling to Add assets selection (square cards) with refined sizing
   - Align coin name with fiat balance, widen spacing before crypto amount, and show 4 decimal places
   - Round fiat balances to two decimals before formatting to match coin overview screens
+  - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
@@ -35,7 +36,7 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
       )}
       description={() => (
         <Text style={styles.cryptoValue}>
-          {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : '***'}
+          {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : `*** ${coinObj.display_ticker}`}
         </Text>
       )}
       left={() => (

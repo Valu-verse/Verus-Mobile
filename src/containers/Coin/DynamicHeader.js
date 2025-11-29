@@ -1,6 +1,7 @@
 /*
   This component works as the active header for Coin Menu screens. Interacting
   with it by swiping or pressing will allow you to change your active sub-wallet.
+  - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
 */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -359,7 +360,7 @@ const DynamicHeader = ({ switchTab }) => {
                 }}
                 numberOfLines={2}
               >
-                *********
+                ********* {displayTicker}
               </Paragraph>
             ) : (
               <View>
