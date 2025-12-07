@@ -67,7 +67,7 @@ class AttestationService extends Component {
               ATTESTATIONS_PROVISIONED,
               this.props.activeAccount.accountHash
             );
-            console.log('Added timestamps to attestations missing them');
+           // console.log('Added timestamps to attestations missing them');
           } catch (e) {
             console.warn('Failed to save updated attestations with timestamps:', e.message);
           }

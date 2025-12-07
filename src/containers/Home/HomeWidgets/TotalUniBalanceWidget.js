@@ -75,7 +75,8 @@ const TotalUniBalanceWidget = props => {
                 fontWeight: '700',
                 letterSpacing: -1,
                 includeFontPadding: false,
-                textAlign: 'center'
+                textAlign: 'center',
+                color: 'black'
               }}
             >
               {uniValueDisplay}
@@ -90,7 +91,8 @@ const TotalUniBalanceWidget = props => {
                 fontWeight: '700',
                 letterSpacing: -0.2,
                 includeFontPadding: false,
-                textAlign: 'center'
+                textAlign: 'center',
+                color: 'black'
               }}
             >
               ********
