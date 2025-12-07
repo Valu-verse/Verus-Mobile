@@ -53,7 +53,7 @@ import {
 } from '../../utils/constants/widgets';
 import { VALU_ACCOUNT } from '../../utils/constants/widgets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
-import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../utils/constants/services';
+import { VERUSID_SERVICE_ID, VALU_SERVICE_ID, ATTESTATION_SERVICE_ID } from '../../utils/constants/services';
 import { dragDetectionEnabled } from '../../utils/dragDetection';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import {
@@ -217,10 +217,18 @@ const Home = () => {
       },
       
       [ATTESTATION_WIDGET_TYPE]: () => {
-        navigation.navigate('Service', {
-          service: VALU_SERVICE_ID,
-          subScreen: 'attestation'
-        });
+        // If user has PoP, navigate directly to attestations view
+        // Otherwise, navigate to Valu service
+        if (hasValuProofOfPersonhood) {
+          navigation.navigate('Service', {
+            service: ATTESTATION_SERVICE_ID,
+          });
+        } else {
+          navigation.navigate('Service', {
+            service: VALU_SERVICE_ID,
+            subScreen: 'attestation'
+          });
+        }
       },
     };
 

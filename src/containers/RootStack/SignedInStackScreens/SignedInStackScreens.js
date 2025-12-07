@@ -36,7 +36,7 @@ const SignedInStackScreens = props => {
       closeOffRamp();
       new Promise(resolve => setTimeout(resolve, 3000))
         .then(() => {
-          console.log(" props.navigation.navigate('Service',");
+        
           navigation.navigate('Service', {
             service: VALU_SERVICE_ID,
             subScreen: 'ValuOffRampReview'
@@ -51,7 +51,7 @@ const SignedInStackScreens = props => {
     const checkPopEligibilityFlow = async () => {
       // Skip if user is not signed in (account hash is null)
       if (!acchash) {
-        console.log('No active account - skipping PoP eligibility check');
+     
         return;
       }
 
@@ -68,17 +68,14 @@ const SignedInStackScreens = props => {
           (notif) => notif.acchash === acchash && notif.title === "Proof of Personhood Available"
         );
 
-        if (popNotificationExists) {
-          console.log('PoP notification already exists - skipping eligibility check');
+        if (popNotificationExists) {          
           return;
         }
 
         // Step 1: Check if user already has PoP attestation
-        console.log('Checking if user already has Proof of Personhood...');
         const alreadyHasPoP = await hasProofOfPersonhood();
         
         if (alreadyHasPoP) {
-          console.log('User already has PoP - skipping eligibility check');
           return;
         }
 
@@ -95,22 +92,16 @@ const SignedInStackScreens = props => {
         }
         
         // If still undefined after waiting, skip
-        if (currentPartnerUserId == undefined) {
-          console.log('Valu service not initialized yet, will retry on next mount');
+        if (currentPartnerUserId == undefined) {          
           setHasCheckedPopEligibility(false); // Allow retry
           return;
         }
 
         // Step 3: Check KYC eligibility with backend (uses API key from authentication)
-        console.log('Checking PoP eligibility with backend...');
+        
         const navigationCallback = createGetSponsoredAttestationNavigationCallback(navigation);
         const result = await checkAndNotifyPopEligibility(currentPartnerUserId, navigationCallback);
-        
-        if (result.notificationCreated) {
-          console.log('PoP notification created - user is eligible and has completed KYC');
-        } else {
-          console.log('No PoP notification created:', result.reason);
-        }
+
       } catch (error) {
         console.error('Error in PoP eligibility flow:', error);
       }

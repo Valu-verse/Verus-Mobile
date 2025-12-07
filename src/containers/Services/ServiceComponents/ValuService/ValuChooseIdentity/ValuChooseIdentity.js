@@ -52,7 +52,6 @@ class ValuChooseIdentity extends Component {
 
     handleSubmit = async () => {
         const { identityName, identityType } = this.state;
-        console.log("Submitting identity name:", identityName, identityType);
         if (!identityName || identityName?.length < 1) {
             createAlert(
                 "Invalid Name",
@@ -68,9 +67,7 @@ class ValuChooseIdentity extends Component {
             const fqn = this.getFullyQualifiedName();
                    
             // Check if the identity name is available
-            console.log("Availability check before check");
             const availabilityCheck = await ValuProvider.checkIdentityAvailable(fqn);
-            console.log("Availability check result:", availabilityCheck);
             if (!availabilityCheck.success) {
                 throw new Error(availabilityCheck?.error);
             }
