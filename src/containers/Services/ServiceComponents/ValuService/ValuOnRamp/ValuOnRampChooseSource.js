@@ -377,6 +377,7 @@ class ValuOnRampChooseSource extends Component {
             }
           });
           this.resetToScreen();
+          // PoP eligibility check happens naturally when user completes purchase
         } else {
           Linking.openURL(reply.url);
         }

@@ -26,10 +26,14 @@ const ManageAssetsSheet = ({
   const handleAndClose = (fn) => {
     // Close this sheet first, then open the next modal on the next tick to avoid
     // overlapping NativeModals and Portal ordering issues.
-    onClose && onClose();
-    setTimeout(() => {
-      if (typeof fn === 'function') fn();
-    }, 0);
+    if (onClose && typeof onClose === 'function') {
+      onClose();
+    }
+    if (fn && typeof fn === 'function') {
+      setTimeout(() => {
+        fn();
+      }, 0);
+    }
   };
 
   return (

@@ -34,6 +34,8 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
         getOnRampURL: async (payload) => this.getOnRampURL(payload),
         checkIdentityAvailable: async (payload) => this.checkIdentityAvailable(payload),
         startSumsubSession: async (payload) => this.startSumsubSession(payload),
+        checkPopEligibility: async (payload) => this.checkPopEligibility(payload),
+        claimSponsoredAttestation: async (payload) => this.claimSponsoredAttestation(payload),
     });
 
     this.service = ValuService.build();
@@ -213,6 +215,14 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
 
   startSumsubSession = async (payload) => {
     return await this.service.startSumsubSession(payload);
+  }
+
+  checkPopEligibility = async (payload) => {
+    return await this.service.checkPopEligibility(payload);
+  }
+
+  claimSponsoredAttestation = async (payload) => {
+    return await this.service.claimSponsoredAttestation(payload);
   }
 
   getSumSubURL = () => {

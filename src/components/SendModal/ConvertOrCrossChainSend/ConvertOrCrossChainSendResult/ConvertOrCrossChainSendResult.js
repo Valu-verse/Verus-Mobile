@@ -14,6 +14,7 @@ import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 import { VerusPayInvoice } from "verus-typescript-primitives"
 import { ValuOffRampCheck } from "../../../../containers/Services/ServiceComponents/ValuService/ValuOffRamp/ValuOffRampCheck";
 import store from "../../../../store";
+import { checkAndNotifyPopEligibility, createGetSponsoredAttestationNavigationCallback } from '../../../../utils/pop/popNotificationHelper';
 
 const ConvertOrCrossChainSendResult = (props) => {
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
@@ -32,6 +33,17 @@ const ConvertOrCrossChainSendResult = (props) => {
       console.log("proceedToValu", proceedToValu);
       if (proceedToValu) {
         openOffRamp();
+      }
+      
+      // Check PoP eligibility after off-ramp payment completes
+      try {
+        const navigationCallback = createGetSponsoredAttestationNavigationCallback(props.navigation);
+        const result = await checkAndNotifyPopEligibility(offRampRequest.requestId, navigationCallback);
+        if (result.notificationCreated) {
+          console.log('PoP notification created for user after off-ramp payment completion');
+        }
+      } catch (error) {
+        console.error('Error checking PoP eligibility after off-ramp:', error);
       }
     }
   }

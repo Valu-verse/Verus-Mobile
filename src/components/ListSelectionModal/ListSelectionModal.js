@@ -57,6 +57,7 @@ class ListSelectionModal extends Component {
               );
             }}
             data={data}
+            keyExtractor={(item, index) => item.key || `item-${index}`}
           />
         </View>
       </SemiModal>

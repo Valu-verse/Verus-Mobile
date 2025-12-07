@@ -26,8 +26,8 @@ const processWriteQueue = async () => {
       try {
         await RNFS.unlink(finalFilePath);
       } catch (unlinkError) {
-        // File might not exist, that's okay
-        if (unlinkError.code !== 'ENOENT') {
+        // File might not exist, that's okay - only warn on actual errors
+        if (unlinkError.code && unlinkError.code !== 'ENOENT') {
           console.warn('Warning: Could not remove existing file:', unlinkError.message);
         }
       }

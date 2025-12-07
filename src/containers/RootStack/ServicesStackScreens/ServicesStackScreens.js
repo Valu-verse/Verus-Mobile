@@ -3,6 +3,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import Services from '../../Services/Services'
 import Service from '../../Services/Service/Service'
+import NotificationScreen from '../../Notifications/NotificationScreen';
 import WyreServiceAccountData from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceAccountData/WyreServiceAccountData';
 import WyreServiceAddPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceAddPaymentMethod/WyreServiceAddPaymentMethod';
 import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceEditPaymentMethod/WyreServiceEditPaymentMethod';
@@ -11,6 +12,7 @@ import ValuAttestation from '../../Services/ServiceComponents/ValuService/ValuAt
 import ValuOnRampChooseSource from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRampChooseSource';
 import ValuAttestationAccept from '../../Services/ServiceComponents/ValuService/ValuAttestationAccept/ValuAttestationAccept';
 import ValuChooseIdentity from '../../Services/ServiceComponents/ValuService/ValuChooseIdentity/ValuChooseIdentity';
+import GetSponsoredAttestation from '../../Services/ServiceComponents/ValuService/GetSponsoredAttestation/GetSponsoredAttestation';
 
 const ServicesStack = createStackNavigator();
 
@@ -81,6 +83,22 @@ const ServicesStackScreens = props => {
         component={ValuChooseIdentity}
         options={{
           title: "Choose Identity",
+        }}
+      />
+      <ServicesStack.Screen
+        name="GetSponsoredAttestation"
+        component={GetSponsoredAttestation}
+        options={{
+          title: "Proof of Personhood",
+        }}
+      />
+      <ServicesStack.Screen
+        name="Notifications"
+        component={NotificationScreen}
+        options={{
+          title: "Notifications",
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
         }}
       />
     </ServicesStack.Navigator>

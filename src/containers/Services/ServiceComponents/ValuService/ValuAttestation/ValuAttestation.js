@@ -274,6 +274,19 @@ const ValuAttestation = (props) => {
 
             console.log("Signature:", signature);
 
+            // Validate all required parameters are present
+            if (!signature || !message || !RAddress || !height || !coinObj?.system_id) {
+                const missingParams = [];
+                if (!signature) missingParams.push('signature');
+                if (!message) missingParams.push('message');
+                if (!RAddress) missingParams.push('RAddress');
+                if (!height) missingParams.push('height');
+                if (!coinObj?.system_id) missingParams.push('systemId');
+                
+                console.error("Missing authentication parameters:", missingParams);
+                throw new Error(`Failed to get signature. Missing required parameters: ${missingParams.join(', ')}. Please try again later.`);
+            }
+
             // Append signature and related data to URL as query parameters
             const url = new URL(urlReply.data.url);
             url.searchParams.append('signature', signature);
@@ -374,8 +387,7 @@ const ValuAttestation = (props) => {
     };
 
     const fetchData = useCallback(async () => {
-        console.log("fetchData called, current loading state:", loading);
-
+ 
         if (!loading) {
             setLoading(true);
         }
@@ -600,12 +612,13 @@ const ValuAttestation = (props) => {
     const continueWithNewValuId = async () => {
         setIdentityChoiceModalVisible(false);
         await new Promise(resolve => setTimeout(resolve, 200)); // Small delay to ensure modal is closed before navigating
-        // Navigate to ValuChooseIdentity screen, but pass a callback for when the user submits a new identity
+        // Navigate to ValuChooseIdentity screen with returnScreen param
         const parentNav = props.navigation?.getParent();
         if (parentNav) {
             parentNav.navigate('ServicesHome', {
                 screen: 'ValuChooseIdentity',
                 params: {
+                    returnScreen: 'ValuAttestation',
                     onIdentitySubmit: handleNewIdentityRequest
                 }
             });

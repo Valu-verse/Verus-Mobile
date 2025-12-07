@@ -10,7 +10,11 @@ import {
   RESET_OFFRAMP,
   OPEN_OFFRAMP,
   INITIATE_VALU_PARTNER_USER_ID,
-  CHECK_FOR_ACTIVE_OFFRAMP_PROCESS
+  CHECK_FOR_ACTIVE_OFFRAMP_PROCESS,
+  SET_SPONSORED_ATTESTATION_STATE,
+  UPDATE_SPONSORED_ATTESTATION_IDENTITY,
+  COMPLETE_SPONSORED_ATTESTATION,
+  RESET_SPONSORED_ATTESTATION
 } from "../../../../../utils/constants/storeType";
 import ValuProvider from '../../../../../utils/services/ValuProvider';
 
@@ -42,7 +46,7 @@ export const initiatePartnerUserId = async (seed) => {
   type: INITIATE_VALU_PARTNER_USER_ID,
     payload: { partnerUserId: bearer }
   })
-  return
+  return bearer
 }
 
 export const initiateOnrampRequest = (requestId, details) => {
@@ -90,6 +94,38 @@ export const checkForActiveOffRampProcess = (params) => {
   Store.dispatch({
     type: CHECK_FOR_ACTIVE_OFFRAMP_PROCESS,
     payload: { params }
+  })
+  return
+}
+
+export const setSponsoredAttestationState = (stateUpdate) => {
+  Store.dispatch({
+    type: SET_SPONSORED_ATTESTATION_STATE,
+    payload: stateUpdate
+  })
+  return
+}
+
+export const updateSponsoredAttestationIdentity = (identityName, identityAddress, isExisting = false, isPending = false) => {
+  Store.dispatch({
+    type: UPDATE_SPONSORED_ATTESTATION_IDENTITY,
+    payload: { identityName, identityAddress, isExisting, isPending }
+  })
+  return
+}
+
+export const completeSponsoredAttestation = () => {
+  Store.dispatch({
+    type: COMPLETE_SPONSORED_ATTESTATION,
+    payload: {}
+  })
+  return
+}
+
+export const resetSponsoredAttestation = () => {
+  Store.dispatch({
+    type: RESET_SPONSORED_ATTESTATION,
+    payload: {}
   })
   return
 }

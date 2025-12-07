@@ -24,8 +24,6 @@ const HomeFAB = (props) => {
 
   const [isManageOpen, setIsManageOpen] = React.useState(false);
 
-  
-
   return (
     <Portal>
       {/* Floating action buttons row */}

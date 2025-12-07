@@ -23,7 +23,7 @@ const NotificationScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (notifications.directory) {
-      const allNotifications = getNotifications(notifications, acchash);
+      const allNotifications = getNotifications(notifications, acchash, navigation);
       const grouped = groupNotificationsByDate(allNotifications);
       setNotificationList(grouped);
     }

@@ -85,14 +85,15 @@ class ValuChooseIdentity extends Component {
                 return;
             }
             
-            // Identity is available, navigate back to ValuAttestation with the chosen name
-            this.props.navigation.navigate('ValuAttestation', { 
+            // Identity is available, navigate back to the screen that called this component
+            const returnScreen = this.props.route?.params?.returnScreen || 'ValuAttestation';
+            this.props.navigation.navigate(returnScreen, { 
                 chosenIdentity: fqn,
                 continueFlow: true 
             });
             
         } catch (error) {
-            console.error("Error checking identity availability in Choose:", error);
+            console.error("Error checking identity availability in Choose:", error?.message ? error.message : error);
             createAlert(
                 "Error", 
                 `Failed to check ${identityType.toLowerCase()} availability. Please try again.`,

@@ -430,7 +430,7 @@ const Home = () => {
   };
 
   const _addCoin = () => {
-    navigation.navigate('AddCoin', { refresh: refresh });
+    navigation.navigate('AddCoin');
   };
 
   const _addPbaasCurrency = async () => {

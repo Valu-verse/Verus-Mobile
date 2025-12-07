@@ -165,7 +165,6 @@ class ValuServiceAccount extends Component {
     this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
 
     try {
-      console.log("Checking Valu account creation status");
       await this.checkAccountCreationStatus();
       this.props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
     } catch (e) {

@@ -781,6 +781,7 @@ class ValuOffRampChooseSource extends Component {
           }
         });
         this.resetToScreen();
+        // PoP eligibility check will happen after payment completes in ConvertOrCrossChainSendResult
       } else {
         Linking.openURL(reply.url);
       }

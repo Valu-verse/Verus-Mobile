@@ -4,6 +4,7 @@
 
 import {
   NOTIFICATION_TYPE_BASIC,
+  NOTIFICATION_TYPE_DEEPLINK,
   NOTIFICATION_TYPE_LOADING,
   NOTIFICATION_TYPE_NAVIGATION,
   NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
@@ -14,16 +15,39 @@ import {
 } from '../constants/notifications';
 import {
   BasicNotification,
+  DeeplinkNotification,
   LoadingNotification,
   NavigationNotification,
   VerusIdProvisioningNotification,
 } from '../notification';
 import { processVerusId } from '../../containers/Services/ServiceComponents/VerusIdService/VerusIdLogin';
+import { createGetSponsoredAttestationNavigationCallback } from '../pop/popNotificationHelper';
+
+/**
+ * Recreate navigation callback based on stored metadata
+ */
+const recreateNavigationCallback = (navigationData, navigation) => {
+  if (!navigationData || !navigation) {
+    return () => console.warn('No navigation data or navigation object available');
+  }
+
+  // Handle different navigation types
+  if (navigationData.type === 'pop_available') {
+    return createGetSponsoredAttestationNavigationCallback(navigation);
+  }
+
+  // Default fallback
+  return () => {
+    if (navigationData.screen) {
+      navigation.navigate(navigationData.screen, navigationData.params);
+    }
+  };
+};
 
 /**
  * Converts Redux notification directory to array of notification objects
  */
-export const getNotifications = (notifications, acchash) => {
+export const getNotifications = (notifications, acchash, navigation = null) => {
   const { directory } = notifications;
   let tempNotifications = [];
   const keys = Object.keys(directory || {});
@@ -42,9 +66,19 @@ export const getNotifications = (notifications, acchash) => {
       } else if (directory[uid].type === NOTIFICATION_TYPE_LOADING) {
         notification = LoadingNotification.fromJson(directory[uid]);
       } else if (directory[uid].type === NOTIFICATION_TYPE_NAVIGATION) {
+        // Recreate navigation callback from metadata
+        const navCallback = recreateNavigationCallback(
+          directory[uid].navigationData,
+          navigation
+        );
         notification = NavigationNotification.fromJson(
           directory[uid],
-          directory[uid].navigate
+          navCallback
+        );
+      } else if (directory[uid].type === NOTIFICATION_TYPE_DEEPLINK) {
+        notification = DeeplinkNotification.fromJson(
+          directory[uid],
+          directory[uid].reopen
         );
       }
 
@@ -99,6 +133,7 @@ export const getNotificationIcon = (notification) => {
   if (notification.iconType === NOTIFICATION_ICON_ERROR) return 'alert-circle-outline';
   if (notification.type === NOTIFICATION_TYPE_LOADING) return 'progress-clock';
   if (notification.type === NOTIFICATION_TYPE_NAVIGATION) return 'chevron-right-circle-outline';
+  if (notification.type === NOTIFICATION_TYPE_DEEPLINK) return 'link-variant';
   if (notification.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING) return 'account-outline';
   if (notification.iconType === NOTIFICATION_ICON_VALU) return 'shield-outline';
   if (notification.iconType === NOTIFICATION_ICON_TX) return 'receipt-outline';
@@ -121,6 +156,11 @@ export const getNotificationColor = (notification) => {
 
   // Navigation/action needed
   if (notification.type === NOTIFICATION_TYPE_NAVIGATION) {
+    return '#10B981'; // Green
+  }
+
+  // Deeplink notifications
+  if (notification.type === NOTIFICATION_TYPE_DEEPLINK) {
     return '#10B981'; // Green
   }
 

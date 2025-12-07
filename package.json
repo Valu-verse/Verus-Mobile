@@ -9,7 +9,8 @@
     "start": "react-native start",
     "bundle-android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/",
     "bundle-ios": "react-native bundle --dev false --entry-file index.js --bundle-output ios/main.jsbundle --platform ios --assets-dest='./ios'",
-    "dist-android": "cd android && ./gradlew assembleRelease && cd ..",
+    "clean-android-res": "rm -rf android/app/src/main/res/drawable-* && rm -rf android/app/build/generated/res",
+    "dist-android": "yarn clean-android-res && cd android && ./gradlew clean && ./gradlew assembleRelease && cd ..",
     "test": "jest",
     "lint": "eslint .",
     "update-verus-libs": "yarn remove verus-typescript-primitives && yarn add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && yarn remove @bitgo/utxo-lib && yarn add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && yarn remove verusd-rpc-ts-client && yarn add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client.git' && yarn remove verusid-ts-client && yarn add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
@@ -221,7 +222,7 @@
     "@babel/core": "7.25.7",
     "blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
     "@bitgo/blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
-    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#fe29b9ca0bffa1e3e3f921979f05f868090020cf",
+    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#560209014e1b9a3496453484faf88c91a19715f7",
     "browserify-sign": "4.2.2",
     "secp256k1": "3.8.1",
     "form-data": "4.0.4",
