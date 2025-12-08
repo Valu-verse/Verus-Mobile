@@ -220,13 +220,18 @@ const Home = () => {
         // If user has PoP, navigate directly to attestations view
         // Otherwise, navigate to Valu service
         if (hasValuProofOfPersonhood) {
-          navigation.navigate('Service', {
-            service: ATTESTATION_SERVICE_ID,
+          // Navigate to ServicesHome stack, then to Service screen
+          navigation.navigate('ServicesHome', {
+            screen: 'Service',
+            params: { service: ATTESTATION_SERVICE_ID },
           });
         } else {
-          navigation.navigate('Service', {
-            service: VALU_SERVICE_ID,
-            subScreen: 'attestation'
+          navigation.navigate('ServicesHome', {
+            screen: 'Service',
+            params: { 
+              service: VALU_SERVICE_ID,
+              subScreen: 'attestation'
+            },
           });
         }
       },

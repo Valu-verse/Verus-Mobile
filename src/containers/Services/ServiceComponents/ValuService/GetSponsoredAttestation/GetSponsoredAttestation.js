@@ -148,7 +148,7 @@ const GetSponsoredAttestation = (props) => {
             }
             await handleProvisioningResponse(newLoadingNotification.uid, formattedName, identityAddress, url, loginRequest, identityName);
 
-            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'Valuid@', '. Please wait a moment.'];
+            newLoadingNotification.title = [identityName, ' is being provisioned by ', 'ValuID@', '. Please wait a moment.'];
             newLoadingNotification.acchash = activeAccount.accountHash;
             newLoadingNotification.icon = NOTIFICATION_ICON_VERUSID;
 
@@ -224,11 +224,6 @@ const GetSponsoredAttestation = (props) => {
                     });
                 } catch (apiError) {
                     console.error('❌ API call failed:', apiError);
-                    console.error('❌ API error type:', typeof apiError);
-                    console.error('❌ API error constructor:', apiError?.constructor?.name);
-                    console.error('❌ API error message:', apiError?.message);
-                    console.error('❌ API error response:', apiError?.response);
-                    console.error('❌ API error config:', apiError?.config);
                     throw apiError;
                 }
                 
@@ -299,12 +294,6 @@ const GetSponsoredAttestation = (props) => {
             setLoading(false);
         } catch (error) {
             console.error("❌ Error claiming proof of personhood:", error);
-            console.error("❌ Error details:", {
-                message: error.message,
-                stack: error.stack,
-                response: error.response?.data,
-                status: error.response?.status
-            });
             setLoading(false);
             createAlert(
                 'Error Claiming Proof',
@@ -438,7 +427,13 @@ const GetSponsoredAttestation = (props) => {
     // Show existing identity modal
     const showExistingIdentityModal = async () => {
         setIdentityChoiceModalVisible(false);
-        await loadLinkedIdentities();
+        const loadedIds = await loadLinkedIdentities();
+        
+        // Check if user has any IDs - only show modal if they have IDs
+        if (!loadedIds || Object.keys(loadedIds).length === 0) {
+            return;
+        }
+        
         setExistingIdentityModalVisible(true);
     };
 
