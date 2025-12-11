@@ -286,6 +286,7 @@ const Home = () => {
 
   const _handleTransferSendConvert = () => {
     setTransferSheetVisible(false);
+    navigation.navigate('SendWizard');
   };
 
   return (

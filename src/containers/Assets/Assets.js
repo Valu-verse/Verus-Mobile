@@ -107,6 +107,7 @@ const Assets = () => {
 
   const _handleTransferSendConvert = () => {
     setTransferSheetVisible(false);
+    navigation.navigate('SendWizard');
   };
 
   const _addPbaasCurrency = async () => {
