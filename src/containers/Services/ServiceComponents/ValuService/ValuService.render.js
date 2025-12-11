@@ -31,6 +31,7 @@ export const ValuServiceRender = function () {
         <ValuServiceAccount
         navigation={this.props.navigation}
         subScreen={this.state.subScreen}
+        subScreenData={this.state.subScreenData}
         />
 
     </React.Fragment>

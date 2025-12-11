@@ -71,7 +71,7 @@ class ValuServiceAccount extends Component {
       KYCState: null,
       email: null,
       subScreen: this.props.subScreen || null,
-      subScreenData: null,
+      subScreenData: this.props.subScreenData || null,
       attestationData: {},
       signer: "",
       taxCountry: null,
@@ -106,6 +106,17 @@ class ValuServiceAccount extends Component {
     }
     this.setTabBarHidden(false);
   }
+
+  handleBuySellComplete = ({ action, address }) => {
+    this.setState({ 
+      subScreenData: { initialAddress: address },
+      subScreen: action === 'sell' ? 'offRamp' : 'onRamp'
+    });
+  };
+
+  handleBuySellClose = () => {
+    this.props.navigation.goBack();
+  };
 
   getTabNavigator = () => {
     if (this.tabNavigatorRef && typeof this.tabNavigatorRef.setOptions === 'function') {
@@ -276,13 +287,8 @@ updateTaxCountry() {
                     { /* Render a bottom-sheet stepper instead of inline controls */ }
                     <BuySellSheet
                       visible={true}
-                      onClose={() => this.props.navigation.goBack()}
-                      onComplete={({ action, address }) => {
-                        // Persist chosen address and transition
-                        this.setState({ subScreenData: { initialAddress: address } }, () => {
-                          this.setSubScreen(action === 'sell' ? 'offRamp' : 'onRamp');
-                        });
-                      }}
+                      onClose={this.handleBuySellClose}
+                      onComplete={this.handleBuySellComplete}
                     />
                 </Portal>
                 <View style={{ alignContent: 'center', alignItems: 'center', width: 380 }} />

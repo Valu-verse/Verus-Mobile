@@ -11,7 +11,8 @@ class ValuService extends Component {
     super(props);
     this.state = {
       loading: false,
-      subScreen: this.props.subScreen || null
+      subScreen: this.props.subScreen || null,
+      subScreenData: this.props.subScreenData || null
     }
     this.props.navigation.setOptions({ title: "VALU" })
   }
