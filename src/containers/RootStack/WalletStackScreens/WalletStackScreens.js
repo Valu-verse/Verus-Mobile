@@ -1,6 +1,8 @@
 /*
   WalletStackScreens
   - 2025-11-22: Hid the Wallets header so the Home screen can own its chrome.
+  - 2025-12-11: Added CoinMenus screen to wallet stack to preserve tab bar visibility
+    when viewing asset details.
 */
 import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
@@ -11,6 +13,7 @@ import Colors from '../../../globals/colors';
 import Service from '../../Services/Service/Service';
 import NotificationScreen from '../../Notifications/NotificationScreen';
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
+import CoinMenus from '../../Coin/CoinMenus';
 
 const WalletStack = createStackNavigator();
 
@@ -25,6 +28,10 @@ const WalletStackScreens = props => {
         options={{
           headerShown: false,
         }}
+      />
+      <WalletStack.Screen 
+        name="CoinMenus" 
+        component={CoinMenus} 
       />
       <WalletStack.Screen
         name="Service"

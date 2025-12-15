@@ -4,6 +4,7 @@
   - Merged Assets functionality.
   - Removed widgets (moved to Services).
   - 2025-11-22: Removed legacy drawer close call (bottom tabs own settings).
+  - 2025-12-11: Updated openCoin to navigate within wallet stack to preserve tab bar.
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -243,7 +244,8 @@ const Home = () => {
     dispatch(setActiveApp(coinObj.default_app));
     dispatch(setActiveSection(coinObj.apps[coinObj.default_app].data[0]));
 
-    resetToScreen('CoinMenus', 'Overview');
+    // Navigate to CoinMenus within the wallet stack to preserve tab bar visibility
+    navigation.navigate('CoinMenus');
   };
 
   const _addCoin = () => {

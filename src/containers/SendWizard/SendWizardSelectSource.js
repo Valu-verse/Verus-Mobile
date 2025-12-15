@@ -4,9 +4,11 @@
   - UI modeled after ReceiveAssetsList with filtering by spendable balance
   - Shows only assets with balance > 0
   - Created 2024-12-09
+  - Updated 2025-12-11: Added support for initialParams to auto-select source
+    when navigating from asset overview screen.
 */
 
-import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
 import { View, FlatList, TextInput as RNTextInput, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { List, Text } from 'react-native-paper';
@@ -25,7 +27,8 @@ import { useSendWizard } from './SendWizardContext';
 
 const SendWizardSelectSource = () => {
   const navigation = useNavigation();
-  const { setSource, setStep } = useSendWizard();
+  const { setSource, setStep, initialParams } = useSendWizard();
+  const hasAutoSelected = useRef(false);
 
   const activeCoinsForUser = useObjectSelector((state) => state.coins.activeCoinsForUser);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
@@ -54,6 +57,45 @@ const SendWizardSelectSource = () => {
       },
     });
   }, [navigation]);
+
+  // Auto-select source if initialParams are provided (e.g., from asset overview)
+  useEffect(() => {
+    if (hasAutoSelected.current) return;
+    if (!initialParams?.initialCoinId) return;
+    
+    const coinObj = activeCoinsForUser.find((c) => c.id === initialParams.initialCoinId);
+    if (!coinObj) return;
+
+    const subWallets = allSubWallets[coinObj.id] || [];
+    if (subWallets.length === 0) return;
+
+    // Find the specified subwallet or the first one with balance
+    let targetSubWallet = null;
+    if (initialParams.initialSubWalletId) {
+      targetSubWallet = subWallets.find((w) => w.id === initialParams.initialSubWalletId);
+    }
+    
+    // If no specific subwallet or not found, use the first one with balance
+    if (!targetSubWallet) {
+      targetSubWallet = subWallets.find((wallet) => {
+        const balance =
+          balances[coinObj.id] &&
+          balances[coinObj.id][wallet.id] &&
+          balances[coinObj.id][wallet.id].total != null
+            ? BigNumber(balances[coinObj.id][wallet.id].total)
+            : BigNumber(0);
+        return balance.isGreaterThan(0);
+      });
+    }
+
+    if (targetSubWallet) {
+      hasAutoSelected.current = true;
+      // Auto-select after a brief delay to allow navigation to complete
+      setTimeout(() => {
+        selectAssetAndSubwallet(coinObj, targetSubWallet);
+      }, 100);
+    }
+  }, [initialParams, activeCoinsForUser, allSubWallets, balances, selectAssetAndSubwallet]);
 
   const getRate = useCallback(
     (coinId) => {

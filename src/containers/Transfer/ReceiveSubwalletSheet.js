@@ -1,16 +1,20 @@
 /*
-  New file: ReceiveSubwalletSheet
+  ReceiveSubwalletSheet
   - Bottom sheet for selecting a subwallet before generating a receive request
-  - Reuses SemiModal layout with compact wallet list items
+  - Groups wallets by network with network as category header
+  - Address/ID and balance shown with modern card layout
+  - Updated 2024-12-15: Redesigned to match SendSourceSubwalletSheet style
 */
 
-import React from 'react';
-import { View } from 'react-native';
-import { Portal, List, Button, Text } from 'react-native-paper';
+import React, { useMemo } from 'react';
+import { View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { Portal, Button, Text } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../globals/colors';
 import SemiModal from '../../components/SemiModal';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { normalizeNum } from '../../utils/normalizeNum';
+import { getNetworkDisplayName, getNetworkIcon } from '../SendWizard/sendWizardDisplayInfo';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 
 const ReceiveSubwalletSheet = ({
   visible,
@@ -20,25 +24,32 @@ const ReceiveSubwalletSheet = ({
   onClose,
   onSelect,
 }) => {
-  if (!visible || coinObj == null) return null;
-
   const insets = useSafeAreaInsets();
-  const paddingBottom = 20 + insets.bottom;
+  const paddingBottom = 16 + insets.bottom;
+
+  // Group wallets by network
+  const groupedByNetwork = useMemo(() => {
+    const groups = new Map();
+
+    subWallets.forEach((wallet) => {
+      const networkId = wallet.network || 'unknown';
+      if (!groups.has(networkId)) {
+        groups.set(networkId, {
+          networkId,
+          networkName: getNetworkDisplayName(networkId, 'Unknown Network'),
+          networkIcon: getNetworkIcon(networkId),
+          wallets: [],
+        });
+      }
+      groups.get(networkId).wallets.push(wallet);
+    });
+
+    return Array.from(groups.values());
+  }, [subWallets]);
+
+  if (!visible || !coinObj) return null;
+
   const displayTicker = coinObj?.display_ticker || coinObj?.id || '';
-  const decimals = coinObj?.decimals != null ? coinObj.decimals : 8;
-
-  const formatBalance = (walletId) => {
-    const raw = Number(balanceMap?.[walletId] ?? 0);
-    const normalized = normalizeNum(raw, Math.min(decimals, 8));
-    if (Array.isArray(normalized) && normalized.length > 3) return normalized[3];
-    return raw.toString();
-  };
-
-  const handleSelect = (wallet) => {
-    if (typeof onSelect === 'function') {
-      onSelect(wallet);
-    }
-  };
 
   return (
     <Portal>
@@ -55,84 +66,180 @@ const ReceiveSubwalletSheet = ({
           width: '100%',
           alignSelf: 'flex-end',
           paddingBottom,
+          maxHeight: '70%',
         }}
       >
         <View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 12,
-              paddingBottom: 12,
-            }}
-          >
+          {/* Header */}
+          <View style={styles.header}>
             <Button onPress={onClose} textColor={Colors.primaryColor}>
               {'Close'}
             </Button>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Choose address'}</Text>
+            <Text style={styles.headerTitle}>{'Choose address'}</Text>
             <View style={{ width: 64 }} />
           </View>
 
-          <View style={{ paddingHorizontal: 12 }}>
-            {subWallets.map((wallet) => {
-              const displayName = wallet.name || wallet.address || wallet.id;
-              const balanceString = formatBalance(wallet.id);
+          {/* Description */}
+          <View style={styles.description}>
+            <Text style={styles.descriptionText}>
+              Your {displayTicker} is available on multiple networks. Select where to receive.
+            </Text>
+          </View>
 
-              return (
-                <View
-                  key={wallet.id}
-                  style={{
-                    backgroundColor: 'white',
-                    borderRadius: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <List.Item
-                    title={() => (
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={{ fontSize: 16, fontWeight: '500', color: 'black' }}>
-                          {displayName}
-                        </Text>
-                        <View
-                          style={{
-                            marginLeft: 8,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: 10,
-                            backgroundColor: '#E8F5E9',
-                            borderWidth: 1,
-                            borderColor: '#D6E9DB',
-                          }}
-                        >
-                          <Text style={{ fontSize: 10, color: Colors.verusGreenColor, fontWeight: '600' }}>
-                            {'My wallet'}
+          {/* Grouped wallet list */}
+          <ScrollView style={{ maxHeight: 400 }}>
+            <View style={styles.listContainer}>
+              {groupedByNetwork.map((group) => (
+                <View key={group.networkId} style={styles.networkGroup}>
+                  {/* Network header */}
+                  <View style={styles.networkHeader}>
+                    <View style={styles.networkIconContainer}>
+                      {RenderSquareCoinLogo(group.networkIcon || 'VRSC', {}, 24, 24)}
+                    </View>
+                    <Text style={styles.networkHeaderText}>{group.networkName}</Text>
+                  </View>
+
+                  {/* Wallets in this network */}
+                  {group.wallets.map((wallet) => {
+                    const balance = balanceMap[wallet.id] || 0;
+                    const balanceFormatted = Number(balance).toFixed(4);
+
+                    // Extract address/ID from wallet
+                    const addressDisplay = wallet.name || wallet.id;
+
+                    return (
+                      <TouchableOpacity
+                        key={wallet.id}
+                        style={styles.walletCard}
+                        onPress={() => onSelect(wallet)}
+                        activeOpacity={0.7}
+                      >
+                        {/* Left: Address/ID */}
+                        <View style={styles.addressSection}>
+                          <Text style={styles.addressText} numberOfLines={1}>
+                            {addressDisplay}
                           </Text>
                         </View>
-                      </View>
-                    )}
-                    description={() => (
-                      <Text style={{ fontSize: 13, color: '#666', marginTop: 6 }}>
-                        {'Current: ' + balanceString + ' ' + displayTicker}
-                      </Text>
-                    )}
-                    onPress={() => handleSelect(wallet)}
-                    left={(props) => <List.Icon {...props} icon="wallet" color={'black'} />}
-                    right={(props) => <List.Icon {...props} icon="chevron-right" />}
-                    titleStyle={{ fontSize: 16, fontWeight: '600', color: 'black' }}
-                    descriptionStyle={{ fontSize: 12, color: '#666', marginTop: 4 }}
-                    style={{ backgroundColor: 'transparent', paddingVertical: 8 }}
-                  />
+
+                        {/* Right: Balance */}
+                        <View style={styles.balanceSection}>
+                          <Text style={styles.balanceAmount}>
+                            {balanceFormatted}
+                          </Text>
+                          <Text style={styles.balanceTicker}>
+                            {displayTicker}
+                          </Text>
+                        </View>
+
+                        <MaterialCommunityIcons
+                          name="chevron-right"
+                          size={20}
+                          color="#CCC"
+                          style={styles.chevron}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              );
-            })}
-          </View>
+              ))}
+            </View>
+          </ScrollView>
         </View>
       </SemiModal>
     </Portal>
   );
 };
 
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  description: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  descriptionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  // Network group
+  networkGroup: {
+    marginBottom: 20,
+  },
+  networkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  networkIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  networkHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  // Wallet card
+  walletCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  addressSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  addressText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  balanceSection: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  balanceAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  balanceTicker: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 1,
+  },
+  chevron: {
+    marginLeft: 4,
+  },
+});
+
 export default ReceiveSubwalletSheet;
-
-

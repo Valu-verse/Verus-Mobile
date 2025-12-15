@@ -1,5 +1,9 @@
 /*
   ReceiveAssetDetails
+  2024-12-15:
+  - Fixed crash when changing address: removed reference to non-existent setShowingInvoice state.
+  - For VerusID addresses: display VerusID name as main field with i-address shown separately below.
+  - Moved "Change address" to header icon (tune-vertical) in top right corner.
   2025-11-27:
   - Updated "Easy to share payment request" card to dynamically change based on coin capabilities:
     - For coins supporting invoices (conversionEligible): Show "Easy to share payment request" with image.
@@ -126,6 +130,7 @@ const ReceiveAssetDetails = () => {
   const [infoSheetVisible, setInfoSheetVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [showCopiedLabel, setShowCopiedLabel] = useState(false);
+  const [showCopiedIAddress, setShowCopiedIAddress] = useState(false);
   const [explorerSheetVisible, setExplorerSheetVisible] = useState(false);
   const [supportedNetworksVisible, setSupportedNetworksVisible] = useState(false);
   
@@ -203,7 +208,17 @@ const ReceiveAssetDetails = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: () =>
+        availableSubWallets.length > 1 ? (
+          <TouchableOpacity
+            onPress={() => setSubwalletSheetVisible(true)}
+            style={styles.headerIconButton}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialCommunityIcons name="tune-vertical" size={24} color={Colors.verusDarkGray} />
+          </TouchableOpacity>
+        ) : null,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -212,7 +227,7 @@ const ReceiveAssetDetails = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation]);
+  }, [navigation, availableSubWallets.length]);
 
   useEffect(() => {
     if (coinObj && selectedSubWallet) {
@@ -293,36 +308,108 @@ const ReceiveAssetDetails = () => {
     return Number(processed) > 0;
   }, [amount]);
 
+  // Detect if this is a VerusID (name ends with @ or differs from the raw address)
+  const isVerusId = useMemo(() => {
+    if (!selectedSubWallet || !selectedSubWallet.name) return false;
+    const name = selectedSubWallet.name;
+    // VerusID names end with @
+    return name.endsWith('@');
+  }, [selectedSubWallet]);
+
+  const verusIdName = isVerusId ? selectedSubWallet.name : null;
+
   const copyAddress = useCallback(() => {
     if (!address) return;
     Clipboard.setString(address);
+    if (isVerusId) {
+      setShowCopiedIAddress(true);
+      setTimeout(() => setShowCopiedIAddress(false), 2000);
+    } else {
+      setShowCopiedLabel(true);
+      setTimeout(() => setShowCopiedLabel(false), 2000);
+    }
+  }, [address, isVerusId]);
+
+  const copyVerusIdName = useCallback(() => {
+    if (!verusIdName) return;
+    Clipboard.setString(verusIdName);
     setShowCopiedLabel(true);
     setTimeout(() => setShowCopiedLabel(false), 2000);
-  }, [address]);
+  }, [verusIdName]);
 
-  const renderAddressSection = () => (
-    <View style={styles.compactSection}>
-      <Text style={styles.sectionLabel}>Address</Text>
-      <TouchableOpacity 
-        onPress={copyAddress} 
-        style={styles.addressContainerCompact}
-        activeOpacity={0.7}
-        accessibilityRole="button" 
-        accessibilityLabel="Copy address"
-      >
-        <Text style={styles.addressValue} numberOfLines={1} ellipsizeMode="middle">
-          {address || 'Fetching address…'}
-        </Text>
-        <View style={styles.copyIconContainer}>
-          {showCopiedLabel ? (
-            <Text style={styles.copiedLabelCompact}>Copied!</Text>
-          ) : (
-            <MaterialCommunityIcons name="content-copy" size={18} color={Colors.verusDarkGray} />
-          )}
+  const renderAddressSection = () => {
+    if (isVerusId && verusIdName) {
+      // VerusID: Show VerusID name as main field, i-address below
+      return (
+        <View style={styles.compactSection}>
+          <Text style={styles.sectionLabel}>VerusID</Text>
+          <TouchableOpacity 
+            onPress={copyVerusIdName} 
+            style={styles.addressContainerCompact}
+            activeOpacity={0.7}
+            accessibilityRole="button" 
+            accessibilityLabel="Copy VerusID"
+          >
+            <Text style={styles.addressValue} numberOfLines={1} ellipsizeMode="middle">
+              {verusIdName}
+            </Text>
+            <View style={styles.copyIconContainer}>
+              {showCopiedLabel ? (
+                <Text style={styles.copiedLabelCompact}>Copied!</Text>
+              ) : (
+                <MaterialCommunityIcons name="content-copy" size={18} color={Colors.verusDarkGray} />
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <Text style={[styles.sectionLabel, { marginTop: 12 }]}>i-Address</Text>
+          <TouchableOpacity 
+            onPress={copyAddress} 
+            style={styles.addressContainerCompact}
+            activeOpacity={0.7}
+            accessibilityRole="button" 
+            accessibilityLabel="Copy i-address"
+          >
+            <Text style={styles.addressValue} numberOfLines={1} ellipsizeMode="middle">
+              {address || 'Fetching address…'}
+            </Text>
+            <View style={styles.copyIconContainer}>
+              {showCopiedIAddress ? (
+                <Text style={styles.copiedLabelCompact}>Copied!</Text>
+              ) : (
+                <MaterialCommunityIcons name="content-copy" size={18} color={Colors.verusDarkGray} />
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
-      </TouchableOpacity>
-    </View>
-  );
+      );
+    }
+
+    // Regular address
+    return (
+      <View style={styles.compactSection}>
+        <Text style={styles.sectionLabel}>Address</Text>
+        <TouchableOpacity 
+          onPress={copyAddress} 
+          style={styles.addressContainerCompact}
+          activeOpacity={0.7}
+          accessibilityRole="button" 
+          accessibilityLabel="Copy address"
+        >
+          <Text style={styles.addressValue} numberOfLines={1} ellipsizeMode="middle">
+            {address || 'Fetching address…'}
+          </Text>
+          <View style={styles.copyIconContainer}>
+            {showCopiedLabel ? (
+              <Text style={styles.copiedLabelCompact}>Copied!</Text>
+            ) : (
+              <MaterialCommunityIcons name="content-copy" size={18} color={Colors.verusDarkGray} />
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const validateInputs = useCallback(() => {
     const sanitizedAmount = sanitizeNumericInput(amount);
@@ -485,18 +572,6 @@ const ReceiveAssetDetails = () => {
               </TouchableOpacity>
             )}
           </View>
-        </View>
-        <View style={styles.assetHeader}>
-          <View style={styles.assetInfo} />
-          {availableSubWallets.length > 1 && (
-            <TouchableOpacity
-              onPress={() => setSubwalletSheetVisible(true)}
-              style={styles.switchChip}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.switchChipLabel}>{'Change address'}</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
         <View style={styles.qrContainer}>
@@ -955,7 +1030,6 @@ const ReceiveAssetDetails = () => {
             onSelect={(wallet) => {
               setSubwalletSheetVisible(false);
               setSelectedSubWalletId(wallet.id);
-              setShowingInvoice(false);
               setShowVerusIcon(false);
             }}
           />
@@ -1105,30 +1179,9 @@ const styles = StyleSheet.create({
   mappedPillIcon: {
     marginLeft: 4,
   },
-  assetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  assetInfo: {
-    flex: 1,
-    paddingRight: 16,
-  },
-  switchChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.tertiaryColor,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  switchChipLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.quinaryColor,
-    letterSpacing: 0.2,
+  headerIconButton: {
+    padding: 8,
+    marginRight: 4,
   },
   qrContainer: {
     alignItems: 'center',

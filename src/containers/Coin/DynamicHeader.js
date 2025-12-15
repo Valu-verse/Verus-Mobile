@@ -1,21 +1,24 @@
 /*
   This component works as the active header for Coin Menu screens. Interacting
   with it by swiping or pressing will allow you to change your active sub-wallet.
-  - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
+  - Updated 2025-12-15:
+    * Redesigned with smooth FlatList carousel for wallet selection.
+    * Flat card design with minimal styling (network + address only).
+    * Balance and action buttons moved outside cards.
+    * Buttons styled like HomeFAB (GradientButton + outlined).
+    * Total balance moved to parent component header.
 */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { View, Animated, TouchableOpacity } from 'react-native';
-import { DEVICE_WINDOW_WIDTH } from '../../utils/constants/constants';
+import { View, TouchableOpacity, StyleSheet, Clipboard, FlatList, Dimensions } from 'react-native';
+import { Text } from 'react-native-paper';
 import { setCoinSubWallet } from '../../actions/actionCreators';
 import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_INFO,
-  ERC20,
 } from '../../utils/constants/intervalConstants';
 import Colors from '../../globals/colors';
-import { Card, Paragraph, Text, IconButton, Button } from 'react-native-paper';
 import BigNumber from 'bignumber.js';
 import {
   extractErrorData,
@@ -24,25 +27,21 @@ import {
 import { CONNECTION_ERROR } from '../../utils/api/errors/errorMessages';
 import { truncateDecimal } from '../../utils/math';
 import { USD } from '../../utils/constants/currencies';
-import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
-import {
-  VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT,
-  VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT,
-} from '../../utils/constants/web3Constants';
-import {
-  createAlert,
-  resolveAlert,
-} from '../../actions/actions/alert/dispatchers/alert';
-import { openUrl } from '../../utils/linking';
 import { formatCurrency } from 'react-native-format-currency';
-import { GestureDetector, Gesture, Directions } from 'react-native-gesture-handler';
 import { useSelector, useDispatch } from 'react-redux';
-import Styles from '../../styles';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
-import { coinsList } from '../../utils/CoinData/CoinsList';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
+import { getNetworkDisplayName, getNetworkIcon } from '../SendWizard/sendWizardDisplayInfo';
 
-const DynamicHeader = ({ switchTab }) => {
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_SPACING = 12;
+const CONTAINER_PADDING = 20;
+const CARD_WIDTH = SCREEN_WIDTH - (CONTAINER_PADDING * 2) - 32;
+
+const DynamicHeader = () => {
   const dispatch = useDispatch();
+  const flatListRef = useRef(null);
 
   const chainTicker = useSelector((state) => state.coins.activeCoin.id);
   const showBalance = useSelector((state) => state.coins.showBalance);
@@ -51,7 +50,6 @@ const DynamicHeader = ({ switchTab }) => {
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
   
-  const activeCoin = useObjectSelector((state) => state.coins.activeCoin);
   const selectedSubWallet = useObjectSelector(
     (state) => state.coinMenus.activeSubWallets[chainTicker],
   );
@@ -69,578 +67,359 @@ const DynamicHeader = ({ switchTab }) => {
   );
   const rates = useObjectSelector((state) => state.ledger.rates);
 
-  const [carouselItems, setCarouselItems] = useState([]);
-  const [loadingCarouselItems, setLoadingCarouselItems] = useState(true);
-  const [mappedCoinObj, setMappedCoinObj] = useState(null);
-  const fadeAnimation = useRef(new Animated.Value(0)).current;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [copiedWalletId, setCopiedWalletId] = useState(null);
+  const copyTimeoutRef = useRef(null);
 
-  const pendingBalance = useMemo(() => {
-    return Object.values(balances).reduce((a, b) => {
-      if (a == null) {
-        return b == null ? 0 : b;
+  const walletItems = useMemo(() => {
+    if (!allSubWallets || allSubWallets.length === 0) return [];
+    return allSubWallets.map((wallet, index) => ({ ...wallet, index }));
+  }, [allSubWallets]);
+
+  useEffect(() => {
+    if (selectedSubWallet && walletItems.length > 0) {
+      const index = walletItems.findIndex((w) => w.id === selectedSubWallet.id);
+      if (index !== -1 && index !== activeIndex) {
+        setActiveIndex(index);
+        setTimeout(() => {
+          flatListRef.current?.scrollToIndex({ index, animated: false });
+        }, 100);
       }
-      if (b == null) {
-        return a == null ? 0 : a;
-      }
+    }
+  }, [selectedSubWallet, walletItems]);
 
-      const aPending = BigNumber.isBigNumber(a) ? a : BigNumber(a.pending);
-      const bPending = BigNumber.isBigNumber(b) ? b : BigNumber(b.pending);
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
 
-      return aPending.plus(bPending);
-    }, BigNumber(0));
-  }, [balances]);
+  const activeWallet = walletItems[activeIndex] || null;
+  
+  const activeWalletBalance = useMemo(() => {
+    if (!activeWallet || !balances[activeWallet.id]) return null;
+    return balances[activeWallet.id].confirmed;
+  }, [activeWallet, balances]);
 
-  const confirmedBalance = useMemo(() => {
-    return Object.values(balances).reduce((a, b) => {
-      if (a == null) {
-        return b == null ? 0 : b;
-      }
-      if (b == null) {
-        return a == null ? 0 : a;
-      }
+  const activeWalletPending = useMemo(() => {
+    if (!activeWallet || !balances[activeWallet.id]) return null;
+    return balances[activeWallet.id].pending;
+  }, [activeWallet, balances]);
 
-      const aConfirmed = BigNumber.isBigNumber(a) ? a : BigNumber(a.confirmed);
-      const bConfirmed = BigNumber.isBigNumber(b) ? b : BigNumber(b.confirmed);
+  const activeWalletFiat = useMemo(() => {
+    if (!activeWallet || activeWalletBalance == null) return null;
+    const ratesForChannel =
+      rates[activeWallet.api_channels[API_GET_FIATPRICE]] != null
+        ? rates[activeWallet.api_channels[API_GET_FIATPRICE]][chainTicker]
+        : null;
+    if (ratesForChannel && ratesForChannel[displayCurrency] != null) {
+      const price = BigNumber(ratesForChannel[displayCurrency]);
+      return BigNumber(activeWalletBalance).multipliedBy(price).toFixed(2);
+    }
+    return null;
+  }, [activeWallet, activeWalletBalance, rates, chainTicker, displayCurrency]);
 
-      return aConfirmed.plus(bConfirmed);
-    }, BigNumber(0));
-  }, [balances]);
+  const activeWalletSyncProgress = useMemo(() => {
+    if (!activeWallet || !info || !info[activeWallet.id]) return 100;
+    return info[activeWallet.id].percent;
+  }, [activeWallet, info]);
 
-  const fadeIn = useCallback(() => {
-    Animated.timing(fadeAnimation, {
-      toValue: 1,
-      duration: 1000,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnimation]);
+  const activeWalletHasError = activeWallet ? balanceErrors[activeWallet.id] : false;
+  const hasPendingBalance = activeWalletPending != null && !BigNumber(activeWalletPending).isEqualTo(0);
+  const syncLabel =
+    activeWalletSyncProgress !== 100 && activeWalletSyncProgress !== -1
+      ? `Syncing ${activeWalletSyncProgress.toFixed(0)}%`
+      : null;
 
-  const prepareCarouselItems = useCallback(
-    (allSubWallets, selectedSubWallet) => {
-      let wallets = [];
-
-      if (selectedSubWallet == null) {
-        wallets = allSubWallets;
-      } else {
-        let newSubWallets = [...allSubWallets];
-
-        while (newSubWallets[0].id !== selectedSubWallet.id) {
-          newSubWallets.push(newSubWallets.shift());
+  const handleScrollEnd = useCallback(
+    (event) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const newIndex = Math.round(offsetX / (CARD_WIDTH + CARD_SPACING));
+      const clampedIndex = Math.max(0, Math.min(newIndex, walletItems.length - 1));
+      
+      if (clampedIndex !== activeIndex) {
+        setActiveIndex(clampedIndex);
+        const wallet = walletItems[clampedIndex];
+        if (wallet) {
+          dispatch(setCoinSubWallet(chainTicker, wallet));
         }
-
-        wallets = newSubWallets;
-      }
-
-      if (wallets.length === 1) {
-        return [{ ...wallets[0], index: 0 }];
-      } else {
-        return wallets.map((x, index) => {
-          return { ...x, index };
-        });
       }
     },
-    [],
+    [activeIndex, walletItems, chainTicker, dispatch],
   );
 
-  useEffect(() => {
-    fadeIn();
+  const handleCopyAddress = useCallback((walletId, value) => {
+    if (!value) return;
+    Clipboard.setString(value);
+    setCopiedWalletId(walletId);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopiedWalletId(null);
+      copyTimeoutRef.current = null;
+    }, 2000);
+  }, []);
 
-    let mappedCoin = null;
+  const renderWalletCard = useCallback(
+    ({ item, index }) => {
+      const isActive = index === activeIndex;
+      const isCopied = copiedWalletId === item.id;
+      const displayAddress = item.name || '-';
+      const networkName = getNetworkDisplayName(item.network);
+      const networkIconId = getNetworkIcon(item.network);
 
-    if (activeCoin.mapped_to != null && activeCoin.id !== coinsList.VRSC.id) {
-      try {
-        mappedCoin = CoinDirectory.getBasicCoinObj(activeCoin.mapped_to);
-      } catch (e) {
-        console.warn(e);
-      }
-    }
+      return (
+        <View style={[styles.walletCard, { width: CARD_WIDTH }]}>
+          {/* Network row - compact */}
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Network</Text>
+            <View style={styles.networkValue}>
+              {RenderSquareCoinLogo(networkIconId, {}, 16, 16)}
+              <Text style={styles.networkText}>{networkName}</Text>
+            </View>
+          </View>
 
-    setMappedCoinObj(mappedCoin);
-  }, [activeCoin, fadeIn]);
-
-  useEffect(() => {
-    setLoadingCarouselItems(true);
-    const items = prepareCarouselItems(allSubWallets, selectedSubWallet);
-    setCarouselItems(items);
-    setLoadingCarouselItems(false);
-  }, [allSubWallets, selectedSubWallet, prepareCarouselItems]);
-
-  const setSubWallet = (wallet) => {
-    dispatch(setCoinSubWallet(chainTicker, wallet));
-
-    const items = prepareCarouselItems(allSubWallets, wallet);
-    setCarouselItems(items);
-  };
-
-  const calculateSyncProgress = (subWallet) => {
-    if (info == null || info[subWallet.id] == null) {
-      return 100;
-    } else {
-      return info[subWallet.id].percent;
-    }
-  };
-
-  const handleItemPress = (index) => {
-    if (selectedSubWallet != null && index !== 0) {
-      setSubWallet(carouselItems[index]);
-    }
-  };
-
-  const handleLeftSwipe = () => {
-    if (selectedSubWallet != null && carouselItems.length > 1) {
-      const currentIndex = carouselItems.findIndex(
-        (x) => x.id === selectedSubWallet.id,
+          {/* Address row */}
+          <TouchableOpacity
+            onPress={() => handleCopyAddress(item.id, displayAddress)}
+            activeOpacity={0.7}
+            style={styles.cardRow}
+            accessibilityRole="button"
+            accessibilityLabel="Copy address"
+          >
+            <Text style={styles.cardLabel}>Address</Text>
+            <View style={styles.addressValueRow}>
+              <Text numberOfLines={1} ellipsizeMode="middle" style={styles.addressText}>
+                {displayAddress}
+              </Text>
+              <View style={styles.copyArea}>
+                {isCopied ? (
+                  <Text style={styles.copiedLabel}>Copied</Text>
+                ) : (
+                  <MaterialCommunityIcons
+                    name="content-copy"
+                    size={16}
+                    color={Colors.verusDarkGray}
+                  />
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
       );
-      const index =
-        currentIndex === carouselItems.length - 1 ? 0 : currentIndex + 1;
+    },
+    [activeIndex, copiedWalletId, handleCopyAddress],
+  );
 
-      setSubWallet(carouselItems[index]);
-    }
-  };
-
-  const handleRightSwipe = () => {
-    if (selectedSubWallet != null && carouselItems.length > 1) {
-      const currentIndex = carouselItems.findIndex(
-        (x) => x.id === selectedSubWallet.id,
-      );
-      const index =
-        currentIndex === 0 ? carouselItems.length - 1 : currentIndex - 1;
-
-      setSubWallet(carouselItems[index]);
-    }
-  };
-
-  const getNetworkName = (item) => {
-    try {
-      return item.network
-        ? CoinDirectory.getBasicCoinObj(item.network).display_ticker
-        : null;
-    } catch (e) {
-      return null;
-    }
-  };
-
-  const openReceiveTab = () => {
-    switchTab(2);
-  };
-
-  const openTokenAddressExplorer = (address, testnet) => {
-    const baseUrl = testnet
-      ? 'https://goerli.etherscan.io/token/'
-      : 'https://etherscan.io/token/';
-
-    return createAlert(
-      'Go to explorer?',
-      `Would you like to go to ${baseUrl} to see more information about ${address}?`,
-      [
-        {
-          text: 'No',
-          onPress: async () => {
-            resolveAlert(false);
-          },
-        },
-        {
-          text: 'Yes',
-          onPress: () => {
-            openUrl(baseUrl + '/' + address);
-            resolveAlert(false);
-          },
-        },
-      ],
-    );
-  };
-
-  const renderCarouselItem = ({ item, index, alone }) => {
-    const displayBalance =
-      balances[item.id] != null ? balances[item.id].confirmed : null;
-
-    const pendingBalance =
-      balances[item.id] != null ? balances[item.id].pending : null;
-
-    let fiatBalance = null;
-    const ratesForChannel =
-      rates[item.api_channels[API_GET_FIATPRICE]] != null
-        ? rates[item.api_channels[API_GET_FIATPRICE]][chainTicker]
-        : null;
-
-    if (
-      displayBalance != null &&
-      ratesForChannel != null &&
-      ratesForChannel[displayCurrency] != null
-    ) {
-      const price = BigNumber(ratesForChannel[displayCurrency]);
-
-      fiatBalance = BigNumber(displayBalance).multipliedBy(price).toFixed(2);
-    }
-
-    const syncProgress = calculateSyncProgress(item);
-
+  const renderPageDots = () => {
+    if (walletItems.length <= 1) return null;
     return (
-      <Animated.View
-        style={{
-          opacity: fadeAnimation,
-          width:
-            index == 0 ? (3 * DEVICE_WINDOW_WIDTH) / 4 : DEVICE_WINDOW_WIDTH / 4,
-          overflow: 'hidden',
-          marginRight: index == 0 && !alone ? 16 : 0,
-          flexDirection: 'column',
-          alignItems: 'flex-start',
-        }}
-      >
-        {index == 0 && !alone && (
-          <Button
-            icon="format-list-bulleted"
-            mode="text"
-            onPress={() => setSubWallet(null)}
-            uppercase={false}
-          >
-            List all cards
-          </Button>
-        )}
-        <Card
-          style={{
-            height: 156,
-            borderRadius: 10,
-            minWidth: (3 * DEVICE_WINDOW_WIDTH) / 4,
-            position: 'relative',
-            overflow: 'hidden',
-            backgroundColor: item.color,
-            opacity: index == 0 ? 1 : 0.3,
-          }}
-          onPress={() => handleItemPress(index)}
-        >
-          <Card.Content
-            style={{
-              display: 'flex',
-              height: '100%',
-              justifyContent: 'space-between',
-            }}
-          >
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center' }}
-              disabled={index != 0}
-              onPress={openReceiveTab}
-            >
-              <View
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  backgroundColor: Colors.secondaryColor,
-                  padding: 8,
-                  height: 36,
-                  borderRadius: 8,
-                  flex: 1,
-                }}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 'bold',
-                    color: Colors.quaternaryColor,
-                  }}
-                >
-                  {item.name}
-                </Text>
-              </View>
-              <IconButton
-                icon="arrow-down"
-                iconColor={Colors.secondaryColor}
-                style={{
-                  marginRight: 0,
-                }}
-              />
-            </TouchableOpacity>
-            {!showBalance ? (
-              <Paragraph
-                style={{
-                  fontSize: 18,
-                  marginBottom: 24,
-                  color: Colors.secondaryColor,
-                }}
-                numberOfLines={2}
-              >
-                ********* {displayTicker}
-              </Paragraph>
-            ) : (
-              <View>
-                <View style={{ flexDirection: 'row' }}>
-                  <Paragraph
-                    style={{
-                      fontSize: 16,
-                      color: Colors.secondaryColor,
-                      fontWeight: balanceErrors[item.id] ? 'normal' : 'bold',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {balanceErrors[item.id]
-                      ? CONNECTION_ERROR
-                      : `${
-                          displayBalance == null
-                            ? '-'
-                            : truncateDecimal(displayBalance, 8)
-                        }${
-                          pendingBalance != null &&
-                          !BigNumber(pendingBalance).isEqualTo(0)
-                            ? ` (${
-                                BigNumber(pendingBalance).isGreaterThan(0)
-                                  ? '+'
-                                  : ''
-                              }${truncateDecimal(pendingBalance, 4)})`
-                            : ''
-                        }`}
-                  </Paragraph>
-                  <Paragraph
-                    style={{
-                      fontSize: 16,
-                      color: Colors.secondaryColor,
-                      alignSelf: 'center',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {balanceErrors[item.id] ? '' : ` ${displayTicker}`}
-                  </Paragraph>
-                </View>
-                <Paragraph
-                  style={{
-                    ...Styles.listItemSubtitleDefault,
-                    fontSize: 12,
-                    opacity: fiatBalance == null ? 0 : undefined,
-                    color: Colors.secondaryColor,
-                    marginTop: 0,
-                  }}
-                >
-                  {syncProgress != 100 && syncProgress != -1
-                    ? `Syncing - ${syncProgress.toFixed(2)}%`
-                    : `${
-                        fiatBalance == null
-                          ? '-'
-                          : formatCurrency({
-                              amount: fiatBalance,
-                              code: displayCurrency,
-                            })[0]
-                      }`}
-                </Paragraph>
-              </View>
-            )}
-            {item.network && (
-              <View
-                style={{
-                  flexDirection: 'row',
-                  paddingTop: 4,
-                }}
-              >
-                <View
-                  style={{
-                    borderRadius: 36,
-                    borderColor: Colors.secondaryColor,
-                    borderWidth: 1,
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    flexDirection: 'row',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      color: 'white',
-                      fontSize: 12,
-                      fontWeight: 'bold',
-                    }}
-                  >{`${getNetworkName(item)}`}</Text>
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      color: 'white',
-                      fontSize: 12,
-                      alignSelf: 'center',
-                    }}
-                  >{` Network`}</Text>
-                </View>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-      </Animated.View>
+      <View style={styles.dotsContainer}>
+        {walletItems.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.dot,
+              index === activeIndex ? styles.dotActive : styles.dotInactive,
+            ]}
+          />
+        ))}
+      </View>
     );
   };
-
-  const mappedToEth =
-    activeCoin.mapped_to != null &&
-    mappedCoinObj != null &&
-    (mappedCoinObj.currency_id.toLowerCase() ===
-      VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase() ||
-      mappedCoinObj.currency_id.toLowerCase() ===
-        VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase());
 
   return (
-    <GestureDetector
-      gesture={Gesture.Fling()
-        .direction(Directions.LEFT)
-        .onEnd(handleLeftSwipe)}
-    >
-      <GestureDetector
-        gesture={Gesture.Fling()
-          .direction(Directions.RIGHT)
-          .onEnd(handleRightSwipe)}
-      >
-        <View
-          style={{
-            maxHeight: 296,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'flex-end',
-            alignItems: 'center',
-            backgroundColor: Colors.secondaryColor,
-          }}
-        >
-          <View
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 16,
-            }}
-          >
-            {showBalance ? (
-              <View style={{ flexDirection: 'row' }}>
-                <Text style={{ fontSize: 18 }}>{'Total: '}</Text>
-                <Text style={{ fontWeight: '500', fontSize: 18 }}>{`${truncateDecimal(
-                  confirmedBalance,
-                  8,
-                )} ${displayTicker}`}</Text>
-              </View>
-            ) : (
-              <Text style={{ fontWeight: '500', fontSize: 18 }}>******</Text>
-            )}
-            {!pendingBalance.isEqualTo(0) && (
-              <Text
-                style={{
-                  fontSize: 16,
-                  fontWeight: '300',
-                  color: Colors.quaternaryColor,
-                  paddingTop: 4,
-                }}
-              >
-                <Text style={{ color: Colors.quaternaryColor }}>
-                  {pendingBalance.isGreaterThan(0) ? '+' : ''}
-                </Text>
-                <Text
-                  style={{ fontWeight: '500', color: Colors.quaternaryColor }}
-                >
-                  {truncateDecimal(pendingBalance, 8)}
-                </Text>
-                <Text style={{ color: Colors.quaternaryColor }}>
-                  {' change pending'}
-                </Text>
+    <View style={styles.container}>
+      {/* Wallet Cards Carousel */}
+      <FlatList
+        ref={flatListRef}
+        data={walletItems}
+        renderItem={renderWalletCard}
+        keyExtractor={(item) => item.id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carouselContent}
+        ItemSeparatorComponent={() => <View style={{ width: CARD_SPACING }} />}
+        snapToInterval={CARD_WIDTH + CARD_SPACING}
+        decelerationRate="fast"
+        snapToAlignment="start"
+        onMomentumScrollEnd={handleScrollEnd}
+        getItemLayout={(_, index) => ({
+          length: CARD_WIDTH + CARD_SPACING,
+          offset: (CARD_WIDTH + CARD_SPACING) * index,
+          index,
+        })}
+      />
+
+      {/* Page Indicator Dots */}
+      {renderPageDots()}
+
+      {/* Balance Section */}
+      <View style={styles.balanceSection}>
+        {!showBalance ? (
+          <Text style={styles.balanceHidden}>********* {displayTicker}</Text>
+        ) : (
+          <>
+            <View style={styles.balanceMainRow}>
+              <Text style={styles.balanceAmount}>
+                {activeWalletHasError
+                  ? CONNECTION_ERROR
+                  : activeWalletBalance == null
+                  ? '-'
+                  : truncateDecimal(activeWalletBalance, 8)}
               </Text>
-            )}
-            {pendingBalance.isEqualTo(0) &&
-              activeCoin.mapped_to != null &&
-              mappedCoinObj != null && (
-                <TouchableOpacity
-                  disabled={mappedCoinObj.proto !== ERC20}
-                  onPress={() =>
-                    openTokenAddressExplorer(
-                      mappedCoinObj.currency_id,
-                      mappedCoinObj.testnet,
-                    )
-                  }
-                >
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      fontWeight: '300',
-                      color: Colors.quaternaryColor,
-                      paddingTop: 4,
-                    }}
-                  >
-                    <Text style={{ color: Colors.quaternaryColor }}>
-                      {`mapped to ${
-                        mappedToEth
-                          ? 'Ethereum'
-                          : mappedCoinObj.display_ticker.length > 15
-                          ? mappedCoinObj.display_ticker.substring(0, 15) + '...'
-                          : mappedCoinObj.display_ticker
-                      }${
-                        !mappedToEth && mappedCoinObj.proto === ERC20
-                          ? ` (ERC20 ${mappedCoinObj.currency_id.substring(
-                              0,
-                              5,
-                            ) +
-                              '...' +
-                              mappedCoinObj.currency_id.substring(
-                                mappedCoinObj.currency_id.length - 3,
-                              )})`
-                          : ''
-                      }`}
-                    </Text>
-                  </Text>
-                </TouchableOpacity>
+              {!activeWalletHasError && (
+                <Text style={styles.balanceTicker}> {displayTicker}</Text>
               )}
-            {pendingBalance.isEqualTo(0) && activeCoin.proto === ERC20 && (
-              <TouchableOpacity
-                onPress={() =>
-                  openTokenAddressExplorer(
-                    activeCoin.currency_id,
-                    activeCoin.testnet,
-                  )
-                }
-              >
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '300',
-                    color: Colors.quaternaryColor,
-                    paddingTop: 4,
-                  }}
-                >
-                  <Text style={{ color: Colors.quaternaryColor }}>
-                    {`${
-                      activeCoin.unlisted ? 'unlisted ' : ''
-                    }ERC20 token (${activeCoin.currency_id.substring(
-                      0,
-                      5,
-                    ) +
-                      '...' +
-                      activeCoin.currency_id.substring(
-                        activeCoin.currency_id.length - 4,
-                      )})`}
+            </View>
+            <Text style={styles.balanceFiat}>
+              {activeWalletFiat == null
+                ? '-'
+                : formatCurrency({ amount: activeWalletFiat, code: displayCurrency })[0]}
+            </Text>
+            {(hasPendingBalance || syncLabel) && (
+              <View style={styles.statusRow}>
+                {hasPendingBalance && showBalance && (
+                  <Text style={styles.statusText}>
+                    {`${BigNumber(activeWalletPending).isGreaterThan(0) ? '+' : ''}${truncateDecimal(
+                      activeWalletPending,
+                      8,
+                    )} pending`}
                   </Text>
-                </Text>
-              </TouchableOpacity>
+                )}
+                {syncLabel && <Text style={styles.statusText}>{syncLabel}</Text>}
+              </View>
             )}
-          </View>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'flex-end',
-              paddingBottom: 16,
-              width: '100%',
-              paddingLeft: carouselItems.length === 1 ? 0 : 48,
-            }}
-          >
-            {loadingCarouselItems
-              ? null
-              : carouselItems.slice(0, 2).map((x, index) => {
-                  return (
-                    <React.Fragment key={carouselItems[index].id}>
-                      {renderCarouselItem({
-                        item: carouselItems[index],
-                        index,
-                        alone: carouselItems.length === 1,
-                      })}
-                    </React.Fragment>
-                  );
-                })}
-          </View>
-        </View>
-      </GestureDetector>
-    </GestureDetector>
+          </>
+        )}
+      </View>
+
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.secondaryColor,
+    paddingBottom: 16,
+  },
+  carouselContent: {
+    paddingHorizontal: CONTAINER_PADDING,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  walletCard: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    justifyContent: 'center', // Center content vertically if card height allows
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10, // Increased vertical padding for better spacing
+  },
+  cardLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.verusDarkGray,
+  },
+  networkValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  networkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.quaternaryColor,
+    marginLeft: 6,
+    lineHeight: 18,
+  },
+  addressValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+    marginLeft: 16,
+  },
+  addressText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.quaternaryColor,
+    flex: 1,
+    textAlign: 'right',
+    marginRight: 8,
+    lineHeight: 18,
+  },
+  copyArea: {
+    width: 50,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  copiedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.verusGreenColor,
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 3,
+  },
+  dotActive: {
+    backgroundColor: Colors.primaryColor,
+  },
+  dotInactive: {
+    backgroundColor: '#D0D0D0',
+  },
+  balanceSection: {
+    alignItems: 'center',
+    paddingHorizontal: CONTAINER_PADDING,
+    marginBottom: 20,
+  },
+  balanceHidden: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: Colors.quaternaryColor,
+  },
+  balanceMainRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  balanceAmount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: Colors.quaternaryColor,
+  },
+  balanceTicker: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: Colors.verusDarkGray,
+  },
+  balanceFiat: {
+    fontSize: 16,
+    color: Colors.verusDarkGray,
+    marginTop: 4,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.verusDarkGray,
+    marginHorizontal: 8,
+  },
+});
 
 export default DynamicHeader;

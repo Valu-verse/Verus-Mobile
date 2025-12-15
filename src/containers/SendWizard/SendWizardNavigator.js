@@ -3,10 +3,13 @@
   - Nested stack navigator for the send wizard flow
   - Wraps all wizard screens with SendWizardProvider context
   - Created 2024-12-09
+  - Updated 2025-12-11: Added support for initialCoinId and initialSubWalletId params
+    to pre-select source when navigating from asset overview screen.
 */
 
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useRoute } from '@react-navigation/native';
 import { SendWizardProvider } from './SendWizardContext';
 import SendWizardSelectSource from './SendWizardSelectSource';
 import SendWizardSelectTarget from './SendWizardSelectTarget';
@@ -18,8 +21,11 @@ import { defaultHeaderOptions } from '../../utils/navigation/header';
 const Stack = createStackNavigator();
 
 const SendWizardNavigator = () => {
+  const route = useRoute();
+  const initialParams = route.params || {};
+  
   return (
-    <SendWizardProvider>
+    <SendWizardProvider initialParams={initialParams}>
       <Stack.Navigator screenOptions={defaultHeaderOptions}>
         <Stack.Screen
           name="SendWizardSelectSource"

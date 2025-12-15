@@ -4,9 +4,10 @@
   - Holds source asset, target currency, amount, routing, recipient, and preflight data
   - Created 2024-12-09
   - Updated 2024-12-09: Added destinationAddressType tracking for address validation
+  - Updated 2025-12-11: Added initialParams support for pre-selecting source coin
 */
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { getDestinationAddressType, ADDRESS_TYPE } from './sendWizardDisplayInfo';
 
 const initialState = {
@@ -172,8 +173,14 @@ function wizardReducer(state, action) {
 
 const SendWizardContext = createContext(null);
 
-export const SendWizardProvider = ({ children }) => {
+export const SendWizardProvider = ({ children, initialParams = {} }) => {
   const [state, dispatch] = useReducer(wizardReducer, initialState);
+  
+  // Memoize initial params to avoid unnecessary re-renders
+  const memoizedInitialParams = useMemo(() => initialParams, [
+    initialParams.initialCoinId,
+    initialParams.initialSubWalletId,
+  ]);
 
   const setSource = useCallback((coin, subWallet, balance, channel) => {
     dispatch({
@@ -251,6 +258,7 @@ export const SendWizardProvider = ({ children }) => {
 
   const value = {
     state,
+    initialParams: memoizedInitialParams,
     setSource,
     setTarget,
     setAmount,
