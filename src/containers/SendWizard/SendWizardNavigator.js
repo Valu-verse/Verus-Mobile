@@ -5,6 +5,7 @@
   - Created 2024-12-09
   - Updated 2025-12-11: Added support for initialCoinId and initialSubWalletId params
     to pre-select source when navigating from asset overview screen.
+  - Updated 2024-12-15: Added SendWizardSuccess screen
 */
 
 import React from 'react';
@@ -16,6 +17,7 @@ import SendWizardSelectTarget from './SendWizardSelectTarget';
 import SendWizardAmount from './SendWizardAmount';
 import SendWizardRecipient from './SendWizardRecipient';
 import SendWizardConfirm from './SendWizardConfirm';
+import SendWizardSuccess from './SendWizardSuccess';
 import { defaultHeaderOptions } from '../../utils/navigation/header';
 
 const Stack = createStackNavigator();
@@ -51,6 +53,11 @@ const SendWizardNavigator = () => {
           name="SendWizardConfirm"
           component={SendWizardConfirm}
           options={{ title: 'Send' }}
+        />
+        <Stack.Screen
+          name="SendWizardSuccess"
+          component={SendWizardSuccess}
+          options={{ headerShown: false }}
         />
       </Stack.Navigator>
     </SendWizardProvider>

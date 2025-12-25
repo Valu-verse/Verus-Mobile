@@ -303,3 +303,6 @@ const styles = StyleSheet.create({
 
 export default TransactionRow;
 
+
+
+

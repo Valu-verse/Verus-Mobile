@@ -4,12 +4,21 @@
   - Runs preflight to validate and get fee info
   - Shows summary including fees, conversion rates, warnings
   - Created 2024-12-09
+  - Updated 2024-12-15: Redesigned with cleaner layout, GradientButton,
+    proper fee display, navigates to success screen on completion
+  - Updated 2024-12-17: Made amount section more compact - reduced padding,
+    font sizes, logo sizes, and spacing for better screen utilization
+  - Updated 2024-12-17: Added estimated time until arrival based on transaction type
+    ETH/ERC20 conversions and cross-chain: 1-3 hours, Verus conversions: 2-10 minutes,
+    Simple sends: 1-5 minutes. Not shown for preconvert transactions
+  - Updated 2024-12-17: Fixed VerusID resolution for ETH/ERC20 by using the getIdentity
+    router which correctly maps to the VRPC system (was using .eth as system ID)
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Text, Button, List, Divider } from 'react-native-paper';
+import { Text, Button } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
@@ -34,13 +43,15 @@ import {
   R_ADDRESS_VERSION,
 } from 'verus-typescript-primitives';
 import { ethers } from 'ethers';
-import { getIdentity } from '../../utils/api/channels/verusid/callCreators';
-import { getCurrencyDisplayName } from './sendWizardDisplayInfo';
+import { getIdentity } from '../../utils/api/routers/getIdentity';
+import { getCurrencyDisplayName, getNetworkDisplayName } from './sendWizardDisplayInfo';
+import GradientButton from '../../components/GradientButton';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
-  const { state, setPreflight, setLoading, reset } = useSendWizard();
+  const { state, setPreflight, setLoading, reset, setTxResult } = useSendWizard();
   const {
     sourceCoin,
     sourceSubWallet,
@@ -92,14 +103,42 @@ const SendWizardConfirm = () => {
     return channel.split('.')[0];
   }, [channel]);
 
+  // Calculate estimated time until arrival based on transaction type
+  const estimatedTime = useMemo(() => {
+    // Don't show time estimate for preconvert transactions
+    if (preconvert) return null;
+
+    // ETH/ERC20 on-chain conversion (convertto but no exportto)
+    if ((channelType === ETH || channelType === ERC20) && isConversion && !exportTo) {
+      return '1-3 hours';
+    }
+
+    // Cross-chain transfer (exportto is set)
+    if (isCrossChain && exportTo) {
+      return '1-3 hours';
+    }
+
+    // Regular conversion on Verus (convertto but no exportto)
+    if (isConversion && !exportTo) {
+      return '2-10 minutes';
+    }
+
+    // Simple send (no conversion, no cross-chain)
+    if (isSimpleSend) {
+      return '1-5 minutes';
+    }
+
+    return null;
+  }, [channelType, isConversion, isCrossChain, exportTo, isSimpleSend, preconvert]);
+
   // Build destination from address
   const buildDestination = useCallback(async () => {
     const addr = recipientAddress.trim();
 
     // VerusID
     if (addr.endsWith('@')) {
-      const systemId = sourceCoin.system_id || sourceCoin.id;
-      const identityRes = await getIdentity(systemId, addr);
+      // Use the getIdentity router which correctly routes ETH/ERC20 to the VRPC system
+      const identityRes = await getIdentity(sourceCoin, activeAccount, channel, addr);
 
       if (identityRes.error) {
         throw new Error(`Failed to get information about ${addr}. Try using the i-address of this VerusID.`);
@@ -138,7 +177,7 @@ const SendWizardConfirm = () => {
     } catch (e) {
       throw new Error('Invalid address format');
     }
-  }, [recipientAddress, sourceCoin]);
+  }, [recipientAddress, sourceCoin, activeAccount, channel]);
 
   // Run preflight on mount
   useEffect(() => {
@@ -287,17 +326,15 @@ const SendWizardConfirm = () => {
     setPreflight,
   ]);
 
-  // Get currency info for display - uses sendWizardDisplayInfo for friendly names
+  // Get currency info for display
   const getCurrencyInfo = useCallback((currencyId, optionalViaOptions = null) => {
     if (!currencyId) return { name: 'Unknown', ticker: '?', coinId: null };
     
-    // First try CoinDirectory
     try {
       const coin = CoinDirectory.findCoinObj(currencyId);
       if (coin) return { name: coin.display_name, ticker: coin.display_ticker, coinId: coin.id };
     } catch (e) {}
     
-    // Check if this ID exists in viaOptions with a name
     const viaOpts = optionalViaOptions || viaOptions;
     if (viaOpts) {
       const viaOpt = viaOpts.find(v => v.id === currencyId);
@@ -306,13 +343,11 @@ const SendWizardConfirm = () => {
       }
     }
     
-    // Try sendWizardDisplayInfo for friendly name
     const displayName = getCurrencyDisplayName(currencyId, null);
     if (displayName && displayName !== currencyId) {
       return { name: displayName, ticker: displayName, coinId: null };
     }
     
-    // Fallback: truncate the ID if it's long
     const name = currencyId.length > 16 ? `${currencyId.substring(0, 8)}...${currencyId.slice(-6)}` : currencyId;
     return { name, ticker: name, coinId: null };
   }, [viaOptions]);
@@ -321,11 +356,53 @@ const SendWizardConfirm = () => {
     return getCurrencyInfo(targetCurrency);
   }, [targetCurrency, getCurrencyInfo]);
 
-  // Format amounts for display
-  const formatAmount = useCallback((sats, decimals = 8) => {
-    if (!sats) return '0';
-    return satsToCoins(BigNumber(sats)).decimalPlaces(decimals).toString();
-  }, []);
+  // Extract fee information from preflight result
+  const feeInfo = useMemo(() => {
+    if (!preflightResult) return null;
+
+    // Simple send - fee is directly available
+    if (preflightResult.fee) {
+      return {
+        amount: preflightResult.fee,
+        currency: preflightResult.feeCurr || sourceCoin?.display_ticker || 'VRSC',
+      };
+    }
+
+    // Convert/cross-chain - fee might be in validation.fees
+    if (preflightResult.validation?.fees) {
+      const fees = preflightResult.validation.fees;
+      const systemId = sourceCoin?.system_id || sourceCoin?.id;
+      
+      for (const currencyId of Object.keys(fees)) {
+        const feeSats = BigNumber(fees[currencyId]);
+        if (feeSats.isGreaterThan(0)) {
+          const feeCoins = satsToCoins(feeSats).decimalPlaces(8).toString();
+          // Try to get friendly name for fee currency
+          let feeCurrName = currencyId;
+          try {
+            const coin = CoinDirectory.findCoinObj(currencyId);
+            if (coin) feeCurrName = coin.display_ticker;
+          } catch (e) {
+            feeCurrName = getCurrencyDisplayName(currencyId, currencyId);
+          }
+          return { amount: feeCoins, currency: feeCurrName };
+        }
+      }
+    }
+
+    // Fallback - calculate from nativeFeesPaid if available
+    if (preflightResult.nativeFeesPaid) {
+      const feeCoins = satsToCoins(BigNumber(preflightResult.nativeFeesPaid)).decimalPlaces(8).toString();
+      return { amount: feeCoins, currency: sourceCoin?.display_ticker || 'VRSC' };
+    }
+
+    // Default minimum fee for VRPC transactions
+    if (channelType === VRPC) {
+      return { amount: '0.0001', currency: sourceCoin?.display_ticker || 'VRSC' };
+    }
+
+    return null;
+  }, [preflightResult, sourceCoin, channelType]);
 
   // Handle send
   const handleSend = useCallback(async () => {
@@ -363,20 +440,9 @@ const SendWizardConfirm = () => {
       dispatch(expireCoinData(sourceCoin.id, API_GET_TRANSACTIONS));
       dispatch(expireCoinData(sourceCoin.id, API_GET_FIATPRICE));
 
-      // Navigate to success
-      Alert.alert(
-        'Transaction Sent',
-        `Your transaction has been submitted successfully.${result.result.txid ? `\n\nTxID: ${result.result.txid.substring(0, 16)}...` : ''}`,
-        [
-          {
-            text: 'Done',
-            onPress: () => {
-              reset();
-              navigation.popToTop();
-            },
-          },
-        ]
-      );
+      // Store result and navigate to success screen
+      setTxResult(result.result);
+      navigation.navigate('SendWizardSuccess');
     } catch (e) {
       console.error('Send error:', e);
       Alert.alert('Error', e.message || 'Transaction failed');
@@ -392,14 +458,14 @@ const SendWizardConfirm = () => {
     amount,
     channel,
     dispatch,
-    reset,
     navigation,
+    setTxResult,
   ]);
 
   // Truncate address
   const truncateAddress = (addr) => {
-    if (!addr || addr.length <= 20) return addr;
-    return `${addr.substring(0, 10)}...${addr.substring(addr.length - 10)}`;
+    if (!addr || addr.length <= 16) return addr;
+    return `${addr.substring(0, 5)}...${addr.substring(addr.length - 5)}`;
   };
 
   if (!sourceCoin) {
@@ -457,113 +523,116 @@ const SendWizardConfirm = () => {
             </View>
           )}
 
-          {/* Summary Card */}
-          <View style={styles.summaryCard}>
-            {/* Sending */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Sending</Text>
-              <View style={styles.summaryValue}>
-                <Text style={styles.summaryAmount}>
-                  {amount} {sourceCoin.display_ticker}
-                </Text>
+          {/* Amount Section - Compact display */}
+          <View style={styles.amountSection}>
+            <Text style={styles.amountLabel}>You're sending</Text>
+            <View style={styles.amountRow}>
+              {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 10 }, 32, 32)}
+              <View>
+                <Text style={styles.amountValue}>{amount}</Text>
+                <Text style={styles.amountTicker}>{sourceCoin.display_ticker}</Text>
               </View>
             </View>
 
-            <Divider style={styles.divider} />
-
-            {/* Receiving (for conversions) */}
+            {/* Conversion arrow and receive amount */}
             {isConversion && (
-              <>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Estimated receive</Text>
-                  <View style={styles.summaryValue}>
-                    <Text style={styles.summaryAmount}>
+              <View style={styles.conversionSection}>
+                <MaterialCommunityIcons name="arrow-down" size={20} color="#CCC" style={{ marginVertical: 8 }} />
+                <Text style={styles.amountLabel}>You'll receive approximately</Text>
+                <View style={styles.amountRow}>
+                  {targetInfo.coinId && RenderSquareCoinLogo(targetInfo.coinId, { marginRight: 10 }, 32, 32)}
+                  {!targetInfo.coinId && (
+                    <View style={styles.placeholderLogo}>
+                      <Text style={styles.placeholderText}>{(targetInfo.ticker || '?').substring(0, 2).toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <View>
+                    <Text style={styles.amountValue}>
                       ~{estimate?.estimatedcurrencyout
                         ? BigNumber(estimate.estimatedcurrencyout).decimalPlaces(8).toString()
-                        : '?'} {targetInfo.ticker}
+                        : '?'}
                     </Text>
+                    <Text style={styles.amountTicker}>{targetInfo.ticker}</Text>
                   </View>
                 </View>
-                <Divider style={styles.divider} />
-              </>
+              </View>
             )}
-
-            {/* To */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>To</Text>
-              <Text style={styles.summaryAddressValue}>
-                {truncateAddress(recipientAddress)}
-              </Text>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            {/* Network/Chain */}
-            {(exportTo || isCrossChain) && (
-              <>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Destination network</Text>
-                  <Text style={styles.summaryTextValue}>
-                    {getCurrencyInfo(exportTo).name}
-                  </Text>
-                </View>
-                <Divider style={styles.divider} />
-              </>
-            )}
-
-            {/* Via */}
-            {via && (
-              <>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Route via</Text>
-                  <Text style={styles.summaryTextValue}>
-                    {getCurrencyInfo(via).name}
-                  </Text>
-                </View>
-                <Divider style={styles.divider} />
-              </>
-            )}
-
-            {/* Fee */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Network fee</Text>
-              <Text style={styles.summaryTextValue}>
-                {preflightResult?.fee
-                  ? `~${preflightResult.fee} ${preflightResult.feeCurr || sourceCoin.display_ticker}`
-                  : 'Included'}
-              </Text>
-            </View>
           </View>
 
-          {/* From */}
-          <View style={styles.fromSection}>
-            <Text style={styles.sectionLabel}>From</Text>
-            <View style={styles.fromCard}>
-              {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 12 }, 32, 32)}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fromTitle}>{sourceSubWallet?.name || 'My wallet'}</Text>
-                <Text style={styles.fromBalance}>
-                  Balance: {BigNumber(sourceBalance || 0).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
+          {/* Details Card */}
+          <View style={styles.detailsCard}>
+            {/* Recipient */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>To</Text>
+              <Text style={styles.detailValue} numberOfLines={1}>
+                {recipientAddress.endsWith('@') ? recipientAddress : truncateAddress(recipientAddress)}
+              </Text>
+            </View>
+
+            {/* Destination network (cross-chain) */}
+            {(exportTo || isCrossChain) && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Destination network</Text>
+                <Text style={styles.detailValue}>
+                  {getNetworkDisplayName(exportTo, getCurrencyInfo(exportTo).name)}
+                </Text>
+              </View>
+            )}
+
+            {/* Route via */}
+            {via && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Route via</Text>
+                <Text style={styles.detailValue}>
+                  {getCurrencyInfo(via).name}
+                </Text>
+              </View>
+            )}
+
+            {/* Estimated time until arrival */}
+            {estimatedTime && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Estimated time</Text>
+                <Text style={styles.detailValue}>
+                  {estimatedTime}
+                </Text>
+              </View>
+            )}
+
+            {/* Network fee */}
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Network fee</Text>
+              <Text style={styles.detailValue}>
+                {feeInfo ? `${feeInfo.amount} ${feeInfo.currency}` : '~0.0001 VRSC'}
+              </Text>
+            </View>
+
+            {/* From */}
+            <View style={[styles.detailRow, styles.detailRowLast]}>
+              <Text style={styles.detailLabel}>From</Text>
+              <View style={styles.fromValue}>
+                <Text style={[styles.detailValue, { maxWidth: '100%' }]}>
+                  {truncateAddress(sourceSubWallet?.name) || 'My wallet'}
                 </Text>
               </View>
             </View>
           </View>
+
+          {/* Balance info */}
+          <Text style={styles.balanceNote}>
+            Balance after: {BigNumber(sourceBalance || 0).minus(BigNumber(amount || 0)).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
+          </Text>
         </View>
       </ScrollView>
 
       {/* Confirm Button */}
       <View style={styles.buttonContainer}>
-        <Button
-          mode="contained"
+        <GradientButton
           onPress={handleSend}
-          loading={sending}
           disabled={sending || !preflightResult}
-          style={styles.confirmButton}
-          contentStyle={styles.confirmButtonContent}
-          labelStyle={styles.confirmButtonLabel}
         >
-          {sending ? 'Sending...' : 'Confirm & Send'}
-        </Button>
+          {sending ? 'Sending...' : 'Confirm & send'}
+        </GradientButton>
       </View>
     </View>
   );
@@ -591,7 +660,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     marginBottom: 24,
   },
@@ -607,91 +676,101 @@ const styles = StyleSheet.create({
   warningText: {
     fontSize: 14,
     color: '#E65100',
+    lineHeight: 20,
   },
-  summaryCard: {
+  // Amount section - compact display
+  amountSection: {
     backgroundColor: '#F8F8F8',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    padding: 14,
+    marginBottom: 16,
     alignItems: 'center',
-    paddingVertical: 12,
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#666',
-  },
-  summaryValue: {
-    alignItems: 'flex-end',
-  },
-  summaryAmount: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'black',
-  },
-  summaryTextValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'black',
-  },
-  summaryAddressValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: 'black',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  divider: {
-    backgroundColor: '#E0E0E0',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+  amountLabel: {
+    fontSize: 11,
+    color: '#888',
     marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  fromSection: {
-    marginBottom: 24,
-  },
-  fromCard: {
+  amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    padding: 12,
   },
-  fromTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'black',
+  amountValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
   },
-  fromBalance: {
+  amountTicker: {
     fontSize: 13,
     color: '#666',
-    marginTop: 2,
+    marginTop: 1,
+  },
+  conversionSection: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  placeholderLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  placeholderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#888',
+  },
+  // Details card
+  detailsCard: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: '#888',
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    maxWidth: '60%',
+    textAlign: 'right',
+  },
+  fromValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  balanceNote: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
   },
   buttonContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 28,
     backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  confirmButton: {
-    borderRadius: 12,
-    backgroundColor: Colors.primaryColor,
-  },
-  confirmButtonContent: {
-    height: 52,
-  },
-  confirmButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 
 export default SendWizardConfirm;
-

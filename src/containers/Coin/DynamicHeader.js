@@ -17,6 +17,7 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_INFO,
+  API_GET_ADDRESSES,
 } from '../../utils/constants/intervalConstants';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
@@ -49,6 +50,8 @@ const DynamicHeader = () => {
   const displayCurrency = useSelector(
     (state) => state.settings.generalWalletSettings.displayCurrency || USD,
   );
+  const activeAccount = useSelector((state) => state.authentication.activeAccount);
+  const activeCoin = useSelector((state) => state.coins.activeCoin);
   
   const selectedSubWallet = useObjectSelector(
     (state) => state.coinMenus.activeSubWallets[chainTicker],
@@ -163,20 +166,42 @@ const DynamicHeader = () => {
     ({ item, index }) => {
       const isActive = index === activeIndex;
       const isCopied = copiedWalletId === item.id;
-      const displayAddress = item.name || '-';
+      
+      // Try to get address from activeAccount keys using the subwallet's address channel
+      // If it's a VerusID (ends with @), use the name directly.
+      // Otherwise, look up the crypto address (e.g. for "Main" wallet).
+      let displayAddress = item.name || '-';
+      const isVerusId = item.name && item.name.endsWith('@');
+
+      if (!isVerusId) {
+        const addressChannel = item.api_channels[API_GET_ADDRESSES];
+        
+        if (
+          activeAccount && 
+          activeAccount.keys[chainTicker] && 
+          activeAccount.keys[chainTicker][addressChannel] &&
+          activeAccount.keys[chainTicker][addressChannel].addresses.length > 0
+        ) {
+          displayAddress = activeAccount.keys[chainTicker][addressChannel].addresses[0];
+        }
+      }
+
       const networkName = getNetworkDisplayName(item.network);
       const networkIconId = getNetworkIcon(item.network);
+      const isVerusOrPbaas = activeCoin?.proto === 'vrsc';
 
       return (
         <View style={[styles.walletCard, { width: CARD_WIDTH }]}>
-          {/* Network row - compact */}
-          <View style={styles.cardRow}>
-            <Text style={styles.cardLabel}>Network</Text>
-            <View style={styles.networkValue}>
-              {RenderSquareCoinLogo(networkIconId, {}, 16, 16)}
-              <Text style={styles.networkText}>{networkName}</Text>
+          {/* Network row - only show for Verus/PBaaS chains where it's useful */}
+          {isVerusOrPbaas && (
+            <View style={styles.cardRow}>
+              <Text style={styles.cardLabel}>Network</Text>
+              <View style={styles.networkValue}>
+                {RenderSquareCoinLogo(networkIconId, {}, 16, 16)}
+                <Text style={styles.networkText}>{networkName}</Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Address row */}
           <TouchableOpacity
@@ -207,7 +232,7 @@ const DynamicHeader = () => {
         </View>
       );
     },
-    [activeIndex, copiedWalletId, handleCopyAddress],
+    [activeIndex, copiedWalletId, handleCopyAddress, activeAccount, chainTicker, activeCoin],
   );
 
   const renderPageDots = () => {

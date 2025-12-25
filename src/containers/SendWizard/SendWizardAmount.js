@@ -8,6 +8,17 @@
     auto-selects best route (highest output), passes estimates to via sheet
   - Updated 2024-12-10: Redesigned with GradientButton, auto-focus input, 
     compact estimate with rate, improved subtitle with chain info
+  - Updated 2024-12-17: Fixed decimal separator issue - automatically converts commas to dots
+    to support locale-specific keyboards (iOS shows comma in some regions)
+  - Updated 2024-12-17: Fixed chain label for ETH/ERC20 - now correctly shows "Ethereum"
+    or "Ethereum Testnet" instead of falling back to "Verus". Also caps MAX to 8 decimals
+    for ETH/ERC20 and routes estimateConversion to correct VRPC system for bridge flows.
+  - Updated 2024-12-23: For ETH/ERC20 sources, use precomputed path.price from viaOptions
+    instead of calling estimateConversion API. This fixes "Could not estimate conversion"
+    errors for bounceback paths where the API doesn't accept ETH contract addresses.
+  - Updated 2024-12-23: Added support for isBounceback and ethDisplayInfo from context
+    to properly display ETH token names (e.g., "DAI") instead of Verus names ("DAI.vETH")
+    for bounceback paths. Also fixed destination chain display for ETH→vETH to show "Verus".
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
@@ -24,6 +35,7 @@ import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import GradientButton from '../../components/GradientButton';
 import { getNetworkDisplayName } from './sendWizardDisplayInfo';
+import { getWeb3ProviderForNetwork } from '../../utils/web3/provider';
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
@@ -38,6 +50,8 @@ const SendWizardAmount = () => {
     via,
     viaOptions,
     estimate,
+    isBounceback,
+    ethDisplayInfo,
   } = state;
 
   const inputRef = useRef(null);
@@ -102,8 +116,15 @@ const SendWizardAmount = () => {
     return parsedAmount != null && !isOverBalance;
   }, [parsedAmount, isOverBalance]);
 
+  // Check if source is ETH/ERC20 - these use precomputed prices instead of API calls
+  const isEthSource = useMemo(() => {
+    const proto = sourceCoin?.proto;
+    return proto === 'eth' || proto === 'erc20';
+  }, [sourceCoin]);
+
   // Fetch estimates for ALL via options when amount changes
   // Then auto-select the best one (highest output)
+  // For ETH/ERC20 sources, use precomputed path.price instead of API calls
   // For direct conversions (no via needed), fetch estimate without via
   useEffect(() => {
     const fetchAllEstimates = async () => {
@@ -116,14 +137,87 @@ const SendWizardAmount = () => {
       setEstimateLoading(true);
       setEstimateError(null);
 
-      const systemId = sourceCoin.system_id || sourceCoin.id;
-      const currency = sourceCoin.currency_id || sourceCoin.id;
       const amount = parsedAmount.toNumber();
 
       // Filter to get valid via options (exclude 'direct')
       const validViaOptions = (viaOptions || []).filter(
         opt => opt.id && opt.id !== 'direct' && !opt.isDirect
       );
+
+      // For ETH/ERC20 sources, use precomputed prices from viaOptions
+      // These were calculated by getConversionPaths and stored in path.price
+      if (isEthSource) {
+        const newEstimates = {};
+        let bestVia = null;
+        let bestOutput = BigNumber(0);
+
+        // Process all via options with prices (including direct options for comparison)
+        const allOptions = viaOptions || [];
+        
+        // First, check non-direct via options
+        for (const opt of validViaOptions) {
+          if (opt.price && opt.price > 0) {
+            // Calculate estimated output using precomputed price
+            // price = output/input, so output = input * price
+            const estimatedOutput = BigNumber(amount).multipliedBy(opt.price);
+            
+            newEstimates[opt.id] = {
+              estimate: {
+                estimatedcurrencyout: estimatedOutput.toString(),
+                precomputed: true, // Flag to indicate this is from path.price
+              },
+              output: estimatedOutput.toString(),
+            };
+            
+            if (estimatedOutput.isGreaterThan(bestOutput)) {
+              bestOutput = estimatedOutput;
+              bestVia = opt.id;
+            }
+          }
+        }
+        
+        // Also check for direct options (which might be the only option)
+        const directOption = allOptions.find(opt => opt.isDirect && opt.price && opt.price > 0);
+        if (directOption) {
+          const estimatedOutput = BigNumber(amount).multipliedBy(directOption.price);
+          
+          // If direct is better than any via, use it
+          if (estimatedOutput.isGreaterThan(bestOutput)) {
+            setEstimate({
+              estimatedcurrencyout: estimatedOutput.toString(),
+              precomputed: true,
+            });
+            setVia(null);
+            setViaEstimates(newEstimates);
+            setEstimateLoading(false);
+            return;
+          }
+        }
+
+        setViaEstimates(newEstimates);
+
+        if (bestVia && newEstimates[bestVia]?.estimate) {
+          setVia(bestVia);
+          setEstimate(newEstimates[bestVia].estimate);
+        } else if (directOption) {
+          // Fall back to direct option if no via was better
+          const estimatedOutput = BigNumber(amount).multipliedBy(directOption.price);
+          setEstimate({
+            estimatedcurrencyout: estimatedOutput.toString(),
+            precomputed: true,
+          });
+          setVia(null);
+        } else {
+          setEstimateError('Could not estimate conversion');
+        }
+
+        setEstimateLoading(false);
+        return;
+      }
+
+      // For non-ETH sources, use the estimateConversion API
+      const systemId = sourceCoin.system_id || sourceCoin.id;
+      const currency = sourceCoin.currency_id || sourceCoin.id;
 
       // If no via options, this is a direct conversion - fetch estimate without via
       if (validViaOptions.length === 0) {
@@ -234,7 +328,7 @@ const SendWizardAmount = () => {
     // Debounce the estimate calls
     const timer = setTimeout(fetchAllEstimates, 500);
     return () => clearTimeout(timer);
-  }, [parsedAmount, targetCurrency, viaOptions, isConversion, sourceCoin, setVia, setEstimate]);
+  }, [parsedAmount, targetCurrency, viaOptions, isConversion, sourceCoin, isEthSource, setVia, setEstimate]);
 
   // Update estimate when user manually changes via selection
   useEffect(() => {
@@ -245,9 +339,22 @@ const SendWizardAmount = () => {
 
   const handleMaxPress = useCallback(() => {
     if (balanceBn.isGreaterThan(0)) {
-      setInputValue(balanceBn.toString());
+      // For ETH/ERC20, cap MAX to 8 decimals (round down to avoid sending more than available)
+      const sourceProto = sourceCoin?.proto;
+      if (sourceProto === 'eth' || sourceProto === 'erc20') {
+        setInputValue(balanceBn.decimalPlaces(8, BigNumber.ROUND_DOWN).toString());
+      } else {
+        setInputValue(balanceBn.toString());
+      }
     }
-  }, [balanceBn]);
+  }, [balanceBn, sourceCoin]);
+
+  // Handle input change and normalize comma to dot for decimal separator
+  const handleInputChange = useCallback((text) => {
+    // Replace comma with dot to support locale-specific keyboards
+    const normalizedText = text.replace(/,/g, '.');
+    setInputValue(normalizedText);
+  }, []);
 
   const handleContinue = useCallback(() => {
     if (!isValidAmount) return;
@@ -266,34 +373,66 @@ const SendWizardAmount = () => {
   );
 
   // Get target currency display info
+  // For bounceback paths, use the ETH token display info (e.g., "DAI" not "DAI.vETH")
   const targetCurrencyInfo = useMemo(() => {
     if (!targetCurrency) return { name: 'Unknown', ticker: '?' };
+    
+    // For bounceback paths, prefer the ETH display info
+    if (isBounceback && ethDisplayInfo) {
+      // Try to find the coin by contract address for icon
+      let iconId = ethDisplayInfo.contractAddress;
+      try {
+        const coin = CoinDirectory.findCoinObj(ethDisplayInfo.contractAddress);
+        if (coin) iconId = coin.id;
+      } catch (e) {}
+      
+      return {
+        name: ethDisplayInfo.name || ethDisplayInfo.ticker || 'Unknown',
+        ticker: ethDisplayInfo.ticker || ethDisplayInfo.name || '?',
+        coinId: iconId,
+        isBounceback: true,
+      };
+    }
+    
     try {
       const coin = CoinDirectory.findCoinObj(targetCurrency);
       if (coin) return { name: coin.display_name, ticker: coin.display_ticker, coinId: coin.id };
     } catch (e) {}
     return { name: targetCurrency, ticker: targetCurrency, coinId: null };
-  }, [targetCurrency]);
+  }, [targetCurrency, isBounceback, ethDisplayInfo]);
 
   // Get source and destination chain names for subtitle
-  // Note: The vETH system is a Verus pBaaS chain, so when staying on-chain, we display "Verus"
+  // Handles native ETH/ERC20 coins and Verus-based chains separately
   const chainInfo = useMemo(() => {
     const VETH_SYSTEM_ID = 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X';
     const sourceSystemId = sourceCoin?.system_id || sourceCoin?.id;
+    const sourceProto = sourceCoin?.proto;
+    const isEthSource = sourceProto === 'eth' || sourceProto === 'erc20';
     
-    // When staying on-chain (not cross-chain), always show "Verus" for any Verus-based chain
-    // The vETH system is a pBaaS chain on Verus, not Ethereum
-    let sourceChain = 'Verus';
-    if (sourceSystemId && sourceSystemId !== VETH_SYSTEM_ID) {
-      sourceChain = getNetworkDisplayName(sourceSystemId, 'Verus');
+    // For native ETH/ERC20 coins (proto = 'eth' or 'erc20'), show Ethereum network
+    let sourceChain;
+    if (isEthSource) {
+      // Native Ethereum coins - check network for testnet vs mainnet
+      sourceChain = sourceCoin?.network === 'goerli' ? 'Ethereum Testnet' : 'Ethereum';
+    } else {
+      // Verus-based chains - use existing logic
+      sourceChain = 'Verus';
+      if (sourceSystemId && sourceSystemId !== VETH_SYSTEM_ID) {
+        sourceChain = getNetworkDisplayName(sourceSystemId, 'Verus');
+      }
     }
     
     let destChain = sourceChain; // Same chain by default
     let isSameChain = true;
     
     if (isCrossChain && exportTo) {
-      // Cross-chain: show the actual destination
-      destChain = getNetworkDisplayName(exportTo, exportTo);
+      // Special case: when exporting FROM Ethereum TO vETH bridge, the destination is Verus
+      // (because vETH is the Ethereum bridge ON Verus, so you're sending to Verus)
+      if (isEthSource && exportTo === VETH_SYSTEM_ID) {
+        destChain = 'Verus';
+      } else {
+        destChain = getNetworkDisplayName(exportTo, exportTo);
+      }
       isSameChain = false;
     }
     
@@ -381,7 +520,7 @@ const SendWizardAmount = () => {
               <RNTextInput
                 ref={inputRef}
                 value={inputValue}
-                onChangeText={setInputValue}
+                onChangeText={handleInputChange}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder="0.00"

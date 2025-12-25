@@ -5,6 +5,11 @@
   - Created 2024-12-09
   - Updated 2024-12-09: Added destinationAddressType tracking for address validation
   - Updated 2025-12-11: Added initialParams support for pre-selecting source coin
+  - Updated 2024-12-15: Added txResult state and setTxResult action for success screen
+  - Updated 2024-12-17: Fixed destinationAddressType for ETH/ERC20 simple sends to require
+    Ethereum addresses (was incorrectly defaulting to Verus)
+  - Updated 2024-12-23: Added isBounceback flag and ethDisplayInfo for proper display of
+    ETH destination (bounceback) paths - shows ETH token name/ticker instead of Verus currency
 */
 
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
@@ -23,6 +28,8 @@ const initialState = {
   isCrossChain: false,      // true if exportto is set
   mapTo: null,              // mapping field for bridge transfers
   destinationAddressType: ADDRESS_TYPE.VERUS, // address type for recipient validation
+  isBounceback: false,      // true if this is an ETH destination (bounceback) path
+  ethDisplayInfo: null,     // { ticker, name, contractAddress } for display on bounceback paths
 
   // Step 3: Amount and routing
   amount: '',               // string input
@@ -40,6 +47,9 @@ const initialState = {
   preflightResult: null,    // result from preflight call
   channel: null,            // channel id used for transaction
 
+  // Step 6: Result
+  txResult: null,           // transaction result (txid, etc.)
+
   // General
   currentStep: 1,
   loading: false,
@@ -54,6 +64,7 @@ const ACTIONS = {
   SET_ESTIMATE: 'SET_ESTIMATE',
   SET_RECIPIENT: 'SET_RECIPIENT',
   SET_PREFLIGHT: 'SET_PREFLIGHT',
+  SET_TX_RESULT: 'SET_TX_RESULT',
   SET_STEP: 'SET_STEP',
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
@@ -74,6 +85,8 @@ function wizardReducer(state, action) {
         exportTo: null,
         isConversion: false,
         isCrossChain: false,
+        isBounceback: false,
+        ethDisplayInfo: null,
         amount: '',
         amountSats: null,
         via: null,
@@ -84,11 +97,13 @@ function wizardReducer(state, action) {
       };
 
     case ACTIONS.SET_TARGET:
-      // Compute destination address type based on exportTo and source system
+      // Compute destination address type based on exportTo, source system, and source protocol
       const sourceSystemId = state.sourceCoin?.system_id || state.sourceCoin?.id;
+      const sourceCoinProto = state.sourceCoin?.proto;
       const destAddressType = getDestinationAddressType(
         action.payload.exportTo,
-        sourceSystemId
+        sourceSystemId,
+        sourceCoinProto
       );
       return {
         ...state,
@@ -99,6 +114,8 @@ function wizardReducer(state, action) {
         mapTo: action.payload.mapTo,
         viaOptions: action.payload.viaOptions || [],
         destinationAddressType: destAddressType,
+        isBounceback: action.payload.isBounceback || false,
+        ethDisplayInfo: action.payload.ethDisplayInfo || null,
         // Reset dependent fields
         amount: '',
         amountSats: null,
@@ -145,6 +162,12 @@ function wizardReducer(state, action) {
         preflightResult: action.payload.result,
       };
 
+    case ACTIONS.SET_TX_RESULT:
+      return {
+        ...state,
+        txResult: action.payload.result,
+      };
+
     case ACTIONS.SET_STEP:
       return {
         ...state,
@@ -189,10 +212,10 @@ export const SendWizardProvider = ({ children, initialParams = {} }) => {
     });
   }, []);
 
-  const setTarget = useCallback((currency, exportTo, isConversion, isCrossChain, mapTo = null, viaOptions = []) => {
+  const setTarget = useCallback((currency, exportTo, isConversion, isCrossChain, mapTo = null, viaOptions = [], isBounceback = false, ethDisplayInfo = null) => {
     dispatch({
       type: ACTIONS.SET_TARGET,
-      payload: { currency, exportTo, isConversion, isCrossChain, mapTo, viaOptions },
+      payload: { currency, exportTo, isConversion, isCrossChain, mapTo, viaOptions, isBounceback, ethDisplayInfo },
     });
   }, []);
 
@@ -227,6 +250,13 @@ export const SendWizardProvider = ({ children, initialParams = {} }) => {
   const setPreflight = useCallback((result) => {
     dispatch({
       type: ACTIONS.SET_PREFLIGHT,
+      payload: { result },
+    });
+  }, []);
+
+  const setTxResult = useCallback((result) => {
+    dispatch({
+      type: ACTIONS.SET_TX_RESULT,
       payload: { result },
     });
   }, []);
@@ -266,6 +296,7 @@ export const SendWizardProvider = ({ children, initialParams = {} }) => {
     setEstimate,
     setRecipient,
     setPreflight,
+    setTxResult,
     setStep,
     setLoading,
     setError,

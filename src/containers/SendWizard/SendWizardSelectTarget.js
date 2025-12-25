@@ -7,6 +7,20 @@
   - Updated 2024-12-10: Via options now filtered by exportTo destination
     Each via route is only valid for its specific exportTo (on-chain vs cross-chain)
     Fixed issue where invalid via routes were shown for cross-chain exports
+  - Updated 2024-12-17: Fixed popular currency matching by using getCurrencyDisplayTicker
+    to properly set the ticker field. Previously, ticker was set to displayName causing
+    currencies like Ethereum (name: "Ethereum", ticker: "ETH") to not match "ETH" in popular list
+  - Updated 2024-12-17: Group duplicate assets (e.g. DAI/Dai, MKR/Maker) by canonical key
+    and show network picker when multiple network options exist. Use plain icons (no badge)
+    for grouped asset rows. Uses SendExportToSheet with isGroupedAsset=true for network picker.
+  - Updated 2024-12-18: Fixed handleNetworkSelect to use isOnChain flag and systemId
+    instead of checking isCrossChain again. When user selects from grouped sheet, they've
+    already made their network choice - on-chain stays local, cross-chain exports to systemId.
+  - Updated 2024-12-23: Fixed ETH destination (bounceback) paths properly:
+    - Keep ETH contract address for display (icons, names, grouping)
+    - Store Verus currency ID separately as verusConvertTo for transactions
+    - Store ETH display info (ethDisplayName, ethDisplayTicker) for network picker
+    - Pass isBounceback flag and ethDisplayInfo through context for Amount screen display
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -15,17 +29,22 @@ import { useNavigation } from '@react-navigation/native';
 import { Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
-import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
+import { RenderSquareCoinLogo, RenderPlainCoinLogo } from '../../utils/CoinData/Graphics';
 import Colors from '../../globals/colors';
 import { useSendWizard } from './SendWizardContext';
 import { getConversionPaths } from '../../utils/api/routers/getConversionPaths';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import SendExportToSheet from './components/SendExportToSheet';
 import { VRPC, ETH, ERC20 } from '../../utils/constants/intervalConstants';
-import { getCurrencyDisplayName } from './sendWizardDisplayInfo';
+import { 
+  getCurrencyDisplayName, 
+  getCurrencyDisplayTicker,
+  getCanonicalAssetKey,
+  getCanonicalAssetDisplayInfo,
+} from './sendWizardDisplayInfo';
 
 // Popular currency tickers to highlight (case insensitive matching)
-const POPULAR_CURRENCIES = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI', 'MKR'];
+const POPULAR_CURRENCIES = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
@@ -39,6 +58,9 @@ const SendWizardSelectTarget = () => {
   const [exportSheetVisible, setExportSheetVisible] = useState(false);
   const [pendingTarget, setPendingTarget] = useState(null);
   const [sendExportSheetVisible, setSendExportSheetVisible] = useState(false);
+  // New state for grouped asset network selection
+  const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
+  const [pendingGroupedAsset, setPendingGroupedAsset] = useState(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -103,7 +125,23 @@ const SendWizardSelectTarget = () => {
         if (!dest) continue;
         if (path.prelaunch) continue;
 
+        // For ETH destination (bounceback) paths:
+        // - Use ETH address for DISPLAY (icons, names, grouping)
+        // - Use Verus currency ID for TRANSACTIONS (convertto parameter)
+        const isEthDest = path.ethdest === true;
+        
+        // destCurrencyId is for DISPLAY - use ETH address for bounceback paths
         const destCurrencyId = dest.currencyid || dest.address || destId;
+        
+        // verusConvertTo is for TRANSACTIONS - use Verus currency ID for bounceback paths
+        const verusConvertTo = isEthDest && dest.mapto
+          ? (dest.mapto.currencyid || dest.mapto.fullyqualifiedname)
+          : destCurrencyId;
+        
+        // Store ETH display info for network picker display
+        const ethDisplayName = isEthDest ? (dest.name || dest.symbol || null) : null;
+        const ethDisplayTicker = isEthDest ? (dest.symbol || dest.name || null) : null;
+        
         const isSameCurrency = destCurrencyId === sourceCurrencyId;
 
         // Collect same-currency export options
@@ -150,6 +188,11 @@ const SendWizardSelectTarget = () => {
             viaOptions: [],
             exportOptions: [],
             gateway: path.gateway || false,
+            // ETH destination (bounceback) specific fields
+            isEthDest: isEthDest,
+            verusConvertTo: verusConvertTo,
+            ethDisplayName: ethDisplayName,
+            ethDisplayTicker: ethDisplayTicker,
           });
         }
 
@@ -220,8 +263,10 @@ const SendWizardSelectTarget = () => {
       };
     }
 
-    // Build conversion options list
+    // Build conversion options list and group by canonical asset key
     const conversionOptions = [];
+    const groupedAssetMap = new Map(); // canonical key -> array of network options
+    
     for (const [destCurrencyId, entry] of destinationMap) {
       const dest = entry.dest;
       let coinId = null;
@@ -232,11 +277,15 @@ const SendWizardSelectTarget = () => {
 
       const fallbackName = dest.fullyqualifiedname || dest.name || dest.symbol || destCurrencyId;
       const displayName = getCurrencyDisplayName(destCurrencyId, fallbackName);
+      const displayTicker = getCurrencyDisplayTicker(destCurrencyId, dest.symbol || fallbackName);
+      
+      // Get canonical key for grouping
+      const canonicalKey = getCanonicalAssetKey(destCurrencyId, displayTicker, displayName);
 
-      conversionOptions.push({
+      const optionData = {
         id: destCurrencyId,
         name: displayName,
-        ticker: displayName,
+        ticker: displayTicker,
         fullyqualifiedname: dest.fullyqualifiedname || dest.name || dest.symbol || destCurrencyId,
         coinId: coinId,
         isConversion: true,
@@ -244,7 +293,68 @@ const SendWizardSelectTarget = () => {
         viaOptions: entry.viaOptions,
         exportOptions: entry.exportOptions,
         gateway: entry.gateway,
-      });
+        canonicalKey: canonicalKey,
+        // For ETH destination (bounceback) paths:
+        // - verusConvertTo: Verus currency ID for transactions
+        // - ethDisplayName/ethDisplayTicker: ETH token info for network picker display
+        isEthDest: entry.isEthDest,
+        verusConvertTo: entry.verusConvertTo,
+        ethDisplayName: entry.ethDisplayName,
+        ethDisplayTicker: entry.ethDisplayTicker,
+      };
+      
+      // Add to grouped map
+      if (!groupedAssetMap.has(canonicalKey)) {
+        groupedAssetMap.set(canonicalKey, []);
+      }
+      groupedAssetMap.get(canonicalKey).push(optionData);
+    }
+    
+    // Build final conversion options - either grouped or single
+    for (const [canonicalKey, networkOptions] of groupedAssetMap) {
+      if (networkOptions.length === 1) {
+        // Single option - add directly without grouping
+        conversionOptions.push(networkOptions[0]);
+      } else {
+        // Multiple network options - create a grouped entry
+        const displayInfo = getCanonicalAssetDisplayInfo(canonicalKey);
+        
+        // Try to find a coinId from any of the options (prefer non-ERC20)
+        let groupCoinId = null;
+        for (const opt of networkOptions) {
+          if (opt.coinId && !opt.coinId.startsWith('0x')) {
+            groupCoinId = opt.coinId;
+            break;
+          }
+        }
+        // Fallback to first available coinId
+        if (!groupCoinId) {
+          groupCoinId = networkOptions[0].coinId;
+        }
+        
+        // Merge all via options and export options from all network options
+        const allViaOptions = [];
+        const allExportOptions = [];
+        for (const opt of networkOptions) {
+          allViaOptions.push(...(opt.viaOptions || []));
+          allExportOptions.push(...(opt.exportOptions || []));
+        }
+        
+        conversionOptions.push({
+          id: canonicalKey, // Use canonical key as ID for grouped items
+          name: displayInfo.name,
+          ticker: displayInfo.ticker,
+          coinId: groupCoinId,
+          isConversion: true,
+          isCrossChain: allExportOptions.length > 0,
+          viaOptions: allViaOptions,
+          exportOptions: allExportOptions,
+          gateway: networkOptions.some(o => o.gateway),
+          isGrouped: true, // Flag to indicate this is a grouped item
+          networkOptions: networkOptions, // Keep individual options for network picker
+          canonicalKey: canonicalKey,
+        });
+      }
     }
 
     // Split into popular and other
@@ -252,11 +362,21 @@ const SendWizardSelectTarget = () => {
     const other = [];
 
     for (const opt of conversionOptions) {
+      const canonicalKey = opt.canonicalKey || '';
       const nameUpper = (opt.name || '').toUpperCase();
       const tickerUpper = (opt.ticker || '').toUpperCase();
-      const isPopular = POPULAR_CURRENCIES.some(
-        (p) => nameUpper === p || tickerUpper === p || nameUpper.startsWith(p + '.') || tickerUpper.startsWith(p + '.')
-      );
+      
+      const isPopular = POPULAR_CURRENCIES.some((p) => {
+        // Check canonical key, name, and ticker for match
+        return canonicalKey === p ||
+               nameUpper === p || 
+               tickerUpper === p || 
+               nameUpper.startsWith(p + '.') || 
+               tickerUpper.startsWith(p + '.') ||
+               nameUpper.endsWith('.' + p) ||
+               tickerUpper.endsWith('.' + p);
+      });
+      
       if (isPopular) {
         popular.push(opt);
       } else {
@@ -266,12 +386,24 @@ const SendWizardSelectTarget = () => {
 
     // Sort popular by the order in POPULAR_CURRENCIES
     popular.sort((a, b) => {
-      const aIdx = POPULAR_CURRENCIES.findIndex((p) => 
-        (a.name || '').toUpperCase().startsWith(p) || (a.ticker || '').toUpperCase().startsWith(p)
-      );
-      const bIdx = POPULAR_CURRENCIES.findIndex((p) => 
-        (b.name || '').toUpperCase().startsWith(p) || (b.ticker || '').toUpperCase().startsWith(p)
-      );
+      const findPopularIndex = (opt) => {
+        const canonicalKey = opt.canonicalKey || '';
+        const nameUpper = (opt.name || '').toUpperCase();
+        const tickerUpper = (opt.ticker || '').toUpperCase();
+        
+        return POPULAR_CURRENCIES.findIndex((p) => 
+          canonicalKey === p ||
+          nameUpper === p || 
+          tickerUpper === p || 
+          nameUpper.startsWith(p + '.') || 
+          tickerUpper.startsWith(p + '.') ||
+          nameUpper.endsWith('.' + p) ||
+          tickerUpper.endsWith('.' + p)
+        );
+      };
+      
+      const aIdx = findPopularIndex(a);
+      const bIdx = findPopularIndex(b);
       return aIdx - bIdx;
     });
 
@@ -326,13 +458,35 @@ const SendWizardSelectTarget = () => {
         ...(isDirect ? { isDirect } : {}),
       }));
 
+      // For ETH destination (bounceback) paths:
+      // - Use verusConvertTo for the target currency (the Verus currency ID)
+      // - target.id is the ETH address for display, verusConvertTo is for transactions
+      const targetCurrency = target.isEthDest && target.verusConvertTo
+        ? target.verusConvertTo
+        : target.id;
+
+      // mapTo is only used for non-bounceback mapping paths (mapping: true flag)
+      const mapTo = target.mapping ? target.id : null;
+
+      // For bounceback paths, pass the ETH display info for proper display in Amount screen
+      const isBounceback = target.isEthDest === true;
+      const ethDisplayInfo = isBounceback && (target.ethDisplayTicker || target.ethDisplayName)
+        ? { 
+            ticker: target.ethDisplayTicker, 
+            name: target.ethDisplayName,
+            contractAddress: target.id, // The ETH contract address for icon display
+          }
+        : null;
+
       setTarget(
-        target.id,
+        targetCurrency,
         exportTo,
         target.isConversion,
         exportTo != null,
-        target.mapping ? target.id : null,
-        cleanViaOptions
+        mapTo,
+        cleanViaOptions,
+        isBounceback,
+        ethDisplayInfo
       );
       setStep(3);
       navigation.navigate('SendWizardAmount');
@@ -342,6 +496,13 @@ const SendWizardSelectTarget = () => {
 
   const handleConversionPress = useCallback(
     (target) => {
+      // For grouped assets with multiple network options, show network picker first
+      if (target.isGrouped && target.networkOptions && target.networkOptions.length > 1) {
+        setPendingGroupedAsset(target);
+        setNetworkSheetVisible(true);
+        return;
+      }
+      
       // For conversions with cross-chain, show export sheet
       if (target.isCrossChain && target.exportOptions && target.exportOptions.length > 0) {
         setPendingTarget(target);
@@ -352,8 +513,33 @@ const SendWizardSelectTarget = () => {
     },
     [handleSelectTarget],
   );
+  
+  // Handle selection from network picker for grouped assets
+  // When user selects a network from the grouped sheet, they've already made their choice
+  // - isOnChain: stay on source network, no export needed
+  // - not isOnChain: cross-chain, export to the selected network's systemId
+  const handleNetworkSelect = useCallback(
+    (networkOption) => {
+      setNetworkSheetVisible(false);
+      setPendingGroupedAsset(null);
+      
+      if (networkOption.isOnChain) {
+        // On-chain option: no export needed, stay on source network
+        handleSelectTarget(networkOption, null);
+      } else if (networkOption.systemId) {
+        // Cross-chain option: export to the selected network's system
+        handleSelectTarget(networkOption, networkOption.systemId);
+      } else {
+        // Fallback: shouldn't happen, but handle gracefully
+        console.warn('handleNetworkSelect: networkOption missing systemId for cross-chain', networkOption);
+        handleSelectTarget(networkOption, null);
+      }
+    },
+    [handleSelectTarget],
+  );
 
   // Render a single currency option row
+  // For grouped items (isGrouped=true), use plain icon without badge
   const renderOptionRow = (item, showChevron = false) => (
     <TouchableOpacity
       key={item.id}
@@ -363,7 +549,10 @@ const SendWizardSelectTarget = () => {
     >
       <View style={styles.optionLeft}>
         {item.coinId ? (
-          RenderSquareCoinLogo(item.coinId, {}, 40, 40)
+          // Use plain icon (no badge) for grouped items, regular icon for others
+          item.isGrouped 
+            ? RenderPlainCoinLogo(item.coinId, {}, 40, 40)
+            : RenderSquareCoinLogo(item.coinId, {}, 40, 40)
         ) : (
           <View style={styles.placeholderLogo}>
             <Text style={styles.placeholderText}>
@@ -375,7 +564,8 @@ const SendWizardSelectTarget = () => {
       <View style={styles.optionCenter}>
         <Text style={styles.optionName} numberOfLines={1}>{item.name}</Text>
       </View>
-      {showChevron && (
+      {/* Show chevron for grouped items or cross-chain items */}
+      {(showChevron || item.isGrouped) && (
         <MaterialCommunityIcons name="chevron-right" size={22} color="#999" />
       )}
     </TouchableOpacity>
@@ -540,6 +730,21 @@ const SendWizardSelectTarget = () => {
             setSendExportSheetVisible(false);
             handleSelectTarget(filteredSend, null);
           }}
+        />
+      )}
+      
+      {/* Network picker for grouped assets (same asset on multiple networks) */}
+      {networkSheetVisible && pendingGroupedAsset && (
+        <SendExportToSheet
+          visible={networkSheetVisible}
+          targetCurrency={pendingGroupedAsset}
+          sourceCoin={sourceCoin}
+          isGroupedAsset={true}
+          onClose={() => {
+            setNetworkSheetVisible(false);
+            setPendingGroupedAsset(null);
+          }}
+          onSelectNetworkOption={handleNetworkSelect}
         />
       )}
     </View>

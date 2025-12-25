@@ -6,6 +6,7 @@
   - Includes QR scanner and paste functionality
   - Created 2024-12-09
   - Updated 2024-12-09: Uses destinationAddressType for validation, added QR/paste buttons
+  - Updated 2024-12-15: VerusID selection now populates VerusID name instead of i-address
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -22,6 +23,8 @@ import { ADDRESS_TYPE } from './sendWizardDisplayInfo';
 import BarcodeReader from '../../components/BarcodeReader/BarcodeReader';
 import Styles from '../../styles';
 import { ETH, ERC20, VRPC } from '../../utils/constants/intervalConstants';
+import GradientButton from '../../components/GradientButton';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
@@ -111,11 +114,15 @@ const SendWizardRecipient = () => {
           
           if (addr && !addr.startsWith('0x') && !seen.has(addr)) {
             seen.add(addr);
+            // Check if name is a VerusID (ends with @)
+            const isVerusID = sw.name && sw.name.endsWith('@');
             addresses.push({
               id: sw.id,
               address: addr,
               name: sw.name || 'My Verus address',
               type: 'verus',
+              isVerusID,
+              verusIdName: isVerusID ? sw.name : null,
             });
           }
         });
@@ -207,8 +214,10 @@ const SendWizardRecipient = () => {
     navigation.navigate('SendWizardConfirm');
   }, [isValidAddress, inputValue, setRecipient, setStep, navigation]);
 
-  const handleSelfSelect = useCallback((address) => {
-    setInputValue(address);
+  const handleSelfSelect = useCallback((addressItem) => {
+    // If it's a VerusID, use the VerusID name (e.g., "MyName@"), otherwise use the address
+    const valueToSet = addressItem.verusIdName || addressItem.address;
+    setInputValue(valueToSet);
     setSelfSheetVisible(false);
   }, []);
 
@@ -219,7 +228,7 @@ const SendWizardRecipient = () => {
     }
 
     if (ownAddresses.length === 1) {
-      handleSelfSelect(ownAddresses[0].address);
+      handleSelfSelect(ownAddresses[0]);
     } else {
       setSelfSheetVisible(true);
     }
@@ -301,6 +310,7 @@ const SendWizardRecipient = () => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={{ paddingHorizontal: 16 }}>
@@ -309,7 +319,7 @@ const SendWizardRecipient = () => {
             Enter the destination address
           </Text>
 
-          {/* Address Input with action buttons */}
+          {/* Address Input */}
           <View style={styles.inputContainer}>
             <View style={styles.inputWrapper}>
               <RNTextInput
@@ -318,7 +328,7 @@ const SendWizardRecipient = () => {
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={placeholderText}
-                placeholderTextColor="#999"
+                placeholderTextColor="#A0A0A0"
                 autoCorrect={false}
                 autoCapitalize="none"
                 multiline={true}
@@ -329,19 +339,27 @@ const SendWizardRecipient = () => {
                   validationError && styles.addressInputError,
                 ]}
               />
+            </View>
+            
+            {/* Action Buttons Row */}
+            <View style={styles.actionsRow}>
+              <TouchableOpacity 
+                style={styles.actionChip} 
+                onPress={handlePaste}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="content-paste" size={18} color="#666" style={{ marginRight: 6 }} />
+                <Text style={styles.actionChipText}>Paste</Text>
+              </TouchableOpacity>
               
-              {/* Action buttons row */}
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={styles.actionButton} onPress={handlePaste}>
-                  <IconButton icon="content-paste" size={20} iconColor={Colors.primaryColor} />
-                  <Text style={styles.actionButtonText}>Paste</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={styles.actionButton} onPress={toggleScanner}>
-                  <IconButton icon="qrcode-scan" size={20} iconColor={Colors.primaryColor} />
-                  <Text style={styles.actionButtonText}>Scan QR</Text>
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity 
+                style={styles.actionChip} 
+                onPress={toggleScanner}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons name="qrcode-scan" size={18} color="#666" style={{ marginRight: 6 }} />
+                <Text style={styles.actionChipText}>Scan QR</Text>
+              </TouchableOpacity>
             </View>
 
             {validationError && (
@@ -359,23 +377,19 @@ const SendWizardRecipient = () => {
             <View style={styles.selfSection}>
               <List.Item
                 onPress={handleSelfPress}
-                left={(props) => <List.Icon {...props} icon="account" color="black" />}
-                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" color="#BDBDBD" />}
                 title={() => (
-                  <Text style={{ fontSize: 16, fontWeight: '600', color: 'black' }}>
+                  <Text style={styles.selfTitle}>
                     Send to self
                   </Text>
                 )}
                 description={() => (
-                  <Text style={{ fontSize: 14, color: '#666', marginTop: 4 }}>
+                  <Text style={styles.selfDescription}>
                     Use one of your own {destinationAddressType === ADDRESS_TYPE.ETHEREUM ? 'Ethereum' : 'Verus'} addresses
                   </Text>
                 )}
-                style={{
-                  backgroundColor: '#F8F8F8',
-                  borderRadius: 12,
-                  paddingVertical: 8,
-                }}
+                style={styles.selfItem}
+                rippleColor="rgba(0,0,0,0.05)"
               />
             </View>
           )}
@@ -384,19 +398,13 @@ const SendWizardRecipient = () => {
 
       {/* Continue Button */}
       <View style={styles.buttonContainer}>
-        <Button
-          mode="contained"
+        <GradientButton
           onPress={handleContinue}
           disabled={!isValidAddress}
-          style={[
-            styles.continueButton,
-            !isValidAddress && styles.continueButtonDisabled,
-          ]}
-          contentStyle={styles.continueButtonContent}
-          labelStyle={styles.continueButtonLabel}
+          style={styles.continueButton}
         >
           Continue
-        </Button>
+        </GradientButton>
       </View>
 
       {/* Self Address Sheet */}
@@ -434,7 +442,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     marginBottom: 24,
   },
@@ -443,46 +451,53 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     position: 'relative',
+    marginBottom: 12,
   },
   addressInput: {
-    minHeight: 80,
+    minHeight: 56,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E0E0E0',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingBottom: 50, // Space for action buttons
+    paddingTop: 16, // Ensure text starts with good spacing from top
+    paddingBottom: 16,
     fontSize: 16,
     color: '#1A1A1A',
     backgroundColor: '#F5F5F5',
-    textAlignVertical: 'top',
+    textAlignVertical: 'top', // Consistent alignment
   },
   addressInputFocused: {
     borderColor: Colors.primaryColor,
+    backgroundColor: 'white',
+    // slight shadow when focused
+    shadowColor: Colors.primaryColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   addressInputError: {
     borderColor: '#E53935',
+    backgroundColor: '#FFF8F8',
   },
-  actionButtons: {
-    position: 'absolute',
-    bottom: 4,
-    left: 8,
-    right: 8,
+  actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    gap: 8,
+    gap: 12,
   },
-  actionButton: {
+  actionChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
-    paddingHorizontal: 4,
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  actionButtonText: {
+  actionChipText: {
     fontSize: 13,
-    color: Colors.primaryColor,
-    fontWeight: '500',
-    marginLeft: -8,
+    color: '#666',
+    fontWeight: '600',
   },
   errorText: {
     fontSize: 13,
@@ -491,35 +506,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   hintsContainer: {
-    marginTop: 8,
+    marginTop: 12,
     paddingHorizontal: 4,
   },
   hintText: {
     fontSize: 13,
     color: '#999',
+    lineHeight: 18,
   },
   selfSection: {
+    marginTop: 8,
     marginBottom: 24,
   },
+  selfItem: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 4,
+  },
+  selfTitle: {
+    fontSize: 16, 
+    fontWeight: '600', 
+    color: 'black'
+  },
+  selfDescription: {
+    fontSize: 13, 
+    color: '#888', 
+    marginTop: 4
+  },
   buttonContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 28,
     backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
   },
   continueButton: {
-    borderRadius: 12,
-    backgroundColor: Colors.primaryColor,
-  },
-  continueButtonDisabled: {
-    backgroundColor: '#E0E0E0',
-  },
-  continueButtonContent: {
-    height: 52,
-  },
-  continueButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    width: '100%',
   },
 });
 

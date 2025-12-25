@@ -1,10 +1,27 @@
 /*
   SendExportToSheet
-  - Bottom sheet for selecting destination chain (exportto) for cross-chain sends
-  - Shows available chains/networks where the target currency can be received
-  - Styled to match SendWizardSelectSource design
+  - Bottom sheet for selecting destination chain/network for sends
+  - Two modes:
+    1. Export mode: Shows cross-chain export options for a single currency
+    2. Grouped mode: Shows different network versions of the same asset (e.g., DAI on Ethereum vs DAI.vETH)
   - Created 2024-12-09
   - Updated 2024-12-10: Dynamically looks up ERC20 ticker via mapped_to property
+  - Updated 2024-12-17: Consolidated with SendAssetNetworkSheet - now handles both
+    export options and grouped asset network selection via isGroupedAsset prop
+  - Updated 2024-12-18: Fixed grouped mode to:
+    - Properly look up ERC20 tokens by currency_id (0x address)
+    - Show SAME NETWORK badge for option matching source network
+    - Sort options with source network first
+    - Use getGroupedOptionTicker() to look up display_ticker from CoinDirectory
+      for consistent naming (e.g., "VRSC [ERC20]" instead of "Verus on Ethereum")
+  - Updated 2024-12-23: UI improvements:
+    - Changed card styling to equal visual weight with subtle left-edge accent
+    - Changed badge text from "ON-CHAIN" to "SAME NETWORK"
+    - Removed "Cross-chain" section divider
+    - Normalized text and chevron colors across all options
+  - Updated 2024-12-23: Fixed ETH destination display:
+    - Use ethDisplayTicker from option when available (for bounceback paths)
+    - Shows "DAI" instead of "DAI.vETH" for Ethereum network option
 */
 
 import React, { useMemo } from 'react';
@@ -24,6 +41,7 @@ import {
 
 // vETH system ID - needs special handling for source vs export context
 const VETH_SYSTEM_ID = 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X';
+const VRSC_SYSTEM_ID = 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV';
 
 /**
  * Get the display name for the SOURCE network (where currency currently lives)
@@ -97,6 +115,128 @@ const getReceivedTicker = (opt, targetCurrency, sourceCoin) => {
   return sourceCoin?.display_ticker || targetCurrency?.ticker || 'tokens';
 };
 
+/**
+ * Get the display ticker for a grouped asset network option
+ * Looks up the actual display_ticker from CoinDirectory for consistency
+ * Handles both Verus i-addresses and Ethereum contract addresses (0x)
+ * For ETH destination (bounceback) paths, uses the ethDisplayTicker from the option
+ */
+const getGroupedOptionTicker = (option, isEthereumNetwork = false) => {
+  if (!option?.id) {
+    return option?.fullyqualifiedname || option?.ticker || option?.name || 'tokens';
+  }
+  
+  // For Ethereum network options with ETH display info, use that
+  // This shows "DAI" instead of "DAI.vETH" for the Ethereum option
+  if (isEthereumNetwork && option.ethDisplayTicker) {
+    return option.ethDisplayTicker;
+  }
+  
+  try {
+    // First, try direct lookup by id
+    const coinObj = CoinDirectory.findCoinObj(option.id);
+    if (coinObj?.display_ticker) {
+      return coinObj.display_ticker;
+    }
+  } catch (e) {
+    // Not found by id
+  }
+  
+  // If id is an Ethereum address (0x), search by currency_id
+  if (option.id.startsWith('0x')) {
+    try {
+      const allCoins = Object.values(CoinDirectory.coins || {});
+      const matchingCoin = allCoins.find(coin => 
+        coin.currency_id && coin.currency_id.toLowerCase() === option.id.toLowerCase()
+      );
+      if (matchingCoin?.display_ticker) {
+        return matchingCoin.display_ticker;
+      }
+    } catch (e) {
+      // Search failed
+    }
+    
+    // For 0x addresses, try using ethDisplayTicker if available
+    if (option.ethDisplayTicker) {
+      return option.ethDisplayTicker;
+    }
+  }
+  
+  // Fallback to fullyqualifiedname or ticker
+  return option.fullyqualifiedname || option.ticker || option.name || 'tokens';
+};
+
+/**
+ * Get network info for a grouped asset option (used in grouped mode)
+ * Determines the network name and icon based on the currency's system_id
+ * Handles both Verus i-addresses and Ethereum contract addresses
+ */
+const getNetworkInfoForGroupedOption = (option) => {
+  let systemId = null;
+  let networkName = 'Unknown';
+  let networkIcon = 'VRSC';
+  
+  // First, try to find the coin directly by id
+  try {
+    const coinObj = CoinDirectory.findCoinObj(option.id);
+    if (coinObj) {
+      systemId = coinObj.system_id;
+    }
+  } catch (e) {
+    // Not found by id - try alternative lookups
+  }
+  
+  // If not found and id looks like an Ethereum address, try to find by currency_id
+  if (!systemId && option.id && option.id.startsWith('0x')) {
+    try {
+      // Search through coins to find one with matching currency_id
+      const allCoins = Object.values(CoinDirectory.coins || {});
+      const matchingCoin = allCoins.find(coin => 
+        coin.currency_id && coin.currency_id.toLowerCase() === option.id.toLowerCase()
+      );
+      if (matchingCoin) {
+        systemId = matchingCoin.system_id;
+      } else {
+        // It's an Ethereum contract address but not in our list - assume Ethereum
+        systemId = '.eth';
+      }
+    } catch (e) {
+      // If search fails, assume Ethereum for 0x addresses
+      systemId = '.eth';
+    }
+  }
+  
+  // Determine network name and icon based on systemId
+  if (systemId === '.eth') {
+    networkName = 'Ethereum';
+    networkIcon = 'ETH';
+  } else if (systemId === VETH_SYSTEM_ID) {
+    networkName = 'Verus';
+    networkIcon = 'VRSC';
+  } else if (systemId === VRSC_SYSTEM_ID || systemId === 'VRSC') {
+    networkName = 'Verus';
+    networkIcon = 'VRSC';
+  } else if (systemId) {
+    networkName = getNetworkDisplayName(systemId, 'Unknown');
+    networkIcon = getNetworkIcon(systemId);
+  } else {
+    // Last resort: try to infer from fullyqualifiedname or ticker patterns
+    const fqn = option.fullyqualifiedname || '';
+    const ticker = option.ticker || '';
+    if (fqn.includes('.vETH') || ticker.includes('.vETH') || fqn.includes('on Verus')) {
+      networkName = 'Verus';
+      networkIcon = 'VRSC';
+      systemId = VETH_SYSTEM_ID;
+    } else if (ticker.includes('[ERC20]') || fqn.includes('on Ethereum')) {
+      networkName = 'Ethereum';
+      networkIcon = 'ETH';
+      systemId = '.eth';
+    }
+  }
+  
+  return { networkName, networkIcon, systemId };
+};
+
 const SendExportToSheet = ({
   visible,
   targetCurrency,
@@ -105,9 +245,43 @@ const SendExportToSheet = ({
   onSelect,
   onSelectSameChain,
   hideSameNetwork = false,
+  // Grouped asset mode props
+  isGroupedAsset = false,
+  onSelectNetworkOption = null, // (networkOption, exportTo) => void
 }) => {
   const insets = useSafeAreaInsets();
   const paddingBottom = 16 + insets.bottom;
+
+  // Determine source network for grouped mode (to highlight on-chain option)
+  const sourceNetworkForGrouped = useMemo(() => {
+    if (!sourceCoin) return null;
+    const sysId = sourceCoin.system_id || sourceCoin.id;
+    if (sysId === '.eth') return 'Ethereum';
+    if (sysId === VETH_SYSTEM_ID) return 'Verus';
+    if (sysId === VRSC_SYSTEM_ID) return 'Verus';
+    return getNetworkDisplayName(sysId, null);
+  }, [sourceCoin]);
+
+  // Build network options for grouped asset mode
+  const groupedNetworkOptions = useMemo(() => {
+    if (!isGroupedAsset || !targetCurrency?.networkOptions) return [];
+    
+    const options = targetCurrency.networkOptions.map((opt) => {
+      const { networkName, networkIcon, systemId } = getNetworkInfoForGroupedOption(opt);
+      // Mark if this option is on the same network as the source (on-chain)
+      const isOnChain = networkName === sourceNetworkForGrouped;
+      return { ...opt, networkName, networkIcon, systemId, isOnChain };
+    });
+    
+    // Sort: on-chain (source network) first, then others alphabetically
+    return options.sort((a, b) => {
+      // On-chain option comes first
+      if (a.isOnChain && !b.isOnChain) return -1;
+      if (b.isOnChain && !a.isOnChain) return 1;
+      // Otherwise sort alphabetically
+      return a.networkName.localeCompare(b.networkName);
+    });
+  }, [isGroupedAsset, targetCurrency, sourceNetworkForGrouped]);
 
   if (!visible || !targetCurrency) return null;
 
@@ -154,49 +328,93 @@ const SendExportToSheet = ({
           {/* Description */}
           <View style={styles.descriptionContainer}>
             <Text style={styles.descriptionText}>
-              Choose where the recipient should receive {targetDisplayName}.
+              {isGroupedAsset
+                ? `${targetDisplayName} is available on multiple networks. Choose where the recipient should receive it.`
+                : `Choose where the recipient should receive ${targetDisplayName}.`
+              }
             </Text>
           </View>
 
           {/* Options */}
           <ScrollView style={styles.scrollView}>
-            <View style={styles.optionsContainer}>
-              {/* On-chain option - Primary/Recommended */}
-              {!hideSameNetwork && (
+            <View style={[styles.optionsContainer, { paddingBottom }]}>
+              {/* GROUPED ASSET MODE: Show network options for different versions of same asset */}
+              {isGroupedAsset && groupedNetworkOptions.length > 0 && (
                 <>
-                  <TouchableOpacity
-                    style={styles.primaryOptionCard}
-                    onPress={onSelectSameChain}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.optionIconContainer}>
-                      {RenderSquareCoinLogo(sourceNetworkIcon, {}, 40, 40)}
-                    </View>
-                    <View style={styles.optionContent}>
-                      <View style={styles.primaryTitleRow}>
-                        <Text style={styles.optionTitle}>{sourceNetworkName}</Text>
-                        <View style={styles.recommendedBadge}>
-                          <Text style={styles.recommendedText}>ON-CHAIN</Text>
+                  {groupedNetworkOptions.map((opt) => {
+                    // Use isOnChain to show left accent and badge
+                    const isSameNetwork = opt.isOnChain;
+                    // Check if this is an Ethereum network option
+                    const isEthereumNetwork = opt.networkName === 'Ethereum';
+                    // Look up the proper display_ticker
+                    // For Ethereum options with ETH destination, shows "DAI" not "DAI.vETH"
+                    const receiveTicker = getGroupedOptionTicker(opt, isEthereumNetwork);
+                    
+                    return (
+                      <TouchableOpacity
+                        key={opt.id}
+                        style={[
+                          styles.optionCard,
+                          isSameNetwork && styles.optionCardWithAccent,
+                        ]}
+                        onPress={() => onSelectNetworkOption?.(opt, null)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.optionIconContainer}>
+                          {RenderSquareCoinLogo(opt.networkIcon, {}, 40, 40)}
                         </View>
-                      </View>
-                      <Text style={styles.optionDescription}>
-                        Receive as {sameNetworkTicker}
-                      </Text>
-                    </View>
-                    <MaterialCommunityIcons name="chevron-right" size={22} color={Colors.primaryColor} />
-                  </TouchableOpacity>
+                        <View style={styles.optionContent}>
+                          <View style={styles.titleRow}>
+                            <Text style={styles.optionTitle}>{opt.networkName}</Text>
+                            {isSameNetwork && (
+                              <View style={styles.sameNetworkBadge}>
+                                <Text style={styles.sameNetworkText}>SAME NETWORK</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={styles.optionDescription}>
+                            Receive as {receiveTicker}
+                          </Text>
+                        </View>
+                        <MaterialCommunityIcons 
+                          name="chevron-right" 
+                          size={22} 
+                          color="#888"
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
                 </>
               )}
 
-              {/* Cross-chain section */}
-              {hasCrossChainOptions && (
-                <>
-                  <View style={styles.sectionDivider}>
-                    <View style={styles.dividerLine} />
-                    <Text style={styles.sectionLabel}>Cross-chain</Text>
-                    <View style={styles.dividerLine} />
+              {/* EXPORT MODE: Same network option - with left accent */}
+              {!isGroupedAsset && !hideSameNetwork && (
+                <TouchableOpacity
+                  style={[styles.optionCard, styles.optionCardWithAccent]}
+                  onPress={onSelectSameChain}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionIconContainer}>
+                    {RenderSquareCoinLogo(sourceNetworkIcon, {}, 40, 40)}
                   </View>
+                  <View style={styles.optionContent}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.optionTitle}>{sourceNetworkName}</Text>
+                      <View style={styles.sameNetworkBadge}>
+                        <Text style={styles.sameNetworkText}>SAME NETWORK</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.optionDescription}>
+                      Receive as {sameNetworkTicker}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={22} color="#888" />
+                </TouchableOpacity>
+              )}
 
+              {/* EXPORT MODE: Cross-chain options */}
+              {!isGroupedAsset && hasCrossChainOptions && (
+                <>
                   {exportOptions.map((opt, index) => {
                     const chainId = opt.exportTo;
                     const chainName = getNetworkDisplayName(chainId, opt.exportToName);
@@ -206,7 +424,7 @@ const SendExportToSheet = ({
                     return (
                       <TouchableOpacity
                         key={chainId || index}
-                        style={styles.secondaryOptionCard}
+                        style={styles.optionCard}
                         onPress={() => onSelect(chainId)}
                         activeOpacity={0.7}
                       >
@@ -214,12 +432,12 @@ const SendExportToSheet = ({
                           {RenderSquareCoinLogo(chainIcon, {}, 40, 40)}
                         </View>
                         <View style={styles.optionContent}>
-                          <Text style={styles.secondaryOptionTitle}>{chainName}</Text>
-                          <Text style={styles.secondaryOptionDescription}>
+                          <Text style={styles.optionTitle}>{chainName}</Text>
+                          <Text style={styles.optionDescription}>
                             Receive as {receivedTicker}
                           </Text>
                         </View>
-                        <MaterialCommunityIcons name="chevron-right" size={22} color="#CCC" />
+                        <MaterialCommunityIcons name="chevron-right" size={22} color="#888" />
                       </TouchableOpacity>
                     );
                   })}
@@ -270,43 +488,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
-  // Primary option (on-chain) - highlighted
-  primaryOptionCard: {
+  // Unified option card - equal visual weight for all options
+  optionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F7FF',
+    backgroundColor: '#F5F5F5',
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.primaryColor,
+    borderLeftWidth: 4,
+    borderLeftColor: 'transparent',
   },
-  primaryTitleRow: {
+  // Left accent for "same network" option
+  optionCardWithAccent: {
+    borderLeftColor: Colors.primaryColor,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 2,
   },
-  recommendedBadge: {
+  // "SAME NETWORK" badge - subtle indicator
+  sameNetworkBadge: {
     backgroundColor: Colors.primaryColor,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginLeft: 8,
   },
-  recommendedText: {
-    fontSize: 10,
+  sameNetworkText: {
+    fontSize: 9,
     fontWeight: '700',
     color: 'white',
     letterSpacing: 0.5,
-  },
-  // Secondary options (cross-chain) - muted
-  secondaryOptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
   },
   optionIconContainer: {
     width: 44,
@@ -322,42 +536,14 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   optionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
   },
   optionDescription: {
     fontSize: 14,
     color: '#666',
-  },
-  secondaryOptionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#555',
-    marginBottom: 2,
-  },
-  secondaryOptionDescription: {
-    fontSize: 13,
-    color: '#999',
-  },
-  // Section divider
-  sectionDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E5E5',
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingHorizontal: 12,
+    marginTop: 1,
   },
 });
 
