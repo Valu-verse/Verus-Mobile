@@ -162,8 +162,6 @@ const ValuAttestation = (props) => {
                 throw new Error(valuProvisioningResponse.error);
             }
 
-            console.log("newRep", valuProvisioningResponse);
-
             const response = new primitives.LoginConsentProvisioningResponse(valuProvisioningResponse);
 
             const { decision } = response;
@@ -238,7 +236,7 @@ const ValuAttestation = (props) => {
     const continueProofOfPersonhood = async (identityInfo) => {
         try {
             setLoading(true);
-            console.log("Continuing proof of personhood with identity:", identityInfo);
+
             // Get the SumSub session URL with the selected identity
             let urlReply;
 
@@ -256,11 +254,9 @@ const ValuAttestation = (props) => {
                 urlReply = { data: { url: ValuProvider.getSumSubURL() } }
             }
 
-            console.log("Starting SumSub session:", urlReply.data);
-
             // Create signature for authentication
             const coinObj = CoinDirectory.findCoinObj(systemId, null, true);
-            console.log("getInfo for systemId:", systemId, coinObj);
+
             const chainInfo = await getInfo(systemId);
             const height = chainInfo.result.longestchain;
             const message = `Authentication request for ${identityInfo?.identityName || ''} at ${Date.now()}`;
@@ -271,8 +267,6 @@ const ValuAttestation = (props) => {
             const wif = await requestPrivKey(coinObj.id, VRPC);
 
             const signature = await VerusIdInterface.signHashWithAddress(messageHash, wif);
-
-            console.log("Signature:", signature);
 
             // Validate all required parameters are present
             if (!signature || !message || !RAddress || !height || !coinObj?.system_id) {
@@ -296,7 +290,6 @@ const ValuAttestation = (props) => {
             url.searchParams.append('systemId', coinObj.system_id);
 
             const authenticatedUrl = url.toString();
-            console.log("Opening authenticated URL:", authenticatedUrl);
 
             // Open the SumSub URL in InAppBrowser
             await InAppBrowser.close();
@@ -333,11 +326,8 @@ const ValuAttestation = (props) => {
                     }
                 });
 
-                console.log("InAppBrowser result:", browserResult);
-
                 // Handle the browser close result
                 if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
-                    console.log("User closed the browser, refreshing data...");
                     setLoading(true);
                     await fetchData();
                 } else {
@@ -439,7 +429,6 @@ const ValuAttestation = (props) => {
                 throw new Error(reply.error);
             }
             let POLStatus = reply.data.status;
-            console.log("POLStatus", POLStatus);
 
             setMainButtonText(buttonMessages[POLStatus]);
             setValuReply(reply);

@@ -53,7 +53,7 @@ class ValuServiceIntroSlider extends Component {
       const valuServiceData = await requestServiceStoredData(
         VALU_SERVICE_ID,
       );
-      console.log("verusIdServiceData", valuServiceData);
+
       if (valuServiceData.linked_ids) {
         this.setState({
           linkedIds: valuServiceData.linked_ids,
@@ -161,7 +161,6 @@ class ValuServiceIntroSlider extends Component {
   }
 
   validateFormData = (key) => {
-    console.log("selected ID:" + key)
 
     this.setState({addressSelectModalOpen: false, idRequested: false, idName: key}, 
                   async () => {this.linkCurrentSeed()})
@@ -169,7 +168,7 @@ class ValuServiceIntroSlider extends Component {
 
   linkValu = (seed, channel) => {
     this.openPasswordCheck((result) => {
-      console.log("out off password", result)
+
       if (result.valid) {
         this.closePasswordDialog(async () => {
           try {

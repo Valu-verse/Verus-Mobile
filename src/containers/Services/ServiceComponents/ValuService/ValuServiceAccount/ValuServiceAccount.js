@@ -252,7 +252,7 @@ updateTaxCountry() {
 
   async checkAccountCreationStatus() {
     if (!this.props.valuAuthenticated) {
-      console.log("Authenticating Valu service account");
+
       const seed = (await requestSeeds())[VALU_SERVICE];
       if (seed == null) throw new Error("No Valu seed present");
       await ValuProvider.authenticate(seed);
@@ -269,7 +269,6 @@ updateTaxCountry() {
   render() {
 
     if(!this.props.valuAuthenticated) {
-      console.log("Valu service account is not authenticated");
       return null;
     }
 

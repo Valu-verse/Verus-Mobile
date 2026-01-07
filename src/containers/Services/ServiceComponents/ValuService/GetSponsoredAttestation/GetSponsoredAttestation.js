@@ -887,59 +887,6 @@ const GetSponsoredAttestation = (props) => {
                         </Text>
                     </TouchableOpacity>
                 </View>
-
-                {/* Debug: Reset Redux State Button */}
-                <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
-                    <TouchableOpacity
-                        onPress={async () => {
-                            try {
-                                resetSponsoredAttestation();
-                                
-                                await deleteAllProvisionedIds();
-                                await updatePendingVerusIds();
-                                
-                                setLoading(true);
-                                setTimeout(() => {
-                                    fetchData();
-                                }, 100);
-                                
-                                createAlert(
-                                    'State Reset Complete',
-                                    'Sponsored attestation state and pending identities have been cleared.',
-                                    [{ text: 'OK', onPress: () => resolveAlert() }],
-                                    { cancelable: false }
-                                );
-                            } catch (error) {
-                                console.error('Error resetting state:', error);
-                                createAlert(
-                                    'Reset Error',
-                                    'Failed to reset state: ' + error.message,
-                                    [{ text: 'OK', onPress: () => resolveAlert() }],
-                                    { cancelable: false }
-                                );
-                            }
-                        }}
-                        activeOpacity={0.8}
-                        style={{
-                            borderRadius: 24,
-                            height: 56,
-                            backgroundColor: '#FFE5E5',
-                            borderWidth: 2,
-                            borderColor: '#FF4444',
-                            justifyContent: 'center',
-                            alignItems: 'center'
-                        }}
-                    >
-                        <Text style={{
-                            fontSize: 16,
-                            fontWeight: '600',
-                            color: '#FF4444',
-                            textAlign: 'center'
-                        }}>
-                            🔧 Reset Redux State (Debug)
-                        </Text>
-                    </TouchableOpacity>
-                </View>
             </ScrollView>
 
             {/* Identity Choice Modal */}

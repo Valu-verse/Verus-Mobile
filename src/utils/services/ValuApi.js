@@ -81,7 +81,7 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     this.service.authenticate(this.bearerToken, this.apiKey);
 
     await this.initAccountData()
-    console.log("data initiated", this.accountId, this.apiKey, this.bearerToken);
+
     return res;
   };
 
@@ -112,7 +112,7 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     {
       throw new Error("Server did not authenticate" + data )
     }
-    console.log("data", data);
+
 
     // log the Valu servers JWT token 
     this.bearerToken = data.key;
@@ -122,7 +122,6 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
       this.accountId = data.accountId;
 
     const serverAuthenticated = await this.service.authenticate(data.key, data.apiKey);
-    console.log("serverAuthenticated", serverAuthenticated)
     
     if(!serverAuthenticated.success)
     {
@@ -130,7 +129,6 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     }
         
     const newAccount = await this.service.createAccount(username, email, data.apiKey, data.iAddress);
-   // console.log("newAccount", JSON.stringify(newAccount, null, 2))
 
     if(newAccount.error == "Acount already registered.")
     {
@@ -143,8 +141,6 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     }
 
     await storeLoginDetails({email, apiKey: data.apiKey, accountId: this.accountId, iAddress: data.iAddress });
-
-    console.log("loginstored", {email, apiKey: data.apiKey, accountId: this.accountId })
 
     return this.accountId
   };
