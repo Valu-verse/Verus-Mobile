@@ -1,3 +1,10 @@
+/*
+  Graphics
+  - Rendering helpers for coin logos and layered badge variants.
+  - Updated 2026-01-08: Added `disableBadge` option to `RenderSquareCoinLogo` so
+    callers can suppress the automatic Verus/Ethereum badge in context-specific UI.
+*/
+
 import React from "react";
 import { Card } from "react-native-paper";
 import { View } from "react-native";
@@ -102,31 +109,40 @@ export const getSimpleLogo = (chainTicker, theme = 'dark') => {
   return { Logo: Logo, color };
 }
 
-export const RenderSquareCoinLogo = (chainTicker, style = {}, width = 40, height = 40) => {
+export const RenderSquareCoinLogo = (
+  chainTicker,
+  style = {},
+  width = 40,
+  height = 40,
+  options = {}
+) => {
   const { Logo, color } = getSimpleLogo(chainTicker, 'dark');
+  const { disableBadge = false } = options;
   let SubLogo = null;
 
-  try {
-    const coinObj = CoinDirectory.findCoinObj(chainTicker);
-    
-    // Determine if we need a badge (SubLogo)
-    if (
-      (coinObj.display_ticker.includes('.vETH') || 
-      coinObj.display_name.includes('on Verus')) &&
-      !coinObj.display_ticker.includes('Bridge.vETH') // Exception for Bridge.vETH
-    ) {
-      // It's a mapped token on Verus -> Badge is Verus
-      const verusLogoData = getSimpleLogo('VRSC', 'dark');
-      SubLogo = verusLogoData.Logo;
-    } else if (
-      coinObj.display_name.includes('on Ethereum')
-    ) {
-      // It's a mapped token on Ethereum -> Badge is Ethereum
-      const ethLogoData = getSimpleLogo('ETH', 'dark');
-      SubLogo = ethLogoData.Logo;
+  if (!disableBadge) {
+    try {
+      const coinObj = CoinDirectory.findCoinObj(chainTicker);
+      
+      // Determine if we need a badge (SubLogo)
+      if (
+        (coinObj.display_ticker.includes('.vETH') || 
+        coinObj.display_name.includes('on Verus')) &&
+        !coinObj.display_ticker.includes('Bridge.vETH') // Exception for Bridge.vETH
+      ) {
+        // It's a mapped token on Verus -> Badge is Verus
+        const verusLogoData = getSimpleLogo('VRSC', 'dark');
+        SubLogo = verusLogoData.Logo;
+      } else if (
+        coinObj.display_name.includes('on Ethereum')
+      ) {
+        // It's a mapped token on Ethereum -> Badge is Ethereum
+        const ethLogoData = getSimpleLogo('ETH', 'dark');
+        SubLogo = ethLogoData.Logo;
+      }
+    } catch (e) {
+      console.warn("Failed to determine badge for", chainTicker, e);
     }
-  } catch (e) {
-    console.warn("Failed to determine badge for", chainTicker, e);
   }
 
   if (SubLogo) {

@@ -13,6 +13,12 @@
     Simple sends: 1-5 minutes. Not shown for preconvert transactions
   - Updated 2024-12-17: Fixed VerusID resolution for ETH/ERC20 by using the getIdentity
     router which correctly maps to the VRPC system (was using .eth as system ID)
+  - Updated 2026-01-06: Confirm screen now prefers the preflight estimate (more accurate)
+    but falls back to the wizard estimate (often derived from path.price). Avoids showing
+    "no estimate" warnings when a fallback estimate exists.
+  - Updated 2026-01-06: Preflight now uses preflight-friendly names (FQNs) captured during
+    target selection (convertToFqn/exportToFqn), matching the legacy send modal and avoiding
+    getCurrency failures when passing i-addresses for some PBaaS systems.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -61,6 +67,10 @@ const SendWizardConfirm = () => {
     isConversion,
     isCrossChain,
     mapTo,
+    targetDisplayName,
+    targetDisplayTicker,
+    convertToFqn,
+    exportToFqn,
     amount,
     amountSats,
     via,
@@ -216,15 +226,19 @@ const SendWizardConfirm = () => {
           };
 
           if (isConversion && targetCurrency) {
-            output.convertto = targetCurrency;
+            // Use the legacy-style name/FQN when available to avoid getCurrency failures
+            output.convertto = convertToFqn || targetCurrency;
           }
 
           if (isCrossChain && exportTo) {
-            output.exportto = exportTo;
+            // Use the legacy-style name/FQN when available to avoid getCurrency failures
+            output.exportto = exportToFqn || exportTo;
           }
 
           if (via) {
-            output.via = via;
+            // Legacy flow passes via as a currency name/FQN (not i-address) when possible
+            const viaName = viaOptions?.find((v) => v.id === via)?.name;
+            output.via = viaName || via;
           }
 
           if (mapTo) {
@@ -259,7 +273,9 @@ const SendWizardConfirm = () => {
           });
         }
 
-        if (result.result.estimate == null && isConversion) {
+        // Only warn when we truly have no estimate (legacy flow falls back to path.price)
+        const hasFallbackEstimate = estimate?.estimatedcurrencyout != null;
+        if (result.result.estimate == null && isConversion && !hasFallbackEstimate) {
           newWarnings.push({
             type: 'no_estimate',
             message: 'Could not calculate an estimated result for this conversion.',
@@ -325,6 +341,11 @@ const SendWizardConfirm = () => {
     preconvert,
     setPreflight,
   ]);
+  
+  // Prefer the preflight estimate (more accurate). Fall back to the earlier wizard estimate.
+  const displayEstimate = useMemo(() => {
+    return preflightResult?.estimate || estimate || null;
+  }, [preflightResult, estimate]);
 
   // Get currency info for display
   const getCurrencyInfo = useCallback((currencyId, optionalViaOptions = null) => {
@@ -353,8 +374,23 @@ const SendWizardConfirm = () => {
   }, [viaOptions]);
 
   const targetInfo = useMemo(() => {
+    // Prefer display labels captured from conversion paths (never show vUSDC.vETH / i-addresses)
+    if (targetDisplayName || targetDisplayTicker) {
+      let coinId = null;
+      try {
+        const coin = CoinDirectory.findCoinObj(targetCurrency);
+        if (coin) coinId = coin.id;
+      } catch (e) {}
+      
+      return {
+        name: targetDisplayName || targetDisplayTicker || 'Unknown',
+        ticker: targetDisplayTicker || targetDisplayName || '?',
+        coinId,
+      };
+    }
+    
     return getCurrencyInfo(targetCurrency);
-  }, [targetCurrency, getCurrencyInfo]);
+  }, [targetCurrency, getCurrencyInfo, targetDisplayName, targetDisplayTicker]);
 
   // Extract fee information from preflight result
   const feeInfo = useMemo(() => {
@@ -548,8 +584,8 @@ const SendWizardConfirm = () => {
                   )}
                   <View>
                     <Text style={styles.amountValue}>
-                      ~{estimate?.estimatedcurrencyout
-                        ? BigNumber(estimate.estimatedcurrencyout).decimalPlaces(8).toString()
+                      ~{displayEstimate?.estimatedcurrencyout
+                        ? BigNumber(displayEstimate.estimatedcurrencyout).decimalPlaces(8).toString()
                         : '?'}
                     </Text>
                     <Text style={styles.amountTicker}>{targetInfo.ticker}</Text>
@@ -574,7 +610,7 @@ const SendWizardConfirm = () => {
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Destination network</Text>
                 <Text style={styles.detailValue}>
-                  {getNetworkDisplayName(exportTo, getCurrencyInfo(exportTo).name)}
+                  {getNetworkDisplayName(exportTo, exportToFqn || getCurrencyInfo(exportTo).name)}
                 </Text>
               </View>
             )}

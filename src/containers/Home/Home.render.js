@@ -2,13 +2,17 @@
 // 2025-11-21: Tightened header spacing and sized Crypto quick action button + manage sheet trigger.
 // 2025-11-22: Inlined the balance visibility toggle, removed reliance on the stack header, and added SafeAreaView
 //             padding so hero balances never overlap iPhone notches.
+// 2026-01-09: Removed Crypto/Identities header tabs from Wallet; keep the + manage-assets button.
+// 2026-01-09: (Option B) Moved the manage-assets action into the top balance row next to the eye toggle
+//             and switched the "+" to an icon-only action for visual parity.
+// 2026-01-09: Added a conditional hairline divider under the header that appears only when the asset list scrolls.
 
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { Provider, Portal } from 'react-native-paper';
+import { Portal } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
-import { HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
 import TransferSheet from './HomeFAB/TransferSheet';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
@@ -22,6 +26,9 @@ import Colors from '../../globals/colors';
 import AssetsRender from '../Assets/Assets.render';
 import ManageAssetsSheet from './HomeFAB/ManageAssetsSheet';
 import BalanceVisibilityToggle from './HomeWidgets/BalanceVisibilityToggle';
+
+const iconHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
+const headerDividerThreshold = 1;
 
 export const HomeRender = ({
   displayCurrencyModalOpen,
@@ -48,21 +55,27 @@ export const HomeRender = ({
   openCoin,
   manageVisible,
   setManageVisible,
-  activeCategory,
-  setActiveCategory,
-  identities,
-  identitiesPlaceholder,
   hasValuProofOfPersonhood,
 }) => {
   const [widgetVisible, setWidgetVisible] = React.useState(false);
+  const [showHeaderDivider, setShowHeaderDivider] = React.useState(false);
+  const showHeaderDividerRef = React.useRef(false);
   
   const totalFiatBalanceRaw = assets.reduce((sum, item) => sum + (item.fiat || 0), 0);
   const totalFiatBalance = (typeof totalFiatBalanceRaw === 'number' && !isNaN(totalFiatBalanceRaw)) ? totalFiatBalanceRaw : 0;
 
-  const isCrypto = activeCategory === 'crypto';
-  const data = isCrypto ? assets : identities;
+  const handleAssetListScroll = React.useCallback((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const next = y > headerDividerThreshold;
+
+    if (next !== showHeaderDividerRef.current) {
+      showHeaderDividerRef.current = next;
+      setShowHeaderDivider(next);
+    }
+  }, []);
+
   const fixedHeader = (
-    <View style={styles.headerContainer}>
+    <View style={[styles.headerContainer, showHeaderDivider && styles.headerContainerScrolled]}>
       <View style={styles.balanceRow}>
         <TouchableOpacity
           activeOpacity={0.85}
@@ -73,58 +86,30 @@ export const HomeRender = ({
         >
           <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
         </TouchableOpacity>
-        <BalanceVisibilityToggle style={styles.balanceToggle} />
-      </View>
-      <NotificationWidget />
-      <View style={styles.tabsWrapper}>
-        <View style={styles.tabsRow}>
-          <View style={styles.tabButtonsContainer}>
-            {[
-              { key: 'crypto', label: 'Crypto' },
-              { key: 'identities', label: 'Identities' },
-            ].map((tab) => {
-              const selected = activeCategory === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  activeOpacity={0.85}
-                  style={[styles.tabButton, selected && styles.tabButtonSelected]}
-                  onPress={() => {
-                    if (!selected) {
-                      setActiveCategory(tab.key);
-                    }
-                  }}
-                >
-                  <Text style={[styles.tabLabel, selected && styles.tabLabelSelected]}>{tab.label}</Text>
-                  <View style={[styles.tabUnderline, selected && styles.tabUnderlineSelected]} />
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          {isCrypto ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.tabActionButton}
-              accessibilityRole="button"
-              accessibilityLabel="Manage assets"
-              onPress={() => setManageVisible(true)}
-            >
-              <Text style={styles.tabActionPlus}>+</Text>
-            </TouchableOpacity>
-          ) : null}
+        <View style={styles.balanceActions}>
+          <BalanceVisibilityToggle style={styles.balanceToggle} />
+          <TouchableOpacity
+            onPress={() => setManageVisible(true)}
+            hitSlop={iconHitSlop}
+            accessibilityRole="button"
+            accessibilityLabel="Manage assets"
+            activeOpacity={0.75}
+            style={styles.manageAssetsIconButton}
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={20}
+              color={Colors.verusDarkGray}
+            />
+          </TouchableOpacity>
         </View>
       </View>
+      <NotificationWidget />
     </View>
   );
 
   const footerHeight = widgetVisible ? 260 : 140; 
   const listFooterComponent = <View style={{ height: footerHeight }} />;
-  const listEmptyComponent = !isCrypto ? (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>No identities yet</Text>
-      <Text style={styles.emptySubtitle}>{identitiesPlaceholder}</Text>
-    </View>
-  ) : null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -183,17 +168,18 @@ export const HomeRender = ({
           onWidgetVisibilityChange={setWidgetVisible}
         />
         <AssetsRender.List
-          assets={data}
+          assets={assets}
           displayCurrency={displayCurrency}
           showBalance={showBalance}
-          onPressAsset={isCrypto ? openCoin : undefined}
-          onPressAddAssets={isCrypto ? () => setManageVisible(true) : undefined}
+          onPressAsset={openCoin}
+          onPressAddAssets={() => setManageVisible(true)}
           listHeaderComponent={null}
           listFooterComponent={listFooterComponent}
           showManageAssets={false}
-          emptyComponent={listEmptyComponent}
           refreshing={loading}
           onRefresh={forceUpdate}
+          onScroll={handleAssetListScroll}
+          scrollEventThrottle={16}
         />
       </Portal.Host>
     </SafeAreaView>
@@ -209,6 +195,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  headerContainerScrolled: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
   },
   balanceRow: {
     flexDirection: 'row',
@@ -217,84 +208,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   balanceToggle: {
+    marginRight: 6,
+  },
+  balanceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginLeft: 8,
     marginTop: 12,
   },
   totalBalanceTouchable: {
     flex: 1,
   },
-  tabsWrapper: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E1E4EA',
-    position: 'relative',
-    marginTop: -4,
-  },
-  tabsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  tabButtonsContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tabButton: {
-    paddingVertical: 10,
-    marginRight: 24,
-    position: 'relative',
-  },
-  tabButtonSelected: {},
-  tabLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#5F6A7A',
-  },
-  tabLabelSelected: {
-    color: Colors.primaryColor,
-  },
-  tabUnderline: {
-    position: 'absolute',
-    bottom: -4 - StyleSheet.hairlineWidth, // Push down to overlap the border (4px padding + linewidth)
-    left: 0,
-    right: 0,
-    height: 2,
-    borderRadius: 999,
-    backgroundColor: 'transparent',
-  },
-  tabUnderlineSelected: {
-    backgroundColor: Colors.primaryColor,
-  },
-  tabActionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 21.6,
-    borderWidth: 1,
-    borderColor: '#E6E6E6',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  tabActionPlus: {
-    fontSize: 26,
-    color: '#333333',
-    fontWeight: '600',
-    marginTop: -2,
-  },
-  emptyState: {
-    paddingHorizontal: 24,
-    paddingTop: 48,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1D1F24',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: '#5F6A7A',
-    lineHeight: 20,
+  manageAssetsIconButton: {
+    padding: 6,
   },
 });

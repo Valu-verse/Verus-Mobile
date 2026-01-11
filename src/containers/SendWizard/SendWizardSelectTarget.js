@@ -21,6 +21,15 @@
     - Store Verus currency ID separately as verusConvertTo for transactions
     - Store ETH display info (ethDisplayName, ethDisplayTicker) for network picker
     - Pass isBounceback flag and ethDisplayInfo through context for Amount screen display
+  - Updated 2026-01-06: Hide "Same network" option in export sheet when a target has no
+    on-chain conversion path. Prevents invalid on-chain estimates for cross-chain-only assets.
+  - Updated 2026-01-06: Persist display labels and preflight-friendly names (FQNs) for the
+    selected target/network so later steps never fall back to i-addresses and VRPC preflight
+    matches the legacy send modal input format.
+  - Updated 2026-01-08: Hide the automatic Verus badge on bridged assets when an
+    "export to Ethereum" option is available for that row.
+  - Updated 2026-01-08: Show a small sub-label under the "Send" row name that displays
+    the source asset's fullyqualifiedname (Verus/PBaaS) or regular ticker (ETH/ERC20).
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -45,6 +54,9 @@ import {
 
 // Popular currency tickers to highlight (case insensitive matching)
 const POPULAR_CURRENCIES = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
+
+// vETH system ID (used to represent Ethereum export destination in conversion paths)
+const VETH_SYSTEM_ID = 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X';
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
@@ -185,6 +197,7 @@ const SendWizardSelectTarget = () => {
             dest,
             destId: destCurrencyId,
             paths: [],
+            hasOnChainPath: false, // true if any valid path exists without exportto
             viaOptions: [],
             exportOptions: [],
             gateway: path.gateway || false,
@@ -198,6 +211,9 @@ const SendWizardSelectTarget = () => {
 
         const entry = destinationMap.get(destCurrencyId);
         entry.paths.push(path);
+        if (!path.exportto) {
+          entry.hasOnChainPath = true;
+        }
 
         // Store via options WITH their associated exportTo
         // Each via is only valid for its specific exportTo (or null for on-chain)
@@ -290,6 +306,7 @@ const SendWizardSelectTarget = () => {
         coinId: coinId,
         isConversion: true,
         isCrossChain: entry.exportOptions.length > 0,
+          hasOnChainPath: entry.hasOnChainPath,
         viaOptions: entry.viaOptions,
         exportOptions: entry.exportOptions,
         gateway: entry.gateway,
@@ -478,6 +495,21 @@ const SendWizardSelectTarget = () => {
           }
         : null;
 
+      // Display labels: what we show in Amount/Confirm screens (should never be raw i-addresses)
+      const targetDisplayName = target?.name || null;
+      const targetDisplayTicker = target?.ticker || target?.name || null;
+
+      // Preflight-friendly names: pass FQNs (like the legacy modal) to VRPC preflight when possible.
+      // For bounceback paths, convertto must remain the Verus currency ID, so skip convertToFqn.
+      const convertToFqn =
+        !isBounceback && target?.isConversion
+          ? (target?.fullyqualifiedname || target?.name || null)
+          : null;
+      const exportToFqn =
+        exportTo != null
+          ? (target?.exportOptions || []).find((o) => o.exportTo === exportTo)?.exportToName || null
+          : null;
+
       setTarget(
         targetCurrency,
         exportTo,
@@ -486,7 +518,11 @@ const SendWizardSelectTarget = () => {
         mapTo,
         cleanViaOptions,
         isBounceback,
-        ethDisplayInfo
+        ethDisplayInfo,
+        targetDisplayName,
+        targetDisplayTicker,
+        convertToFqn,
+        exportToFqn
       );
       setStep(3);
       navigation.navigate('SendWizardAmount');
@@ -552,7 +588,11 @@ const SendWizardSelectTarget = () => {
           // Use plain icon (no badge) for grouped items, regular icon for others
           item.isGrouped 
             ? RenderPlainCoinLogo(item.coinId, {}, 40, 40)
-            : RenderSquareCoinLogo(item.coinId, {}, 40, 40)
+            : RenderSquareCoinLogo(item.coinId, {}, 40, 40, {
+                disableBadge: Array.isArray(item.exportOptions)
+                  ? item.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
+                  : false,
+              })
         ) : (
           <View style={styles.placeholderLogo}>
             <Text style={styles.placeholderText}>
@@ -589,7 +629,11 @@ const SendWizardSelectTarget = () => {
         >
           <View style={styles.optionLeft}>
             {filteredSend.coinId ? (
-              RenderSquareCoinLogo(filteredSend.coinId, {}, 40, 40)
+            RenderSquareCoinLogo(filteredSend.coinId, {}, 40, 40, {
+              disableBadge: Array.isArray(filteredSend.exportOptions)
+                ? filteredSend.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
+                : false,
+            })
             ) : (
               <View style={styles.placeholderLogo}>
                 <Text style={styles.placeholderText}>
@@ -600,6 +644,9 @@ const SendWizardSelectTarget = () => {
           </View>
           <View style={styles.optionCenter}>
             <Text style={styles.optionName}>{filteredSend.name}</Text>
+            <Text style={styles.optionSubtext} numberOfLines={1}>
+              {filteredSend.ticker || filteredSend.name || ''}
+            </Text>
           </View>
         </TouchableOpacity>
 
@@ -694,6 +741,7 @@ const SendWizardSelectTarget = () => {
           visible={exportSheetVisible}
           targetCurrency={pendingTarget}
           sourceCoin={sourceCoin}
+          hideSameNetwork={pendingTarget.hasOnChainPath === false}
           onClose={() => {
             setExportSheetVisible(false);
             setPendingTarget(null);
@@ -845,6 +893,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
+  },
+  optionSubtext: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#888',
+    marginTop: 2,
   },
   placeholderLogo: {
     width: 40,

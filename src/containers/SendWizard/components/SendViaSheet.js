@@ -1,11 +1,13 @@
 /*
   SendViaSheet
   - Bottom sheet for selecting conversion routing (via)
-  - Shows available via options with estimated outputs and rates
+  - Shows available via options with estimated outputs
   - Options sorted by best estimate first with "BEST" badge
   - Card-based design matching SendSourceSubwalletSheet
   - Created 2024-12-09
-  - Updated 2024-12-10: Redesigned with card layout, added rates, improved styling
+  - Updated 2024-12-10: Redesigned with card layout, improved styling
+  - Updated 2026-01-09: Show route option outputs truncated to 8 decimals (trim trailing zeros),
+    display the target FQN under the output, and hide per-option rate lines.
 */
 
 import React, { useMemo } from 'react';
@@ -20,14 +22,35 @@ import { RenderSquareCoinLogo } from '../../../utils/CoinData/Graphics';
 import { getCurrencyDisplayName } from '../sendWizardDisplayInfo';
 import BigNumber from 'bignumber.js';
 
+const trimTrailingZeros = (valueStr) => {
+  if (typeof valueStr !== 'string') return valueStr;
+  // Remove trailing zeros in decimals, then remove a trailing '.' if present.
+  return valueStr.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '').replace(/\.$/, '');
+};
+
+const formatTruncatedRate = (rateBnOrValue, decimals = 8) => {
+  try {
+    const bn = BigNumber(rateBnOrValue);
+    if (!bn.isFinite() || bn.isNaN()) return null;
+
+    const truncated = bn.decimalPlaces(decimals, BigNumber.ROUND_DOWN);
+    const fixed = truncated.toFixed(decimals); // avoid scientific notation
+    const trimmed = trimTrailingZeros(fixed);
+
+    // Normalise "-0" edge cases to "0"
+    return trimmed === '-0' ? '0' : trimmed;
+  } catch (e) {
+    return null;
+  }
+};
+
 const SendViaSheet = ({
   visible,
   viaOptions,
   viaEstimates = {},
   currentVia,
   targetTicker,
-  sourceTicker,
-  inputAmount,
+  targetFqn,
   onClose,
   onSelect,
 }) => {
@@ -69,15 +92,6 @@ const SendViaSheet = ({
     // Last resort: truncate the ID
     const truncated = currencyId.length > 12 ? `${currencyId.substring(0, 8)}...` : currencyId;
     return { name: truncated, ticker: truncated, coinId: null };
-  };
-
-  // Calculate rate from input/output
-  const calculateRate = (output) => {
-    if (!inputAmount || !output) return null;
-    const inputBn = BigNumber(inputAmount);
-    const outputBn = BigNumber(output);
-    if (inputBn.isLessThanOrEqualTo(0) || outputBn.isLessThanOrEqualTo(0)) return null;
-    return outputBn.dividedBy(inputBn).decimalPlaces(6).toString();
   };
 
   if (!visible) return null;
@@ -128,7 +142,7 @@ const SendViaSheet = ({
                 const estimateData = viaEstimates[viaId];
                 const hasEstimate = estimateData?.output;
                 const isBest = index === 0 && hasEstimate;
-                const rate = hasEstimate ? calculateRate(estimateData.output) : null;
+                const outputDisplay = hasEstimate ? formatTruncatedRate(estimateData.output, 8) : null;
 
                 return (
                   <TouchableOpacity
@@ -163,11 +177,6 @@ const SendViaSheet = ({
                             </View>
                           )}
                         </View>
-                        {rate && (
-                          <Text style={styles.rateText}>
-                            1 {sourceTicker || 'input'} = {rate} {targetTicker || 'output'}
-                          </Text>
-                        )}
                       </View>
                     </View>
 
@@ -179,9 +188,9 @@ const SendViaSheet = ({
                             styles.estimateAmount,
                             isBest && styles.estimateAmountBest,
                           ]}>
-                            {BigNumber(estimateData.output).decimalPlaces(6).toString()}
+                            {outputDisplay ?? BigNumber(estimateData.output).toString()}
                           </Text>
-                          <Text style={styles.estimateTicker}>{targetTicker || 'output'}</Text>
+                          <Text style={styles.estimateTicker}>{targetFqn || targetTicker || 'output'}</Text>
                         </View>
                       ) : estimateData?.error ? (
                         <Text style={styles.errorText}>Error</Text>

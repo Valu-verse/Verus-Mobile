@@ -5,6 +5,12 @@
   - 2025-12-15: 
     * Total balance display integrated into ticker row under coin name.
     * Send/Receive buttons moved to fixed FAB at bottom (like HomeFAB).
+  - 2026-01-10:
+    * Option A header redesign: unify title/total + selected balance + address selector into a cleaner header block.
+    * Moved Ethereum contract affordance from inline pill to a header-right Ethereum icon (ERC20 only) opening existing explorer sheet.
+    * Made Receive + Send/convert actions equal-weight (both secondary).
+  - 2026-01-10:
+    * Enhanced Etherscan sheet to include contract name/address context and a short explanation of the Ethereum linkage.
   - 2025-12-11: Major redesign - removed custom bottom tab bar in favor of 
     preserving the main app tab bar. Send/Receive buttons now in wallet cards.
     Uses clean header with coin icon, name, ticker, mapped pill, and list cards icon.
@@ -150,21 +156,46 @@ const CoinMenus = () => {
 
   // Set up navigation header
   useLayoutEffect(() => {
+    const showErc20Explorer = mappedCoinObj?.proto === 'erc20';
+
     navigation.setOptions({
       title: '',
-      headerRight: hasMultipleCards ? () => (
-        <TouchableOpacity
-          onPress={handleListCardsPress}
-          style={styles.headerRightButton}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons 
-            name="tune-vertical" 
-            size={24} 
-            color={Colors.verusDarkGray} 
-          />
-        </TouchableOpacity>
-      ) : null,
+      headerRight: (hasMultipleCards || showErc20Explorer)
+        ? () => (
+            <View style={styles.headerRightContainer}>
+              {showErc20Explorer && (
+                <TouchableOpacity
+                  onPress={openTokenAddressExplorer}
+                  style={styles.headerRightButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="View token contract on Etherscan"
+                >
+                  <MaterialCommunityIcons
+                    name="ethereum"
+                    size={22}
+                    color={Colors.verusDarkGray}
+                  />
+                </TouchableOpacity>
+              )}
+              {hasMultipleCards && (
+                <TouchableOpacity
+                  onPress={handleListCardsPress}
+                  style={styles.headerRightButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Select address"
+                >
+                  <MaterialCommunityIcons 
+                    name="tune-vertical" 
+                    size={24} 
+                    color={Colors.verusDarkGray} 
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
+          )
+        : null,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -173,7 +204,7 @@ const CoinMenus = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation, hasMultipleCards, handleListCardsPress]);
+  }, [navigation, hasMultipleCards, handleListCardsPress, mappedCoinObj, openTokenAddressExplorer]);
 
   // Set coin menu focused state
   useEffect(() => {
@@ -245,42 +276,12 @@ const CoinMenus = () => {
         {/* Show total if multiple wallets, otherwise just ticker */}
         {hasMultipleCards && showBalance ? (
           <Text style={styles.headerTicker}>
-            Total: {truncateDecimal(totalConfirmedBalance, 4)} {activeCoin.display_ticker}
+            Total (all addresses): {truncateDecimal(totalConfirmedBalance, 4)} {activeCoin.display_ticker}
           </Text>
         ) : (
           <Text style={styles.headerTicker}>
             {activeCoin.display_ticker}
           </Text>
-        )}
-        {mappedCoinObj && mappedDisplayText && (
-          <TouchableOpacity
-            onPress={openTokenAddressExplorer}
-            disabled={mappedCoinObj.proto !== 'erc20'}
-            style={styles.mappedPill}
-            activeOpacity={0.7}
-          >
-            {mappedCoinObj.proto === 'erc20' ? (
-               <MaterialCommunityIcons 
-                 name="swap-horizontal" 
-                 size={14} 
-                 color="#627EEA" 
-                 style={{ marginRight: 4 }}
-               />
-            ) : (
-              <Text style={[styles.mappedPillText, { marginRight: 4 }]}>{'↔'}</Text>
-            )}
-            <Text style={styles.mappedPillText}>
-              {mappedDisplayText}
-            </Text>
-            {mappedCoinObj.proto === 'erc20' && (
-              <MaterialCommunityIcons 
-                name="open-in-new" 
-                size={10} 
-                color="#627EEA" 
-                style={styles.mappedPillIcon}
-              />
-            )}
-          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -345,10 +346,12 @@ const CoinMenus = () => {
         )}
         {selectedSubWallet != null && (
           <>
-            <View style={styles.contentContainer}>
-              {renderHeader()}
+            <View style={styles.headerBlock}>
+              <View style={styles.contentContainer}>
+                {renderHeader()}
+              </View>
+              <DynamicHeader />
             </View>
-            <DynamicHeader />
             {renderOverviewContent()}
 
             {/* Fixed FAB at bottom - like HomeFAB */}
@@ -371,21 +374,24 @@ const CoinMenus = () => {
 
                 {/* Button Row */}
                 <View style={[styles.fabButtonRow, { paddingBottom: bottomPadding }]}>
-                  <GradientButton
+                  <Button
+                    mode="outlined"
                     onPress={handleReceivePress}
-                    style={styles.fabPrimaryButton}
+                    style={styles.fabSecondaryButton}
+                    contentStyle={styles.fabSecondaryContent}
+                    labelStyle={styles.fabSecondaryLabel}
                   >
                     Receive
-                  </GradientButton>
+                  </Button>
 
                   <Button
                     mode="outlined"
                     onPress={handleSendPress}
                     style={styles.fabSecondaryButton}
                     contentStyle={styles.fabSecondaryContent}
-                    labelStyle={styles.fabSecondaryLabel}
+                    labelStyle={[styles.fabSecondaryLabel, styles.fabSecondaryLabelCompact]}
                   >
-                    Send
+                    Send / convert
                   </Button>
                 </View>
               </View>
@@ -417,8 +423,19 @@ const CoinMenus = () => {
                   <View style={styles.sheetHeaderSpacer} />
                 </View>
                 <View style={styles.sheetBody}>
-                   <Text style={styles.infoParagraph}>
-                    {'You are about to visit the following URL:'}
+                  <Text style={styles.infoParagraph}>
+                    {'This asset is linked to an Ethereum token contract:'}
+                  </Text>
+                  <View style={styles.urlBox}>
+                    <Text style={styles.urlText}>
+                      {mappedCoinObj.display_ticker || mappedCoinObj.display_name || 'Token'}
+                    </Text>
+                    <Text style={[styles.urlText, { marginTop: 10 }]}>
+                      {mappedCoinObj.currency_id}
+                    </Text>
+                  </View>
+                  <Text style={styles.infoParagraph}>
+                    {'Visit the token contract on Etherscan:'}
                   </Text>
                   <View style={styles.urlBox}>
                       <Text style={styles.urlText}>{getExplorerUrl()}</Text>
@@ -453,12 +470,23 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 20,
   },
+  headerBlock: {
+    backgroundColor: Colors.secondaryColor,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
   headerContainer: {
     marginBottom: 8,
     marginTop: 8,
   },
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 8,
+  },
   headerRightButton: {
-    paddingRight: 16, // Add some padding for touch target
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   titleRow: {
     flexDirection: 'row',
@@ -481,23 +509,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#666666',
-  },
-  mappedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginLeft: 8,
-  },
-  mappedPillText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#627EEA',
-  },
-  mappedPillIcon: {
-    marginLeft: 3,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -577,6 +588,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
+  },
+  fabSecondaryLabelCompact: {
+    fontSize: 14,
   },
 });
 

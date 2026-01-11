@@ -1,12 +1,12 @@
 /*
-  This component works as the active header for Coin Menu screens. Interacting
-  with it by swiping or pressing will allow you to change your active sub-wallet.
-  - Updated 2025-12-15:
-    * Redesigned with smooth FlatList carousel for wallet selection.
-    * Flat card design with minimal styling (network + address only).
-    * Balance and action buttons moved outside cards.
-    * Buttons styled like HomeFAB (GradientButton + outlined).
-    * Total balance moved to parent component header.
+  DynamicHeader
+  - Renders the swipeable address card carousel on the coin overview screen.
+  - Swiping updates the active sub-wallet (which drives balances + transactions).
+  - Updated 2026-01-10 (A1 redesign):
+    * Bold gradient address cards that own the big balance + fiat display
+    * Compact "Addresses 1/4" selector header (no dots / swipe hints)
+    * Network ticker watermark, address copy row, and minimal status (pending/sync)
+    * Card order sorted by confirmed balance (high → low)
 */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -32,17 +32,100 @@ import { formatCurrency } from 'react-native-format-currency';
 import { useSelector, useDispatch } from 'react-redux';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
-import { getNetworkDisplayName, getNetworkIcon } from '../SendWizard/sendWizardDisplayInfo';
+import Svg, { Defs, LinearGradient, RadialGradient, Stop, Rect } from 'react-native-svg';
+import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
+import { coinsList } from '../../utils/CoinData/CoinsList';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_SPACING = 12;
 const CONTAINER_PADDING = 20;
 const CARD_WIDTH = SCREEN_WIDTH - (CONTAINER_PADDING * 2) - 32;
+const CARD_HEIGHT = 206;
+
+const CARD_ACCENT = '#00C8FF';
+
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+const normalizeHex = (hex) => {
+  if (hex == null || typeof hex !== 'string') return null;
+  const clean = hex.trim();
+  if (!clean.startsWith('#')) return null;
+  if (clean.length === 4) {
+    // #RGB -> #RRGGBB
+    const r = clean[1];
+    const g = clean[2];
+    const b = clean[3];
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  if (clean.length === 7) return clean.toUpperCase();
+  return null;
+};
+
+const hexToRgb = (hex) => {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return null;
+  const r = parseInt(normalized.slice(1, 3), 16);
+  const g = parseInt(normalized.slice(3, 5), 16);
+  const b = parseInt(normalized.slice(5, 7), 16);
+  return { r, g, b };
+};
+
+const rgbToHex = ({ r, g, b }) => {
+  const to = (x) => clamp(Math.round(x), 0, 255).toString(16).padStart(2, '0');
+  return `#${to(r)}${to(g)}${to(b)}`.toUpperCase();
+};
+
+const mixHex = (a, b, weight = 0.5) => {
+  const rgbA = hexToRgb(a);
+  const rgbB = hexToRgb(b);
+  if (!rgbA || !rgbB) return a;
+  const w = clamp(weight, 0, 1);
+  return rgbToHex({
+    r: rgbA.r * (1 - w) + rgbB.r * w,
+    g: rgbA.g * (1 - w) + rgbB.g * w,
+    b: rgbA.b * (1 - w) + rgbB.b * w,
+  });
+};
+
+const isLightColor = (hex) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return false;
+  // relative luminance approximation
+  const luma = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+  return luma > 0.72;
+};
+
+const truncateMiddle = (value, start = 8, end = 8) => {
+  if (typeof value !== 'string') return '';
+  if (value.length <= start + end + 3) return value;
+  return `${value.slice(0, start)}...${value.slice(value.length - end)}`;
+};
+
+const getNetworkTicker = (systemId) => {
+  if (!systemId) return '';
+  if (systemId === '.eth') return 'ETH';
+
+  // Prefer coinsList (fast path)
+  if (coinsList[systemId]?.display_ticker) return coinsList[systemId].display_ticker;
+
+  // Fallback to CoinDirectory for PBaaS chains
+  try {
+    const coinObj = CoinDirectory.findCoinObj(systemId);
+    if (coinObj?.display_ticker) return coinObj.display_ticker;
+  } catch (e) {
+    // ignore
+  }
+
+  // Last resort: avoid showing raw i-addresses
+  if (typeof systemId === 'string' && systemId.startsWith('i') && systemId.length > 30) return '';
+
+  return systemId;
+};
 
 const DynamicHeader = () => {
   const dispatch = useDispatch();
   const flatListRef = useRef(null);
+  const activeWalletIdRef = useRef(null);
 
   const chainTicker = useSelector((state) => state.coins.activeCoin.id);
   const showBalance = useSelector((state) => state.coins.showBalance);
@@ -74,16 +157,55 @@ const DynamicHeader = () => {
   const [copiedWalletId, setCopiedWalletId] = useState(null);
   const copyTimeoutRef = useRef(null);
 
+  const cardTheme = useMemo(() => {
+    const base = normalizeHex(activeCoin?.theme_color) || Colors.primaryColor;
+    const top = mixHex(base, CARD_ACCENT, 0.55);
+    const mid = mixHex(base, CARD_ACCENT, 0.25);
+    const bottom = mixHex(base, '#000000', 0.18);
+    const highlight = mixHex(base, '#FFFFFF', 0.35);
+    const light = isLightColor(base);
+    return {
+      base,
+      top,
+      mid,
+      bottom,
+      highlight,
+      light,
+      text: light ? Colors.quinaryColor : '#FFFFFF',
+      mutedText: light ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.78)',
+      pillBg: light ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.18)',
+      pillBorder: light ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.25)',
+    };
+  }, [activeCoin?.theme_color]);
+
   const walletItems = useMemo(() => {
     if (!allSubWallets || allSubWallets.length === 0) return [];
-    return allSubWallets.map((wallet, index) => ({ ...wallet, index }));
-  }, [allSubWallets]);
+
+    const withMeta = allSubWallets.map((wallet, originalIndex) => {
+      const confirmed = balances?.[wallet.id]?.confirmed;
+      return {
+        ...wallet,
+        originalIndex,
+        __confirmedBalance: confirmed == null ? BigNumber(0) : BigNumber(confirmed),
+      };
+    });
+
+    // Sort: highest confirmed balance first; tie-break by stable original order
+    withMeta.sort((a, b) => {
+      const diff = b.__confirmedBalance.comparedTo(a.__confirmedBalance);
+      if (diff !== 0) return diff;
+      return a.originalIndex - b.originalIndex;
+    });
+
+    return withMeta;
+  }, [allSubWallets, balances]);
 
   useEffect(() => {
     if (selectedSubWallet && walletItems.length > 0) {
       const index = walletItems.findIndex((w) => w.id === selectedSubWallet.id);
       if (index !== -1 && index !== activeIndex) {
         setActiveIndex(index);
+        activeWalletIdRef.current = selectedSubWallet.id;
         setTimeout(() => {
           flatListRef.current?.scrollToIndex({ index, animated: false });
         }, 100);
@@ -91,48 +213,40 @@ const DynamicHeader = () => {
     }
   }, [selectedSubWallet, walletItems]);
 
+  // Keep the current card stable when walletItems re-sorts due to balance updates
+  useEffect(() => {
+    if (!walletItems.length) return;
+    const targetId = activeWalletIdRef.current;
+    if (!targetId) {
+      activeWalletIdRef.current = walletItems[0].id;
+      return;
+    }
+
+    const nextIndex = walletItems.findIndex((w) => w.id === targetId);
+    if (nextIndex !== -1 && nextIndex !== activeIndex) {
+      setActiveIndex(nextIndex);
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: false });
+      }, 50);
+    }
+  }, [walletItems]);
+
   useEffect(() => {
     return () => {
       if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     };
   }, []);
 
-  const activeWallet = walletItems[activeIndex] || null;
-  
-  const activeWalletBalance = useMemo(() => {
-    if (!activeWallet || !balances[activeWallet.id]) return null;
-    return balances[activeWallet.id].confirmed;
-  }, [activeWallet, balances]);
-
-  const activeWalletPending = useMemo(() => {
-    if (!activeWallet || !balances[activeWallet.id]) return null;
-    return balances[activeWallet.id].pending;
-  }, [activeWallet, balances]);
-
-  const activeWalletFiat = useMemo(() => {
-    if (!activeWallet || activeWalletBalance == null) return null;
-    const ratesForChannel =
-      rates[activeWallet.api_channels[API_GET_FIATPRICE]] != null
-        ? rates[activeWallet.api_channels[API_GET_FIATPRICE]][chainTicker]
-        : null;
-    if (ratesForChannel && ratesForChannel[displayCurrency] != null) {
-      const price = BigNumber(ratesForChannel[displayCurrency]);
-      return BigNumber(activeWalletBalance).multipliedBy(price).toFixed(2);
-    }
-    return null;
-  }, [activeWallet, activeWalletBalance, rates, chainTicker, displayCurrency]);
-
-  const activeWalletSyncProgress = useMemo(() => {
-    if (!activeWallet || !info || !info[activeWallet.id]) return 100;
-    return info[activeWallet.id].percent;
-  }, [activeWallet, info]);
-
-  const activeWalletHasError = activeWallet ? balanceErrors[activeWallet.id] : false;
-  const hasPendingBalance = activeWalletPending != null && !BigNumber(activeWalletPending).isEqualTo(0);
-  const syncLabel =
-    activeWalletSyncProgress !== 100 && activeWalletSyncProgress !== -1
-      ? `Syncing ${activeWalletSyncProgress.toFixed(0)}%`
-      : null;
+  const getWalletFiatDisplay = useCallback((wallet, confirmedBalance) => {
+    if (!wallet || confirmedBalance == null) return null;
+    const fiatChannel = wallet.api_channels?.[API_GET_FIATPRICE];
+    const ratesForChannel = fiatChannel != null ? rates[fiatChannel]?.[chainTicker] : null;
+    const rate = ratesForChannel?.[displayCurrency];
+    if (rate == null) return null;
+    const fiatValue = BigNumber(confirmedBalance).multipliedBy(BigNumber(rate));
+    const [formatted] = formatCurrency({ amount: fiatValue.toFixed(2), code: displayCurrency });
+    return formatted;
+  }, [rates, chainTicker, displayCurrency]);
 
   const handleScrollEnd = useCallback(
     (event) => {
@@ -144,6 +258,7 @@ const DynamicHeader = () => {
         setActiveIndex(clampedIndex);
         const wallet = walletItems[clampedIndex];
         if (wallet) {
+          activeWalletIdRef.current = wallet.id;
           dispatch(setCoinSubWallet(chainTicker, wallet));
         }
       }
@@ -162,98 +277,192 @@ const DynamicHeader = () => {
     }, 2000);
   }, []);
 
+  const getDisplayAddress = useCallback((wallet) => {
+    if (!wallet) return '-';
+    const isVerusId = wallet.name && wallet.name.endsWith('@');
+    if (isVerusId) return wallet.name;
+
+    const addressChannel = wallet.api_channels?.[API_GET_ADDRESSES];
+    if (
+      addressChannel &&
+      activeAccount &&
+      activeAccount.keys?.[chainTicker]?.[addressChannel]?.addresses?.length > 0
+    ) {
+      return activeAccount.keys[chainTicker][addressChannel].addresses[0];
+    }
+
+    return wallet.name || '-';
+  }, [activeAccount, chainTicker]);
+
   const renderWalletCard = useCallback(
     ({ item, index }) => {
-      const isActive = index === activeIndex;
       const isCopied = copiedWalletId === item.id;
       
-      // Try to get address from activeAccount keys using the subwallet's address channel
-      // If it's a VerusID (ends with @), use the name directly.
-      // Otherwise, look up the crypto address (e.g. for "Main" wallet).
-      let displayAddress = item.name || '-';
-      const isVerusId = item.name && item.name.endsWith('@');
+      const displayAddress = getDisplayAddress(item);
+      const displayAddressShort = truncateMiddle(displayAddress, 8, 8);
 
-      if (!isVerusId) {
-        const addressChannel = item.api_channels[API_GET_ADDRESSES];
-        
-        if (
-          activeAccount && 
-          activeAccount.keys[chainTicker] && 
-          activeAccount.keys[chainTicker][addressChannel] &&
-          activeAccount.keys[chainTicker][addressChannel].addresses.length > 0
-        ) {
-          displayAddress = activeAccount.keys[chainTicker][addressChannel].addresses[0];
-        }
-      }
+      const networkTicker = getNetworkTicker(item.network);
 
-      const networkName = getNetworkDisplayName(item.network);
-      const networkIconId = getNetworkIcon(item.network);
-      const isVerusOrPbaas = activeCoin?.proto === 'vrsc';
+      // Use unique IDs per card to avoid any SVG def collisions across the carousel
+      const safeId = String(item.id || index).replace(/[^a-zA-Z0-9_-]/g, '');
+      const gradId = `cardGrad_${safeId}`;
+      const highlightId = `cardHighlight_${safeId}`;
+
+      const walletBalance = balances?.[item.id]?.confirmed;
+      const walletPending = balances?.[item.id]?.pending;
+      const walletHasError = balanceErrors?.[item.id];
+      const walletSync = info?.[item.id]?.percent;
+
+      const amountText = !showBalance
+        ? '*****'
+        : walletHasError
+          ? CONNECTION_ERROR
+          : walletBalance == null
+            ? '—'
+            : truncateDecimal(walletBalance, 8);
+
+      const fiatText = !showBalance
+        ? '***'
+        : walletHasError
+          ? null
+          : getWalletFiatDisplay(item, walletBalance);
+
+      const pendingText =
+        showBalance &&
+        walletPending != null &&
+        !BigNumber(walletPending).isEqualTo(0)
+          ? `${BigNumber(walletPending).isGreaterThan(0) ? '+' : ''}${truncateDecimal(walletPending, 8)} pending`
+          : null;
+
+      const syncText =
+        walletSync != null && walletSync !== 100 && walletSync !== -1
+          ? `Syncing ${Number(walletSync).toFixed(0)}%`
+          : null;
+
+      const statusLine =
+        pendingText && syncText ? `${pendingText} • ${syncText}` : (pendingText || syncText);
 
       return (
         <View style={[styles.walletCard, { width: CARD_WIDTH }]}>
-          {/* Network row - only show for Verus/PBaaS chains where it's useful */}
-          {isVerusOrPbaas && (
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Network</Text>
-              <View style={styles.networkValue}>
-                {RenderSquareCoinLogo(networkIconId, {}, 16, 16)}
-                <Text style={styles.networkText}>{networkName}</Text>
-              </View>
-            </View>
-          )}
+          <Svg
+            width={CARD_WIDTH}
+            height={CARD_HEIGHT}
+            viewBox={`0 0 ${CARD_WIDTH} ${CARD_HEIGHT}`}
+            style={styles.cardBackground}
+            pointerEvents="none"
+          >
+            <Defs>
+              <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={cardTheme.top} />
+                <Stop offset="0.6" stopColor={cardTheme.mid} />
+                <Stop offset="1" stopColor={cardTheme.bottom} />
+              </LinearGradient>
+              <RadialGradient id={highlightId} cx="0.9" cy="0.15" r="1">
+                <Stop offset="0" stopColor={cardTheme.highlight} stopOpacity="0.35" />
+                <Stop offset="1" stopColor={cardTheme.highlight} stopOpacity="0" />
+              </RadialGradient>
+            </Defs>
+            <Rect x="0" y="0" width={CARD_WIDTH} height={CARD_HEIGHT} fill={`url(#${gradId})`} />
+            <Rect x="0" y="0" width={CARD_WIDTH} height={CARD_HEIGHT} fill={`url(#${highlightId})`} />
+          </Svg>
 
-          {/* Address row */}
+          {/* Subtle network watermark */}
+          {networkTicker ? (
+            <View style={styles.networkWatermark} pointerEvents="none">
+              <Text style={styles.networkWatermarkText} numberOfLines={1}>
+                {networkTicker}
+              </Text>
+              <MaterialCommunityIcons
+                name="link-variant"
+                size={22}
+                color="rgba(255,255,255,0.22)"
+                style={{ marginLeft: 8, marginTop: 2 }}
+              />
+            </View>
+          ) : null}
+
+          {/* Amount */}
+          <View style={styles.amountSection}>
+            <View style={styles.amountRow}>
+              <Text style={[styles.amountText, { color: cardTheme.text }]} numberOfLines={1}>
+                {amountText}
+              </Text>
+              {!walletHasError && (
+                <Text style={[styles.tickerText, { color: cardTheme.mutedText }]} numberOfLines={1}>
+                  {` ${displayTicker}`}
+                </Text>
+              )}
+            </View>
+            {fiatText != null && (
+              <Text style={[styles.fiatText, { color: cardTheme.mutedText }]} numberOfLines={1}>
+                {fiatText}
+              </Text>
+            )}
+            {statusLine && (
+              <Text style={[styles.statusText, { color: cardTheme.mutedText }]} numberOfLines={1}>
+                {statusLine}
+              </Text>
+            )}
+          </View>
+
+          {/* Address */}
           <TouchableOpacity
             onPress={() => handleCopyAddress(item.id, displayAddress)}
-            activeOpacity={0.7}
-            style={styles.cardRow}
+            activeOpacity={0.85}
+            style={[
+              styles.cardAddressRow,
+              {
+                borderTopColor: cardTheme.light
+                  ? 'rgba(0,0,0,0.10)'
+                  : 'rgba(255,255,255,0.18)',
+              },
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Copy address"
           >
-            <Text style={styles.cardLabel}>Address</Text>
-            <View style={styles.addressValueRow}>
-              <Text numberOfLines={1} ellipsizeMode="middle" style={styles.addressText}>
-                {displayAddress}
-              </Text>
-              <View style={styles.copyArea}>
-                {isCopied ? (
-                  <Text style={styles.copiedLabel}>Copied</Text>
-                ) : (
-                  <MaterialCommunityIcons
-                    name="content-copy"
-                    size={16}
-                    color={Colors.verusDarkGray}
-                  />
-                )}
-              </View>
+            <Text numberOfLines={1} ellipsizeMode="middle" style={[styles.addressText, { color: cardTheme.text }]}>
+              {displayAddressShort}
+            </Text>
+            <View style={styles.copyArea}>
+              {isCopied ? (
+                <Text style={[styles.copiedLabel, { color: cardTheme.text }]}>Copied</Text>
+              ) : (
+                <MaterialCommunityIcons
+                  name="content-copy"
+                  size={16}
+                  color={cardTheme.text}
+                />
+              )}
             </View>
           </TouchableOpacity>
         </View>
       );
     },
-    [activeIndex, copiedWalletId, handleCopyAddress, activeAccount, chainTicker, activeCoin],
+    [
+      copiedWalletId,
+      getDisplayAddress,
+      activeCoin,
+      balances,
+      balanceErrors,
+      info,
+      showBalance,
+      displayTicker,
+      cardTheme,
+      handleCopyAddress,
+      getWalletFiatDisplay,
+    ],
   );
-
-  const renderPageDots = () => {
-    if (walletItems.length <= 1) return null;
-    return (
-      <View style={styles.dotsContainer}>
-        {walletItems.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.dot,
-              index === activeIndex ? styles.dotActive : styles.dotInactive,
-            ]}
-          />
-        ))}
-      </View>
-    );
-  };
 
   return (
     <View style={styles.container}>
+      {/* Address selector label */}
+      <View style={styles.selectorHeader}>
+        <Text style={styles.selectorLabel}>{'Addresses'}</Text>
+        {walletItems.length > 1 && (
+          <Text style={styles.selectorCount}>{`${activeIndex + 1}/${walletItems.length}`}</Text>
+        )}
+      </View>
+
       {/* Wallet Cards Carousel */}
       <FlatList
         ref={flatListRef}
@@ -274,107 +483,65 @@ const DynamicHeader = () => {
           index,
         })}
       />
-
-      {/* Page Indicator Dots */}
-      {renderPageDots()}
-
-      {/* Balance Section */}
-      <View style={styles.balanceSection}>
-        {!showBalance ? (
-          <Text style={styles.balanceHidden}>********* {displayTicker}</Text>
-        ) : (
-          <>
-            <View style={styles.balanceMainRow}>
-              <Text style={styles.balanceAmount}>
-                {activeWalletHasError
-                  ? CONNECTION_ERROR
-                  : activeWalletBalance == null
-                  ? '-'
-                  : truncateDecimal(activeWalletBalance, 8)}
-              </Text>
-              {!activeWalletHasError && (
-                <Text style={styles.balanceTicker}> {displayTicker}</Text>
-              )}
-            </View>
-            <Text style={styles.balanceFiat}>
-              {activeWalletFiat == null
-                ? '-'
-                : formatCurrency({ amount: activeWalletFiat, code: displayCurrency })[0]}
-            </Text>
-            {(hasPendingBalance || syncLabel) && (
-              <View style={styles.statusRow}>
-                {hasPendingBalance && showBalance && (
-                  <Text style={styles.statusText}>
-                    {`${BigNumber(activeWalletPending).isGreaterThan(0) ? '+' : ''}${truncateDecimal(
-                      activeWalletPending,
-                      8,
-                    )} pending`}
-                  </Text>
-                )}
-                {syncLabel && <Text style={styles.statusText}>{syncLabel}</Text>}
-              </View>
-            )}
-          </>
-        )}
-      </View>
-
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.secondaryColor,
-    paddingBottom: 16,
+    backgroundColor: 'transparent',
+    paddingBottom: 12,
   },
   carouselContent: {
     paddingHorizontal: CONTAINER_PADDING,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingTop: 0,
+    paddingBottom: 8,
   },
   walletCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    height: CARD_HEIGHT,
+    borderRadius: 18,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    justifyContent: 'center', // Center content vertically if card height allows
+    paddingVertical: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 4,
   },
-  cardRow: {
+  cardBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  networkWatermark: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  networkWatermarkText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.22)',
+    letterSpacing: 0.8,
+  },
+  cardAddressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10, // Increased vertical padding for better spacing
-  },
-  cardLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.verusDarkGray,
-  },
-  networkValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  networkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.quaternaryColor,
-    marginLeft: 6,
-    lineHeight: 18,
-  },
-  addressValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'flex-end',
-    marginLeft: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.18)',
   },
   addressText: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.quaternaryColor,
     flex: 1,
-    textAlign: 'right',
-    marginRight: 8,
+    textAlign: 'left',
+    marginRight: 12,
     lineHeight: 18,
   },
   copyArea: {
@@ -385,65 +552,53 @@ const styles = StyleSheet.create({
   copiedLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: Colors.verusGreenColor,
   },
-  dotsContainer: {
+  selectorHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginHorizontal: 3,
-  },
-  dotActive: {
-    backgroundColor: Colors.primaryColor,
-  },
-  dotInactive: {
-    backgroundColor: '#D0D0D0',
-  },
-  balanceSection: {
-    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: CONTAINER_PADDING,
-    marginBottom: 20,
+    paddingBottom: 8,
   },
-  balanceHidden: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.quaternaryColor,
-  },
-  balanceMainRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  balanceAmount: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: Colors.quaternaryColor,
-  },
-  balanceTicker: {
-    fontSize: 18,
-    fontWeight: '500',
+  selectorLabel: {
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.verusDarkGray,
   },
-  balanceFiat: {
-    fontSize: 16,
+  selectorCount: {
+    fontSize: 13,
+    fontWeight: '600',
     color: Colors.verusDarkGray,
-    marginTop: 4,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 8,
   },
   statusText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.verusDarkGray,
-    marginHorizontal: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  amountSection: {
+    paddingRight: 8,
+    flex: 1,
+    justifyContent: 'center',
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'nowrap',
+  },
+  amountText: {
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    flexShrink: 1,
+  },
+  tickerText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  fiatText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
 

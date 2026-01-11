@@ -10,6 +10,11 @@
     Ethereum addresses (was incorrectly defaulting to Verus)
   - Updated 2024-12-23: Added isBounceback flag and ethDisplayInfo for proper display of
     ETH destination (bounceback) paths - shows ETH token name/ticker instead of Verus currency
+  - Updated 2026-01-06: Store target display labels (name/ticker) and preflight-friendly
+    currency/network names (FQNs) so UI never falls back to i-addresses and VRPC preflight
+    receives the same format as the legacy send modal.
+  - Updated 2026-01-07: Persist amount input mode (fiat vs crypto) and the raw input value
+    across wizard steps while keeping stored `amount`/`amountSats` as the crypto send amount.
 */
 
 import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
@@ -27,6 +32,11 @@ const initialState = {
   isConversion: false,      // true if convertto differs from source
   isCrossChain: false,      // true if exportto is set
   mapTo: null,              // mapping field for bridge transfers
+  // Display/preflight helpers
+  targetDisplayName: null,  // user-friendly name (e.g. "USDC")
+  targetDisplayTicker: null,// user-friendly ticker (e.g. "USDC")
+  convertToFqn: null,       // preflight-friendly convertto (e.g. "Bridge.CHIPS")
+  exportToFqn: null,        // preflight-friendly exportto network (e.g. "CHIPS")
   destinationAddressType: ADDRESS_TYPE.VERUS, // address type for recipient validation
   isBounceback: false,      // true if this is an ETH destination (bounceback) path
   ethDisplayInfo: null,     // { ticker, name, contractAddress } for display on bounceback paths
@@ -34,6 +44,8 @@ const initialState = {
   // Step 3: Amount and routing
   amount: '',               // string input
   amountSats: null,         // satoshis as string
+  amountInputValue: '',     // raw input string (either crypto or fiat, depending on amountFiat)
+  amountFiat: false,        // true when user is entering fiat instead of crypto
   via: null,                // routing currency for conversions
   viaOptions: [],           // available via options
   estimate: null,           // conversion estimate result
@@ -85,10 +97,16 @@ function wizardReducer(state, action) {
         exportTo: null,
         isConversion: false,
         isCrossChain: false,
+        targetDisplayName: null,
+        targetDisplayTicker: null,
+        convertToFqn: null,
+        exportToFqn: null,
         isBounceback: false,
         ethDisplayInfo: null,
         amount: '',
         amountSats: null,
+        amountInputValue: '',
+        amountFiat: false,
         via: null,
         estimate: null,
         recipientAddress: '',
@@ -112,6 +130,10 @@ function wizardReducer(state, action) {
         isConversion: action.payload.isConversion,
         isCrossChain: action.payload.isCrossChain,
         mapTo: action.payload.mapTo,
+        targetDisplayName: action.payload.targetDisplayName || null,
+        targetDisplayTicker: action.payload.targetDisplayTicker || null,
+        convertToFqn: action.payload.convertToFqn || null,
+        exportToFqn: action.payload.exportToFqn || null,
         viaOptions: action.payload.viaOptions || [],
         destinationAddressType: destAddressType,
         isBounceback: action.payload.isBounceback || false,
@@ -119,6 +141,8 @@ function wizardReducer(state, action) {
         // Reset dependent fields
         amount: '',
         amountSats: null,
+        amountInputValue: '',
+        amountFiat: false,
         via: null,
         estimate: null,
         recipientAddress: '',
@@ -131,6 +155,14 @@ function wizardReducer(state, action) {
         ...state,
         amount: action.payload.amount,
         amountSats: action.payload.amountSats,
+        amountInputValue:
+          action.payload.amountInputValue != null
+            ? action.payload.amountInputValue
+            : state.amountInputValue,
+        amountFiat:
+          action.payload.amountFiat != null
+            ? action.payload.amountFiat
+            : state.amountFiat,
       };
 
     case ACTIONS.SET_VIA:
@@ -212,17 +244,30 @@ export const SendWizardProvider = ({ children, initialParams = {} }) => {
     });
   }, []);
 
-  const setTarget = useCallback((currency, exportTo, isConversion, isCrossChain, mapTo = null, viaOptions = [], isBounceback = false, ethDisplayInfo = null) => {
+  const setTarget = useCallback((
+    currency,
+    exportTo,
+    isConversion,
+    isCrossChain,
+    mapTo = null,
+    viaOptions = [],
+    isBounceback = false,
+    ethDisplayInfo = null,
+    targetDisplayName = null,
+    targetDisplayTicker = null,
+    convertToFqn = null,
+    exportToFqn = null
+  ) => {
     dispatch({
       type: ACTIONS.SET_TARGET,
-      payload: { currency, exportTo, isConversion, isCrossChain, mapTo, viaOptions, isBounceback, ethDisplayInfo },
+      payload: { currency, exportTo, isConversion, isCrossChain, mapTo, viaOptions, isBounceback, ethDisplayInfo, targetDisplayName, targetDisplayTicker, convertToFqn, exportToFqn },
     });
   }, []);
 
-  const setAmount = useCallback((amount, amountSats) => {
+  const setAmount = useCallback((amount, amountSats, amountInputValue = null, amountFiat = null) => {
     dispatch({
       type: ACTIONS.SET_AMOUNT,
-      payload: { amount, amountSats },
+      payload: { amount, amountSats, amountInputValue, amountFiat },
     });
   }, []);
 

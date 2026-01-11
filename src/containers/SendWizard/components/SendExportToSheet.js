@@ -22,6 +22,10 @@
   - Updated 2024-12-23: Fixed ETH destination display:
     - Use ethDisplayTicker from option when available (for bounceback paths)
     - Shows "DAI" instead of "DAI.vETH" for Ethereum network option
+  - Updated 2026-01-06: Hide "Same network" option when a target has no on-chain route.
+    Adds explicit copy when only one cross-chain network is available.
+  - Updated 2026-01-08: Show fullyqualifiedname (FQNs) for Verus/PBaaS receive assets
+    in "Receive as ..." copy, while keeping ERC20-friendly names on Ethereum.
 */
 
 import React, { useMemo } from 'react';
@@ -88,6 +92,23 @@ const getErc20Ticker = (currencyId) => {
 };
 
 /**
+ * Determine whether a currency lives on Ethereum (native ETH / ERC20).
+ * We treat system_id === '.eth' (or obvious 0x contract addresses) as Ethereum.
+ */
+const isEthereumCurrency = (currencyId) => {
+  if (!currencyId) return false;
+  if (currencyId === '.eth') return true;
+  if (typeof currencyId === 'string' && currencyId.startsWith('0x')) return true;
+
+  try {
+    const coinObj = CoinDirectory.findCoinObj(currencyId);
+    return coinObj?.system_id === '.eth' || coinObj?.proto === 'eth' || coinObj?.proto === 'erc20';
+  } catch (e) {
+    return false;
+  }
+};
+
+/**
  * Get the ticker that will be received for an export option
  * For Ethereum exports, looks up the ERC20 ticker dynamically
  */
@@ -106,9 +127,14 @@ const getReceivedTicker = (opt, targetCurrency, sourceCoin) => {
     }
   }
   
-  // For conversions, use the target currency's fullyqualifiedname
-  if (targetCurrency?.isConversion && targetCurrency?.fullyqualifiedname) {
-    return targetCurrency.fullyqualifiedname;
+  // For conversions, show the fullyqualifiedname on Verus/PBaaS (non-Ethereum) receives
+  if (targetCurrency?.isConversion) {
+    return (
+      targetCurrency?.fullyqualifiedname ||
+      targetCurrency?.ticker ||
+      targetCurrency?.name ||
+      'tokens'
+    );
   }
   
   // Fallback to source ticker for same-currency sends
@@ -124,6 +150,11 @@ const getReceivedTicker = (opt, targetCurrency, sourceCoin) => {
 const getGroupedOptionTicker = (option, isEthereumNetwork = false) => {
   if (!option?.id) {
     return option?.fullyqualifiedname || option?.ticker || option?.name || 'tokens';
+  }
+
+  // For Verus/PBaaS options, prefer the fullyqualifiedname directly (per UX requirements).
+  if (!isEthereumNetwork && option?.fullyqualifiedname) {
+    return option.fullyqualifiedname;
   }
   
   // For Ethereum network options with ETH display info, use that
@@ -292,9 +323,14 @@ const SendExportToSheet = ({
   const sourceNetworkName = getSourceNetworkDisplayName(sourceSystemId, sourceCoin?.display_name || 'current network');
   const sourceNetworkIcon = getSourceNetworkIcon(sourceSystemId);
   
-  // For same network option, use target's fullyqualifiedname if conversion, else source ticker
-  const sameNetworkTicker = targetCurrency?.isConversion 
-    ? (targetCurrency.fullyqualifiedname || targetCurrency.ticker || targetCurrency.name)
+  // For same network option:
+  // - Verus/PBaaS: show fullyqualifiedname
+  // - Ethereum/ERC20: show ERC20-friendly ticker/name
+  const sourceIsEthereum = isEthereumCurrency(sourceSystemId) || isEthereumCurrency(sourceCoin?.id);
+  const sameNetworkTicker = targetCurrency?.isConversion
+    ? (sourceIsEthereum
+        ? (targetCurrency?.ticker || targetCurrency?.name || targetCurrency?.fullyqualifiedname)
+        : (targetCurrency?.fullyqualifiedname || targetCurrency?.ticker || targetCurrency?.name))
     : (sourceCoin?.display_ticker || '');
 
   // Get user-friendly target currency name
@@ -304,6 +340,26 @@ const SendExportToSheet = ({
   );
 
   const hasCrossChainOptions = exportOptions.length > 0;
+  
+  // Description text (export mode can hide the same-network option when no on-chain route exists)
+  const descriptionText = useMemo(() => {
+    if (isGroupedAsset) {
+      return `${targetDisplayName} is available on multiple networks. Choose where the recipient should receive it.`;
+    }
+    
+    // Export mode: if same-network is hidden and there's only one option, be explicit
+    if (hideSameNetwork && exportOptions.length === 1) {
+      const onlyOpt = exportOptions[0];
+      const chainId = onlyOpt.exportTo;
+      const chainName =
+        getNetworkDisplayName(chainId, onlyOpt.exportToName) ||
+        onlyOpt.exportToName ||
+        'selected';
+      return `This asset is only available on the ${chainName} network.`;
+    }
+    
+    return `Choose where the recipient should receive ${targetDisplayName}.`;
+  }, [isGroupedAsset, hideSameNetwork, exportOptions, targetDisplayName]);
 
   return (
     <Portal>
@@ -328,10 +384,7 @@ const SendExportToSheet = ({
           {/* Description */}
           <View style={styles.descriptionContainer}>
             <Text style={styles.descriptionText}>
-              {isGroupedAsset
-                ? `${targetDisplayName} is available on multiple networks. Choose where the recipient should receive it.`
-                : `Choose where the recipient should receive ${targetDisplayName}.`
-              }
+              {descriptionText}
             </Text>
           </View>
 

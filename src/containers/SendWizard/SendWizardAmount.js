@@ -19,12 +19,35 @@
   - Updated 2024-12-23: Added support for isBounceback and ethDisplayInfo from context
     to properly display ETH token names (e.g., "DAI") instead of Verus names ("DAI.vETH")
     for bounceback paths. Also fixed destination chain display for ETH→vETH to show "Verus".
+  - Updated 2026-01-06: Added price-based fallback estimates for non-ETH conversions when
+    estimateConversion cannot estimate (e.g., some cross-chain-only bridge currencies).
+    Prevents showing the "Can only estimate preconversions..." error when a path.price
+    based estimate is available.
+  - Updated 2026-01-07: Tweaked conversion subtitle wording for cross-chain conversions
+    to use "on {network}" instead of "to {network}" for clarity.
+  - Updated 2026-01-07: Added fiat display (input + output estimate when possible) and
+    a fiat↔crypto entry toggle (persists in wizard state). Removed the redundant "Enter amount"
+    title and refreshed layout with a modern amount "hero" card.
+  - Updated 2026-01-07: Tightened vertical spacing, removed the divider above Available/MAX,
+    simplified the conversion info to always show the rate (no collapsible details), and
+    compacted the conversion card spacing.
+  - Updated 2026-01-07: Renamed "Route" to "Conversion route" and replaced the estimate
+    loading spinner/text with skeleton placeholders to prevent layout jitter while recalculating.
+  - Updated 2026-01-09: Rate display now truncates to 8 decimals and trims trailing zeros
+    (for the main conversion "Rate" line). Very small values show as 0.
+  - Updated 2026-01-09: Pass target fullyqualifiedname (FQN) into the conversion route sheet
+    for clearer labeling.
+  - Updated 2026-01-09: Removed redundant over-balance helper text and kept the MAX button
+    styling consistent (no error color) when amount exceeds balance.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TextInput as RNTextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { formatCurrency } from 'react-native-format-currency';
+import { useSelector } from 'react-redux';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
 import { useSendWizard } from './SendWizardContext';
@@ -36,12 +59,56 @@ import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import GradientButton from '../../components/GradientButton';
 import { getNetworkDisplayName } from './sendWizardDisplayInfo';
 import { getWeb3ProviderForNetwork } from '../../utils/web3/provider';
+import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { GENERAL, WYRE_SERVICE } from '../../utils/constants/intervalConstants';
+import { USD } from '../../utils/constants/currencies';
+
+const trimTrailingZeros = (valueStr) => {
+  if (typeof valueStr !== 'string') return valueStr;
+  // Remove trailing zeros in decimals, then remove a trailing '.' if present.
+  return valueStr.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '').replace(/\.$/, '');
+};
+
+const formatTruncatedRate = (rateBnOrValue, decimals = 8) => {
+  try {
+    const bn = BigNumber(rateBnOrValue);
+    if (!bn.isFinite() || bn.isNaN()) return null;
+
+    const truncated = bn.decimalPlaces(decimals, BigNumber.ROUND_DOWN);
+    const fixed = truncated.toFixed(decimals); // avoid scientific notation
+    const trimmed = trimTrailingZeros(fixed);
+
+    // Normalise "-0" edge cases to "0"
+    return trimmed === '-0' ? '0' : trimmed;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getPriceBasedEstimate = (amountBn, price) => {
+  if (!amountBn || amountBn.isNaN() || amountBn.isLessThanOrEqualTo(0)) return null;
+  if (price == null) return null;
+  const priceBn = BigNumber(price);
+  if (priceBn.isNaN() || priceBn.isLessThanOrEqualTo(0)) return null;
+  const out = amountBn.multipliedBy(priceBn);
+  return {
+    estimate: {
+      estimatedcurrencyout: out.toString(),
+      precomputed: true,
+      price: priceBn.toString(),
+    },
+    output: out.toString(),
+  };
+};
 
 const SendWizardAmount = () => {
   const navigation = useNavigation();
   const { state, setAmount, setVia, setEstimate, setStep } = useSendWizard();
   const {
     sourceCoin,
+    amount: storedAmount,
+    amountInputValue: storedAmountInputValue,
+    amountFiat: storedAmountFiat,
     sourceBalance,
     targetCurrency,
     exportTo,
@@ -52,10 +119,23 @@ const SendWizardAmount = () => {
     estimate,
     isBounceback,
     ethDisplayInfo,
+    targetDisplayName,
+    targetDisplayTicker,
+    convertToFqn,
   } = state;
 
   const inputRef = useRef(null);
-  const [inputValue, setInputValue] = useState('');
+  const [amountFiat, setAmountFiat] = useState(Boolean(storedAmountFiat));
+  // Canonical crypto amount (single source of truth for sats/estimates/MAX). Display/edit can be fiat or crypto.
+  const [cryptoAmountValue, setCryptoAmountValue] = useState(() => {
+    if (storedAmount && String(storedAmount).trim() !== '') return String(storedAmount);
+    return '';
+  });
+  const [inputValue, setInputValue] = useState(() => {
+    if (storedAmountInputValue && String(storedAmountInputValue).trim() !== '') return String(storedAmountInputValue);
+    if (!storedAmountFiat && storedAmount && String(storedAmount).trim() !== '') return String(storedAmount);
+    return '';
+  });
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateError, setEstimateError] = useState(null);
   const [viaSheetVisible, setViaSheetVisible] = useState(false);
@@ -85,22 +165,71 @@ const SendWizardAmount = () => {
     });
   }, [navigation]);
 
-  // Parse amount and validate
-  const parsedAmount = useMemo(() => {
-    if (!inputValue || inputValue.trim() === '') return null;
+  const displayCurrency = useSelector(
+    (s) => s.settings.generalWalletSettings.displayCurrency || USD,
+  );
+  const rates = useObjectSelector((s) => s.ledger.rates);
+
+  const getRate = useCallback(
+    (coinId) => {
+      if (!coinId) return null;
+      return rates?.[WYRE_SERVICE]?.[coinId]?.[displayCurrency] != null
+        ? rates[WYRE_SERVICE][coinId][displayCurrency]
+        : rates?.[GENERAL]?.[coinId]?.[displayCurrency] != null
+          ? rates[GENERAL][coinId][displayCurrency]
+          : null;
+    },
+    [rates, displayCurrency],
+  );
+
+  const sourceRateBn = useMemo(() => {
+    const r = sourceCoin?.id ? getRate(sourceCoin.id) : null;
+    if (r == null) return null;
     try {
-      const bn = BigNumber(inputValue);
+      const bn = BigNumber(r);
+      if (bn.isNaN() || !bn.isFinite() || bn.isLessThanOrEqualTo(0)) return null;
+      return bn;
+    } catch (e) {
+      return null;
+    }
+  }, [getRate, sourceCoin]);
+
+  const fiatSymbol = useMemo(() => {
+    try {
+      const [formatted] = formatCurrency({ amount: '0', code: displayCurrency });
+      const symbol = String(formatted).replace(/[0-9\s.,-]/g, '');
+      return symbol || displayCurrency;
+    } catch (e) {
+      return displayCurrency;
+    }
+  }, [displayCurrency]);
+
+  const formatFiat = useCallback(
+    (fiatBn) => {
+      if (!fiatBn || fiatBn.isNaN() || !fiatBn.isFinite()) return null;
+      const rounded = fiatBn.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+      const [formatted] = formatCurrency({ amount: rounded.toFixed(2), code: displayCurrency });
+      return formatted;
+    },
+    [displayCurrency],
+  );
+
+  // Parse the raw input value (either crypto or fiat depending on amountFiat)
+  const cryptoAmountBnForSats = useMemo(() => {
+    if (!cryptoAmountValue || String(cryptoAmountValue).trim() === '') return null;
+    try {
+      const bn = BigNumber(cryptoAmountValue).decimalPlaces(8, BigNumber.ROUND_DOWN);
       if (bn.isNaN() || bn.isLessThanOrEqualTo(0)) return null;
       return bn;
     } catch (e) {
       return null;
     }
-  }, [inputValue]);
+  }, [cryptoAmountValue]);
 
   const amountSats = useMemo(() => {
-    if (!parsedAmount) return null;
-    return coinsToSats(parsedAmount).toString();
-  }, [parsedAmount]);
+    if (!cryptoAmountBnForSats) return null;
+    return coinsToSats(cryptoAmountBnForSats).toString();
+  }, [cryptoAmountBnForSats]);
 
   const balanceBn = useMemo(() => {
     if (sourceBalance == null) return BigNumber(0);
@@ -108,13 +237,13 @@ const SendWizardAmount = () => {
   }, [sourceBalance]);
 
   const isOverBalance = useMemo(() => {
-    if (!parsedAmount) return false;
-    return parsedAmount.isGreaterThan(balanceBn);
-  }, [parsedAmount, balanceBn]);
+    if (!cryptoAmountBnForSats) return false;
+    return cryptoAmountBnForSats.isGreaterThan(balanceBn);
+  }, [cryptoAmountBnForSats, balanceBn]);
 
   const isValidAmount = useMemo(() => {
-    return parsedAmount != null && !isOverBalance;
-  }, [parsedAmount, isOverBalance]);
+    return cryptoAmountBnForSats != null && !isOverBalance;
+  }, [cryptoAmountBnForSats, isOverBalance]);
 
   // Check if source is ETH/ERC20 - these use precomputed prices instead of API calls
   const isEthSource = useMemo(() => {
@@ -128,7 +257,7 @@ const SendWizardAmount = () => {
   // For direct conversions (no via needed), fetch estimate without via
   useEffect(() => {
     const fetchAllEstimates = async () => {
-      if (!isConversion || !parsedAmount || !targetCurrency || !sourceCoin) {
+      if (!isConversion || !cryptoAmountBnForSats || !targetCurrency || !sourceCoin) {
         setEstimate(null);
         setViaEstimates({});
         return;
@@ -137,7 +266,7 @@ const SendWizardAmount = () => {
       setEstimateLoading(true);
       setEstimateError(null);
 
-      const amount = parsedAmount.toNumber();
+      const amount = cryptoAmountBnForSats.toNumber();
 
       // Filter to get valid via options (exclude 'direct')
       const validViaOptions = (viaOptions || []).filter(
@@ -159,7 +288,7 @@ const SendWizardAmount = () => {
           if (opt.price && opt.price > 0) {
             // Calculate estimated output using precomputed price
             // price = output/input, so output = input * price
-            const estimatedOutput = BigNumber(amount).multipliedBy(opt.price);
+            const estimatedOutput = cryptoAmountBnForSats.multipliedBy(opt.price);
             
             newEstimates[opt.id] = {
               estimate: {
@@ -179,7 +308,7 @@ const SendWizardAmount = () => {
         // Also check for direct options (which might be the only option)
         const directOption = allOptions.find(opt => opt.isDirect && opt.price && opt.price > 0);
         if (directOption) {
-          const estimatedOutput = BigNumber(amount).multipliedBy(directOption.price);
+          const estimatedOutput = cryptoAmountBnForSats.multipliedBy(directOption.price);
           
           // If direct is better than any via, use it
           if (estimatedOutput.isGreaterThan(bestOutput)) {
@@ -201,7 +330,7 @@ const SendWizardAmount = () => {
           setEstimate(newEstimates[bestVia].estimate);
         } else if (directOption) {
           // Fall back to direct option if no via was better
-          const estimatedOutput = BigNumber(amount).multipliedBy(directOption.price);
+          const estimatedOutput = cryptoAmountBnForSats.multipliedBy(directOption.price);
           setEstimate({
             estimatedcurrencyout: estimatedOutput.toString(),
             precomputed: true,
@@ -232,15 +361,35 @@ const SendWizardAmount = () => {
           );
 
           if (result.error) {
-            setEstimateError(result.error.message || 'Estimate failed');
-            setEstimate(null);
+            // Fallback: use direct path.price if available (matches legacy send modal behavior)
+            const directOpt = (viaOptions || []).find(opt => opt?.isDirect || opt?.id === 'direct');
+            const fallback = directOpt ? getPriceBasedEstimate(cryptoAmountBnForSats, directOpt.price) : null;
+            if (fallback?.estimate) {
+              setEstimate(fallback.estimate);
+              setVia(null);
+              setViaEstimates(directOpt?.id ? { [directOpt.id]: fallback } : {});
+              setEstimateError(null);
+            } else {
+              setEstimateError(result.error.message || 'Estimate failed');
+              setEstimate(null);
+            }
           } else if (result.result) {
             setEstimate(result.result);
             setVia(null); // Direct conversion, no via
           }
         } catch (e) {
-          console.warn('Direct estimate error:', e);
-          setEstimateError(e.message || 'Failed to get estimate');
+          // Fallback: use direct path.price if available
+          const directOpt = (viaOptions || []).find(opt => opt?.isDirect || opt?.id === 'direct');
+          const fallback = directOpt ? getPriceBasedEstimate(cryptoAmountBnForSats, directOpt.price) : null;
+          if (fallback?.estimate) {
+            setEstimate(fallback.estimate);
+            setVia(null);
+            setViaEstimates(directOpt?.id ? { [directOpt.id]: fallback } : {});
+            setEstimateError(null);
+          } else {
+            console.warn('Direct estimate error:', e);
+            setEstimateError(e.message || 'Failed to get estimate');
+          }
         }
         setEstimateLoading(false);
         return;
@@ -311,10 +460,53 @@ const SendWizardAmount = () => {
               setEstimate(directResult.result);
               setVia(null);
             } else {
-              setEstimateError('Could not estimate conversion');
+              throw new Error(directResult?.error?.message || 'Could not estimate conversion');
             }
           } catch (e) {
-            setEstimateError('Could not estimate conversion for any route');
+            // Fallback: use path.price from viaOptions (legacy-style estimate)
+            const fallbackEstimates = {};
+            let bestFallbackVia = null;
+            let bestFallbackOutput = BigNumber(0);
+
+            // Include non-direct options
+            for (const opt of validViaOptions) {
+              const fallback = getPriceBasedEstimate(cryptoAmountBnForSats, opt.price);
+              if (fallback) {
+                fallbackEstimates[opt.id] = fallback;
+                const out = BigNumber(fallback.output || 0);
+                if (out.isGreaterThan(bestFallbackOutput)) {
+                  bestFallbackOutput = out;
+                  bestFallbackVia = opt.id;
+                }
+              }
+            }
+
+            // Include direct option (if present)
+            const directOpt = (viaOptions || []).find(opt => opt?.isDirect || opt?.id === 'direct');
+            const directFallback = directOpt ? getPriceBasedEstimate(cryptoAmountBnForSats, directOpt.price) : null;
+            if (directOpt && directFallback) {
+              fallbackEstimates[directOpt.id] = directFallback;
+              const out = BigNumber(directFallback.output || 0);
+              if (out.isGreaterThan(bestFallbackOutput)) {
+                bestFallbackOutput = out;
+                bestFallbackVia = null; // direct route
+              }
+            }
+
+            const hasFallback = Object.keys(fallbackEstimates).length > 0 && bestFallbackOutput.isGreaterThan(0);
+            if (hasFallback) {
+              setViaEstimates(fallbackEstimates);
+              if (bestFallbackVia) {
+                setVia(bestFallbackVia);
+                setEstimate(fallbackEstimates[bestFallbackVia].estimate);
+              } else if (directFallback?.estimate) {
+                setVia(null);
+                setEstimate(directFallback.estimate);
+              }
+              setEstimateError(null);
+            } else {
+              setEstimateError(e.message || 'Could not estimate conversion for any route');
+            }
           }
         }
       } catch (e) {
@@ -328,7 +520,7 @@ const SendWizardAmount = () => {
     // Debounce the estimate calls
     const timer = setTimeout(fetchAllEstimates, 500);
     return () => clearTimeout(timer);
-  }, [parsedAmount, targetCurrency, viaOptions, isConversion, sourceCoin, isEthSource, setVia, setEstimate]);
+  }, [cryptoAmountBnForSats, targetCurrency, viaOptions, isConversion, sourceCoin, isEthSource, setVia, setEstimate]);
 
   // Update estimate when user manually changes via selection
   useEffect(() => {
@@ -339,30 +531,93 @@ const SendWizardAmount = () => {
 
   const handleMaxPress = useCallback(() => {
     if (balanceBn.isGreaterThan(0)) {
-      // For ETH/ERC20, cap MAX to 8 decimals (round down to avoid sending more than available)
+      // MAX is always based on the crypto balance (even when displaying fiat)
       const sourceProto = sourceCoin?.proto;
+      let maxCrypto;
       if (sourceProto === 'eth' || sourceProto === 'erc20') {
-        setInputValue(balanceBn.decimalPlaces(8, BigNumber.ROUND_DOWN).toString());
+        maxCrypto = balanceBn.decimalPlaces(8, BigNumber.ROUND_DOWN).toString();
       } else {
-        setInputValue(balanceBn.toString());
+        maxCrypto = balanceBn.toString();
+      }
+
+      setCryptoAmountValue(maxCrypto);
+
+      if (amountFiat) {
+        if (!sourceRateBn) return;
+        const fiat = BigNumber(maxCrypto).multipliedBy(sourceRateBn).decimalPlaces(2, BigNumber.ROUND_DOWN);
+        setInputValue(fiat.toString());
+      } else {
+        setInputValue(maxCrypto);
       }
     }
-  }, [balanceBn, sourceCoin]);
+  }, [balanceBn, sourceCoin, amountFiat, sourceRateBn]);
 
   // Handle input change and normalize comma to dot for decimal separator
   const handleInputChange = useCallback((text) => {
     // Replace comma with dot to support locale-specific keyboards
     const normalizedText = text.replace(/,/g, '.');
     setInputValue(normalizedText);
-  }, []);
+
+    // Update canonical crypto amount based on the active input mode.
+    // IMPORTANT: The canonical amount should only change on user edits, not on mode toggles,
+    // to avoid precision loss when switching between fiat and crypto.
+    if (!normalizedText || normalizedText.trim() === '') {
+      setCryptoAmountValue('');
+      return;
+    }
+
+    try {
+      const inputBn = BigNumber(normalizedText);
+      if (inputBn.isNaN() || !inputBn.isFinite() || inputBn.isLessThanOrEqualTo(0)) {
+        setCryptoAmountValue('');
+        return;
+      }
+
+      if (amountFiat) {
+        if (!sourceRateBn) {
+          setCryptoAmountValue('');
+          return;
+        }
+        const crypto = inputBn.dividedBy(sourceRateBn).decimalPlaces(8, BigNumber.ROUND_DOWN);
+        setCryptoAmountValue(crypto.toString());
+      } else {
+        const crypto = inputBn.decimalPlaces(8, BigNumber.ROUND_DOWN);
+        setCryptoAmountValue(crypto.toString());
+      }
+    } catch (e) {
+      setCryptoAmountValue('');
+    }
+  }, [amountFiat, sourceRateBn]);
+
+  const handleToggleAmountMode = useCallback(() => {
+    const nextFiat = !amountFiat;
+
+    // Switching to fiat requires a rate to render a meaningful editable value.
+    if (nextFiat && !sourceRateBn) return;
+
+    // Do NOT mutate canonical crypto amount when toggling. Only update the displayed input value.
+    if (!cryptoAmountBnForSats) {
+      setAmountFiat(nextFiat);
+      return;
+    }
+
+    if (nextFiat) {
+      const fiat = cryptoAmountBnForSats.multipliedBy(sourceRateBn).decimalPlaces(2, BigNumber.ROUND_DOWN);
+      setInputValue(fiat.toString());
+    } else {
+      setInputValue(cryptoAmountBnForSats.toString());
+    }
+
+    setAmountFiat(nextFiat);
+  }, [amountFiat, sourceRateBn, cryptoAmountBnForSats]);
 
   const handleContinue = useCallback(() => {
     if (!isValidAmount) return;
 
-    setAmount(inputValue, amountSats);
+    setAmount(cryptoAmountBnForSats.toString(), amountSats, inputValue, amountFiat);
     setStep(4);
     navigation.navigate('SendWizardRecipient');
-  }, [isValidAmount, inputValue, amountSats, setAmount, setStep, navigation]);
+  }, [isValidAmount, cryptoAmountBnForSats, amountSats, inputValue, amountFiat, setAmount, setStep, navigation]);
 
   const handleViaSelect = useCallback(
     (selectedVia) => {
@@ -394,12 +649,18 @@ const SendWizardAmount = () => {
       };
     }
     
+    let coin = null;
     try {
-      const coin = CoinDirectory.findCoinObj(targetCurrency);
-      if (coin) return { name: coin.display_name, ticker: coin.display_ticker, coinId: coin.id };
+      coin = CoinDirectory.findCoinObj(targetCurrency);
     } catch (e) {}
-    return { name: targetCurrency, ticker: targetCurrency, coinId: null };
-  }, [targetCurrency, isBounceback, ethDisplayInfo]);
+
+    // Prefer the display labels captured from conversion paths (never show raw i-addresses)
+    const name = targetDisplayName || coin?.display_name || targetCurrency;
+    const ticker = targetDisplayTicker || coin?.display_ticker || targetCurrency;
+    const coinId = coin?.id || null;
+
+    return { name, ticker, coinId };
+  }, [targetCurrency, isBounceback, ethDisplayInfo, targetDisplayName, targetDisplayTicker]);
 
   // Get source and destination chain names for subtitle
   // Handles native ETH/ERC20 coins and Verus-based chains separately
@@ -461,21 +722,65 @@ const SendWizardAmount = () => {
   }, [via, viaOptions]);
 
   // Format estimate output and calculate rate
-  const { estimateDisplay, rateDisplay } = useMemo(() => {
+  const { estimateDisplay, rateDisplay, outputFiatDisplay } = useMemo(() => {
     if (!estimate || !estimate.estimatedcurrencyout) {
-      return { estimateDisplay: null, rateDisplay: null };
+      return { estimateDisplay: null, rateDisplay: null, outputFiatDisplay: null };
     }
     const outAmount = BigNumber(estimate.estimatedcurrencyout);
     const formattedOutput = outAmount.decimalPlaces(8).toString();
     
     // Calculate rate from input/output amounts
     let rate = null;
-    if (parsedAmount && parsedAmount.isGreaterThan(0) && outAmount.isGreaterThan(0)) {
-      rate = outAmount.dividedBy(parsedAmount).decimalPlaces(6).toString();
+    if (cryptoAmountBnForSats && cryptoAmountBnForSats.isGreaterThan(0) && outAmount.isGreaterThan(0)) {
+      rate = formatTruncatedRate(outAmount.dividedBy(cryptoAmountBnForSats), 8);
     }
+
+    // Output fiat when possible
+    let outputFiat = null;
+    try {
+      const coinIdForRate = targetCurrencyInfo?.coinId;
+      const r = coinIdForRate ? getRate(coinIdForRate) : null;
+      const rateBn = r != null ? BigNumber(r) : null;
+      if (rateBn && !rateBn.isNaN() && rateBn.isFinite() && rateBn.isGreaterThan(0)) {
+        outputFiat = formatFiat(outAmount.multipliedBy(rateBn));
+      }
+    } catch (e) {}
     
-    return { estimateDisplay: formattedOutput, rateDisplay: rate };
-  }, [estimate, parsedAmount]);
+    return { estimateDisplay: formattedOutput, rateDisplay: rate, outputFiatDisplay: outputFiat };
+  }, [estimate, cryptoAmountBnForSats, targetCurrencyInfo, getRate, formatFiat]);
+
+  const showEstimateSkeleton = useMemo(() => {
+    if (!isConversion) return false;
+    if (!cryptoAmountBnForSats) return false; // no amount yet
+    if (estimateError) return false;
+    // Show skeleton while recalculating (including debounce window) and avoid showing stale estimates.
+    return estimateLoading || !estimateDisplay;
+  }, [isConversion, cryptoAmountBnForSats, estimateError, estimateLoading, estimateDisplay]);
+
+  const inputSecondaryDisplay = useMemo(() => {
+    if (amountFiat) {
+      if (!sourceRateBn) return 'Rate unavailable';
+      if (!cryptoAmountBnForSats) return `≈ — ${sourceCoin?.display_ticker || ''}`.trim();
+      return `≈ ${cryptoAmountBnForSats.toString()} ${sourceCoin?.display_ticker || ''}`.trim();
+    }
+
+    // crypto input -> fiat preview
+    if (!sourceRateBn) return 'Fiat unavailable';
+    if (!cryptoAmountBnForSats) return `≈ ${fiatSymbol}—`;
+    const fiat = formatFiat(cryptoAmountBnForSats.multipliedBy(sourceRateBn));
+    return fiat ? `≈ ${fiat}` : `≈ ${fiatSymbol}—`;
+  }, [amountFiat, cryptoAmountBnForSats, sourceCoin, sourceRateBn, formatFiat, fiatSymbol]);
+
+  const canToggleAmountMode = useMemo(() => {
+    // Switching to fiat requires a rate; switching back to crypto does not.
+    return amountFiat ? true : Boolean(sourceRateBn);
+  }, [amountFiat, sourceRateBn]);
+
+  const availableFiatDisplay = useMemo(() => {
+    if (!sourceRateBn) return null;
+    const fiat = formatFiat(balanceBn.multipliedBy(sourceRateBn));
+    return fiat ? `≈ ${fiat}` : null;
+  }, [balanceBn, sourceRateBn, formatFiat]);
 
   // Build the subtitle text with chain info
   const subtitleText = useMemo(() => {
@@ -483,7 +788,7 @@ const SendWizardAmount = () => {
       if (chainInfo.isSameChain) {
         return `Convert ${sourceCoin?.display_ticker} → ${targetCurrencyInfo.ticker} on ${chainInfo.sourceChain}`;
       } else {
-        return `Convert ${sourceCoin?.display_ticker} → ${targetCurrencyInfo.ticker} to ${chainInfo.destChain}`;
+        return `Convert ${sourceCoin?.display_ticker} → ${targetCurrencyInfo.ticker} on ${chainInfo.destChain}`;
       }
     } else {
       if (chainInfo.isSameChain) {
@@ -511,68 +816,106 @@ const SendWizardAmount = () => {
       {/* Main content area */}
       <View style={styles.contentArea}>
         <View style={{ paddingHorizontal: 16 }}>
-          <Text style={styles.mainTitle}>Enter amount</Text>
-          <Text style={styles.subtitle}>{subtitleText}</Text>
+          <Text style={styles.contextLine}>{subtitleText}</Text>
 
-          {/* Amount Input */}
-          <View style={styles.inputContainer}>
-            <View style={styles.inputRow}>
+          {/* Amount Hero */}
+          <View style={styles.amountCard}>
+            <View style={styles.amountRow}>
+              {amountFiat && (
+                <Text style={styles.amountHeroPrefix}>
+                  {fiatSymbol}
+                </Text>
+              )}
               <RNTextInput
                 ref={inputRef}
                 value={inputValue}
                 onChangeText={handleInputChange}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="0.00"
-                placeholderTextColor="#999"
+                placeholder="0"
+                placeholderTextColor="#A0A0A0"
                 keyboardType="decimal-pad"
                 autoCorrect={false}
                 style={[
-                  styles.amountInput,
-                  inputFocused && styles.amountInputFocused,
-                  isOverBalance && styles.amountInputError,
+                  styles.amountHeroInput,
+                  inputFocused && styles.amountHeroInputFocused,
+                  isOverBalance && styles.amountHeroInputError,
                 ]}
               />
-              <Text style={styles.tickerLabel}>{sourceCoin.display_ticker}</Text>
             </View>
+
+            <TouchableOpacity
+              onPress={handleToggleAmountMode}
+              activeOpacity={0.7}
+              disabled={!canToggleAmountMode}
+              style={[
+                styles.secondaryDisplayContainer,
+                !canToggleAmountMode && { opacity: 0.55 },
+              ]}
+            >
+              <View style={styles.secondaryChip}>
+                <Text style={styles.amountSecondaryText}>{inputSecondaryDisplay}</Text>
+                <MaterialCommunityIcons
+                  name="swap-vertical"
+                  size={16}
+                  color={canToggleAmountMode ? '#666' : '#BDBDBD'}
+                  style={{ marginLeft: 6 }}
+                />
+              </View>
+            </TouchableOpacity>
 
             <View style={styles.balanceRow}>
               <Text style={[styles.balanceLabel, isOverBalance && styles.balanceLabelError]}>
                 Available: {balanceBn.decimalPlaces(4).toString()} {sourceCoin.display_ticker}
+                {availableFiatDisplay ? ` (${availableFiatDisplay})` : ''}
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleMaxPress}
-                style={[styles.maxButton, isOverBalance && styles.maxButtonError]}
-                activeOpacity={0.7}
+                style={styles.maxButton}
+                activeOpacity={0.6}
               >
-                <Text style={[styles.maxButtonText, isOverBalance && styles.maxButtonTextError]}>
+                <Text style={styles.maxButtonText}>
                   MAX
                 </Text>
               </TouchableOpacity>
             </View>
-
-            {isOverBalance && (
-              <Text style={styles.errorText}>Amount exceeds available balance</Text>
-            )}
           </View>
 
           {/* Conversion Estimate - compact version */}
           {isConversion && (
             <View style={styles.estimateContainer}>
-              {estimateLoading ? (
-                <View style={styles.estimateRowCompact}>
-                  <ActivityIndicator size="small" color={Colors.primaryColor} />
-                  <Text style={styles.estimateLoading}>Calculating...</Text>
-                </View>
+              {showEstimateSkeleton ? (
+                <>
+                  <Text style={styles.estimateLabel}>You receive</Text>
+                  <View style={styles.estimateRowCompact}>
+                    <View style={styles.skeletonIcon} />
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.skeletonLineLarge} />
+                      <View style={styles.skeletonLineSmall} />
+                    </View>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.viaSingleRow}>
+                    <Text style={styles.viaSingleLabel}>Conversion route</Text>
+                    <View style={styles.skeletonLineRight} />
+                  </View>
+                  <View style={styles.viaSingleRow}>
+                    <Text style={styles.viaSingleLabel}>Rate</Text>
+                    <View style={styles.skeletonLineRightWide} />
+                  </View>
+                </>
               ) : estimateError ? (
                 <Text style={styles.estimateError}>{estimateError}</Text>
               ) : estimateDisplay ? (
                 <>
+                  <Text style={styles.estimateLabel}>You receive</Text>
                   {/* Estimate output row */}
                   <View style={styles.estimateRowCompact}>
                     {targetCurrencyInfo.coinId && (
                       <View style={{ marginRight: 10 }}>
-                        {RenderSquareCoinLogo(targetCurrencyInfo.coinId, {}, 28, 28)}
+                        {RenderSquareCoinLogo(targetCurrencyInfo.coinId, {}, 24, 24)}
                       </View>
                     )}
                     <View style={{ flex: 1 }}>
@@ -584,37 +927,46 @@ const SendWizardAmount = () => {
                           {targetCurrencyInfo.ticker}
                         </Text>
                       </View>
-                      {rateDisplay && (
-                        <Text style={styles.estimateRateCompact}>
-                          1 {sourceCoin.display_ticker} = {rateDisplay} {targetCurrencyInfo.ticker}
+                      {outputFiatDisplay && (
+                        <Text style={styles.estimateFiatCompact}>
+                          ≈ {outputFiatDisplay}
                         </Text>
                       )}
                     </View>
                   </View>
-                  {/* Via selector on separate row */}
-                  {via && viaOptions && viaOptions.length > 1 && (
+
+                  <View style={styles.divider} />
+
+                  {/* Minimal route row (tappable only when a non-direct route is selected and alternatives exist) */}
+                  {via && viaOptions && viaOptions.length > 1 ? (
                     <TouchableOpacity
                       style={styles.viaSelectorRow}
                       onPress={() => setViaSheetVisible(true)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.viaLabelRow}>Route via</Text>
+                      <Text style={styles.viaLabelRow}>Conversion route</Text>
                       <View style={styles.viaValueRow}>
                         <Text style={styles.viaValueText}>{currentViaDisplayName}</Text>
                         <Text style={styles.viaChevronRow}>›</Text>
                       </View>
                     </TouchableOpacity>
-                  )}
-                  {/* Via route display for single option */}
-                  {via && viaOptions && viaOptions.length === 1 && (
+                  ) : (
                     <View style={styles.viaSingleRow}>
-                      <Text style={styles.viaSingleLabel}>Route via</Text>
-                      <Text style={styles.viaSingleValue}>{currentViaDisplayName}</Text>
+                      <Text style={styles.viaSingleLabel}>Conversion route</Text>
+                      <Text style={styles.viaSingleValue}>{currentViaDisplayName || 'Direct'}</Text>
                     </View>
                   )}
+
+                  {/* Rate (always visible when available) */}
+                  {rateDisplay ? (
+                    <View style={styles.viaSingleRow}>
+                      <Text style={styles.viaSingleLabel}>Rate</Text>
+                      <Text style={styles.viaSingleValue}>
+                        1 {sourceCoin.display_ticker} = {rateDisplay} {targetCurrencyInfo.ticker}
+                      </Text>
+                    </View>
+                  ) : null}
                 </>
-              ) : parsedAmount ? (
-                <Text style={styles.estimateEmpty}>Calculating estimate...</Text>
               ) : (
                 <Text style={styles.estimateEmpty}>Enter amount to see estimate</Text>
               )}
@@ -642,8 +994,7 @@ const SendWizardAmount = () => {
           viaEstimates={viaEstimates}
           currentVia={via}
           targetTicker={targetCurrencyInfo.ticker}
-          sourceTicker={sourceCoin?.display_ticker}
-          inputAmount={parsedAmount?.toString()}
+          targetFqn={convertToFqn || targetCurrencyInfo.ticker}
           onClose={() => setViaSheetVisible(false)}
           onSelect={handleViaSelect}
         />
@@ -665,58 +1016,78 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 8,
   },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'black',
-    marginBottom: 4,
-    marginTop: 8,
-  },
-  subtitle: {
+  contextLine: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 24,
+    marginBottom: 8,
+    marginTop: 8,
     lineHeight: 20,
   },
-  inputContainer: {
-    marginBottom: 20,
+  amountCard: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    marginBottom: 8,
+    alignItems: 'center', // Center content
+    marginTop: 8,
   },
-  inputRow: {
+  amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
-  amountInput: {
-    flex: 1,
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
-    fontSize: 24,
-    fontWeight: '600',
+  amountHeroInput: {
+    fontSize: 40,
+    fontWeight: '700',
     color: '#1A1A1A',
-    backgroundColor: '#F5F5F5',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
+    textAlign: 'center',
+    minWidth: 40,
   },
-  amountInputFocused: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: '#FFFFFF',
+  amountHeroPrefix: {
+    fontSize: 40,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginRight: 2,
   },
-  amountInputError: {
-    borderColor: '#FF4444',
-    backgroundColor: '#FFF8F8',
+  amountHeroInputFocused: {
+    color: '#0F172A',
   },
-  tickerLabel: {
-    fontSize: 18,
+  amountHeroInputError: {
+    color: '#E53935',
+  },
+  secondaryDisplayContainer: {
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  secondaryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F1F4',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
+  },
+  amountSecondaryText: {
+    fontSize: 14,
+    color: '#5F6A7A',
     fontWeight: '600',
-    color: '#666',
-    marginLeft: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    width: '100%',
+    marginVertical: 6,
   },
   balanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    width: '100%',
     paddingHorizontal: 4,
+    marginBottom: 8,
   },
   balanceLabel: {
     fontSize: 13,
@@ -725,48 +1096,60 @@ const styles = StyleSheet.create({
   balanceLabelError: {
     color: '#FF4444',
   },
-  // MAX button styled like ValuOffRamp
+  // MAX button styled as outlined
   maxButton: {
-    backgroundColor: Colors.primaryColor,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    backgroundColor: 'transparent',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.primaryColor,
   },
   maxButtonError: {
-    backgroundColor: '#FF4444',
+    borderColor: '#FF4444',
   },
   maxButtonText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: Colors.secondaryColor,
+    fontWeight: '700',
+    color: Colors.primaryColor,
     letterSpacing: 0.5,
   },
   maxButtonTextError: {
-    color: 'white',
+    color: '#FF4444',
   },
   errorText: {
     fontSize: 13,
     color: '#FF4444',
     marginTop: 8,
     paddingHorizontal: 4,
+    textAlign: 'center',
   },
   // Compact estimate container
   estimateContainer: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#E3E6EC',
+    padding: 10,
+    marginBottom: 10,
   },
   estimateRowCompact: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  estimateLabel: {
+    fontSize: 12,
+    color: '#667085',
+    fontWeight: '700',
+    marginBottom: 6,
   },
   estimateMainRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
   estimateAmountCompact: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1A1A1A',
   },
@@ -776,33 +1159,50 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 6,
   },
-  estimateRateCompact: {
-    fontSize: 12,
+  estimateFiatCompact: {
+    fontSize: 13,
     color: '#888',
     marginTop: 2,
   },
-  estimateLoading: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
+  // Skeleton blocks (match Valu service skeleton style: static grey blocks, no layout jump)
+  skeletonIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+    marginRight: 10,
   },
-  estimateError: {
-    fontSize: 14,
-    color: '#FF4444',
+  skeletonLineLarge: {
+    height: 18,
+    width: '65%',
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+    marginBottom: 6,
   },
-  estimateEmpty: {
-    fontSize: 14,
-    color: '#999',
+  skeletonLineSmall: {
+    height: 12,
+    width: '40%',
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+  },
+  skeletonLineRight: {
+    height: 12,
+    width: 96,
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
+  },
+  skeletonLineRightWide: {
+    height: 12,
+    width: 160,
+    borderRadius: 6,
+    backgroundColor: '#E8E8E8',
   },
   // Via selector on separate row (tappable, multiple options)
   viaSelectorRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
+    marginTop: 6,
   },
   viaLabelRow: {
     fontSize: 13,
@@ -827,10 +1227,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
+    marginTop: 6,
   },
   viaSingleLabel: {
     fontSize: 13,

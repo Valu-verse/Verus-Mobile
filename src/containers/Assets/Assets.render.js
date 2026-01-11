@@ -5,6 +5,7 @@
   - Align coin name with fiat balance, widen spacing before crypto amount, and show 4 decimal places
   - Round fiat balances to two decimals before formatting to match coin overview screens
   - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
+  - 2026-01-09: Allow passing onScroll through to FlatList (used for Wallet sticky-header divider).
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
@@ -71,6 +72,8 @@ const ListView = ({
   onRefresh = () => {},
   showManageAssets = true,
   emptyComponent,
+  onScroll,
+  scrollEventThrottle = 16,
 }) => {
   const headerContent = () => (
     <View>
@@ -104,6 +107,8 @@ const ListView = ({
         refreshing={refreshing}
         onRefresh={onRefresh}
         contentContainerStyle={styles.listContent}
+        onScroll={onScroll}
+        scrollEventThrottle={scrollEventThrottle}
       />
     </View>
   );

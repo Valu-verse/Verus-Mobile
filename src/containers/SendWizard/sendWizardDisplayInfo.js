@@ -314,9 +314,7 @@ const CANONICAL_ASSET_MAP = {
   // Bridge.vETH
   'i3f7tSctFkiPpiedY8QR5Tep9p4qDVebDx': 'BRIDGE',
   '0xE6052Dcc60573561ECef2D9A4C0FEA6d3aC5B9A2': 'BRIDGE',
-};
-
-/**
+};/**
  * Get the canonical asset key for grouping related currencies
  * This maps different representations of the same asset (e.g., DAI on Ethereum vs DAI.vETH on Verus)
  * to a single key so they can be grouped together in the UI.
@@ -386,4 +384,3 @@ export const getCanonicalAssetDisplayInfo = (canonicalKey) => {
   
   return displayMap[canonicalKey] || { name: canonicalKey, ticker: canonicalKey };
 };
-

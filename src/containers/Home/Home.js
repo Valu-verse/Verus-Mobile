@@ -5,6 +5,8 @@
   - Removed widgets (moved to Services).
   - 2025-11-22: Removed legacy drawer close call (bottom tabs own settings).
   - 2025-12-11: Updated openCoin to navigate within wallet stack to preserve tab bar.
+  - 2026-01-09: Removed the in-wallet Crypto/Identities category toggle; Wallet now
+    always shows Crypto assets (Identity lives in its own bottom tab).
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -76,7 +78,6 @@ const Home = () => {
   );
   const showBalance = useSelector((state) => state.coins.showBalance);
 
-  const [activeCategory, setActiveCategory] = useState('crypto');
   const [loading, setLoading] = useState(false);
   const [displayCurrencyModalOpen, setDisplayCurrencyModalOpen] = useState(false);
   const [buySellSheetVisible, setBuySellSheetVisible] = useState(false);
@@ -312,11 +313,7 @@ const Home = () => {
       handleTransferSendConvert={_handleTransferSendConvert}
       forceUpdate={forceUpdate}
       loading={loading}
-      activeCategory={activeCategory}
-      setActiveCategory={setActiveCategory}
       assets={cryptoAssets}
-      identities={[]}
-      identitiesPlaceholder="You don't have any identities yet."
       showBalance={showBalance}
       openCoin={openCoin}
       manageVisible={manageVisible}
