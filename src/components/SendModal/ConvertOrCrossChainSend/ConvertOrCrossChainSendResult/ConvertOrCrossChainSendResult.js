@@ -20,17 +20,17 @@ const ConvertOrCrossChainSendResult = (props) => {
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
   const deeplinkData = useObjectSelector((state) => state.deeplink.data);
   const offRampRequest = useObjectSelector((state) => state.channelStore_valu_service.offRampRequest);
-  const invoice = VerusPayInvoice.fromJson(deeplinkData);
+  const invoice = deeplinkData != null && Object.keys(deeplinkData).length > 0 ? VerusPayInvoice.fromJson(deeplinkData) : null;
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params);
   const { updateSendFormData } = props;
 
   const finishSend = async () => {
     closeSendModal();
 
-    if (invoice.isSigned() && (invoice.signing_id === 'iBAkjbAzw9ruR4nRbud9UGzrPftmkpU4GQ' || invoice.signing_id === 'i8mq7inkLvNRwYQNTtt3uaaJCs5YkKxjGg') && offRampRequest != {}) {
-      console.log("checking for active offramp process");
+    if (invoice != null && invoice.isSigned() && (invoice.signing_id === 'iBAkjbAzw9ruR4nRbud9UGzrPftmkpU4GQ' || invoice.signing_id === 'i8mq7inkLvNRwYQNTtt3uaaJCs5YkKxjGg') && offRampRequest != {}) {
+
       const proceedToValu = ValuOffRampCheck();
-      console.log("proceedToValu", proceedToValu);
+
       if (proceedToValu) {
         openOffRamp();
       }
