@@ -25,8 +25,8 @@ const CurrencyWidget = props => {
   const {currencyBalance, coinObj} = props;
   const {width} = Dimensions.get('window');
 
-  const Logo = getCoinLogo(coinObj.id, coinObj.proto);
-  const ICON_SIZE = 20;
+  const Logo = getCoinLogo(coinObj.id, coinObj.proto, 'dark');
+  const ICON_SIZE = 40;
 
   // Style-only overrides per currency (no coinsList change)
   const WIDGET_OVERRIDES = {
@@ -140,6 +140,7 @@ const CurrencyWidget = props => {
             alignItems: 'center',
             justifyContent: 'flex-start',
             paddingRight: 0,
+            height: 40,
           }}>
           {override?.renderLogo ? (
             // Custom icon defined in override (keep its own sizing)
@@ -163,7 +164,7 @@ const CurrencyWidget = props => {
           <Paragraph
             style={{
               fontSize: 16,
-              marginLeft: 8,
+              marginLeft: 12,
               fontWeight: 'bold',
               flex: 1,
               color: override?.textColor || Colors.secondaryColor,

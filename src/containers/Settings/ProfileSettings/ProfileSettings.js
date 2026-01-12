@@ -4,6 +4,7 @@
   with all configurable settings they have access to for 
   their user account. This includes changing passwords, 
   deleting accounts etc.
+  2025-11-22: Guarded legacy drawer closing for Settings tab usage.
 */
 
 import React, { Component } from "react";
@@ -111,7 +112,7 @@ class ProfileSettings extends Component {
       })
     }
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

@@ -5,6 +5,7 @@
   activeCoinsList in memory. It then passes that action to the 
   SecureLoading screen, as this process shouldn't be interrupted in 
   any way.
+  2025-11-22: Guarded drawer usage for new Settings tab flow.
 */
 
 import React, { Component } from "react";
@@ -164,7 +165,7 @@ class DeleteProfile extends Component {
       ],
     })
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction)
   }
 

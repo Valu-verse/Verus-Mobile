@@ -1,22 +1,21 @@
+/*
+  2025-11-22: Removed Settings routes from MainStack now that Settings has its
+  own bottom-tab stack, keeping MainStack focused on wallet/coin flows.
+  2024-12-09: Added SendWizard navigator for new send/convert flow.
+*/
 import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import AddCoin from '../../AddCoin/AddCoin'
 import CoinDetails from '../../CoinDetails/CoinDetails'
 import DisplaySeed from '../../DisplaySeed/DisplaySeed'
-import SettingsMenus from '../../Settings/SettingsMenus'
 import CoinMenus from '../../Coin/CoinMenus'
-import VerusPay from '../../VerusPay/VerusPay'
-import ProfileInfo from '../../Settings/ProfileSettings/ProfileInfo/ProfileInfo'
-import ResetPwd from '../../Settings/ProfileSettings/ResetPwd/ResetPwd'
-import RecoverSeed from '../../Settings/ProfileSettings/RecoverSeed/RecoverSeed'
-import GeneralWalletSettings from '../../Settings/WalletSettings/GeneralWalletSettings/GeneralWalletSettings'
-import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSettings'
-import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile'
 import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
-import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
-import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
+import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
+import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
+import ValuSocialScreen from '../../ValuSocial/ValuSocialScreen';
+import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
 
 const MainStack = createStackNavigator();
 
@@ -58,72 +57,21 @@ const MainStackScreens = props => {
 
       <MainStack.Screen name="CoinMenus" component={CoinMenus} />
 
-      <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
-
       <MainStack.Screen
-        name="ProfileInfo"
-        component={ProfileInfo}
+        name="ReceiveAssetsList"
+        component={ReceiveAssetsList}
         options={{
-          title: "Info",
+          title: 'Receive assets',
         }}
       />
 
       <MainStack.Screen
-        name="ResetPwd"
-        component={ResetPwd}
+        name="ReceiveAssetDetails"
+        component={ReceiveAssetDetails}
         options={{
-          title: "Reset",
+          title: 'Receive',
         }}
       />
-
-      <MainStack.Screen
-        name="RecoverSeed"
-        component={RecoverSeed}
-        options={{
-          title: "Recover",
-        }}
-      />
-
-      <MainStack.Screen
-        name="GeneralWalletSettings"
-        component={GeneralWalletSettings}
-        options={{
-          title: "General",
-        }}
-      />
-
-      <MainStack.Screen
-        name="AddressBlocklist"
-        component={AddressBlocklist}
-        options={{
-          title: "Blocked Addresses",
-        }}
-      />
-
-      <MainStack.Screen
-        name="VrpcOverrides"
-        component={VrpcOverrides}
-        options={{
-          title: "Custom RPC Servers",
-        }}
-      />  
-
-      <MainStack.Screen
-        name="CoinSettings"
-        component={CoinSettings}
-        options={({ route }) => ({
-          title: route.params != null ? route.params.title : null,
-        })}
-      />
-
-      <MainStack.Screen
-        name="DeleteProfile"
-        component={DeleteProfile}
-        options={{
-          title: "Delete",
-        }}
-      />
-
       <MainStack.Screen
         name="SecureLoading"
         component={SecureLoading}
@@ -131,6 +79,20 @@ const MainStackScreens = props => {
           title: "Loading",
           headerRight: () => null,
           headerLeft: () => null,
+        }}
+      />
+      <MainStack.Screen
+        name="ValuSocial"
+        component={ValuSocialScreen}
+        options={{
+          title: "Valu Social",
+        }}
+      />
+      <MainStack.Screen
+        name="SendWizard"
+        component={SendWizardNavigator}
+        options={{
+          headerShown: false,
         }}
       />
     </MainStack.Navigator>

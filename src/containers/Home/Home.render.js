@@ -1,49 +1,40 @@
 // Home.render.js
-// 2025-10-27: Added NotificationWidget ahead of the grid to surface actionable VerusID alerts.
+// 2025-11-21: Tightened header spacing and sized Crypto quick action button + manage sheet trigger.
+// 2025-11-22: Inlined the balance visibility toggle, removed reliance on the stack header, and added SafeAreaView
+//             padding so hero balances never overlap iPhone notches.
+// 2026-01-09: Removed Crypto/Identities header tabs from Wallet; keep the + manage-assets button.
+// 2026-01-09: (Option B) Moved the manage-assets action into the top balance row next to the eye toggle
+//             and switched the "+" to an icon-only action for visual parity.
+// 2026-01-09: Added a conditional hairline divider under the header that appears only when the asset list scrolls.
 
 import React from 'react';
-import { View, RefreshControl } from 'react-native';
-import { Provider, Portal, Banner } from 'react-native-paper';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Portal } from 'react-native-paper';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BuySellSheet from '../Services/ServiceComponents/ValuService/BuySellSheet/BuySellSheet';
-import { truncateDecimal } from '../../utils/math';
-import { HomeListItemThemeDark, HomeListItemThemeLight } from './Home.themes';
 import HomeFAB from './HomeFAB/HomeFAB';
-import CurrencyWidget from './HomeWidgets/CurrencyWidget';
-import {
-  SortableContainer,
-  SortableGrid,
-  SortableTile,
-} from '../../components/DragSort';
-import {
-  CURRENCY_WIDGET_TYPE,
-  TOTAL_UNI_BALANCE_WIDGET_TYPE,
-  VERUSID_WIDGET_TYPE,
-  ATTESTATION_WIDGET_TYPE,
-  VALU_ACCOUNT_TYPE
-} from '../../utils/constants/widgets';
-import { setAndSaveAccountWidgets } from '../../actions/actionCreators';
+import TransferSheet from './HomeFAB/TransferSheet';
 import TotalUniBalanceWidget from './HomeWidgets/TotalUniBalanceWidget';
 import ListSelectionModal from '../../components/ListSelectionModal/ListSelectionModal';
 import {
   CURRENCY_NAMES,
   SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES,
 } from '../../utils/constants/currencies';
-import VerusIdWidget from './HomeWidgets/VerusIdWidget';
-// ValuWidget removed in favor of floating Buy & sell button
-// import ValuWidget from './HomeWidgets/ValuWidget';
-import AttestationWidget from './HomeWidgets/AttestationWidget';
-import ValuAccountWidget from './HomeWidgets/ValuAccountWidget';
-import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import NotificationWidget from './HomeWidgets/NotificationWidget';
+import Colors from '../../globals/colors';
+import AssetsRender from '../Assets/Assets.render';
+import ManageAssetsSheet from './HomeFAB/ManageAssetsSheet';
+import BalanceVisibilityToggle from './HomeWidgets/BalanceVisibilityToggle';
+
+const iconHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
+const headerDividerThreshold = 1;
 
 export const HomeRender = ({
-  dragDetectionEnabled,
   displayCurrencyModalOpen,
   displayCurrency,
   setDisplayCurrency,
   setDisplayCurrencyModalOpen,
-  editingCards,
-  setEditingCards,
   _addCoin,
   _verusPay,
   _addPbaasCurrency,
@@ -52,177 +43,183 @@ export const HomeRender = ({
   buySellSheetVisible,
   setBuySellSheetVisible,
   handleBuySellComplete,
+  handleTransferPress,
+  transferSheetVisible,
+  setTransferSheetVisible,
+  handleTransferReceive,
+  handleTransferSendConvert,
   forceUpdate,
   loading,
-  HomeRenderCoinsList,
-}) => {
-  const dragDetection = dragDetectionEnabled();
-
-  return (
-    <Portal.Host>
-      <Portal>
-        {displayCurrencyModalOpen && (
-          <ListSelectionModal
-            title="Currencies"
-            selectedKey={displayCurrency}
-            visible={displayCurrencyModalOpen}
-            onSelect={(item) => setDisplayCurrency(item.key)}
-            data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map((key) => {
-              return {
-                key,
-                title: key,
-                description: CURRENCY_NAMES[key],
-              };
-            })}
-            cancel={() => setDisplayCurrencyModalOpen(false)}
-          />
-        )}
-        {buySellSheetVisible && (
-          <BuySellSheet
-            visible={true}
-            onClose={() => setBuySellSheetVisible(false)}
-            onComplete={handleBuySellComplete}
-          />
-        )}
-      </Portal>
-      <HomeFAB
-        handleAddCoin={_addCoin}
-        handleVerusPay={_verusPay}
-        handleEditCards={() => setEditingCards(!editingCards)}
-        handleAddPbaasCurrency={_addPbaasCurrency}
-        handleAddErc20Token={_addErc20Token}
-        handleOpenOnOffRamp={handleOpenOnOffRamp}
-        showConfigureHomeCards={!dragDetection}
-      />
-      <Banner
-        visible={editingCards}
-        elevation={5}
-        actions={[
-          {
-            label: 'Done',
-            onPress: () => setEditingCards(false),
-          },
-        ]}
-      >
-        {'Drag your cards into your desired configuration, then press done.'}
-      </Banner>
-      <NotificationWidget />
-      {HomeRenderCoinsList()}
-    </Portal.Host>
-  );
-};
-
-export const HomeRenderCoinsList = ({
-  widgets,
-  dragDetectionEnabled,
-  editingCards,
-  loading,
-  forceUpdate,
-  handleWidgetPress,
-  dispatch,
-  navigation,
-  activeAccount,
-  HomeRenderWidget,
-}) => {
-  const dragDetection = dragDetectionEnabled();
-
-  return widgets.length == 0 ? (
-    <View />
-  ) : (
-    <View
-      style={{
-        height: '100%',
-        backgroundColor: 'white',
-        width: '100%',
-        overflow: 'visible',
-      }}
-    >
-      <SortableContainer customconfig={{}}>
-        <SortableGrid
-          minDist={dragDetection ? 60 : 0}
-          animate={dragDetection ? true : editingCards}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={forceUpdate} />
-          }
-          onPressDetected={!editingCards ? (id) => handleWidgetPress(id) : () => {}}
-          editing={true}
-          onDragEnd={(positions) =>
-            dispatch(setAndSaveAccountWidgets(positions, activeAccount.accountHash))
-          }
-        >
-          {widgets
-            .map((widgetId) => ({ id: widgetId, node: HomeRenderWidget(widgetId) }))
-            .filter(({ node }) => node != null)
-            .map(({ id, node }, index) => (
-              <SortableTile key={index} id={id}>
-                <View
-                  style={{
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    overflow: 'visible',
-                  }}
-                >
-                  {node}
-                </View>
-              </SortableTile>
-            ))}
-        </SortableGrid>
-      </SortableContainer>
-    </View>
-  );
-};
-
-export const HomeRenderWidget = ({
-  widgetId,
-  totalCryptoBalances,
-  totalFiatBalance,
+  assets,
+  showBalance,
+  openCoin,
+  manageVisible,
+  setManageVisible,
   hasValuProofOfPersonhood,
 }) => {
-  const widgetSplit = widgetId.split(':');
-  const widgetType = widgetSplit[0];
+  const [widgetVisible, setWidgetVisible] = React.useState(false);
+  const [showHeaderDivider, setShowHeaderDivider] = React.useState(false);
+  const showHeaderDividerRef = React.useRef(false);
+  
+  const totalFiatBalanceRaw = assets.reduce((sum, item) => sum + (item.fiat || 0), 0);
+  const totalFiatBalance = (typeof totalFiatBalanceRaw === 'number' && !isNaN(totalFiatBalanceRaw)) ? totalFiatBalanceRaw : 0;
 
-  const renderers = {
-    [CURRENCY_WIDGET_TYPE]: () => {
-      const coinId = widgetSplit[1];
-      const coinObj = CoinDirectory.findCoinObj(coinId);
+  const handleAssetListScroll = React.useCallback((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const next = y > headerDividerThreshold;
 
-      const balance =
-        totalCryptoBalances[coinObj.id] == null
-          ? null
-          : truncateDecimal(totalCryptoBalances[coinObj.id], 8);
-
-      return (
-        <Provider theme={HomeListItemThemeDark}>
-          <CurrencyWidget currencyBalance={balance} coinObj={coinObj} />
-        </Provider>
-      );
-    },
-    [TOTAL_UNI_BALANCE_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <TotalUniBalanceWidget totalBalance={totalFiatBalance} />
-        </Provider>
-      );
-    },
-    [VERUSID_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <VerusIdWidget />
-        </Provider>
-      );
-    },
-    [ATTESTATION_WIDGET_TYPE]: () => {
-      return (
-        <Provider theme={HomeListItemThemeLight}>
-          <AttestationWidget hasValuProofOfPersonhood={hasValuProofOfPersonhood} />
-        </Provider>
-      );
+    if (next !== showHeaderDividerRef.current) {
+      showHeaderDividerRef.current = next;
+      setShowHeaderDivider(next);
     }
-  }
+  }, []);
 
-  if (renderers[widgetType]) {
-    return renderers[widgetType]();
-  } else {
-    return null; // Return null instead of an empty View to prevent rendering
-  }
+  const fixedHeader = (
+    <View style={[styles.headerContainer, showHeaderDivider && styles.headerContainerScrolled]}>
+      <View style={styles.balanceRow}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setDisplayCurrencyModalOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Change display currency"
+          style={styles.totalBalanceTouchable}
+        >
+          <TotalUniBalanceWidget totalBalance={totalFiatBalance} /> 
+        </TouchableOpacity>
+        <View style={styles.balanceActions}>
+          <BalanceVisibilityToggle style={styles.balanceToggle} />
+          <TouchableOpacity
+            onPress={() => setManageVisible(true)}
+            hitSlop={iconHitSlop}
+            accessibilityRole="button"
+            accessibilityLabel="Manage assets"
+            activeOpacity={0.75}
+            style={styles.manageAssetsIconButton}
+          >
+            <MaterialCommunityIcons
+              name="plus"
+              size={20}
+              color={Colors.verusDarkGray}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <NotificationWidget />
+    </View>
+  );
+
+  const footerHeight = widgetVisible ? 260 : 140; 
+  const listFooterComponent = <View style={{ height: footerHeight }} />;
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <Portal.Host>
+        <Portal>
+          {displayCurrencyModalOpen && (
+            <ListSelectionModal
+              title="Currencies"
+              selectedKey={displayCurrency}
+              visible={displayCurrencyModalOpen}
+              onSelect={(item) => setDisplayCurrency(item.key)}
+              data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map((key) => {
+                return {
+                  key,
+                  title: key,
+                  description: CURRENCY_NAMES[key],
+                };
+              })}
+              cancel={() => setDisplayCurrencyModalOpen(false)}
+            />
+          )}
+          {buySellSheetVisible && (
+            <BuySellSheet
+              visible={true}
+              onClose={() => setBuySellSheetVisible(false)}
+              onComplete={handleBuySellComplete}
+            />
+          )}
+          {transferSheetVisible && (
+            <TransferSheet
+              visible={true}
+              onClose={() => setTransferSheetVisible(false)}
+              onSelectReceive={handleTransferReceive}
+              onSelectSendConvert={handleTransferSendConvert}
+            />
+          )}
+          <ManageAssetsSheet
+            visible={manageVisible}
+            onClose={() => setManageVisible(false)}
+            showConfigureHomeCards={false}
+            onBrowseAll={_addCoin}
+            onAddErc20={_addErc20Token}
+            onAddPbaas={_addPbaasCurrency}
+            onArrangeCards={() => {}}
+          />
+        </Portal>
+        {fixedHeader}
+        <HomeFAB
+          handleAddCoin={_addCoin}
+          handleVerusPay={_verusPay}
+          handleAddPbaasCurrency={_addPbaasCurrency}
+          handleAddErc20Token={_addErc20Token}
+          handleOpenOnOffRamp={handleOpenOnOffRamp}
+          handleTransfer={handleTransferPress}
+          hasValuProofOfPersonhood={hasValuProofOfPersonhood}
+          onWidgetVisibilityChange={setWidgetVisible}
+        />
+        <AssetsRender.List
+          assets={assets}
+          displayCurrency={displayCurrency}
+          showBalance={showBalance}
+          onPressAsset={openCoin}
+          onPressAddAssets={() => setManageVisible(true)}
+          listHeaderComponent={null}
+          listFooterComponent={listFooterComponent}
+          showManageAssets={false}
+          refreshing={loading}
+          onRefresh={forceUpdate}
+          onScroll={handleAssetListScroll}
+          scrollEventThrottle={16}
+        />
+      </Portal.Host>
+    </SafeAreaView>
+  );
 };
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  headerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  headerContainerScrolled: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
+  },
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 8,
+  },
+  balanceToggle: {
+    marginRight: 6,
+  },
+  balanceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    marginTop: 12,
+  },
+  totalBalanceTouchable: {
+    flex: 1,
+  },
+  manageAssetsIconButton: {
+    padding: 6,
+  },
+});

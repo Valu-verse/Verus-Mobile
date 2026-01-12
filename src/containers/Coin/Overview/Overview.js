@@ -2,13 +2,18 @@
   This component's purpose is to display a list of transactions for the 
   activeCoin, as set by the store. If transactions or balances are flagged
   as needing an update, it updates them upon mounting.
+  
+  2025-12-15: Updated transaction list with modern TransactionRow component:
+  - Smaller icons in colored circular backgrounds
+  - Relative timestamps
+  - Fiat value display
+  - Improved visual hierarchy
 */
 
 import React, { Component } from "react";
 import {
   View,
   FlatList,
-  TouchableOpacity
 } from "react-native";
 import { connect } from 'react-redux';
 import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../../../actions/actionCreators';
@@ -16,6 +21,7 @@ import Styles from '../../../styles/index'
 import { conditionallyUpdateService, conditionallyUpdateWallet } from "../../../actions/actionDispatchers";
 import store from "../../../store";
 import TxDetailsModal from '../../../components/TxDetailsModal/TxDetailsModal'
+import TransactionRow from '../../../components/TransactionRow';
 import {
   API_GET_FIATPRICE,
   API_GET_BALANCES,
@@ -29,16 +35,18 @@ import {
   API_GET_SERVICE_NOTIFICATIONS,
   IS_PBAAS_ROOT,
   IS_PBAAS,
-  ERC20
+  ERC20,
+  GENERAL,
+  WYRE_SERVICE
 } from "../../../utils/constants/intervalConstants";
 import { selectTransactions } from '../../../selectors/transactions';
 import { DEFAULT_DECIMALS, ETHERS, VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT, VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT } from "../../../utils/constants/web3Constants";
-import { Portal, List, Text, Badge } from "react-native-paper";
+import { Portal, Text } from "react-native-paper";
 import BigNumber from "bignumber.js";
 import { TransactionLogos } from '../../../images/customIcons/index'
 import Colors from "../../../globals/colors";
 import { CoinDirectory } from "../../../utils/CoinData/CoinDirectory";
-import { scientificToDecimal } from "../../../utils/math";
+import { USD } from "../../../utils/constants/currencies";
 
 const TX_LOGOS = {
   self: TransactionLogos.SelfArrow,
@@ -155,22 +163,22 @@ class Overview extends Component {
       this.props.activeCoin.decimals != null
         ? this.props.activeCoin.decimals
         : DEFAULT_DECIMALS;
-    let amount = BigNumber(0)
-    let AvatarImg;
-    let subtitle = "";
-    const gasFees = item.feeCurr === ETH.toUpperCase()
+    let amount = BigNumber(0);
+    let txType = "unknown";
+    let address = "";
+    const gasFees = item.feeCurr === ETH.toUpperCase();
 
+    // Parse array-type transactions (combined send/receive)
     if (Array.isArray(item)) {
-      const txArray = item
+      const txArray = item;
       let toAddresses = [];
-      const confirmed = txArray[0].confirmed
+      const confirmed = txArray[0].confirmed;
       
-      amount = BigNumber(txArray[0].amount).minus(txArray[1].amount)
+      amount = BigNumber(txArray[0].amount).minus(txArray[1].amount);
 
       if (txArray[1].interest) {
         let interest = txArray[1].interest * -1;
-
-        amount = amount.plus(interest)
+        amount = amount.plus(interest);
       }
 
       for (let i = 0; i < txArray[0].to.length; i++) {
@@ -180,12 +188,12 @@ class Overview extends Component {
       }
 
       if (toAddresses.length > 1) {
-        subtitle = toAddresses[0] + " + " + (toAddresses.length - 1) + " more";
+        address = toAddresses[0] + " + " + (toAddresses.length - 1) + " more";
       } else {
-        subtitle = toAddresses[0];
+        address = toAddresses[0];
       }
 
-      AvatarImg = !confirmed || txArray[0].status === "pending" ? TX_LOGOS.pending : TX_LOGOS.out;
+      txType = "sent";
 
       item = {
         address: toAddresses.join(' & '),
@@ -197,17 +205,18 @@ class Overview extends Component {
         to: toAddresses,
         txid: txArray[0].txid,
         type: "sent"
-      }
+      };
     } else {
       amount = item.amount != null ? BigNumber(item.amount) : BigNumber(0);
 
       if (item.type === "received") {
-        AvatarImg = TX_LOGOS.in;
-        subtitle = "me";
+        txType = "received";
+        address = "me";
       } else if (item.type === "sent") {
-        AvatarImg = TX_LOGOS.out;
-        subtitle = item.address == null ? "??" : item.address;
+        txType = "sent";
+        address = item.address == null ? "??" : item.address;
 
+        // Check for bridge contract addresses
         if (
           this.props.activeCoin.proto === ETH ||
           this.props.activeCoin.proto === ERC20
@@ -215,55 +224,77 @@ class Overview extends Component {
           if (
             (!!(this.props.activeCoin.testnet) &&
               VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT != null &&
-              subtitle.toLowerCase() === VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase()) ||
+              address.toLowerCase() === VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase()) ||
             (!this.props.activeCoin.testnet &&
               VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT != null &&
-              subtitle.toLowerCase() === VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase())
+              address.toLowerCase() === VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase())
           ) {
-            subtitle = 'Verus-Ethereum Bridge Contract';
+            address = 'Verus-Ethereum Bridge';
           }
         }
       } else if (item.type === "self") {
         if (item.amount !== "??" && amount.isLessThan(0)) {
-          subtitle = "me";
-          AvatarImg = TX_LOGOS.interest;
+          txType = "interest";
+          address = "me";
           amount = amount.multipliedBy(-1);
         } else {
-          AvatarImg = TX_LOGOS.self;
-          subtitle = gasFees ? "gas" : "fees";
+          txType = "self";
+          address = gasFees ? "gas" : "fees";
         }
       } else {
-        AvatarImg = TX_LOGOS.unknown;
-        subtitle = "??";
+        txType = "unknown";
+        address = "??";
       }
     }
 
-    if (!item.confirmed || item.status === "pending")
-      AvatarImg = TX_LOGOS.pending;
-
-    subtitle = "to: " + subtitle;
-
-    let displayAmount = null
-
-    // Handle possible int overflows
+    // Calculate display amount
+    let displayAmount = null;
     try { 
       if (!gasFees && item.fee && item.type !== "unknown") {
-        displayAmount = amount.minus(item.fee).abs()
-      } else displayAmount = amount
+        displayAmount = amount.minus(item.fee).abs();
+      } else {
+        displayAmount = amount;
+      }
+    } catch(e) { 
+      console.error(e);
     }
-    catch(e) { console.error(e) }
 
+    // Calculate fiat value
+    let fiatValue = null;
+    const rate = this.getRate();
+    if (rate != null && displayAmount != null) {
+      fiatValue = displayAmount.abs().multipliedBy(rate).toNumber();
+    }
+
+    // Get explorer ID for detail modal
     let explorerId;
-
     try {
-      explorerId = this.props.activeCoin.system_id && this.props.activeCoin.tags.includes(IS_PBAAS) && 
-      !this.props.activeCoin.tags.includes(IS_PBAAS_ROOT)
-        ? CoinDirectory.findSystemCoinObj(this.props.activeCoin.id).id
-        : this.props.activeCoin.id;
-    } catch(e) { console.warn(e) }
+      explorerId = this.props.activeCoin.system_id && 
+        this.props.activeCoin.tags.includes(IS_PBAAS) && 
+        !this.props.activeCoin.tags.includes(IS_PBAAS_ROOT)
+          ? CoinDirectory.findSystemCoinObj(this.props.activeCoin.id).id
+          : this.props.activeCoin.id;
+    } catch(e) { 
+      console.warn(e);
+    }
+
+    // Determine ticker to display
+    const displayTicker = item.feeCurr != null && item.type === "self"
+      ? item.feeCurr
+      : this.props.activeCoin.display_ticker;
     
     return (
-      <TouchableOpacity
+      <TransactionRow
+        type={txType}
+        amount={displayAmount}
+        address={address}
+        timestamp={item.timestamp}
+        confirmed={item.confirmed !== false && item.status !== "pending"}
+        ticker={displayTicker}
+        fiatValue={fiatValue}
+        displayCurrency={this.props.displayCurrency}
+        hasMemo={item.memo != null && item.memo.length > 0}
+        decimals={decimals}
         onPress={() =>
           this.setState({
             txDetailProps: {
@@ -272,48 +303,32 @@ class Overview extends Component {
               activeCoinID: this.props.activeCoin.id,
               activeCoinDisplayTicker: this.props.activeCoin.display_ticker,
               activeCoinExplorerId: explorerId,
-              TxLogo: AvatarImg,
+              TxLogo: TX_LOGOS[txType] || TX_LOGOS.unknown,
               decimals: decimals,
             },
             txDetailsModalOpen: true,
           })
         }
-      >
-        <List.Item
-          title={`${
-            displayAmount != null
-              ? displayAmount.isLessThan(BigNumber(0.000001)) &&
-                !displayAmount.isEqualTo(BigNumber(0))
-                ? displayAmount.toExponential()
-                : scientificToDecimal(displayAmount.toString())
-              : "??"
-          } ${
-            item.feeCurr != null && item.type === "self"
-              ? item.feeCurr
-              : this.props.activeCoin.display_ticker
-          }`}
-          description={subtitle}
-          descriptionNumberOfLines={1}
-          left={() => (
-            <AvatarImg
-              width={24}
-              height={24}
-              style={{
-                alignSelf: "center",
-                marginLeft: 16,
-                marginRight: 16,
-              }}
-            />
-          )}
-          right={(props) => (
-            <React.Fragment>
-              {item.memo != null && <List.Icon {...props} icon={"email"} size={20} />}
-              <List.Icon {...props} icon={"chevron-right"} size={20} />
-            </React.Fragment>
-          )}
-        />
-      </TouchableOpacity>
+      />
     );
+  };
+
+  /**
+   * Get the current fiat rate for the active coin
+   * @returns {number|null} The exchange rate or null if not available
+   */
+  getRate = () => {
+    const { rates, activeCoin, displayCurrency } = this.props;
+    if (!rates || !activeCoin) return null;
+
+    // Try WYRE_SERVICE first, then GENERAL
+    const wyreRate = rates[WYRE_SERVICE]?.[activeCoin.id]?.[displayCurrency];
+    if (wyreRate != null) return wyreRate;
+
+    const generalRate = rates[GENERAL]?.[activeCoin.id]?.[displayCurrency];
+    if (generalRate != null) return generalRate;
+
+    return null;
   };
 
   parseTransactionLists = () => {
@@ -407,6 +422,8 @@ const mapStateToProps = (state) => {
     activeAccount: state.authentication.activeAccount,
     activeCoinsForUser: state.coins.activeCoinsForUser,
     generalWalletSettings: state.settings.generalWalletSettings,
+    rates: state.ledger.rates,
+    displayCurrency: state.settings.generalWalletSettings.displayCurrency || USD,
   }
 };
 

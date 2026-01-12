@@ -1,3 +1,6 @@
+/*
+  2025-11-22: Guarded drawer-only call for Settings tab transition.
+*/
 import React from "react";
 import { Component } from "react"
 import { connect } from 'react-redux'
@@ -194,7 +197,7 @@ class WyreServiceAccountCreator extends Component {
       });
     }
 
-    this.props.navigation.closeDrawer();
+    this.props.navigation?.closeDrawer?.();
     this.props.navigation.dispatch(resetAction);
   };
 

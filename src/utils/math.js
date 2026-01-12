@@ -89,6 +89,52 @@ export const unixToDate = (unixTime) => {
   return (new Date(unixTime*1000)).toLocaleString();
 }
 
+/**
+ * Converts a unix timestamp to a human-readable relative time string.
+ * Examples: "Just now", "5 min ago", "Today, 3:42 PM", "14 Dec, 3:42 PM", "14 Dec 2024"
+ * @param {number} unixTime Unix timestamp in seconds
+ * @returns {string} Human-readable relative time string
+ */
+export const unixToRelativeTime = (unixTime) => {
+  if (unixTime == null) return 'Unknown';
+  
+  const date = new Date(unixTime * 1000);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  
+  // Format time as "15:42" or "3:42 PM" depending on locale
+  const timeStr = date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  
+  // Check if same day
+  const isToday = date.toDateString() === now.toDateString();
+  
+  // Check if yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  
+  // Check if same year
+  const isSameYear = date.getFullYear() === now.getFullYear();
+  
+  if (diffMins < 1) {
+    return 'Just now';
+  } else if (diffMins < 60) {
+    return `${diffMins} min ago`;
+  } else if (isToday) {
+    return `Today, ${timeStr}`;
+  } else if (isYesterday) {
+    return `Yesterday, ${timeStr}`;
+  } else if (isSameYear) {
+    // Same year - show "14 Dec, 15:42"
+    const monthDay = date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    return `${monthDay}, ${timeStr}`;
+  } else {
+    // Different year - show "14 Dec 2024"
+    return date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+}
+
 export const maxSpendBalance = (utxoList, fee) => {
   let _maxSpendBalance = BigNumber(0);
 
