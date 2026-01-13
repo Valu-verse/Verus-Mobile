@@ -287,13 +287,6 @@ const Home = () => {
     checkForValuProofOfPersonhood();
   }, [attestation]);
 
-  const setDisplayCurrencyFunc = async (currency) => {
-    try {
-      dispatch(await saveGeneralSettings({ displayCurrency: currency }));
-    } catch (e) {
-      createAlert('Error setting display currency', e.message);
-    }
-  };
 
   useFocusEffect(
     useCallback(() => {
