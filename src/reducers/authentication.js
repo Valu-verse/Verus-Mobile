@@ -2,6 +2,8 @@
   The authentication reducer is to contain sensitive account data
   while the app is loaded. When the user logs out, or the app is
   completely closed, only the non-sensitive data should persist.
+  2026-01-13: Add a one-shot flag to suppress Unlock auto-biometric prompting after an explicit user
+  "Lock profile" action so users can switch profiles before authenticating.
 */
 
 import { AUTHENTICATE_USER_SEND_MODAL } from "../utils/constants/sendModal";
@@ -21,7 +23,8 @@ import {
   UPDATE_SESSION_KEY,
   INIT_INSTANCE_KEY,
   HIDE_SEED_WARNINGS,
-  SET_SHOW_HIDE_SEED_CORRUPTION_SETTING
+  SET_SHOW_HIDE_SEED_CORRUPTION_SETTING,
+  SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS
 } from "../utils/constants/storeType";
 import {
   SERVICES_DISABLED_DEFAULT
@@ -47,7 +50,8 @@ export const authentication = (
     signedIn: false,
     selectDefaultAccount: true,
     authModalUsed: false,
-    showHideSeedCorruptionSetting: false
+    showHideSeedCorruptionSetting: false,
+    suppressUnlockAutoBiometrics: false
   },
   action
 ) => {
@@ -140,6 +144,11 @@ export const authentication = (
         ...state,
         activeAccount: { ...state.activeAccount, biometry: action.payload.biometry },
         accounts: action.payload.accounts
+      };
+    case SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS:
+      return {
+        ...state,
+        suppressUnlockAutoBiometrics: action.payload?.suppress === true,
       };
     case HIDE_SEED_WARNINGS:
       return {

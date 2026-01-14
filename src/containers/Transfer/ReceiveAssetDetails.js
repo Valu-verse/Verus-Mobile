@@ -34,6 +34,7 @@
   - Matched visual style to Wallet screen (square icons, clean layout, masked header).
   2025-11-06: Flattened layout, added coin icon header, refreshed address field, and replaced the inline invoice form with payment action sheets.
   2025-11-04: Redesigned receive experience with inline QR preview, address actions, and invoice creation controls.
+  2026-01-12: Standardized all SemiModal sheet headers to use the shared top-right X (no blue "Close" text).
 */
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
@@ -672,6 +673,7 @@ const ReceiveAssetDetails = () => {
             transparent={true}
             visible={true}
             onRequestClose={() => setInfoSheetVisible(false)}
+            title="Create easy payment"
             flexHeight={0.01}
             contentContainerStyle={{
               borderTopLeftRadius: 16,
@@ -683,11 +685,6 @@ const ReceiveAssetDetails = () => {
             }}
           >
             <View>
-              <View style={styles.sheetHeader}>
-                <Button onPress={() => setInfoSheetVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                <Text style={styles.sheetTitle}>{'Create easy payment'}</Text>
-                <View style={styles.sheetHeaderSpacer} />
-              </View>
               <View style={styles.sheetBody}>
                 <Text style={styles.infoParagraph}>
                   {'Set an amount and we generate a VerusPay invoice your contact can scan or open directly in their wallet.'}
@@ -718,6 +715,7 @@ const ReceiveAssetDetails = () => {
               setInvoiceSubject('');
               setQrSaved(false);
             }}
+            title="Payment request"
             flexHeight={0.01}
             contentContainerStyle={{
               borderTopLeftRadius: 16,
@@ -734,26 +732,6 @@ const ReceiveAssetDetails = () => {
             }}
           >
             <View style={{backgroundColor: 'white'}}>
-              <View style={styles.sheetHeader}>
-                <Button 
-                  onPress={() => {
-                    setCreateSheetVisible(false);
-                    setInvoiceStep('amount');
-                    setInvoiceQr(null);
-                    setAmount('');
-                    setInvoiceSubject('');
-                    setQrSaved(false);
-                  }} 
-                  textColor={Colors.primaryColor}
-                >
-                  {'Close'}
-                </Button>
-                <Text style={styles.sheetTitle}>
-                  {invoiceStep === 'result' ? 'Payment request' : 'Payment request'}
-                </Text>
-                <View style={styles.sheetHeaderSpacer} />
-              </View>
-              
               <View>
               {invoiceStep === 'amount' ? (
                 <View style={{justifyContent: 'space-between'}}>
@@ -1041,6 +1019,7 @@ const ReceiveAssetDetails = () => {
             transparent={true}
             visible={true}
             onRequestClose={() => setExplorerSheetVisible(false)}
+            title="View on Etherscan"
             flexHeight={0.01}
             contentContainerStyle={{
               borderTopLeftRadius: 16,
@@ -1051,11 +1030,6 @@ const ReceiveAssetDetails = () => {
             }}
           >
             <View>
-              <View style={styles.sheetHeader}>
-                <Button onPress={() => setExplorerSheetVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                <Text style={styles.sheetTitle}>{'View on Etherscan'}</Text>
-                <View style={styles.sheetHeaderSpacer} />
-              </View>
               <View style={styles.sheetBody}>
                  <Text style={styles.infoParagraph}>
                   {'You are about to visit the following URL:'}
@@ -1082,6 +1056,7 @@ const ReceiveAssetDetails = () => {
             transparent={true}
             visible={true}
             onRequestClose={() => setSupportedNetworksVisible(false)}
+            title="Supported chains"
             flexHeight={0.01}
             contentContainerStyle={{
               borderTopLeftRadius: 16,
@@ -1093,11 +1068,6 @@ const ReceiveAssetDetails = () => {
             }}
           >
             <View>
-              <View style={styles.sheetHeader}>
-                <Button onPress={() => setSupportedNetworksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                <Text style={styles.sheetTitle}>{'Supported chains'}</Text>
-                <View style={styles.sheetHeaderSpacer} />
-              </View>
               <View style={styles.sheetBody}>
                 <Text style={styles.infoParagraph}>
                   {'This address supports all currencies on all chains in the Verus ecosystem.'}

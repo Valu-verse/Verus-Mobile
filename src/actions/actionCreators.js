@@ -1,3 +1,9 @@
+/*
+  Root action creators export + authentication helpers.
+  - 2026-01-13: Add `setSuppressUnlockAutoBiometrics()` so an explicit "Lock profile" can disable Unlock's
+    auto-biometric prompt until the user taps biometrics or unlocks.
+*/
+
 export * from './actions/coins/Coins'
 export * from './actions/UserData'
 export * from './actions/WalletSettings'
@@ -72,6 +78,7 @@ import {
   ADD_ETH_TX_RECEIPT,
   SET_COIN_SUB_WALLET,
   DISABLE_SELECT_DEFAULT_ACCOUNT,
+  SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS,
   ADD_GOOD_SERVER,
   ADD_BAD_SERVER,
   SET_SECURE_LOADING_SUCCESS_DATA,
@@ -101,6 +108,16 @@ export const signIntoAuthenticatedAccount = () => {
 export const disableSelectDefaultAccount = () => {
   return { type: DISABLE_SELECT_DEFAULT_ACCOUNT }
 }
+
+// Reducer Name: authentication
+export const setSuppressUnlockAutoBiometrics = (suppress) => {
+  return {
+    type: SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS,
+    payload: {
+      suppress: suppress === true,
+    },
+  };
+};
 
 //Reducer Name: authentication
 export const authenticateUser = (account, sessionKey) => {

@@ -4,6 +4,8 @@
     use verusid-at icon (tinted to match active/inactive tab colors).
   - 2025-11-22: Added a dedicated Settings tab (powered by SettingsStackScreens)
     so users can reach Settings without the drawer and kept icon styling intact.
+  - 2026-01-13: Renamed the Identity tab route to `IdentityTab` to avoid a nested
+    duplicate screen name warning (tab `IdentityHome` contained stack screen `IdentityHome`).
 */
 import React from 'react';
 import Feather from 'react-native-vector-icons/Feather';
@@ -63,7 +65,7 @@ const HomeTabScreens = props => {
         }}
       />
       <HomeTabs.Screen
-        name="IdentityHome"
+        name="IdentityTab"
         component={IdentityStackScreens}
         options={{
           title: "Identity",

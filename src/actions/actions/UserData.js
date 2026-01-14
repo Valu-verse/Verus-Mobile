@@ -361,9 +361,10 @@ export const authenticateAccount = async (account, password) => {
   });
 };
 
-export const validateLogin = (account, password) => {
+export const validateLogin = (account, password, options = {}) => {
+  const {alertOnFail = true} = options;
   return new Promise((resolve, reject) => {
-    checkPinForUser(password, account.id, true, true)
+    checkPinForUser(password, account.id, alertOnFail, true)
       .then(() => {
         return authenticateAccount(account, password);
       })

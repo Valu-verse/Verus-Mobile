@@ -1,8 +1,15 @@
+/*
+  LinkIdentityConfirm.render
+  - 2026-01-13: Restyle the Confirm-step CTAs for Link VerusID to match the Identity screen’s
+    on-brand button patterns: GradientButton primary ("Link VerusID") + light-blue pill
+    secondary ("Back"), replacing the prior green/red semantics.
+*/
 import React from 'react';
-import { ScrollView, View, SafeAreaView } from 'react-native';
-import { Button } from 'react-native-paper';
+import {View, SafeAreaView, StyleSheet} from 'react-native';
+import {Button} from 'react-native-paper';
 import Colors from '../../../../globals/colors';
 import Styles from '../../../../styles';
+import GradientButton from '../../../GradientButton';
 import VerusIdObjectData from '../../../VerusIdObjectData';
 
 export const LinkIdentityConfirmRender = ({ verusId, friendlyNames, goBack, submitData, ownedByUser, ownedAddress }) => {
@@ -14,30 +21,72 @@ export const LinkIdentityConfirmRender = ({ verusId, friendlyNames, goBack, subm
         ownedByUser={ownedByUser}
         ownedAddress={ownedAddress}
         StickyFooterComponent={
-          <View
-            style={{
-              backgroundColor: 'white',
-              width: '100%',
-              flexDirection: 'row',
-              justifyContent: 'space-evenly',
-              paddingVertical: 20
-            }}>
-            <Button
-              textColor={Colors.warningButtonColor}
-              style={{ width: 148 }}
-              onPress={goBack}>
-              Back
-            </Button>
-            <Button
-              buttonColor={Colors.verusGreenColor}
-              textColor={Colors.secondaryColor}
-              style={{ width: 148 }}
-              onPress={submitData}>
-              Link
-            </Button>
+          <View style={styles.footer}>
+            <View style={styles.ctaCol}>
+              <Button
+                mode="contained"
+                onPress={goBack}
+                style={styles.secondaryCta}
+                contentStyle={styles.secondaryCtaContent}
+                uppercase={false}
+                buttonColor="#EBF6FF"
+                textColor={Colors.primaryColor}
+                labelStyle={styles.secondaryCtaLabel}
+              >
+                Back
+              </Button>
+            </View>
+            <View style={styles.ctaCol}>
+              <GradientButton onPress={submitData} style={styles.primaryCta}>
+                Link VerusID
+              </GradientButton>
+            </View>
           </View>
         }
       />
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  footer: {
+    backgroundColor: 'white',
+    width: '100%',
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  ctaCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  secondaryCta: {
+    width: '100%',
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EBF6FF',
+    borderWidth: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: {width: 0, height: 0},
+  },
+  secondaryCtaContent: {
+    height: 44,
+  },
+  secondaryCtaLabel: {
+    color: Colors.primaryColor,
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0,
+    textTransform: 'none',
+  },
+  primaryCta: {
+    width: '100%',
+    alignSelf: 'stretch',
+    height: 44,
+    borderRadius: 22,
+  },
+});

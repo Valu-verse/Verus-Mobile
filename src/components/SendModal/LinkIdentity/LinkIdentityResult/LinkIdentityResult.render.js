@@ -1,12 +1,19 @@
+/*
+  LinkIdentityResult.render
+  - 2026-01-14: Keep the Result step, but restyle it to feel less "giant" and more on-brand:
+    tighten spacing/typography and replace the off-brand green Done button with the standard
+    GradientButton pill CTA (matching IdentityHome primary CTA styling).
+*/
 import React from 'react';
-import {ScrollView, View, TouchableOpacity} from 'react-native';
-import {Button, Text} from 'react-native-paper';
+import {ScrollView, View, TouchableOpacity, StyleSheet} from 'react-native';
+import {Text} from 'react-native-paper';
 import Colors from '../../../../globals/colors';
 import Styles from '../../../../styles';
 import {copyToClipboard} from '../../../../utils/clipboard/clipboard';
 import AnimatedSuccessCheckmark from '../../../AnimatedSuccessCheckmark';
-import { convertFqnToDisplayFormat } from '../../../../utils/fullyqualifiedname';
-import { useObjectSelector } from '../../../../hooks/useObjectSelector';
+import GradientButton from '../../../GradientButton';
+import {convertFqnToDisplayFormat} from '../../../../utils/fullyqualifiedname';
+import {useObjectSelector} from '../../../../hooks/useObjectSelector';
 
 export const LinkIdentityResultRender = ({verusId, finishSend}) => {
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
@@ -17,7 +24,8 @@ export const LinkIdentityResultRender = ({verusId, finishSend}) => {
       style={{...Styles.fullWidth, ...Styles.backgroundColorWhite}}
       contentContainerStyle={{
         ...Styles.focalCenter,
-        justifyContent: 'space-between',
+        justifyContent: 'center',
+        paddingVertical: 24,
       }}>
       <TouchableOpacity
         onPress={() =>
@@ -26,52 +34,69 @@ export const LinkIdentityResultRender = ({verusId, finishSend}) => {
             message: `${verusId.identity.identityaddress} copied to clipboard.`,
           })
         }
-        style={{
-          width: '75%',
-          marginTop: 16,
-        }}>
+        style={styles.headingPressable}>
         <Text
           numberOfLines={3}
-          style={{
-            textAlign: 'center',
-            fontSize: 20,
-            color: Colors.verusDarkGray,
-          }}>
+          style={styles.headingText}>
           {`${formattedFriendlyName} linked`}
         </Text>
       </TouchableOpacity>
-      <View style={{paddingVertical: 16}}>
+      <View style={styles.checkmarkWrap}>
         <AnimatedSuccessCheckmark
           style={{
-            width: 128,
+            width: 104,
           }}
         />
       </View>
-      <View style={{paddingVertical: 16, width: '75%'}}>
-        <Text
-          style={{
-            textAlign: 'center',
-            fontSize: 20,
-            color: Colors.verusDarkGray,
-          }}>
-          {`Your VerusID will now appear as a card in your ${coinObj.display_ticker} wallet.`}
+      <View style={styles.bodyWrap}>
+        <Text style={styles.bodyText}>
+          {`All set — your VerusID is now linked and ready to use.`}
         </Text>
       </View>
-      <View
-        style={{
-          width: '90%',
-          flexDirection: 'row',
-          justifyContent: 'space-evenly',
-        }}>
-        <Button
-          buttonColor={Colors.verusGreenColor}
-          textColor={Colors.secondaryColor}
-          style={{width: 148}}
-          labelStyle={{fontSize: 18}}
-          onPress={finishSend}>
+      <View style={styles.footer}>
+        <GradientButton onPress={finishSend} style={styles.doneButton}>
           Done
-        </Button>
+        </GradientButton>
       </View>
     </ScrollView>
   );
 };
+
+const styles = StyleSheet.create({
+  headingPressable: {
+    width: '82%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  headingText: {
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    letterSpacing: -0.2,
+  },
+  checkmarkWrap: {
+    paddingVertical: 10,
+  },
+  bodyWrap: {
+    width: '82%',
+    paddingTop: 6,
+    paddingBottom: 16,
+  },
+  bodyText: {
+    textAlign: 'center',
+    fontSize: 15,
+    color: Colors.verusDarkGray,
+    lineHeight: 21,
+  },
+  footer: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingTop: 6,
+  },
+  doneButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 22,
+  },
+});

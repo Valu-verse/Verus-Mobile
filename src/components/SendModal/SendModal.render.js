@@ -1,3 +1,9 @@
+/*
+  SendModal.render
+  - 2026-01-13: For LINK_IDENTITY_SEND_MODAL, switch to SemiModal's standardized header
+    (centered title + top-right X) and remove the header "Help" button. The help copy
+    is now intended to be displayed inline in the LinkIdentity form instead.
+*/
 import React, { Component } from "react";
 import { Platform, SafeAreaView, View } from "react-native";
 import { Text, Portal, Button } from "react-native-paper";
@@ -118,6 +124,7 @@ const SEND_RESULTS = {
 
 export const SendModalRender = function () {
   const { visible, title } = this.props.sendModal;
+  const isLinkIdentityModal = this.props.sendModal.type === LINK_IDENTITY_SEND_MODAL;
   const modalStarterHeight = this.state.modalHeight;
   const modalHeight = this.props.keyboard.active
     ? this.props.keyboard.height + modalStarterHeight
@@ -132,6 +139,9 @@ export const SendModalRender = function () {
           transparent={true}
           visible={visible}
           onRequestClose={() => this.cancel()}
+          // Link VerusID uses the standardized SemiModal header (top-right X).
+          title={isLinkIdentityModal ? title : undefined}
+          closeDisabled={isLinkIdentityModal ? this.state.preventExit : undefined}
           contentContainerStyle={{
             height: Platform.OS === "android" ? modalStarterHeight : modalHeight,
             flex: 0,
@@ -141,7 +151,9 @@ export const SendModalRender = function () {
           <SafeAreaView style={{ flex: 1 }}>
             <Root.Navigator
               screenOptions={{
-                header: () => (
+                header: isLinkIdentityModal
+                  ? () => null
+                  : () => (
                   <View style={{ 
                     flexDirection: 'row', 
                     alignItems: "center", 
@@ -187,7 +199,8 @@ export const SendModalInnerAreaRender = function () {
     setLoading: (loading) => this.setLoading(loading),
     setModalHeight: (height) => this.setModalHeight(height),
     setPreventExit: (preventExit) => this.setPreventExit(preventExit),
-    setVisible: (visible) => this.setVisible(visible)
+    setVisible: (visible) => this.setVisible(visible),
+    helpText: this.props.sendModal.helpText,
   };
 
   const Form =

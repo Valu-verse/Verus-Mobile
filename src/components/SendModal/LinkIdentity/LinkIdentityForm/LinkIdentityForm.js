@@ -1,4 +1,10 @@
-import {useCallback} from 'react';
+/*
+  LinkIdentityForm
+  - 2026-01-13: Track focus state so the input can use the modern ChooseName-style
+    focused border styling (RN TextInput), and pass through SendModal helpText for
+    inline display in the form.
+*/
+import {useCallback, useState} from 'react';
 import {useDispatch} from 'react-redux';
 import {fromBase58Check} from '@bitgo/utxo-lib/dist/src/address';
 import {Alert, Dimensions} from 'react-native';
@@ -21,6 +27,7 @@ const LinkIdentityForm = (props) => {
   const { height } = Dimensions.get("window");
   const dispatch = useDispatch();
   const sendModal = useObjectSelector(state => state.sendModal);
+  const [isFocused, setIsFocused] = useState(false);
 
   const formHasError = useCallback(() => {
     const {data} = sendModal;
@@ -123,7 +130,11 @@ const LinkIdentityForm = (props) => {
   return LinkIdentityFormRender({
     submitData,
     updateSendFormData: props.updateSendFormData,
-    formDataValue: sendModal.data[SEND_MODAL_IDENTITY_TO_LINK_FIELD]
+    formDataValue: sendModal.data[SEND_MODAL_IDENTITY_TO_LINK_FIELD],
+    helpText: props.helpText,
+    isFocused,
+    onFocus: () => setIsFocused(true),
+    onBlur: () => setIsFocused(false),
   });
 };
 

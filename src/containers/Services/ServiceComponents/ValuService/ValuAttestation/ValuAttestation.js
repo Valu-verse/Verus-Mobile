@@ -1214,6 +1214,7 @@ const ValuAttestation = (props) => {
                         transparent={true}
                         visible={true}
                         onRequestClose={() => setHowItWorksVisible(false)}
+                        title="How it works"
                         flexHeight={0.01}
                         contentContainerStyle={{
                             borderTopLeftRadius: 16,
@@ -1225,11 +1226,6 @@ const ValuAttestation = (props) => {
                         }}
                     >
                         <View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-                                <Button onPress={() => setHowItWorksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                                <Text style={{ fontSize: 16, fontWeight: '600' }}>{'How it works'}</Text>
-                                <View style={{ width: 64 }} />
-                            </View>
                             <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
 
 
@@ -1286,6 +1282,7 @@ const ValuAttestation = (props) => {
                         transparent={true}
                         visible={true}
                         onRequestClose={() => setIdentityChoiceModalVisible(false)}
+                        title="Choose identity option"
                         flexHeight={0.01}
                         contentContainerStyle={{
                             borderTopLeftRadius: 16,
@@ -1297,12 +1294,6 @@ const ValuAttestation = (props) => {
                         }}
                     >
                         <View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-                                <Button onPress={() => setIdentityChoiceModalVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                                <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Choose identity option'}</Text>
-                                <View style={{ width: 64 }} />
-                            </View>
-
                             <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
                                 <Text style={{ fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 }}>
                                     {'Do you want to register a new VerusID or use an existing identity for your attestation?'}

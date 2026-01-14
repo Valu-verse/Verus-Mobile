@@ -2,10 +2,11 @@
   ImportWalletSheet (bottom sheet choices)
   - Presents options to import wallet: 24-word seed, Scan QR, Enter key/seed text
   - Uses SemiModal with the same styling as BuySellSheet choices
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 import React from 'react';
 import { View } from 'react-native';
-import { Portal, List, Button, Text } from 'react-native-paper';
+import { Portal, List, Text } from 'react-native-paper';
 import SemiModal from '../../../../../components/SemiModal';
 import Colors from '../../../../../globals/colors';
 
@@ -19,6 +20,7 @@ export default function ImportWalletSheet({ visible, onClose, onSelect }) {
         transparent={true}
         visible={true}
         onRequestClose={onClose}
+        title="Import your wallet"
         flexHeight={0.01}
         contentContainerStyle={{
           borderTopLeftRadius: 16,
@@ -30,12 +32,6 @@ export default function ImportWalletSheet({ visible, onClose, onSelect }) {
         }}
       >
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>{'Close'}</Button>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Import your wallet'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
             <Text style={{ fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 16 }}>
               {'Choose how you want to bring an existing wallet into this profile.'}

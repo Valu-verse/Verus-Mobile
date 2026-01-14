@@ -5,10 +5,11 @@
   - Auto-closes after an option is selected and fires the provided handlers
   - Important: Close sheet first, then open destination modal (next tick) to avoid
     modal stack race conditions that can leave only a dark overlay visible
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 import React from 'react';
 import { View, Image } from 'react-native';
-import { Portal, List, Button, Text } from 'react-native-paper';
+import { Portal, List } from 'react-native-paper';
 import Colors from '../../../globals/colors';
 import SemiModal from '../../../components/SemiModal';
 
@@ -39,6 +40,7 @@ const ManageAssetsSheet = ({
         transparent={true}
         visible={true}
         onRequestClose={onClose}
+        title="Manage assets"
         flexHeight={0.01}
         contentContainerStyle={{
           borderTopLeftRadius: 16,
@@ -50,13 +52,6 @@ const ManageAssetsSheet = ({
         }}
       >
         <View>
-          {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>{'Close'}</Button>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Manage assets'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {/* Options */}
           <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
             {/* 1) Verus ecosystem */}

@@ -26,11 +26,12 @@
     Adds explicit copy when only one cross-chain network is available.
   - Updated 2026-01-08: Show fullyqualifiedname (FQNs) for Verus/PBaaS receive assets
     in "Receive as ..." copy, while keeping ERC20-friendly names on Ethereum.
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 import React, { useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Portal, Button, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../../globals/colors';
@@ -368,19 +369,11 @@ const SendExportToSheet = ({
         transparent={true}
         visible={visible}
         onRequestClose={onClose}
+        title="Select network"
         flexHeight={0.01}
         contentContainerStyle={styles.modalContent}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>
-              {'Close'}
-            </Button>
-            <Text style={styles.headerTitle}>Select network</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {/* Description */}
           <View style={styles.descriptionContainer}>
             <Text style={styles.descriptionText}>

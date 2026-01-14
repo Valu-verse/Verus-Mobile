@@ -5,11 +5,12 @@
   - Address/ID and amount shown as equally prominent
   - Created 2024-12-09
   - Updated 2024-12-10: Network as category header, address/amount equally prominent
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Portal, Button, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../../globals/colors';
@@ -57,6 +58,7 @@ const SendSourceSubwalletSheet = ({
         transparent={true}
         visible={visible}
         onRequestClose={onClose}
+        title="Select source"
         flexHeight={0.01}
         contentContainerStyle={{
           borderTopLeftRadius: 16,
@@ -69,15 +71,6 @@ const SendSourceSubwalletSheet = ({
         }}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>
-              {'Close'}
-            </Button>
-            <Text style={styles.headerTitle}>{'Select source'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {/* Description */}
           <View style={styles.description}>
             <Text style={styles.descriptionText}>

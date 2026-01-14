@@ -132,7 +132,7 @@ export const openLinkIdentityModal = (coinObj, data) => {
         }
       : data,
     LINK_IDENTITY_SEND_MODAL,
-    'To link a VerusID with your wallet, enter the handle or i-Address of a VerusID with a primary address that you have in your wallet.',
+    'Enter the handle (e.g. John@) or i-address of a VerusID you own. You can only link identities controlled by the address in this wallet.',
   );
 };
 

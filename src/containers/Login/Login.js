@@ -8,7 +8,6 @@
 import React, {useEffect} from 'react';
 import {View, SafeAreaView, Image, StyleSheet} from 'react-native';
 import {Text} from 'react-native-paper';
-import Video from 'react-native-video';
 import Colors from '../../globals/colors';
 import VerusLogoWhite from '../../images/customIcons/verus-logo-white.svg';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
@@ -23,7 +22,6 @@ import SignedOutDropdown from '../SignedOutDropdown/SignedOutDropdown';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 
 const ValuGlyph = require('../../images/customIcons/valu-icon.png');
-const onboardingVideo = require('../../images/valu-onb-video1.mp4');
 
 const Login = props => {
   const defaultAccount = useSelector(
@@ -90,17 +88,6 @@ const Login = props => {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Video
-        source={onboardingVideo}
-        style={styles.video}
-        resizeMode="cover"
-        repeat
-        muted
-        playInBackground={false}
-        playWhenInactive={false}
-        ignoreSilentSwitch="obey"
-      />
-
       <View style={styles.topPills}>
         <View style={styles.poweredPill}>
           <Text style={styles.poweredText}>Powered by</Text>
@@ -147,9 +134,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondaryColor,
     justifyContent: 'center',
-  },
-  video: {
-    ...StyleSheet.absoluteFillObject,
   },
   topPills: {
     position: 'absolute',

@@ -29,6 +29,7 @@ import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData
   - Replaced circular backgrounds on Buy/Sell icons with standalone plus/minus icons
   - Icons set to black, added more spacing between title/subtitle, added extra bottom padding
   - Replaced ActivityIndicator spinner with skeleton loading that matches content structure and prevents height changes during initialization
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id
@@ -257,6 +258,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
         transparent={true}
         visible={true}
         onRequestClose={onClose}
+        title="Buy & sell"
         flexHeight={0.01} // Minimal flex to override default
         contentContainerStyle={{ 
           borderTopLeftRadius: 16, 
@@ -269,13 +271,6 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
         }}
       >
         <View>
-          {/* Modal header with Close button (align with existing SemiModal headers) */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>{'Close'}</Button>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Buy & sell'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {loading ? (
             renderSkeletonPrereq()
           ) : (

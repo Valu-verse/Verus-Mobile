@@ -1,0 +1,488 @@
+/*
+  IdentityHome.render
+  - 2026-01-14: Match Wallet header behavior by adding a conditional hairline divider that
+    appears only when the identity list is scrolled (fixed header + subtle border on scroll).
+  - 2026-01-14: Convert the identity list to a full-width SectionList, remove i-address from list rows,
+    add a "Ready to link" section based on pending VerusID provisioning state, and switch to
+    deterministic avatars for recognizability.
+  - 2026-01-14: Move "Your VerusIDs" label into the fixed header area (Wallet-style) so it doesn't
+    scroll under the main title, and render pending ("Ready to link") items above the list as a
+    scrollable list header.
+  - 2026-01-14: Hide the "Your VerusIDs" subheader when the screen is in the true empty state
+    (no linked IDs and no pending IDs).
+*/
+import React from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, SectionList } from 'react-native';
+import { Portal, Button } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import Colors from '../../../globals/colors';
+import IdentityInfoSheet from './components/IdentityInfoSheet';
+import IdentityListItem from './components/IdentityListItem';
+import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
+import GradientButton from '../../../components/GradientButton';
+import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
+import { NOTIFICATION_TYPE_VERUSID_READY, NOTIFICATION_TYPE_VERUSID_ERROR } from '../../../utils/constants/services';
+
+const emptyVerusIdImg = require('../../../images/customIcons/empty-verusid.png');
+
+// Match Wallet header icon affordances (see `Home.render.js`): icon-only, subtle padding, same hitSlop.
+const iconHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
+const headerDividerThreshold = 1;
+
+const IdentityHomeRender = ({
+  width,
+  loading,
+  hasLinkedIds,
+  linkedIdCount,
+  linkedItems,
+  pendingGroups,
+  hasPending,
+  infoSheetVisible,
+  setInfoSheetVisible,
+  openLink,
+  openLinkPrefilled,
+  openVerusIdDetailsModal,
+  verusIdDetailsModalProps,
+  setVerusIdDetailsModalProps,
+  unlinkIdentity,
+  identityNetwork,
+  onLayout
+}) => {
+  const [showHeaderDivider, setShowHeaderDivider] = React.useState(false);
+  const showHeaderDividerRef = React.useRef(false);
+
+  const handleListScroll = React.useCallback((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const next = y > headerDividerThreshold;
+
+    if (next !== showHeaderDividerRef.current) {
+      showHeaderDividerRef.current = next;
+      setShowHeaderDivider(next);
+    }
+  }, []);
+
+  const renderModals = () => (
+    <Portal>
+      <IdentityInfoSheet 
+        visible={infoSheetVisible} 
+        onClose={() => setInfoSheetVisible(false)}
+      />
+      
+      {verusIdDetailsModalProps != null && (
+        <VerusIdDetailsModal
+          {...verusIdDetailsModalProps}
+          StickyFooterComponent={
+            <View style={styles.modalFooter}>
+              <Button
+                mode="text"
+                textColor={Colors.warningButtonColor}
+                onPress={async () => {
+                  const { iAddress, chain } = verusIdDetailsModalProps;
+                  setVerusIdDetailsModalProps(null);
+                  await unlinkIdentity(iAddress, chain);
+                }}
+                labelStyle={styles.unlinkLabel}
+              >
+                Unlink Identity
+              </Button>
+            </View>
+          }
+        />
+      )}
+    </Portal>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <Portal.Host>
+        {renderModals()}
+        
+        <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
+          <View style={styles.headerTopRow}>
+            <Text style={styles.headerTitle}>Identity</Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => setInfoSheetVisible(true)}
+                hitSlop={iconHitSlop}
+                style={styles.headerIconButton}
+              >
+                <MaterialCommunityIcons
+                  name="information-variant"
+                  size={20}
+                  color={Colors.verusDarkGray}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={openLink}
+                hitSlop={iconHitSlop}
+                style={styles.headerIconButton}
+              >
+                <MaterialCommunityIcons
+                  name="plus"
+                  size={20}
+                  color={Colors.verusDarkGray}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {(hasLinkedIds || hasPending) && (
+            <View style={styles.headerSubRow}>
+              <Text style={styles.subHeaderTitle}>Your VerusIDs</Text>
+              <Text style={styles.sectionCount}>{linkedIdCount ?? 0}</Text>
+            </View>
+          )}
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        ) : !hasLinkedIds && !hasPending ? (
+          <View style={styles.emptyState}>
+            <Image
+              source={emptyVerusIdImg}
+              style={styles.emptyImage}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+            <Text style={styles.emptyTitle}>No identity in your wallet</Text>
+            <Text style={styles.emptyDescription}>
+              Link a VerusID to manage funds, authenticate across apps, and keep your data in your hands.
+            </Text>
+            <GradientButton
+              onPress={() =>
+                createAlert(
+                  'Coming soon',
+                  'Creating a free VerusID from this screen is not available yet.',
+                )
+              }
+              style={styles.emptyPrimaryCta}
+              // Match Wallet 'Buy & sell' button: rely on container height + default content centering.
+              // Slight baseline nudge for iOS so the label looks optically centered at 44px height.
+              labelStyle={{ marginTop: -1 }}
+            >
+              Create free VerusID
+            </GradientButton>
+            <Button
+              mode="contained"
+              onPress={openLink}
+              style={styles.emptySecondaryCta}
+              contentStyle={{ height: 44 }}
+              uppercase={false}
+              buttonColor="#EBF6FF"
+              textColor={Colors.primaryColor}
+              labelStyle={styles.emptySecondaryLabel}
+            >
+              Link VerusID
+            </Button>
+            <TouchableOpacity
+              onPress={() => setInfoSheetVisible(true)}
+              activeOpacity={0.75}
+              style={styles.learnMoreRow}
+            >
+              <MaterialCommunityIcons
+                name="information-variant"
+                size={16}
+                color={styles.learnMoreText.color}
+                style={{ marginRight: 6 }}
+              />
+              <Text style={styles.learnMoreText}>Learn more</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <SectionList
+            sections={[{ key: 'linked', data: linkedItems || [] }]}
+            keyExtractor={(item) => `${item.chainId}:${item.iAddr}`}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleListScroll}
+            scrollEventThrottle={16}
+            onLayout={onLayout}
+            stickySectionHeadersEnabled={false}
+            ListHeaderComponent={() => {
+              const ready = pendingGroups?.ready || [];
+              const attention = pendingGroups?.attention || [];
+              const progress = pendingGroups?.progress || [];
+
+              const hasAny = ready.length + attention.length + progress.length > 0;
+              if (!hasAny) return <View style={{ height: 8 }} />;
+
+              const renderPendingGroup = (title, items) => {
+                if (!items.length) return null;
+                return (
+                  <View style={{ marginBottom: 18 }}>
+                    <View style={styles.pendingHeader}>
+                      <Text style={styles.pendingTitle}>{title}</Text>
+                      <Text style={styles.pendingCount}>{items.length}</Text>
+                    </View>
+                    <View style={{ gap: 12 }}>
+                      {items.map((item) => {
+                        const isReady = item.status === NOTIFICATION_TYPE_VERUSID_READY;
+                        const isError = item.status === NOTIFICATION_TYPE_VERUSID_ERROR;
+                        const subtitle = isReady
+                          ? 'Ready to link'
+                          : isError
+                            ? 'Needs attention'
+                            : 'In progress';
+
+                        return (
+                          <View key={`${item.chainId}:${item.iAddr}`} style={styles.pendingRow}>
+                            <IdentityListItem
+                              name={item.display}
+                              subtitle={subtitle}
+                              network={item.chainId}
+                              isPreferred={item.chainId === identityNetwork}
+                              onPress={() => openLinkPrefilled(item.chainId, item.linkInput)}
+                            />
+                            {isReady && (
+                              <View style={styles.pendingCtaWrap}>
+                                <Button
+                                  mode="contained"
+                                  onPress={() => openLinkPrefilled(item.chainId, item.linkInput)}
+                                  contentStyle={{ height: 36 }}
+                                  uppercase={false}
+                                  buttonColor={Colors.primaryColor}
+                                  textColor="white"
+                                  style={styles.pendingCta}
+                                  labelStyle={styles.pendingCtaLabel}
+                                >
+                                  Link
+                                </Button>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              };
+
+              return (
+                <View style={{ paddingTop: 8 }}>
+                  {renderPendingGroup('Ready to link', ready)}
+                  {renderPendingGroup('Needs attention', attention)}
+                  {renderPendingGroup('In progress', progress)}
+                </View>
+              );
+            }}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            renderItem={({ item }) => (
+              <IdentityListItem
+                name={item.display}
+                network={item.chainId}
+                isPreferred={item.chainId === identityNetwork}
+                onPress={() => openVerusIdDetailsModal(item.chainId, item.iAddr, item.display)}
+              />
+            )}
+          />
+        )}
+      </Portal.Host>
+    </SafeAreaView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+  },
+  headerSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerScrolled: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: 'black',
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    // Match `Home.render.js` -> `manageAssetsIconButton`
+    padding: 6,
+  },
+  scroll: {
+    flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 40,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  subHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'black',
+    letterSpacing: -0.2,
+  },
+  sectionCount: {
+    marginLeft: 8,
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+    overflow: 'hidden',
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 6,
+  },
+  pendingTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111',
+    letterSpacing: -0.1,
+  },
+  pendingCount: {
+    marginLeft: 8,
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#666',
+    overflow: 'hidden',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  loadingWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 24,
+    paddingBottom: 60,
+    paddingHorizontal: 32,
+  },
+  emptyImage: {
+    width: 170,
+    height: 140,
+    marginBottom: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.quinaryColor,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptyDescription: {
+    fontSize: 15,
+    color: Colors.verusDarkGray,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  // Match Wallet 'Buy & sell' button style (HomeFAB): 160x44, radius 22
+  emptyPrimaryCta: {
+    width: 200,
+    height: 44,
+    borderRadius: 22,
+    marginBottom: 16,
+  },
+  // Match Wallet secondary button styling (outlined pill)
+  emptySecondaryCta: {
+    width: 200,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#EBF6FF',
+    marginBottom: 16,
+    borderWidth: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  emptySecondaryLabel: {
+    color: Colors.primaryColor,
+    fontWeight: '700',
+    fontSize: 16,
+    letterSpacing: 0,
+    textTransform: 'none',
+  },
+  learnMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  learnMoreText: {
+    color: '#7A7A7A',
+    fontWeight: '600',
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+
+  pendingRow: {
+    width: '100%',
+  },
+  pendingCtaWrap: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+  },
+  pendingCta: {
+    borderRadius: 18,
+    height: 36,
+    paddingHorizontal: 2,
+  },
+  pendingCtaLabel: {
+    fontWeight: '700',
+    fontSize: 13,
+    letterSpacing: -0.2,
+  },
+
+  // Modal
+  modalFooter: {
+    padding: 16,
+    backgroundColor: 'white',
+    alignItems: 'center',
+  },
+  unlinkLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  }
+});
+
+export default IdentityHomeRender;

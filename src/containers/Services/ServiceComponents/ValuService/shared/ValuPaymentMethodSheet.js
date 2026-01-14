@@ -8,11 +8,12 @@
   - Supports Apple Pay SVG icon
   - Adjusted fee text size and capitalization
   - Used by both ValuOnRampChooseSource and ValuOffRampChooseSource flows
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 import React from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Portal, Button, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
@@ -128,17 +129,10 @@ const ValuPaymentMethodSheet = (props) => {
         transparent={true}
         visible={true}
         onRequestClose={onDismiss}
+        title={sheetTitle}
         flexHeight={0.01}
         contentContainerStyle={styles.modalContainer}
       >
-        <View style={styles.header}>
-          <Button textColor={Colors.primaryColor} onPress={onDismiss}>
-            Close
-          </Button>
-          <Text style={styles.headerTitle}>{sheetTitle}</Text>
-          <View style={{ width: 64 }} />
-        </View>
-
         {emptyState || (
           <ScrollView
             style={styles.scrollContainer}
