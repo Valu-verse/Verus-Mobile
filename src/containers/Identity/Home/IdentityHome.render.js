@@ -10,11 +10,14 @@
     scrollable list header.
   - 2026-01-14: Hide the "Your VerusIDs" subheader when the screen is in the true empty state
     (no linked IDs and no pending IDs).
+  - 2026-01-14: Add a Wallet-style bottom white fade overlay so long lists scroll smoothly behind
+    the tab bar area (matches HomeFAB gradient fade behavior).
 */
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, SectionList } from 'react-native';
 import { Portal, Button } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import IdentityInfoSheet from './components/IdentityInfoSheet';
 import IdentityListItem from './components/IdentityListItem';
@@ -22,6 +25,7 @@ import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusId
 import GradientButton from '../../../components/GradientButton';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { NOTIFICATION_TYPE_VERUSID_READY, NOTIFICATION_TYPE_VERUSID_ERROR } from '../../../utils/constants/services';
+import BottomFadeOverlay from '../../../components/BottomFadeOverlay';
 
 const emptyVerusIdImg = require('../../../images/customIcons/empty-verusid.png');
 
@@ -48,6 +52,10 @@ const IdentityHomeRender = ({
   identityNetwork,
   onLayout
 }) => {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 20);
+  const bottomFadeHeight = 48;
+
   const [showHeaderDivider, setShowHeaderDivider] = React.useState(false);
   const showHeaderDividerRef = React.useRef(false);
 
@@ -194,7 +202,10 @@ const IdentityHomeRender = ({
           <SectionList
             sections={[{ key: 'linked', data: linkedItems || [] }]}
             keyExtractor={(item) => `${item.chainId}:${item.iAddr}`}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: 40 + bottomFadeHeight + bottomPadding },
+            ]}
             showsVerticalScrollIndicator={false}
             onScroll={handleListScroll}
             scrollEventThrottle={16}
@@ -276,6 +287,15 @@ const IdentityHomeRender = ({
                 onPress={() => openVerusIdDetailsModal(item.chainId, item.iAddr, item.display)}
               />
             )}
+          />
+        )}
+
+        {/* Wallet-style scroll-under fade (behind the tab bar area) */}
+        {(hasLinkedIds || hasPending) && (
+          <BottomFadeOverlay
+            gradientHeight={bottomFadeHeight}
+            solidHeight={bottomPadding}
+            backgroundColor="#FFFFFF"
           />
         )}
       </Portal.Host>
