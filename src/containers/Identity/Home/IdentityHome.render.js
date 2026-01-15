@@ -195,7 +195,7 @@ const IdentityHomeRender = ({
                 color={styles.learnMoreText.color}
                 style={{ marginRight: 6 }}
               />
-              <Text style={styles.learnMoreText}>Learn more</Text>
+              <Text style={styles.learnMoreText}>VerusID explained</Text>
             </TouchableOpacity>
           </View>
         ) : (
