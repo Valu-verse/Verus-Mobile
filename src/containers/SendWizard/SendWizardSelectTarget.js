@@ -30,9 +30,22 @@
     "export to Ethereum" option is available for that row.
   - Updated 2026-01-08: Show a small sub-label under the "Send" row name that displays
     the source asset's fullyqualifiedname (Verus/PBaaS) or regular ticker (ETH/ERC20).
+  - Updated 2026-01-15: Show dual Ethereum + Verus badges for targets that can be
+    received on both Ethereum and Verus/PBaaS networks.
+  - Updated 2026-01-15: Increased right spacing for option icons to accommodate
+    dual badges without crowding text.
+  - Updated 2026-01-15: Added extra icon-to-text spacing to prevent double badge
+    overlap with labels.
+  - Updated 2026-01-15: Styled search input to match Unlock password field,
+    added right-side search icon, and search now matches fullyqualifiedname.
+  - Updated 2026-01-15: Added a sticky-style header divider when the list scrolls,
+    matching the Wallet screen behavior.
+  - Updated 2026-01-15: Added a header close X to exit the send flow.
+  - Updated 2026-01-15: Precompute VRSC bridge fee for Ethereum exports and
+    pass it to the export sheet for display and gating.
 */
 
-import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
 import { View, ScrollView, TextInput as RNTextInput, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from 'react-native-paper';
@@ -45,6 +58,10 @@ import { getConversionPaths } from '../../utils/api/routers/getConversionPaths';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import SendExportToSheet from './components/SendExportToSheet';
 import { VRPC, ETH, ERC20 } from '../../utils/constants/intervalConstants';
+import { calculateCurrencyTransferFee } from '../../utils/api/channels/vrpc/callCreators';
+import { getAddressBalances } from '../../utils/api/routers/getAddressBalance';
+import { satsToCoins } from '../../utils/math';
+import BigNumber from 'bignumber.js';
 import { 
   getCurrencyDisplayName, 
   getCurrencyDisplayTicker,
@@ -57,11 +74,26 @@ const POPULAR_CURRENCIES = ['VRSC', 'USDC', 'ETH', 'TBTC', 'DAI'];
 
 // vETH system ID (used to represent Ethereum export destination in conversion paths)
 const VETH_SYSTEM_ID = 'i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X';
+const headerDividerThreshold = 1;
+
+const getDualBadgeIcons = (item) => {
+  if (!item || item.isGrouped) return null;
+  const exportOptions = Array.isArray(item.exportOptions) ? item.exportOptions : [];
+  const hasEthereumExport = exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID);
+  if (!hasEthereumExport) return null;
+
+  const hasNonEthereumReceive =
+    item.hasOnChainPath ||
+    exportOptions.some((o) => o?.exportTo && o.exportTo !== VETH_SYSTEM_ID);
+
+  return hasNonEthereumReceive ? ['ETH', 'VRSC'] : null;
+};
 
 const SendWizardSelectTarget = () => {
   const navigation = useNavigation();
   const { state, setTarget, setStep } = useSendWizard();
   const { sourceCoin, channel } = state;
+  const activeAccount = useObjectSelector((s) => s.authentication.activeAccount);
 
   const [loading, setLoading] = useState(true);
   const [conversionPaths, setConversionPaths] = useState({});
@@ -73,11 +105,44 @@ const SendWizardSelectTarget = () => {
   // New state for grouped asset network selection
   const [networkSheetVisible, setNetworkSheetVisible] = useState(false);
   const [pendingGroupedAsset, setPendingGroupedAsset] = useState(null);
+  const [showHeaderDivider, setShowHeaderDivider] = useState(false);
+  const showHeaderDividerRef = useRef(false);
+  const [bridgeFeeInfo, setBridgeFeeInfo] = useState({
+    loading: false,
+    feeCoins: null,
+    feeSats: null,
+    balanceCoins: null,
+    systemId: null,
+    sourceAddress: null,
+    currencyTicker: 'VRSC',
+    error: null,
+  });
+
+  const handleClose = useCallback(() => {
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.goBack === 'function') {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation]);
+
+  const renderCloseButton = useCallback(() => (
+    <TouchableOpacity
+      onPress={handleClose}
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={styles.headerCloseButton}
+    >
+      <MaterialCommunityIcons name="close" size={22} color={Colors.verusDarkGray} />
+    </TouchableOpacity>
+  ), [handleClose]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: renderCloseButton,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -86,7 +151,131 @@ const SendWizardSelectTarget = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation]);
+  }, [navigation, renderCloseButton]);
+
+  const getPrimaryEthAddress = useCallback(() => {
+    if (!activeAccount?.keys) return null;
+    for (const coinId of Object.keys(activeAccount.keys)) {
+      const coinKeys = activeAccount.keys[coinId];
+      const ethAddresses = coinKeys?.[ETH]?.addresses || coinKeys?.[ERC20]?.addresses || [];
+      if (ethAddresses.length > 0) return ethAddresses[0];
+    }
+    return null;
+  }, [activeAccount]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resetBridgeFee = () => {
+      setBridgeFeeInfo({
+        loading: false,
+        feeCoins: null,
+        feeSats: null,
+        balanceCoins: null,
+        systemId: null,
+        sourceAddress: null,
+        currencyTicker: 'VRSC',
+        error: null,
+      });
+    };
+
+    const fetchBridgeFee = async () => {
+      if (!sourceCoin || !channel) {
+        resetBridgeFee();
+        return;
+      }
+
+      const channelType = channel.split('.')[0];
+      if (channelType !== VRPC || sourceCoin.proto !== 'vrsc') {
+        resetBridgeFee();
+        return;
+      }
+
+      const parts = channel.split('.');
+      const sourceAddress = parts[1];
+      const systemId = parts[2] || sourceCoin.system_id || sourceCoin.id;
+
+      if (!sourceAddress || !systemId) {
+        resetBridgeFee();
+        return;
+      }
+
+      const ethAddress = getPrimaryEthAddress();
+      if (!ethAddress) {
+        setBridgeFeeInfo({
+          loading: false,
+          feeCoins: null,
+          feeSats: null,
+          balanceCoins: null,
+          systemId,
+          sourceAddress,
+          currencyTicker: 'VRSC',
+          error: 'No Ethereum address available',
+        });
+        return;
+      }
+
+      setBridgeFeeInfo((prev) => ({
+        ...prev,
+        loading: true,
+        error: null,
+        systemId,
+        sourceAddress,
+        currencyTicker: 'VRSC',
+      }));
+
+      try {
+        const [feeSats, balances] = await Promise.all([
+          calculateCurrencyTransferFee(
+            systemId,
+            sourceCoin.currency_id || sourceCoin.id,
+            VETH_SYSTEM_ID,
+            null,
+            systemId,
+            null,
+            sourceAddress,
+            ethAddress,
+            false,
+          ),
+          getAddressBalances(sourceCoin, channel, { address: sourceAddress }),
+        ]);
+
+        const feeCoins = satsToCoins(BigNumber(feeSats)).toString();
+        const balanceCoins =
+          balances && balances[systemId] != null ? String(balances[systemId]) : '0';
+
+        if (cancelled) return;
+        setBridgeFeeInfo({
+          loading: false,
+          feeCoins,
+          feeSats: String(feeSats),
+          balanceCoins,
+          systemId,
+          sourceAddress,
+          currencyTicker: 'VRSC',
+          error: null,
+        });
+      } catch (e) {
+        if (cancelled) return;
+        setBridgeFeeInfo((prev) => ({
+          ...prev,
+          loading: false,
+          feeCoins: null,
+          feeSats: null,
+          balanceCoins: prev.balanceCoins ?? null,
+          systemId,
+          sourceAddress,
+          error: e?.message || 'Failed to estimate bridge fee',
+        }));
+      }
+    };
+
+    fetchBridgeFee();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sourceCoin, channel, getPrimaryEthAddress]);
 
   // Fetch conversion paths when source changes
   useEffect(() => {
@@ -441,7 +630,13 @@ const SendWizardSelectTarget = () => {
       const name = (opt?.name || '').toLowerCase();
       const ticker = (opt?.ticker || '').toLowerCase();
       const id = (opt?.id || '').toLowerCase();
-      return name.includes(query) || ticker.includes(query) || id.includes(query);
+      const fullyqualifiedname = (opt?.fullyqualifiedname || '').toLowerCase();
+      return (
+        name.includes(query) ||
+        ticker.includes(query) ||
+        id.includes(query) ||
+        fullyqualifiedname.includes(query)
+      );
     };
 
     return {
@@ -589,6 +784,7 @@ const SendWizardSelectTarget = () => {
           item.isGrouped 
             ? RenderPlainCoinLogo(item.coinId, {}, 40, 40)
             : RenderSquareCoinLogo(item.coinId, {}, 40, 40, {
+                badgeIcons: getDualBadgeIcons(item),
                 disableBadge: Array.isArray(item.exportOptions)
                   ? item.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
                   : false,
@@ -675,26 +871,42 @@ const SendWizardSelectTarget = () => {
   }
 
   const hasResults = filteredSend || filteredPopular.length > 0 || filteredOther.length > 0;
+  
+  const handleResultsScroll = useCallback((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const next = y > headerDividerThreshold;
+    if (next !== showHeaderDividerRef.current) {
+      showHeaderDividerRef.current = next;
+      setShowHeaderDivider(next);
+    }
+  }, []);
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
         <Text style={styles.mainTitle}>What should the recipient receive?</Text>
-        <RNTextInput
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          placeholder="Search currencies"
-          placeholderTextColor="#999"
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
+        <View
           style={[
-            styles.searchInput,
+            styles.searchInputContainer,
             searchFocused && styles.searchInputFocused,
           ]}
-        />
+        >
+          <RNTextInput
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Search currencies"
+            placeholderTextColor="#999"
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+          <View style={styles.searchIcon}>
+            <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+          </View>
+        </View>
       </View>
 
       {loading ? (
@@ -715,6 +927,8 @@ const SendWizardSelectTarget = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          onScroll={handleResultsScroll}
+          scrollEventThrottle={16}
         >
           {renderSendSection()}
 
@@ -742,6 +956,7 @@ const SendWizardSelectTarget = () => {
           targetCurrency={pendingTarget}
           sourceCoin={sourceCoin}
           hideSameNetwork={pendingTarget.hasOnChainPath === false}
+          bridgeFeeInfo={bridgeFeeInfo}
           onClose={() => {
             setExportSheetVisible(false);
             setPendingTarget(null);
@@ -769,6 +984,7 @@ const SendWizardSelectTarget = () => {
           targetCurrency={filteredSend}
           sourceCoin={sourceCoin}
           hideSameNetwork={true}
+          bridgeFeeInfo={bridgeFeeInfo}
           onClose={() => setSendExportSheetVisible(false)}
           onSelect={(exportTo) => {
             setSendExportSheetVisible(false);
@@ -788,6 +1004,7 @@ const SendWizardSelectTarget = () => {
           targetCurrency={pendingGroupedAsset}
           sourceCoin={sourceCoin}
           isGroupedAsset={true}
+          bridgeFeeInfo={bridgeFeeInfo}
           onClose={() => {
             setNetworkSheetVisible(false);
             setPendingGroupedAsset(null);
@@ -812,6 +1029,11 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 20,
     paddingBottom: 16,
+    backgroundColor: 'white',
+  },
+  headerScrolled: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
   },
   mainTitle: {
     fontSize: 28,
@@ -825,19 +1047,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  searchInput: {
-    height: 48,
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: '#1A1A1A',
-    backgroundColor: '#F5F5F5',
+    borderColor: 'transparent',
     marginTop: 16,
+    height: 52,
   },
   searchInputFocused: {
+    backgroundColor: '#FFF',
     borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  searchInput: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  searchIcon: {
+    paddingHorizontal: 16,
+    height: '100%',
+    justifyContent: 'center',
+  },
+  headerCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 6,
   },
   scrollContent: {
     paddingBottom: 32,
@@ -884,7 +1127,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   optionLeft: {
-    marginRight: 14,
+    marginRight: 28,
   },
   optionCenter: {
     flex: 1,

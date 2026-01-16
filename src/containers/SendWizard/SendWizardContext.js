@@ -3,6 +3,8 @@
   - React Context for managing wizard state across steps
   - Holds source asset, target currency, amount, routing, recipient, and preflight data
   - Created 2024-12-09
+  - Updated 2026-01-15: Allow initialSource to bootstrap wizard state and
+    start at step 2 when the source is preselected.
   - Updated 2024-12-09: Added destinationAddressType tracking for address validation
   - Updated 2025-12-11: Added initialParams support for pre-selecting source coin
   - Updated 2024-12-15: Added txResult state and setTxResult action for success screen
@@ -81,6 +83,20 @@ const ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   SET_ERROR: 'SET_ERROR',
   RESET: 'RESET',
+};
+
+const buildInitialState = (initArg) => {
+  if (!initArg?.initialSource) return { ...initialState };
+
+  const { coin, subWallet, balance, channel } = initArg.initialSource;
+  return {
+    ...initialState,
+    sourceCoin: coin,
+    sourceSubWallet: subWallet,
+    sourceBalance: balance,
+    channel,
+    currentStep: 2,
+  };
 };
 
 function wizardReducer(state, action) {
@@ -228,8 +244,12 @@ function wizardReducer(state, action) {
 
 const SendWizardContext = createContext(null);
 
-export const SendWizardProvider = ({ children, initialParams = {} }) => {
-  const [state, dispatch] = useReducer(wizardReducer, initialState);
+export const SendWizardProvider = ({ children, initialParams = {}, initialSource = null }) => {
+  const [state, dispatch] = useReducer(
+    wizardReducer,
+    { initialSource },
+    buildInitialState,
+  );
   
   // Memoize initial params to avoid unnecessary re-renders
   const memoizedInitialParams = useMemo(() => initialParams, [
