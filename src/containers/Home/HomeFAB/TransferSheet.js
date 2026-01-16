@@ -2,12 +2,12 @@
   New file: TransferSheet
   - Bottom sheet surfaced from the Transfer button (Home/Assets FAB row)
   - Presents two primary actions: "Receive crypto" and "Send & convert assets"
-  - Mirrors styling conventions of BuySellSheet/SemiModal with header close button
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 import React from 'react';
 import { View } from 'react-native';
-import { Portal, List, Button, Text } from 'react-native-paper';
+import { Portal, List } from 'react-native-paper';
 import Colors from '../../../globals/colors';
 import SemiModal from '../../../components/SemiModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ const TransferSheet = ({
         transparent={true}
         visible={visible}
         onRequestClose={onClose}
+        title="Transfer"
         flexHeight={0.01}
         contentContainerStyle={{
           borderTopLeftRadius: 16,
@@ -53,22 +54,6 @@ const TransferSheet = ({
         }}
       >
         <View>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: 12,
-              paddingBottom: 12,
-            }}
-          >
-            <Button onPress={onClose} textColor={Colors.primaryColor}>
-              {'Close'}
-            </Button>
-            <Text style={{ fontSize: 16, fontWeight: '600' }}>{'Transfer'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           <View style={{ paddingHorizontal: 12 }}>
             <List.Item
               title="Receive crypto"

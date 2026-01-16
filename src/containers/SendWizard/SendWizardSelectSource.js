@@ -6,10 +6,17 @@
   - Created 2024-12-09
   - Updated 2025-12-11: Added support for initialParams to auto-select source
     when navigating from asset overview screen.
+  - Updated 2026-01-15: When auto-selecting from asset overview, replace the
+    source step with the target step so back returns to the overview screen.
+  - Updated 2026-01-15: Styled the search bar to match Unlock input styling
+    and added a right-side search icon with updated placeholder copy.
+  - Updated 2026-01-15: Added a header divider when the list scrolls,
+    matching the Wallet screen behavior.
+  - Updated 2026-01-15: Added a header close X to exit the send flow.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
-import { View, FlatList, TextInput as RNTextInput, StyleSheet } from 'react-native';
+import { View, FlatList, TextInput as RNTextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
@@ -22,6 +29,7 @@ import { USD } from '../../utils/constants/currencies';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import SendSourceSubwalletSheet from './components/SendSourceSubwalletSheet';
 import { useSendWizard } from './SendWizardContext';
 
@@ -29,6 +37,8 @@ const SendWizardSelectSource = () => {
   const navigation = useNavigation();
   const { setSource, setStep, initialParams } = useSendWizard();
   const hasAutoSelected = useRef(false);
+  const showHeaderDividerRef = useRef(false);
+  const [showHeaderDivider, setShowHeaderDivider] = useState(false);
 
   const activeCoinsForUser = useObjectSelector((state) => state.coins.activeCoinsForUser);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
@@ -44,10 +54,31 @@ const SendWizardSelectSource = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
 
+  const handleClose = useCallback(() => {
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.goBack === 'function') {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation]);
+
+  const renderCloseButton = useCallback(() => (
+    <TouchableOpacity
+      onPress={handleClose}
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={styles.headerCloseButton}
+    >
+      <MaterialCommunityIcons name="close" size={22} color={Colors.verusDarkGray} />
+    </TouchableOpacity>
+  ), [handleClose]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: renderCloseButton,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -56,7 +87,7 @@ const SendWizardSelectSource = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation]);
+  }, [navigation, renderCloseButton]);
 
   // Auto-select source if initialParams are provided (e.g., from asset overview)
   useEffect(() => {
@@ -92,7 +123,7 @@ const SendWizardSelectSource = () => {
       hasAutoSelected.current = true;
       // Auto-select after a brief delay to allow navigation to complete
       setTimeout(() => {
-        selectAssetAndSubwallet(coinObj, targetSubWallet);
+        selectAssetAndSubwallet(coinObj, targetSubWallet, { replaceRoute: true });
       }, 100);
     }
   }, [initialParams, activeCoinsForUser, allSubWallets, balances, selectAssetAndSubwallet]);
@@ -175,7 +206,7 @@ const SendWizardSelectSource = () => {
   }, [assets, searchTerm]);
 
   const selectAssetAndSubwallet = useCallback(
-    (coinObj, subWallet) => {
+    (coinObj, subWallet, options = {}) => {
       if (!coinObj || !subWallet) return;
 
       // Get balance for this specific subwallet
@@ -191,7 +222,11 @@ const SendWizardSelectSource = () => {
 
       setSource(coinObj, subWallet, walletBalance, channel);
       setStep(2);
-      navigation.navigate('SendWizardSelectTarget');
+      if (options.replaceRoute === true && typeof navigation.replace === 'function') {
+        navigation.replace('SendWizardSelectTarget');
+      } else {
+        navigation.navigate('SendWizardSelectTarget');
+      }
     },
     [balances, setSource, setStep, navigation],
   );
@@ -282,39 +317,50 @@ const SendWizardSelectSource = () => {
     },
     [displayCurrency, handleAssetPress, showBalance],
   );
+  
+  const handleAssetListScroll = useCallback((event) => {
+    const y = event?.nativeEvent?.contentOffset?.y ?? 0;
+    const next = y > 1;
+    if (next !== showHeaderDividerRef.current) {
+      showHeaderDividerRef.current = next;
+      setShowHeaderDivider(next);
+    }
+  }, []);
 
   return (
     <View style={styles.listContainer}>
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+      <View style={[styles.header, showHeaderDivider && styles.headerScrolled]}>
         <Text style={styles.mainTitle}>Select asset to send or convert</Text>
-        <RNTextInput
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          placeholder="Search assets"
-          placeholderTextColor="#999"
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
-          style={{
-            height: 48,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: searchFocused ? Colors.primaryColor : '#E0E0E0',
-            paddingHorizontal: 14,
-            fontSize: 15,
-            color: '#1A1A1A',
-            backgroundColor: '#F5F5F5',
-            marginTop: 12,
-          }}
-        />
+        <View
+          style={[
+            styles.searchInputContainer,
+            searchFocused && styles.searchInputFocused,
+          ]}
+        >
+          <RNTextInput
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder="Search currencies"
+            placeholderTextColor="#999"
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+          <View style={styles.searchIcon}>
+            <MaterialCommunityIcons name="magnify" size={20} color="#999" />
+          </View>
+        </View>
       </View>
       <FlatList
         data={filteredAssets}
         keyExtractor={(item) => item.coinObj.id}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
+        onScroll={handleAssetListScroll}
+        scrollEventThrottle={16}
         ListEmptyComponent={() => (
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingTop: 48 }}>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
@@ -402,6 +448,50 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: 'white',
+  },
+  headerScrolled: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E1E4EA',
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginTop: 16,
+    height: 52,
+  },
+  searchInputFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  searchInput: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  searchIcon: {
+    paddingHorizontal: 16,
+    height: '100%',
+    justifyContent: 'center',
+  },
+  headerCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 6,
   },
 });
 

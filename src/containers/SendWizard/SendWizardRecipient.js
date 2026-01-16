@@ -7,6 +7,7 @@
   - Created 2024-12-09
   - Updated 2024-12-09: Uses destinationAddressType for validation, added QR/paste buttons
   - Updated 2024-12-15: VerusID selection now populates VerusID name instead of i-address
+  - Updated 2026-01-15: Added a header close X to exit the send flow.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -41,10 +42,31 @@ const SendWizardRecipient = () => {
   const [selfSheetVisible, setSelfSheetVisible] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
 
+  const handleClose = useCallback(() => {
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.goBack === 'function') {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation]);
+
+  const renderCloseButton = useCallback(() => (
+    <TouchableOpacity
+      onPress={handleClose}
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={styles.headerCloseButton}
+    >
+      <MaterialCommunityIcons name="close" size={22} color={Colors.verusDarkGray} />
+    </TouchableOpacity>
+  ), [handleClose]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: renderCloseButton,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -54,7 +76,7 @@ const SendWizardRecipient = () => {
       },
       headerShown: !scannerOpen, // Hide header when scanner is open
     });
-  }, [navigation, scannerOpen]);
+  }, [navigation, scannerOpen, renderCloseButton]);
 
   // Get placeholder and hint text based on destination address type
   const placeholderText = useMemo(() => {
@@ -425,6 +447,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  headerCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 6,
   },
   centered: {
     alignItems: 'center',

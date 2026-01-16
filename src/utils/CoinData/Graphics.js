@@ -3,6 +3,11 @@
   - Rendering helpers for coin logos and layered badge variants.
   - Updated 2026-01-08: Added `disableBadge` option to `RenderSquareCoinLogo` so
     callers can suppress the automatic Verus/Ethereum badge in context-specific UI.
+  - Updated 2026-01-15: Added multi-badge support for custom network indicators
+    on coin logos (e.g., Ethereum + Verus overlays) with base badge aligned
+    to the single-badge position and additional badges spaced to the right.
+  - Updated 2026-01-15: Increased multi-badge right spacing to better separate
+    dual badges in dense lists.
 */
 
 import React from "react";
@@ -91,6 +96,71 @@ export const LayeredCoinLogo = (MainLogo, SubLogo, width = 40, height = 40) => {
   );
 };
 
+export const LayeredCoinLogoWithBadges = (
+  MainLogo,
+  BadgeLogos = [],
+  width = 40,
+  height = 40,
+  options = {}
+) => {
+  const {
+    badgeSizeRatio = 0.55,
+    badgeSpacingRatio = 0.65,
+    badgeOverflowRatio = 0.3,
+    badgePadding = 2,
+  } = options;
+
+  const badgeSize = width * badgeSizeRatio;
+  const overflowOffset = badgeSize * badgeOverflowRatio;
+  const badgeSpacing = badgeSize * badgeSpacingRatio;
+  const validBadges = Array.isArray(BadgeLogos) ? BadgeLogos.filter(Boolean) : [];
+
+  return (
+    <View
+      style={{
+        width,
+        height,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: 'transparent',
+        overflow: 'visible',
+        zIndex: 1,
+      }}
+    >
+      <MainLogo
+        width={width}
+        height={height}
+      />
+      {validBadges.map((BadgeLogo, index) => {
+        const shift = index * badgeSpacing;
+        return (
+          <View
+            key={`badge-${index}`}
+            style={{
+              position: 'absolute',
+              bottom: -overflowOffset,
+              right: -overflowOffset - shift,
+              width: badgeSize,
+              height: badgeSize,
+              borderRadius: badgeSize / 2,
+              backgroundColor: 'white',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: badgePadding,
+              zIndex: 2 + index,
+            }}
+          >
+            <BadgeLogo
+              width={badgeSize - badgePadding * 2}
+              height={badgeSize - badgePadding * 2}
+            />
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
 export const getSimpleLogo = (chainTicker, theme = 'dark') => {
   let proto;
   let color;
@@ -117,10 +187,33 @@ export const RenderSquareCoinLogo = (
   options = {}
 ) => {
   const { Logo, color } = getSimpleLogo(chainTicker, 'dark');
-  const { disableBadge = false } = options;
+  const { disableBadge = false, badgeIcons = null, badgeOptions = {} } = options;
   let SubLogo = null;
+  const hasCustomBadges = Array.isArray(badgeIcons) && badgeIcons.length > 0;
 
-  if (!disableBadge) {
+  if (hasCustomBadges) {
+    const badgeLogos = badgeIcons
+      .map((iconId) => {
+        try {
+          const badgeData = getSimpleLogo(iconId, 'dark');
+          return badgeData?.Logo || null;
+        } catch (e) {
+          console.warn("Failed to load badge logo for", iconId, e);
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    if (badgeLogos.length > 0) {
+      return (
+        <View style={{ ...style }}>
+          {LayeredCoinLogoWithBadges(Logo, badgeLogos, width, height, badgeOptions)}
+        </View>
+      );
+    }
+  }
+
+  if (!disableBadge && !hasCustomBadges) {
     try {
       const coinObj = CoinDirectory.findCoinObj(chainTicker);
       

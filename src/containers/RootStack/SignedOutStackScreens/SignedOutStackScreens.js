@@ -1,10 +1,15 @@
-import React, {useEffect, useState} from 'react';
+/*
+  Updated signed-out-with-accounts stack:
+  - Replaced the initial signed-out entry screen with a dedicated `Unlock` screen for existing profiles.
+  - Keeps CreateProfile + recovery flows intact.
+*/
+import React, {useEffect} from 'react';
 import {createStackNavigator} from '@react-navigation/stack';
 import DisplaySeed from '../../DisplaySeed/DisplaySeed';
 import RecoverSeed from '../../Settings/ProfileSettings/RecoverSeed/RecoverSeed';
 import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile';
 import SecureLoading from '../../SecureLoading/SecureLoading';
-import Login from '../../Login/Login';
+import Unlock from '../../Unlock/Unlock';
 import SignUp from '../../SignUp/SignUp';
 import {useDispatch, useSelector} from 'react-redux';
 import {setDeeplinkUrl} from '../../../actions/actionCreators';
@@ -29,8 +34,8 @@ const SignedOutStackScreens = props => {
   return (
     <SignedOutStack.Navigator>
       <SignedOutStack.Screen
-        name="Login"
-        component={Login}
+        name="Unlock"
+        component={Unlock}
         options={{
           headerShown: false,
         }}

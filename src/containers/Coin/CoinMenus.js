@@ -5,6 +5,9 @@
   - 2025-12-15: 
     * Total balance display integrated into ticker row under coin name.
     * Send/Receive buttons moved to fixed FAB at bottom (like HomeFAB).
+  - 2026-01-12:
+    * Updated Receive + Send/convert buttons to match Wallet screen "Transfer" button styling (contained, light-blue background).
+    * Made "Send / convert" label the same size as "Receive" (removed compact label override).
   - 2026-01-10:
     * Option A header redesign: unify title/total + selected balance + address selector into a cleaner header block.
     * Moved Ethereum contract affordance from inline pill to a header-right Ethereum icon (ERC20 only) opening existing explorer sheet.
@@ -55,6 +58,7 @@ import { API_GET_BALANCES } from "../../utils/constants/intervalConstants";
 import { truncateDecimal } from "../../utils/math";
 
 const GRADIENT_HEIGHT = 48;
+const FAB_ACTION_BUTTON_COLOR = '#EBF6FF';
 
 const CoinMenus = () => {
   const dispatch = useDispatch();
@@ -375,21 +379,27 @@ const CoinMenus = () => {
                 {/* Button Row */}
                 <View style={[styles.fabButtonRow, { paddingBottom: bottomPadding }]}>
                   <Button
-                    mode="outlined"
+                    mode="contained"
                     onPress={handleReceivePress}
-                    style={styles.fabSecondaryButton}
-                    contentStyle={styles.fabSecondaryContent}
-                    labelStyle={styles.fabSecondaryLabel}
+                    style={styles.fabActionButton}
+                    buttonColor={FAB_ACTION_BUTTON_COLOR}
+                    textColor={Colors.primaryColor}
+                    contentStyle={styles.fabActionContent}
+                    uppercase={false}
+                    labelStyle={styles.fabActionLabel}
                   >
                     Receive
                   </Button>
 
                   <Button
-                    mode="outlined"
+                    mode="contained"
                     onPress={handleSendPress}
-                    style={styles.fabSecondaryButton}
-                    contentStyle={styles.fabSecondaryContent}
-                    labelStyle={[styles.fabSecondaryLabel, styles.fabSecondaryLabelCompact]}
+                    style={styles.fabActionButton}
+                    buttonColor={FAB_ACTION_BUTTON_COLOR}
+                    textColor={Colors.primaryColor}
+                    contentStyle={styles.fabActionContent}
+                    uppercase={false}
+                    labelStyle={styles.fabActionLabel}
                   >
                     Send / convert
                   </Button>
@@ -407,6 +417,7 @@ const CoinMenus = () => {
               transparent={true}
               visible={true}
               onRequestClose={() => setExplorerSheetVisible(false)}
+              title="View on Etherscan"
               flexHeight={0.01}
               contentContainerStyle={{
                 borderTopLeftRadius: 16,
@@ -417,11 +428,6 @@ const CoinMenus = () => {
               }}
             >
               <View>
-                <View style={styles.sheetHeader}>
-                  <Button onPress={() => setExplorerSheetVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                  <Text style={styles.sheetTitle}>{'View on Etherscan'}</Text>
-                  <View style={styles.sheetHeaderSpacer} />
-                </View>
                 <View style={styles.sheetBody}>
                   <Text style={styles.infoParagraph}>
                     {'This asset is linked to an Ethereum token contract:'}
@@ -567,11 +573,10 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
   },
-  fabSecondaryButton: {
+  fabActionButton: {
     borderRadius: 22,
-    borderColor: Colors.primaryColor,
-    borderWidth: 1,
-    backgroundColor: Colors.secondaryColor,
+    borderWidth: 0,
+    backgroundColor: FAB_ACTION_BUTTON_COLOR,
     width: 160,
     elevation: 0,
     shadowColor: 'transparent',
@@ -579,18 +584,15 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
   },
-  fabSecondaryContent: {
+  fabActionContent: {
     height: 44,
   },
-  fabSecondaryLabel: {
+  fabActionLabel: {
     color: Colors.primaryColor,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: 0,
     textTransform: 'none',
-  },
-  fabSecondaryLabelCompact: {
-    fontSize: 14,
   },
 });
 

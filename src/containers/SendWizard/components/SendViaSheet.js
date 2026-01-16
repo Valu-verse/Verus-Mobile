@@ -8,11 +8,12 @@
   - Updated 2024-12-10: Redesigned with card layout, improved styling
   - Updated 2026-01-09: Show route option outputs truncated to 8 decimals (trim trailing zeros),
     display the target FQN under the output, and hide per-option rate lines.
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
 */
 
 import React, { useMemo } from 'react';
 import { View, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { Portal, Button, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import Colors from '../../../globals/colors';
@@ -103,6 +104,7 @@ const SendViaSheet = ({
         transparent={true}
         visible={visible}
         onRequestClose={onClose}
+        title="Conversion route"
         flexHeight={0.01}
         contentContainerStyle={{
           borderTopLeftRadius: 16,
@@ -115,15 +117,6 @@ const SendViaSheet = ({
         }}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>
-              {'Close'}
-            </Button>
-            <Text style={styles.headerTitle}>{'Conversion route'}</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {/* Description */}
           <View style={styles.description}>
             <Text style={styles.descriptionText}>

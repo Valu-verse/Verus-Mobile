@@ -9,29 +9,15 @@
 import React from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
-import Video from 'react-native-video';
 import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
 import VerusLogoWhite from '../../../images/customIcons/verus-logo-white.svg';
 
 const ValuGlyph = require('../../../images/customIcons/valu-icon.png');
 
-const onboardingVideo = require('../../../images/valu-onb-video1.mp4');
-
 export default function LandingScreen(props) {
   return (
     <View style={styles.root}>
-      <Video
-        source={onboardingVideo}
-        style={styles.video}
-        resizeMode="cover"
-        repeat
-        muted
-        playInBackground={false}
-        playWhenInactive={false}
-        ignoreSilentSwitch="obey"
-      />
-
       <View style={styles.poweredPill}>
         <Text style={styles.poweredText}>Powered by</Text>
         <VerusLogoWhite width={68} height={16} />
@@ -75,9 +61,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondaryColor,
     justifyContent: 'center',
-  },
-  video: {
-    ...StyleSheet.absoluteFillObject,
   },
   poweredPill: {
     position: 'absolute',

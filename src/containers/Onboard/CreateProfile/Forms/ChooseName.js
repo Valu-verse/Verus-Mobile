@@ -7,6 +7,7 @@
   - Better spacing between "How it works" link and Continue button
   - Added "How it works" modal using SemiModal pattern
   - Removed on-page bullet points; moved note about multiple profiles into modal
+  - 2026-01-12: Standardized sheet close affordance to shared SemiModal header (top-right X).
 */
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, SafeAreaView} from 'react-native';
@@ -201,6 +202,7 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
               transparent={true}
               visible={howItWorksVisible}
               onRequestClose={() => setHowItWorksVisible(false)}
+              title="How it works"
               flexHeight={0.01}
               contentContainerStyle={{
                 borderTopLeftRadius: 16,
@@ -212,11 +214,6 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
               }}
             >
               <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingBottom: 16 }}>
-                  <Button onPress={() => setHowItWorksVisible(false)} textColor={Colors.primaryColor}>{'Close'}</Button>
-                  <Text style={{ fontSize: 16, fontWeight: '600' }}>{'How it works'}</Text>
-                  <View style={{ width: 64 }} />
-                </View>
                 <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16 }}>
                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>

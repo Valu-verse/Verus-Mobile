@@ -1,3 +1,9 @@
+/*
+  Store action types:
+  - 2026-01-13: Add a one-shot flag to suppress Unlock auto-biometric prompting after an explicit user "Lock profile"
+    action (so users can switch profiles before authenticating).
+*/
+
 // Updates
 export const SET_COIN_UPDATE_DATA = 'SET_COIN_UPDATE_DATA';
 export const SET_SERVICE_UPDATE_DATA = 'SET_SERVICE_UPDATE_DATA'
@@ -30,6 +36,8 @@ export const INIT_INSTANCE_KEY = 'INIT_INSTANCE_KEY';
 export const UPDATE_ACCOUNT_KEYS = 'UPDATE_ACCOUNT_KEYS';
 export const SET_ADDRESSES = 'SET_ADDRESSES';
 export const BIOMETRIC_AUTH = 'BIOMETRIC_AUTH';
+export const SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS =
+  'SET_SUPPRESS_UNLOCK_AUTO_BIOMETRICS';
 export const HIDE_SEED_WARNINGS = 'HIDE_SEED_WARNINGS';
 export const UPDATE_ACCOUNT_DISABLED_SERVICES = 'UPDATE_ACCOUNT_DISABLED_SERVICES';
 export const UPDATE_ACCOUNT_TESTNET_OVERRIDES = 'UPDATE_ACCOUNT_TESTNET_OVERRIDES';

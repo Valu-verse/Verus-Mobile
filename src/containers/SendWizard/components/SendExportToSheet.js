@@ -26,17 +26,31 @@
     Adds explicit copy when only one cross-chain network is available.
   - Updated 2026-01-08: Show fullyqualifiedname (FQNs) for Verus/PBaaS receive assets
     in "Receive as ..." copy, while keeping ERC20-friendly names on Ethereum.
+  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
+  - 2026-01-15: Use source subwallet network for "same network" and infer grouped
+    network system IDs from FQNs/tickers to display PBaaS networks like vARRR correctly.
+  - 2026-01-15: Show VRSC bridge fee (and fiat) on Ethereum options and
+    disable selection when the source address lacks the fee.
+  - 2026-01-15: Tightened bridge fee formatting to 4 decimals and
+    adjusted disabled styling to dim row content while keeping fee/warning clear.
 */
 
 import React, { useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { Portal, Button, Text } from 'react-native-paper';
+import { Portal, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSelector } from 'react-redux';
+import { formatCurrency } from 'react-native-format-currency';
+import BigNumber from 'bignumber.js';
 import Colors from '../../../globals/colors';
 import SemiModal from '../../../components/SemiModal';
 import { RenderSquareCoinLogo } from '../../../utils/CoinData/Graphics';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
+import { useSendWizard } from '../SendWizardContext';
+import { coinsList } from '../../../utils/CoinData/CoinsList';
+import { GENERAL, WYRE_SERVICE } from '../../../utils/constants/intervalConstants';
+import { USD } from '../../../utils/constants/currencies';
 import { 
   getNetworkDisplayName, 
   getNetworkIcon,
@@ -65,6 +79,96 @@ const getSourceNetworkIcon = (systemId) => {
     return 'VRSC';
   }
   return getNetworkIcon(systemId);
+};
+
+/**
+ * Get the display label for a network/system, preferring PBaaS tickers for systems.
+ */
+const getNetworkLabelFromSystemId = (systemId, fallback = null) => {
+  if (!systemId) return fallback || 'Unknown';
+  if (systemId === VETH_SYSTEM_ID) return 'Verus';
+  if (systemId === VRSC_SYSTEM_ID || systemId === 'VRSC') return 'Verus';
+  if (systemId === '.eth') return 'Ethereum';
+
+  try {
+    const coinObj = CoinDirectory.findCoinObj(systemId);
+    if (coinObj) {
+      if (coinObj.system_id === coinObj.id && coinObj.display_ticker) {
+        return coinObj.display_ticker;
+      }
+      return coinObj.display_name || coinObj.display_ticker;
+    }
+  } catch (e) {
+    // Not found in CoinDirectory
+  }
+
+  return getNetworkDisplayName(systemId, fallback);
+};
+
+const findSystemCoinByTicker = (ticker) => {
+  if (!ticker) return null;
+  try {
+    const allCoins = Object.values(CoinDirectory.coins || {});
+    const tickerLc = ticker.toLowerCase();
+    return allCoins.find((coin) => {
+      const displayTicker = (coin.display_ticker || '').toLowerCase();
+      const displayName = (coin.display_name || '').toLowerCase();
+      return displayTicker === tickerLc || displayName === tickerLc;
+    }) || null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getFqnNetworkToken = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const cleaned = value.replace(/@$/, '');
+  if (cleaned.includes('.')) {
+    const parts = cleaned.split('.');
+    const suffix = parts[parts.length - 1];
+    return suffix || null;
+  }
+  const onMatch = cleaned.match(/\s+on\s+(.+)$/i);
+  if (onMatch && onMatch[1]) {
+    return onMatch[1].trim();
+  }
+  return null;
+};
+
+const resolveGroupedOptionSystemId = (option) => {
+  if (!option) return null;
+  const explicitSystemId = option.systemId || option.systemid || option.system_id;
+  if (explicitSystemId) return explicitSystemId;
+
+  try {
+    const coinObj = CoinDirectory.findCoinObj(option.id);
+    if (coinObj?.system_id) return coinObj.system_id;
+  } catch (e) {
+    // Not found by id
+  }
+
+  if (option.id && option.id.startsWith('0x')) {
+    try {
+      const allCoins = Object.values(CoinDirectory.coins || {});
+      const matchingCoin = allCoins.find((coin) =>
+        coin.currency_id && coin.currency_id.toLowerCase() === option.id.toLowerCase()
+      );
+      if (matchingCoin?.system_id) return matchingCoin.system_id;
+    } catch (e) {
+      // Search failed
+    }
+    return '.eth';
+  }
+
+  const inferredToken = getFqnNetworkToken(option.fullyqualifiedname || option.ticker || option.name);
+  if (inferredToken) {
+    const tokenLc = inferredToken.toLowerCase();
+    if (tokenLc === 'eth' || tokenLc === 'ethereum') return '.eth';
+    const systemCoin = findSystemCoinByTicker(inferredToken);
+    if (systemCoin?.id) return systemCoin.id;
+  }
+
+  return null;
 };
 
 /**
@@ -203,69 +307,42 @@ const getGroupedOptionTicker = (option, isEthereumNetwork = false) => {
  * Handles both Verus i-addresses and Ethereum contract addresses
  */
 const getNetworkInfoForGroupedOption = (option) => {
-  let systemId = null;
-  let networkName = 'Unknown';
+  let systemId = resolveGroupedOptionSystemId(option);
+  let networkName = systemId ? getNetworkLabelFromSystemId(systemId, null) : null;
   let networkIcon = 'VRSC';
-  
-  // First, try to find the coin directly by id
-  try {
-    const coinObj = CoinDirectory.findCoinObj(option.id);
-    if (coinObj) {
-      systemId = coinObj.system_id;
-    }
-  } catch (e) {
-    // Not found by id - try alternative lookups
-  }
-  
-  // If not found and id looks like an Ethereum address, try to find by currency_id
-  if (!systemId && option.id && option.id.startsWith('0x')) {
-    try {
-      // Search through coins to find one with matching currency_id
-      const allCoins = Object.values(CoinDirectory.coins || {});
-      const matchingCoin = allCoins.find(coin => 
-        coin.currency_id && coin.currency_id.toLowerCase() === option.id.toLowerCase()
-      );
-      if (matchingCoin) {
-        systemId = matchingCoin.system_id;
-      } else {
-        // It's an Ethereum contract address but not in our list - assume Ethereum
-        systemId = '.eth';
-      }
-    } catch (e) {
-      // If search fails, assume Ethereum for 0x addresses
-      systemId = '.eth';
-    }
-  }
-  
-  // Determine network name and icon based on systemId
+
   if (systemId === '.eth') {
-    networkName = 'Ethereum';
     networkIcon = 'ETH';
-  } else if (systemId === VETH_SYSTEM_ID) {
-    networkName = 'Verus';
-    networkIcon = 'VRSC';
-  } else if (systemId === VRSC_SYSTEM_ID || systemId === 'VRSC') {
-    networkName = 'Verus';
+  } else if (systemId === VETH_SYSTEM_ID || systemId === VRSC_SYSTEM_ID || systemId === 'VRSC') {
     networkIcon = 'VRSC';
   } else if (systemId) {
-    networkName = getNetworkDisplayName(systemId, 'Unknown');
     networkIcon = getNetworkIcon(systemId);
-  } else {
-    // Last resort: try to infer from fullyqualifiedname or ticker patterns
-    const fqn = option.fullyqualifiedname || '';
-    const ticker = option.ticker || '';
-    if (fqn.includes('.vETH') || ticker.includes('.vETH') || fqn.includes('on Verus')) {
-      networkName = 'Verus';
-      networkIcon = 'VRSC';
-      systemId = VETH_SYSTEM_ID;
-    } else if (ticker.includes('[ERC20]') || fqn.includes('on Ethereum')) {
-      networkName = 'Ethereum';
-      networkIcon = 'ETH';
-      systemId = '.eth';
+  }
+
+  if (!networkName) {
+    const inferredToken = getFqnNetworkToken(option?.fullyqualifiedname || option?.ticker || option?.name);
+    if (inferredToken) {
+      const tokenLc = inferredToken.toLowerCase();
+      if (tokenLc === 'veth' || tokenLc === 'verus') {
+        networkName = 'Verus';
+        networkIcon = 'VRSC';
+        systemId = systemId || VETH_SYSTEM_ID;
+      } else if (tokenLc === 'eth' || tokenLc === 'ethereum') {
+        networkName = 'Ethereum';
+        networkIcon = 'ETH';
+        systemId = systemId || '.eth';
+      } else {
+        networkName = inferredToken;
+        const systemCoin = findSystemCoinByTicker(inferredToken);
+        if (!systemId && systemCoin?.id) {
+          systemId = systemCoin.id;
+          networkIcon = getNetworkIcon(systemCoin.id);
+        }
+      }
     }
   }
-  
-  return { networkName, networkIcon, systemId };
+
+  return { networkName: networkName || 'Unknown', networkIcon, systemId };
 };
 
 const SendExportToSheet = ({
@@ -279,19 +356,90 @@ const SendExportToSheet = ({
   // Grouped asset mode props
   isGroupedAsset = false,
   onSelectNetworkOption = null, // (networkOption, exportTo) => void
+  bridgeFeeInfo = null,
 }) => {
+  const { state: wizardState } = useSendWizard();
+  const sourceSubWallet = wizardState?.sourceSubWallet;
+  const sourceChannel = wizardState?.channel;
+  const displayCurrency = useSelector(
+    (s) => s.settings.generalWalletSettings.displayCurrency || USD,
+  );
+  const rates = useSelector((s) => s.ledger.rates);
   const insets = useSafeAreaInsets();
   const paddingBottom = 16 + insets.bottom;
 
   // Determine source network for grouped mode (to highlight on-chain option)
-  const sourceNetworkForGrouped = useMemo(() => {
-    if (!sourceCoin) return null;
-    const sysId = sourceCoin.system_id || sourceCoin.id;
-    if (sysId === '.eth') return 'Ethereum';
-    if (sysId === VETH_SYSTEM_ID) return 'Verus';
-    if (sysId === VRSC_SYSTEM_ID) return 'Verus';
-    return getNetworkDisplayName(sysId, null);
-  }, [sourceCoin]);
+  const sourceNetworkSystemId = useMemo(() => {
+    if (sourceSubWallet?.network) return sourceSubWallet.network;
+    if (typeof sourceChannel === 'string') {
+      const parts = sourceChannel.split('.');
+      if (parts.length >= 3 && parts[2]) return parts[2];
+    }
+    return sourceCoin?.system_id || sourceCoin?.id || null;
+  }, [sourceSubWallet, sourceChannel, sourceCoin]);
+
+  const sourceNetworkLabel = useMemo(() => (
+    getNetworkLabelFromSystemId(
+      sourceNetworkSystemId,
+      sourceCoin?.display_name || null
+    )
+  ), [sourceNetworkSystemId, sourceCoin]);
+
+  const bridgeFeeBn = useMemo(() => {
+    if (bridgeFeeInfo?.feeCoins == null) return null;
+    try {
+      return BigNumber(bridgeFeeInfo.feeCoins);
+    } catch (e) {
+      return null;
+    }
+  }, [bridgeFeeInfo]);
+
+  const bridgeFeeBalanceBn = useMemo(() => {
+    if (bridgeFeeInfo?.balanceCoins == null) return null;
+    try {
+      return BigNumber(bridgeFeeInfo.balanceCoins);
+    } catch (e) {
+      return null;
+    }
+  }, [bridgeFeeInfo]);
+
+  const bridgeFeeRate = useMemo(() => {
+    const coinId = coinsList?.VRSC?.id;
+    if (!coinId) return null;
+    return rates?.[WYRE_SERVICE]?.[coinId]?.[displayCurrency] != null
+      ? rates[WYRE_SERVICE][coinId][displayCurrency]
+      : rates?.[GENERAL]?.[coinId]?.[displayCurrency] != null
+        ? rates[GENERAL][coinId][displayCurrency]
+        : null;
+  }, [rates, displayCurrency]);
+
+  const bridgeFeeFiatDisplay = useMemo(() => {
+    if (!bridgeFeeBn || bridgeFeeRate == null) return null;
+    const fiat = bridgeFeeBn.multipliedBy(bridgeFeeRate);
+    if (!fiat.isFinite() || fiat.isNaN()) return null;
+    const rounded = fiat.decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+    try {
+      const [formatted] = formatCurrency({ amount: rounded.toFixed(2), code: displayCurrency });
+      return formatted;
+    } catch (e) {
+      return null;
+    }
+  }, [bridgeFeeBn, bridgeFeeRate, displayCurrency]);
+
+  const bridgeFeeLine = useMemo(() => {
+    if (!bridgeFeeInfo) return null;
+    if (bridgeFeeInfo.loading) return 'Bridge fee: calculating...';
+    if (!bridgeFeeBn) return 'Bridge fee unavailable';
+    const feeText = bridgeFeeBn.decimalPlaces(4, BigNumber.ROUND_HALF_UP).toFixed(4);
+    const ticker = bridgeFeeInfo.currencyTicker || 'VRSC';
+    const fiatSuffix = bridgeFeeFiatDisplay ? ` (${bridgeFeeFiatDisplay})` : '';
+    return `Bridge fee: ${feeText} ${ticker}${fiatSuffix}`;
+  }, [bridgeFeeInfo, bridgeFeeBn, bridgeFeeFiatDisplay]);
+
+  const bridgeFeeInsufficient = useMemo(() => {
+    if (!bridgeFeeBn || !bridgeFeeBalanceBn) return false;
+    return bridgeFeeBalanceBn.isLessThan(bridgeFeeBn);
+  }, [bridgeFeeBn, bridgeFeeBalanceBn]);
 
   // Build network options for grouped asset mode
   const groupedNetworkOptions = useMemo(() => {
@@ -300,7 +448,9 @@ const SendExportToSheet = ({
     const options = targetCurrency.networkOptions.map((opt) => {
       const { networkName, networkIcon, systemId } = getNetworkInfoForGroupedOption(opt);
       // Mark if this option is on the same network as the source (on-chain)
-      const isOnChain = networkName === sourceNetworkForGrouped;
+      const isOnChain = systemId && sourceNetworkSystemId
+        ? systemId === sourceNetworkSystemId
+        : networkName === sourceNetworkLabel;
       return { ...opt, networkName, networkIcon, systemId, isOnChain };
     });
     
@@ -312,15 +462,18 @@ const SendExportToSheet = ({
       // Otherwise sort alphabetically
       return a.networkName.localeCompare(b.networkName);
     });
-  }, [isGroupedAsset, targetCurrency, sourceNetworkForGrouped]);
+  }, [isGroupedAsset, targetCurrency, sourceNetworkSystemId, sourceNetworkLabel]);
 
   if (!visible || !targetCurrency) return null;
 
   const exportOptions = targetCurrency.exportOptions || [];
 
   // Get source system info for "Same network" option
-  const sourceSystemId = sourceCoin?.system_id || sourceCoin?.id;
-  const sourceNetworkName = getSourceNetworkDisplayName(sourceSystemId, sourceCoin?.display_name || 'current network');
+  const sourceSystemId = sourceNetworkSystemId || sourceCoin?.system_id || sourceCoin?.id;
+  const sourceNetworkName = sourceNetworkLabel || getSourceNetworkDisplayName(
+    sourceSystemId,
+    sourceCoin?.display_name || 'current network'
+  );
   const sourceNetworkIcon = getSourceNetworkIcon(sourceSystemId);
   
   // For same network option:
@@ -368,19 +521,11 @@ const SendExportToSheet = ({
         transparent={true}
         visible={visible}
         onRequestClose={onClose}
+        title="Select network"
         flexHeight={0.01}
         contentContainerStyle={styles.modalContent}
       >
         <View>
-          {/* Header */}
-          <View style={styles.header}>
-            <Button onPress={onClose} textColor={Colors.primaryColor}>
-              {'Close'}
-            </Button>
-            <Text style={styles.headerTitle}>Select network</Text>
-            <View style={{ width: 64 }} />
-          </View>
-
           {/* Description */}
           <View style={styles.descriptionContainer}>
             <Text style={styles.descriptionText}>
@@ -398,10 +543,12 @@ const SendExportToSheet = ({
                     // Use isOnChain to show left accent and badge
                     const isSameNetwork = opt.isOnChain;
                     // Check if this is an Ethereum network option
-                    const isEthereumNetwork = opt.networkName === 'Ethereum';
+                    const isEthereumNetwork = opt.systemId === '.eth' || opt.networkName === 'Ethereum';
                     // Look up the proper display_ticker
                     // For Ethereum options with ETH destination, shows "DAI" not "DAI.vETH"
                     const receiveTicker = getGroupedOptionTicker(opt, isEthereumNetwork);
+                    const showBridgeFee = Boolean(bridgeFeeInfo) && isEthereumNetwork;
+                    const isDisabled = showBridgeFee && bridgeFeeInsufficient;
                     
                     return (
                       <TouchableOpacity
@@ -409,30 +556,44 @@ const SendExportToSheet = ({
                         style={[
                           styles.optionCard,
                           isSameNetwork && styles.optionCardWithAccent,
+                          isDisabled && styles.optionCardDisabled,
                         ]}
-                        onPress={() => onSelectNetworkOption?.(opt, null)}
-                        activeOpacity={0.7}
+                        onPress={isDisabled ? undefined : () => onSelectNetworkOption?.(opt, null)}
+                        activeOpacity={isDisabled ? 1 : 0.7}
+                        disabled={isDisabled}
                       >
-                        <View style={styles.optionIconContainer}>
+                        <View style={[styles.optionIconContainer, isDisabled && styles.optionIconDisabled]}>
                           {RenderSquareCoinLogo(opt.networkIcon, {}, 40, 40)}
                         </View>
                         <View style={styles.optionContent}>
                           <View style={styles.titleRow}>
-                            <Text style={styles.optionTitle}>{opt.networkName}</Text>
+                            <Text style={[styles.optionTitle, isDisabled && styles.optionTitleDisabled]}>
+                              {opt.networkName}
+                            </Text>
                             {isSameNetwork && (
                               <View style={styles.sameNetworkBadge}>
                                 <Text style={styles.sameNetworkText}>SAME NETWORK</Text>
                               </View>
                             )}
                           </View>
-                          <Text style={styles.optionDescription}>
+                          <Text style={[styles.optionDescription, isDisabled && styles.optionDescriptionDisabled]}>
                             Receive as {receiveTicker}
                           </Text>
+                          {showBridgeFee && bridgeFeeLine && (
+                            <Text style={[styles.optionFeeText, isDisabled && styles.optionFeeTextDisabled]}>
+                              {bridgeFeeLine}
+                            </Text>
+                          )}
+                          {isDisabled && (
+                            <Text style={styles.optionDisabledText}>
+                              Insufficient VRSC for bridge fee
+                            </Text>
+                          )}
                         </View>
                         <MaterialCommunityIcons 
                           name="chevron-right" 
                           size={22} 
-                          color="#888"
+                          color={isDisabled ? '#C2C2C2' : '#888'}
                         />
                       </TouchableOpacity>
                     );
@@ -473,24 +634,44 @@ const SendExportToSheet = ({
                     const chainName = getNetworkDisplayName(chainId, opt.exportToName);
                     const chainIcon = getNetworkIcon(chainId);
                     const receivedTicker = getReceivedTicker(opt, targetCurrency, sourceCoin);
+                    const isEthereumOption = chainId === VETH_SYSTEM_ID;
+                    const showBridgeFee = Boolean(bridgeFeeInfo) && isEthereumOption;
+                    const isDisabled = showBridgeFee && bridgeFeeInsufficient;
 
                     return (
                       <TouchableOpacity
                         key={chainId || index}
-                        style={styles.optionCard}
-                        onPress={() => onSelect(chainId)}
-                        activeOpacity={0.7}
+                        style={[styles.optionCard, isDisabled && styles.optionCardDisabled]}
+                        onPress={isDisabled ? undefined : () => onSelect(chainId)}
+                        activeOpacity={isDisabled ? 1 : 0.7}
+                        disabled={isDisabled}
                       >
-                        <View style={styles.optionIconContainer}>
+                        <View style={[styles.optionIconContainer, isDisabled && styles.optionIconDisabled]}>
                           {RenderSquareCoinLogo(chainIcon, {}, 40, 40)}
                         </View>
                         <View style={styles.optionContent}>
-                          <Text style={styles.optionTitle}>{chainName}</Text>
-                          <Text style={styles.optionDescription}>
+                          <Text style={[styles.optionTitle, isDisabled && styles.optionTitleDisabled]}>
+                            {chainName}
+                          </Text>
+                          <Text style={[styles.optionDescription, isDisabled && styles.optionDescriptionDisabled]}>
                             Receive as {receivedTicker}
                           </Text>
+                          {showBridgeFee && bridgeFeeLine && (
+                            <Text style={[styles.optionFeeText, isDisabled && styles.optionFeeTextDisabled]}>
+                              {bridgeFeeLine}
+                            </Text>
+                          )}
+                          {isDisabled && (
+                            <Text style={styles.optionDisabledText}>
+                              Insufficient VRSC for bridge fee
+                            </Text>
+                          )}
                         </View>
-                        <MaterialCommunityIcons name="chevron-right" size={22} color="#888" />
+                        <MaterialCommunityIcons
+                          name="chevron-right"
+                          size={22}
+                          color={isDisabled ? '#C2C2C2' : '#888'}
+                        />
                       </TouchableOpacity>
                     );
                   })}
@@ -556,6 +737,9 @@ const styles = StyleSheet.create({
   optionCardWithAccent: {
     borderLeftColor: Colors.primaryColor,
   },
+  optionCardDisabled: {
+    backgroundColor: '#F7F7F7',
+  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -583,6 +767,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  optionIconDisabled: {
+    opacity: 0.45,
+  },
   optionContent: {
     flex: 1,
     marginLeft: 12,
@@ -593,10 +780,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A1A1A',
   },
+  optionTitleDisabled: {
+    color: '#9A9A9A',
+  },
   optionDescription: {
     fontSize: 14,
     color: '#666',
     marginTop: 1,
+  },
+  optionDescriptionDisabled: {
+    color: '#B0B0B0',
+  },
+  optionFeeText: {
+    fontSize: 12,
+    color: '#444',
+    marginTop: 4,
+  },
+  optionFeeTextDisabled: {
+    color: '#444',
+  },
+  optionDisabledText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B71C1C',
+    marginTop: 2,
   },
 });
 

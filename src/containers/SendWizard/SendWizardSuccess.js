@@ -4,9 +4,11 @@
   - Shows animated checkmark and transaction summary
   - Allows user to copy txid and navigate back to Wallet screen
   - Created 2024-12-15
+  - Updated 2026-01-15: Reset wizard state on unmount and
+    return to Home via parent reset to avoid hook errors.
 */
 
-import React, { useCallback, useLayoutEffect } from 'react';
+import React, { useCallback, useLayoutEffect, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, Clipboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text } from 'react-native-paper';
@@ -41,6 +43,12 @@ const SendWizardSuccess = () => {
     });
   }, [navigation]);
 
+  useEffect(() => {
+    return () => {
+      reset();
+    };
+  }, [reset]);
+
   // Get target currency info
   const targetInfo = React.useMemo(() => {
     if (!targetCurrency) return { name: 'Unknown', ticker: '?', coinId: null };
@@ -68,11 +76,16 @@ const SendWizardSuccess = () => {
 
   // Navigate back to Wallet screen
   const handleDone = useCallback(() => {
-    reset();
-    navigation.navigate('Home', {
-      screen: 'WalletHome',
-    });
-  }, [reset, navigation]);
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.reset === 'function') {
+      parent.reset({
+        index: 0,
+        routes: [{ name: 'Home', params: { screen: 'WalletHome' } }],
+      });
+      return;
+    }
+    navigation.navigate('Home', { screen: 'WalletHome' });
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -84,7 +97,7 @@ const SendWizardSuccess = () => {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Transaction Sent!</Text>
+        <Text style={styles.title}>Transaction sent!</Text>
         <Text style={styles.subtitle}>Your transaction has been submitted to the network</Text>
 
         {/* Amount summary */}

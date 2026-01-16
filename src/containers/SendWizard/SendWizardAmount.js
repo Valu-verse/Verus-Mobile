@@ -39,6 +39,7 @@
     for clearer labeling.
   - Updated 2026-01-09: Removed redundant over-balance helper text and kept the MAX button
     styling consistent (no error color) when amount exceeds balance.
+  - Updated 2026-01-15: Added a header close X to exit the send flow.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
@@ -143,6 +144,27 @@ const SendWizardAmount = () => {
   // Store estimates for all via options to display in sheet and auto-select best
   const [viaEstimates, setViaEstimates] = useState({});
 
+  const handleClose = useCallback(() => {
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.goBack === 'function') {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation]);
+
+  const renderCloseButton = useCallback(() => (
+    <TouchableOpacity
+      onPress={handleClose}
+      accessibilityRole="button"
+      accessibilityLabel="Close"
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={styles.headerCloseButton}
+    >
+      <MaterialCommunityIcons name="close" size={22} color={Colors.verusDarkGray} />
+    </TouchableOpacity>
+  ), [handleClose]);
+
   // Auto-focus the input when screen mounts
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -154,7 +176,7 @@ const SendWizardAmount = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: renderCloseButton,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -163,7 +185,7 @@ const SendWizardAmount = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation]);
+  }, [navigation, renderCloseButton]);
 
   const displayCurrency = useSelector(
     (s) => s.settings.generalWalletSettings.displayCurrency || USD,
@@ -1007,6 +1029,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  headerCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 6,
   },
   centered: {
     alignItems: 'center',

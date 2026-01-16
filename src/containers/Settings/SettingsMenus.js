@@ -3,6 +3,11 @@
   destinations so users pick Profile, Wallet, or App Info like other list
   screens before drilling into each section. Added an explicit log-out entry
   after removing the drawer shortcut.
+  2026-01-12: Restyled the Lock profile button to match the soft filled pill
+  buttons used elsewhere (e.g., Wallet Transfer / Identity empty state) and
+  updated the icon to `lock` with a slightly larger size.
+  2026-01-13: When explicitly locking from Settings, suppress Unlock auto-biometric prompting so users
+  can switch profiles before authenticating.
 */
 
 import React, { Component } from "react";
@@ -10,7 +15,11 @@ import { View, StyleSheet, ScrollView, Text, SafeAreaView } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { connect } from 'react-redux';
 import { List, Button } from "react-native-paper"
-import { setConfigSection, signOut } from '../../actions/actionCreators';
+import {
+  setConfigSection,
+  signOut,
+  setSuppressUnlockAutoBiometrics,
+} from '../../actions/actionCreators';
 import { clearActiveAccountLifecycles } from '../../actions/actionDispatchers';
 import Colors from '../../globals/colors';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -99,6 +108,7 @@ class SettingsMenus extends Component {
         return new Promise((resolve) => {
           setTimeout(async () => {
             await clearActiveAccountLifecycles();
+            dispatch(setSuppressUnlockAutoBiometrics(true));
             dispatch(signOut());
             resolve();
           }, 1000);
@@ -138,22 +148,24 @@ class SettingsMenus extends Component {
         
         <View style={styles.logoutContainer}>
           <Button
-            mode="outlined"
+            mode="contained"
             onPress={this.handleLogout}
             style={styles.logoutButton}
             contentStyle={{ height: 44 }}
             uppercase={false}
             labelStyle={styles.logoutLabel}
+            buttonColor="#EBF6FF"
+            textColor={Colors.primaryColor}
             icon={({ size, color }) => (
               <MaterialCommunityIcons
-                name="logout"
-                size={size}
+                name="lock"
+                size={Math.max(size + 2, 20)}
                 color={color}
                 style={{ opacity: 0.9 }}
               />
             )}
           >
-            Log out
+            Lock profile
           </Button>
         </View>
       </ScrollView>
@@ -189,11 +201,14 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     borderRadius: 22,
-    borderColor: Colors.primaryColor,
-    borderWidth: 1,
-    backgroundColor: Colors.secondaryColor,
+    borderWidth: 0,
+    backgroundColor: '#EBF6FF',
     width: 160,
     elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   logoutLabel: {
     color: Colors.primaryColor,

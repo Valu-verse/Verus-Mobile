@@ -21,9 +21,10 @@ export const initializeAccountData = async (
   password,
   makeDefault = false,
   setInitStep = () => {},
+  options = {},
 ) => {
   setInitStep(VALIDATING_ACCOUNT);
-  const accountAuthenticator = await validateLogin(account, password);
+  const accountAuthenticator = await validateLogin(account, password, options);
 
   if (accountAuthenticator) {
     setInitStep(LOADING_ACCOUNT);

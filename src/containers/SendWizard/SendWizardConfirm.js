@@ -19,15 +19,20 @@
   - Updated 2026-01-06: Preflight now uses preflight-friendly names (FQNs) captured during
     target selection (convertToFqn/exportToFqn), matching the legacy send modal and avoiding
     getCurrency failures when passing i-addresses for some PBaaS systems.
+  - Updated 2026-01-15: Added a header close X that disables while sending.
+  - Updated 2026-01-15: Removed duplicate icon import causing a redeclare error.
+  - Updated 2026-01-15: Pass full preflight payload for simple sends so
+    VRPC has hex/inputs available during send.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Text, Button } from 'react-native-paper';
 import { useDispatch } from 'react-redux';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSendWizard } from './SendWizardContext';
 import { preflightConvertOrCrossChain } from '../../utils/api/routers/preflightConvertOrCrossChain';
 import { preflightSend } from '../../utils/api/routers/preflightSend';
@@ -52,7 +57,6 @@ import { ethers } from 'ethers';
 import { getIdentity } from '../../utils/api/routers/getIdentity';
 import { getCurrencyDisplayName, getNetworkDisplayName } from './sendWizardDisplayInfo';
 import GradientButton from '../../components/GradientButton';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -89,10 +93,41 @@ const SendWizardConfirm = () => {
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
 
+  const handleClose = useCallback(() => {
+    if (sending) return;
+    const parent = navigation.getParent?.();
+    if (parent && typeof parent.goBack === 'function') {
+      parent.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation, sending]);
+
+  const renderCloseButton = useCallback(() => {
+    const disabled = sending;
+    return (
+      <TouchableOpacity
+        onPress={disabled ? undefined : handleClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        accessibilityState={{ disabled }}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        disabled={disabled}
+        style={[styles.headerCloseButton, disabled && styles.headerCloseButtonDisabled]}
+      >
+        <MaterialCommunityIcons
+          name="close"
+          size={22}
+          color={disabled ? '#A0A0A0' : Colors.verusDarkGray}
+        />
+      </TouchableOpacity>
+    );
+  }, [handleClose, sending]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
-      headerRight: () => null,
+      headerRight: renderCloseButton,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -101,7 +136,7 @@ const SendWizardConfirm = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation]);
+  }, [navigation, renderCloseButton]);
 
   // Determine if this is a simple send or convert/cross-chain
   const isSimpleSend = useMemo(() => {
@@ -456,7 +491,7 @@ const SendWizardConfirm = () => {
           recipientAddress,
           BigNumber(amount),
           channel,
-          preflightResult.params || {}
+          preflightResult
         );
       } else {
         result = await sendConvertOrCrossChain(
@@ -678,6 +713,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  headerCloseButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginRight: 6,
+  },
+  headerCloseButtonDisabled: {
+    opacity: 0.4,
   },
   centered: {
     alignItems: 'center',

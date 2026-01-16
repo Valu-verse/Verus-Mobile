@@ -77,13 +77,12 @@ const HomeFAB = (props) => {
           >
             {/* Secondary Transfer button on the left */}
             <Button
-              mode="outlined"
+              mode="contained"
               onPress={typeof handleTransfer === 'function' ? handleTransfer : () => {}}
               style={{
                 borderRadius: 22,
-                borderColor: Colors.primaryColor,
-                borderWidth: 1,
-                backgroundColor: Colors.secondaryColor,
+                borderWidth: 0,
+                backgroundColor: '#EBF6FF',
                 width: 160,
                 elevation: 0,
                 shadowColor: 'transparent',
@@ -91,6 +90,8 @@ const HomeFAB = (props) => {
                 shadowRadius: 0,
                 shadowOffset: { width: 0, height: 0 },
               }}
+              buttonColor="#EBF6FF"
+              textColor={Colors.primaryColor}
               contentStyle={{ height: 44 }}
               uppercase={false}
               labelStyle={{ color: Colors.primaryColor, fontWeight: '700', fontSize: 16, letterSpacing: 0, textTransform: 'none' }}
