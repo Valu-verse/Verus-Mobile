@@ -45,8 +45,7 @@ import { ATTESTATIONS_PROVISIONED } from '../../utils/constants/attestations';
 import { HomeRender } from './Home.render';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
-import { VERUSID_SERVICE_ID, VALU_SERVICE_ID, ATTESTATION_SERVICE_ID } from '../../utils/constants/services';
-import { dragDetectionEnabled } from '../../utils/dragDetection';
+import { VALU_SERVICE_ID } from '../../utils/constants/services';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import {
   openAddErc20TokenModal,
@@ -86,178 +85,6 @@ const Home = () => {
   const [manageVisible, setManageVisible] = useState(false);
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
 
-  const LIST_ITEM_INITIAL_HEIGHT = 58;
-  const LIST_ITEM_MARGIN = 8;
-  const LIST_ITEM_ANIMATION_DURATION = 250;
-
-  const isDragDetectionEnabled = () => {
-    return dragDetectionEnabled(homeCardDragDetection);
-  };
-
-  const handleSetEditingCards = (editing) => {
-    setEditingCards(editing);
-  };
-
-  const sortWidgets = useCallback(() => {
-    setWidgets((prevWidgets) => {
-      const sortedWidgets = [...prevWidgets].sort((a, b) => {
-        return widgetOrder[a] <= widgetOrder[b] ? -1 : 1;
-      });
-      return sortedWidgets;
-    });
-  }, [widgetOrder]);
-
-  const getWidgets = useCallback(async () => {
-    setWidgets([]);
-    let widgetsList = [...Object.keys(widgetOrder)].sort((a, b) => {
-      return widgetOrder[a] <= widgetOrder[b] ? -1 : 1;
-    });
-
-    const widgetsToRemove = [];
-
-    // Remove currency widgets for coins that aren't active
-    for (let i = 0; i < widgetsList.length; i++) {
-      const widgetId = widgetsList[i];
-      const widgetSplit = widgetId.split(':');
-      const widgetType = widgetSplit[0];
-
-      if (
-        widgetType === CURRENCY_WIDGET_TYPE &&
-        !activeCoinsForUser.some((x) => x.id === widgetSplit[1])
-      ) {
-        widgetsToRemove.unshift(i);
-      }
-    }
-
-    for (const widgetIndex of widgetsToRemove) {
-      widgetsList.splice(widgetIndex, 1);
-    }
-
-    // Add the balance widget if not present
-    if (!widgetsList.includes(TOTAL_UNI_BALANCE_WIDGET_TYPE)) {
-      widgetsList.push(TOTAL_UNI_BALANCE_WIDGET_TYPE);
-      dispatchAddWidget(TOTAL_UNI_BALANCE_WIDGET_TYPE, activeAccount.accountHash);
-    }
-
-    // Add currency widgets for active coins
-    for (const coinObj of activeCoinsForUser) {
-      const currencyWidgetId = `${CURRENCY_WIDGET_TYPE}:${coinObj.id}`;
-
-      if (!widgetsList.includes(currencyWidgetId)) {
-        widgetsList.push(currencyWidgetId);
-        dispatchAddWidget(currencyWidgetId, activeAccount.accountHash);
-      }
-    }
-
-    // Add the VerusID widget if not present
-    if (!widgetsList.includes(VERUSID_WIDGET_TYPE)) {
-      widgetsList.push(VERUSID_WIDGET_TYPE);
-      dispatchAddWidget(VERUSID_WIDGET_TYPE, activeAccount.accountHash);
-    }
-
-    // Ensure VALU Buy/Sell widget is removed (replaced by floating buttons)
-    widgetsList = widgetsList.filter((id) => id !== 'valu');
-
-    // Remove Valu account widget from layout and persist removal
-    if (widgetsList.includes(VALU_ACCOUNT)) {
-      widgetsList = widgetsList.filter((id) => id !== VALU_ACCOUNT);
-      dispatchRemoveWidget(VALU_ACCOUNT, activeAccount.accountHash);
-    }
-
-    if (!widgetsList.includes(ATTESTATION_WIDGET_TYPE)) {
-      widgetsList.push(ATTESTATION_WIDGET_TYPE);
-      dispatchAddWidget(ATTESTATION_WIDGET_TYPE, activeAccount.accountHash);
-    }
-
-    setWidgets(widgetsList);
-  }, [activeAccount.accountHash, activeCoinsForUser, widgetOrder]);
-
-  const handleWidgetPress = (widgetId) => {
-    const widgetSplit = widgetId.split(':');
-    const widgetType = widgetSplit[0];
-
-    const widgetOnPress = {
-      [CURRENCY_WIDGET_TYPE]: () => {
-        const coinId = widgetSplit[1];
-        const coinObj = activeCoinsForUser.find((x) => x.id === coinId);
-
-        if (coinObj) {
-          const subWallets = allSubWallets[coinId];
-
-          openCoin(
-            coinObj,
-            activeSubWallets[coinId] ? activeSubWallets[coinId] : subWallets[0],
-          );
-        }
-      },
-      [TOTAL_UNI_BALANCE_WIDGET_TYPE]: () => {
-        setDisplayCurrencyModalOpen(true);
-      },
-      [VERUSID_WIDGET_TYPE]: () => {
-        navigation.navigate('Service', {
-          service: VERUSID_SERVICE_ID,
-        });
-      },
-      
-      [ATTESTATION_WIDGET_TYPE]: () => {
-        // If user has PoP, navigate directly to attestations view
-        // Otherwise, navigate to Valu service
-        if (hasValuProofOfPersonhood) {
-          // Navigate to ServicesHome stack, then to Service screen
-          navigation.navigate('ServicesHome', {
-            screen: 'Service',
-            params: { service: ATTESTATION_SERVICE_ID },
-          });
-        } else {
-          navigation.navigate('ServicesHome', {
-            screen: 'Service',
-            params: { 
-              service: VALU_SERVICE_ID,
-              subScreen: 'attestation'
-            },
-          });
-        }
-      },
-    };
-
-    if (widgetOnPress[widgetType]) {
-      widgetOnPress[widgetType]();
-    }
-  };
-
-  const setDisplayCurrencyFunc = async (currency) => {
-    try {
-      dispatch(await saveGeneralSettings({ displayCurrency: currency }));
-    } catch (e) {
-      createAlert('Error setting display currency', e.message);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      refresh(false);
-      return () => {};
-    }, []),
-  );
-
-  useEffect(() => {
-    getWidgets();
-  }, [getWidgets]);
-
-  useEffect(() => {
-    const totalBalances = getTotalBalances();
-    setTotalFiatBalance(totalBalances.fiat);
-    setTotalCryptoBalances(totalBalances.crypto);
-  }, [balances, displayCurrency, activeCoinsForUser, allSubWallets]);
-
-  useEffect(() => {
-    getWidgets();
-  }, [activeCoinsForUser, getWidgets]);
-
-  useEffect(() => {
-    sortWidgets();
-  }, [widgetOrder, sortWidgets]);
-
   useEffect(() => {
     // Check for specific "Valu Proof of Personhood" attestation
     const checkForValuProofOfPersonhood = async () => {
@@ -287,6 +114,13 @@ const Home = () => {
     checkForValuProofOfPersonhood();
   }, [attestation]);
 
+  const setDisplayCurrencyFunc = async (currency) => {
+    try {
+      dispatch(await saveGeneralSettings({ displayCurrency: currency }));
+    } catch (e) {
+      createAlert('Error setting display currency', e.message);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -416,7 +250,7 @@ const Home = () => {
   };
 
   const _addCoin = () => {
-    navigation.navigate('AddCoin');
+    navigation.navigate('AddCoin', { refresh: refresh });
   };
 
   const _addPbaasCurrency = async () => {
