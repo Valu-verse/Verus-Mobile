@@ -6,12 +6,16 @@
   - Created 2024-12-15
   - Updated 2026-01-15: Reset wizard state on unmount and
     return to Home via parent reset to avoid hook errors.
+  - Updated 2026-01-21: Added fiat amount display, made checkmark smaller,
+    improved copy button feedback to show "Copied" text with timeout.
 */
 
-import React, { useCallback, useLayoutEffect, useEffect } from 'react';
+import React, { useCallback, useLayoutEffect, useEffect, useState, useRef, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, Clipboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import { Text } from 'react-native-paper';
+import { formatCurrency } from 'react-native-format-currency';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
 import { useSendWizard } from './SendWizardContext';
@@ -21,6 +25,8 @@ import { getCurrencyDisplayName } from './sendWizardDisplayInfo';
 import GradientButton from '../../components/GradientButton';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { GENERAL, WYRE_SERVICE, USD } from '../../utils/constants/intervalConstants';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
@@ -35,6 +41,47 @@ const SendWizardSuccess = () => {
     txResult,
   } = state;
 
+  // Copy feedback state
+  const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef(null);
+
+  // Fiat display currency and rates
+  const displayCurrency = useSelector(
+    (s) => s.settings.generalWalletSettings.displayCurrency || USD,
+  );
+  const rates = useObjectSelector((s) => s.ledger.rates);
+
+  // Get rate for a specific coin
+  const getRate = useCallback(
+    (coinId) => {
+      if (!coinId) return null;
+      return rates?.[WYRE_SERVICE]?.[coinId]?.[displayCurrency] != null
+        ? rates[WYRE_SERVICE][coinId][displayCurrency]
+        : rates?.[GENERAL]?.[coinId]?.[displayCurrency] != null
+          ? rates[GENERAL][coinId][displayCurrency]
+          : null;
+    },
+    [rates, displayCurrency],
+  );
+
+  // Calculate fiat display for amount
+  const amountFiatDisplay = useMemo(() => {
+    if (!amount || !sourceCoin?.id) return null;
+    const rate = getRate(sourceCoin.id);
+    if (!rate) return null;
+    try {
+      const fiatValue = BigNumber(amount).multipliedBy(BigNumber(rate));
+      if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+      const [formatted] = formatCurrency({
+        amount: fiatValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber(),
+        code: displayCurrency,
+      });
+      return formatted;
+    } catch (e) {
+      return null;
+    }
+  }, [amount, sourceCoin, getRate, displayCurrency]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
@@ -46,6 +93,7 @@ const SendWizardSuccess = () => {
   useEffect(() => {
     return () => {
       reset();
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
     };
   }, [reset]);
 
@@ -66,11 +114,15 @@ const SendWizardSuccess = () => {
     return `${str.substring(0, startLen)}...${str.substring(str.length - endLen)}`;
   };
 
-  // Copy txid to clipboard
+  // Copy txid to clipboard with visual feedback
   const handleCopyTxId = useCallback(() => {
     if (txResult?.txid) {
       Clipboard.setString(txResult.txid);
-      // Could add toast/snackbar here
+      setCopied(true);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => {
+        setCopied(false);
+      }, 2000);
     }
   }, [txResult]);
 
@@ -110,6 +162,9 @@ const SendWizardSuccess = () => {
               <Text style={styles.amountValue}>
                 {amount} {sourceCoin?.display_ticker}
               </Text>
+              {amountFiatDisplay && (
+                <Text style={styles.amountFiat}>{amountFiatDisplay}</Text>
+              )}
             </View>
           </View>
 
@@ -161,7 +216,11 @@ const SendWizardSuccess = () => {
                 <Text style={styles.detailValueMono} numberOfLines={1}>
                   {truncate(txResult.txid, 8, 6)}
                 </Text>
-                <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} style={{ marginLeft: 6 }} />
+                {copied ? (
+                  <Text style={styles.copiedLabel}>Copied</Text>
+                ) : (
+                  <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} style={{ marginLeft: 6 }} />
+                )}
               </View>
             </TouchableOpacity>
           )}
@@ -191,15 +250,15 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 80,
     alignItems: 'center',
   },
   checkmarkContainer: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   checkmark: {
-    width: 120,
-    height: 120,
+    width: 90,
+    height: 90,
   },
   title: {
     fontSize: 28,
@@ -235,6 +294,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#1A1A1A',
+    marginTop: 2,
+  },
+  amountFiat: {
+    fontSize: 14,
+    color: '#888',
     marginTop: 2,
   },
   arrowContainer: {
@@ -283,6 +347,12 @@ const styles = StyleSheet.create({
   txIdRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  copiedLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primaryColor,
+    marginLeft: 6,
   },
   infoNote: {
     fontSize: 13,

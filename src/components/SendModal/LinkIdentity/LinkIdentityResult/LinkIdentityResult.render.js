@@ -50,7 +50,7 @@ export const LinkIdentityResultRender = ({verusId, finishSend}) => {
       </View>
       <View style={styles.bodyWrap}>
         <Text style={styles.bodyText}>
-          {`All set — your VerusID is now linked and ready to use.`}
+          {`All set. Your VerusID is now linked and ready to use.`}
         </Text>
       </View>
       <View style={styles.footer}>

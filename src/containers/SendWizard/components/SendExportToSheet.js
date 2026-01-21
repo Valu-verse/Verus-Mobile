@@ -33,6 +33,14 @@
     disable selection when the source address lacks the fee.
   - 2026-01-15: Tightened bridge fee formatting to 4 decimals and
     adjusted disabled styling to dim row content while keeping fee/warning clear.
+  - 2026-01-21: Added " network" suffix to all network names for clearer user display
+    (e.g., "Verus network" instead of "Verus").
+  - 2026-01-21: Prefer conversion-path fullyqualifiedname for mapping destination
+    receive labels when available.
+  - Updated 2026-01-21: Pass mapping destination through export selection
+    to support mapped ERC20 receives.
+  - Updated 2026-01-21: Changed "SAME NETWORK" badge style to outline (transparent bg)
+    for a subtler appearance.
 */
 
 import React, { useMemo } from 'react';
@@ -217,10 +225,15 @@ const isEthereumCurrency = (currencyId) => {
  * For Ethereum exports, looks up the ERC20 ticker dynamically
  */
 const getReceivedTicker = (opt, targetCurrency, sourceCoin) => {
-  // For mapping destinations (same-currency → ERC20), use the ERC20 symbol
+  // For mapping destinations, prefer conversion-path fullyqualifiedname when available
   if (opt.mappingDestination) {
     const dest = opt.mappingDestination;
-    return dest.symbol || dest.name || getCurrencyDisplayName(dest.currencyid || dest.address, null);
+    return (
+      dest.fullyqualifiedname ||
+      dest.symbol ||
+      dest.name ||
+      getCurrencyDisplayName(dest.currencyid || dest.address, null)
+    );
   }
   
   // For Ethereum exports, try to get the ERC20 ticker via mapped_to
@@ -557,6 +570,7 @@ const SendExportToSheet = ({
                           styles.optionCard,
                           isSameNetwork && styles.optionCardWithAccent,
                           isDisabled && styles.optionCardDisabled,
+                          isDisabled && styles.optionCardError,
                         ]}
                         onPress={isDisabled ? undefined : () => onSelectNetworkOption?.(opt, null)}
                         activeOpacity={isDisabled ? 1 : 0.7}
@@ -568,7 +582,7 @@ const SendExportToSheet = ({
                         <View style={styles.optionContent}>
                           <View style={styles.titleRow}>
                             <Text style={[styles.optionTitle, isDisabled && styles.optionTitleDisabled]}>
-                              {opt.networkName}
+                              {opt.networkName} network
                             </Text>
                             {isSameNetwork && (
                               <View style={styles.sameNetworkBadge}>
@@ -585,9 +599,16 @@ const SendExportToSheet = ({
                             </Text>
                           )}
                           {isDisabled && (
-                            <Text style={styles.optionDisabledText}>
-                              Insufficient VRSC for bridge fee
-                            </Text>
+                            <View style={styles.errorRow}>
+                              <MaterialCommunityIcons 
+                                name="alert-circle-outline" 
+                                size={14} 
+                                color={Colors.warningButtonColor} 
+                              />
+                              <Text style={styles.optionDisabledText}>
+                                Insufficient VRSC balance
+                              </Text>
+                            </View>
                           )}
                         </View>
                         <MaterialCommunityIcons 
@@ -613,7 +634,7 @@ const SendExportToSheet = ({
                   </View>
                   <View style={styles.optionContent}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.optionTitle}>{sourceNetworkName}</Text>
+                      <Text style={styles.optionTitle}>{sourceNetworkName} network</Text>
                       <View style={styles.sameNetworkBadge}>
                         <Text style={styles.sameNetworkText}>SAME NETWORK</Text>
                       </View>
@@ -642,7 +663,7 @@ const SendExportToSheet = ({
                       <TouchableOpacity
                         key={chainId || index}
                         style={[styles.optionCard, isDisabled && styles.optionCardDisabled]}
-                        onPress={isDisabled ? undefined : () => onSelect(chainId)}
+                        onPress={isDisabled ? undefined : () => onSelect(chainId, opt.mappingDestination || null)}
                         activeOpacity={isDisabled ? 1 : 0.7}
                         disabled={isDisabled}
                       >
@@ -651,7 +672,7 @@ const SendExportToSheet = ({
                         </View>
                         <View style={styles.optionContent}>
                           <Text style={[styles.optionTitle, isDisabled && styles.optionTitleDisabled]}>
-                            {chainName}
+                            {chainName} network
                           </Text>
                           <Text style={[styles.optionDescription, isDisabled && styles.optionDescriptionDisabled]}>
                             Receive as {receivedTicker}
@@ -662,9 +683,16 @@ const SendExportToSheet = ({
                             </Text>
                           )}
                           {isDisabled && (
-                            <Text style={styles.optionDisabledText}>
-                              Insufficient VRSC for bridge fee
-                            </Text>
+                            <View style={styles.errorRow}>
+                              <MaterialCommunityIcons 
+                                name="alert-circle-outline" 
+                                size={14} 
+                                color={Colors.warningButtonColor} 
+                              />
+                              <Text style={styles.optionDisabledText}>
+                                Insufficient VRSC balance
+                              </Text>
+                            </View>
                           )}
                         </View>
                         <MaterialCommunityIcons
@@ -737,6 +765,10 @@ const styles = StyleSheet.create({
   optionCardWithAccent: {
     borderLeftColor: Colors.primaryColor,
   },
+  // Red accent for error state
+  optionCardError: {
+    borderLeftColor: Colors.warningButtonColor,
+  },
   optionCardDisabled: {
     backgroundColor: '#F7F7F7',
   },
@@ -747,16 +779,17 @@ const styles = StyleSheet.create({
   },
   // "SAME NETWORK" badge - subtle indicator
   sameNetworkBadge: {
-    backgroundColor: Colors.primaryColor,
+    borderWidth: 1,
+    borderColor: Colors.primaryColor,
     borderRadius: 4,
     paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingVertical: 1,
     marginLeft: 8,
   },
   sameNetworkText: {
     fontSize: 9,
     fontWeight: '700',
-    color: 'white',
+    color: Colors.primaryColor,
     letterSpacing: 0.5,
   },
   optionIconContainer: {
@@ -802,8 +835,13 @@ const styles = StyleSheet.create({
   optionDisabledText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#B71C1C',
-    marginTop: 2,
+    color: Colors.warningButtonColor,
+    marginLeft: 4,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
 });
 

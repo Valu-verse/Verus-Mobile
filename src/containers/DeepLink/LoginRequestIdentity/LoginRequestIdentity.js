@@ -1,3 +1,10 @@
+/*
+  LoginRequestIdentity
+  - 2026-01-16: Fixed modal stack overlap issue where auto-opening the provisioning modal
+    would occur while the auth modal was still closing, leaving only a dark overlay visible
+    and blocking all user interaction. Now delays auto-open by 100ms and checks sendModal.visible
+    to ensure the previous modal is fully closed before opening the next one.
+*/
 import React, { useState, useEffect } from 'react';
 import { ScrollView } from 'react-native';
 import Styles from '../../../styles/index';
@@ -62,10 +69,16 @@ const LoginRequestIdentity = props => {
     setCanProvision(canProvision)
 
     // Automatically open provision identity modal if canProvision is true and we're not autolinking
-    if (canProvision && !passthrough?.fqnToAutoLink) {
-      openProvisionIdentityModalFromChain();
+    // BUT ONLY if no SendModal is currently visible (avoid modal stack overlap)
+    if (canProvision && !passthrough?.fqnToAutoLink && !sendModal.visible) {
+      // Delay to ensure any closing modal finishes first (avoid modal stack race)
+      const timer = setTimeout(() => {
+        openProvisionIdentityModalFromChain();
+      }, 100); // Small delay ensures clean modal stack
+      
+      return () => clearTimeout(timer);
     }
-  }, [linkedIds])
+  }, [linkedIds, sendModal.visible])
 
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser)
   const testnetOverrides = useObjectSelector(state => state.authentication.activeAccount.testnetOverrides)
