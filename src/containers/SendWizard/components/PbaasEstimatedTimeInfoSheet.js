@@ -21,7 +21,7 @@ const PbaasEstimatedTimeInfoSheet = ({ visible, onClose }) => {
     >
       <View style={styles.sheetBody}>
         <Text style={styles.paragraph}>
-          Conversions take 2-10 minutes to complete. Your conversion is processed within the next 2-10 blocks, where it's bundled with all other conversions and solved together.
+          Conversions take 2-10 blocks to complete, this is on average within 2-10 minutes. Your conversion is bundled with all other conversions and solved together.
         </Text>
         <Text style={styles.paragraph}>
           This bundling is what prevents front-running and ensures everyone gets the same fair price.

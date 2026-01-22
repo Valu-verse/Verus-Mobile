@@ -1,6 +1,10 @@
 /*
-  This component displays the details of ta transaction selected
+  This component displays the details of a transaction selected
   from the Overview component.
+  
+  Updated 2026-01-22: Added "Add to Address Book" button on Address row.
+  The button calls onAddToAddressBook callback instead of managing its own
+  modal to avoid nested modal stacking issues.
 */
 
 import React, { Component } from "react";
@@ -26,6 +30,7 @@ import { API_GET_DEPOSIT_SOURCES, API_GET_PENDING_DEPOSITS } from "../../utils/c
 import { conditionallyUpdateWallet } from "../../actions/actionDispatchers";
 import store from "../../store";
 import { openUrl } from "../../utils/linking";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 class TxDetailsModal extends Component {
   constructor(props) {
@@ -111,6 +116,18 @@ class TxDetailsModal extends Component {
     }
   };
 
+  handleAddToAddressBook = () => {
+    const { txData, onAddToAddressBook, cancel } = this.props;
+    if (onAddToAddressBook && txData.address) {
+      // Close this modal first, then trigger the callback
+      cancel();
+      // Small delay to ensure modal closes before opening the next one
+      setTimeout(() => {
+        onAddToAddressBook(txData.address);
+      }, 100);
+    }
+  };
+
   render() {
     const {
       txData,
@@ -119,8 +136,25 @@ class TxDetailsModal extends Component {
       cancel,
       displayAmount,
       activeCoinDisplayTicker,
-      activeCoinExplorerId
+      activeCoinExplorerId,
+      savedAddresses,
+      onAddToAddressBook
     } = this.props;
+
+    const address = txData.address;
+    const isAddressSaved = savedAddresses && address 
+      ? savedAddresses.some(entry => entry.address === address)
+      : false;
+    
+    // Determine if we should show the add to address book button
+    const canAddToAddressBook = onAddToAddressBook && 
+      txData.address && 
+      !isAddressSaved && 
+      txData.address !== "me" && 
+      txData.address !== "fees" && 
+      txData.address !== "gas" && 
+      txData.address !== "Verus-Ethereum Bridge" && 
+      txData.visibility !== "private";
     
     return (
       <SemiModal
@@ -170,17 +204,26 @@ class TxDetailsModal extends Component {
                         titleStyle={item.capitalized ? Styles.capitalizeFirstLetter : undefined}
                         right={(props) =>
                           item.right ? (
-                            <Text
-                              {...props}
-                              style={{
-                                fontSize: 16,
-                                alignSelf: "center",
-                                marginRight: 8,
-                              }}
-                            >
-                              {item.right}
-                            </Text>
-                          ) : null
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                              <Text
+                                {...props}
+                                style={{
+                                  fontSize: 16,
+                                  alignSelf: "center",
+                                  marginRight: 8,
+                                }}
+                              >
+                                {item.right}
+                              </Text>
+                              {item.extraRight}
+                            </View>
+                          ) : (
+                            item.extraRight ? (
+                              <View style={{ justifyContent: 'center', marginRight: 8 }}>
+                                {item.extraRight}
+                              </View>
+                            ) : null
+                          )
                         }
                       />
                       <Divider />
@@ -234,6 +277,19 @@ class TxDetailsModal extends Component {
                       : "Unknown"
                     : txData.address,
                 numLines: 100,
+                extraRight: canAddToAddressBook ? (
+                  <TouchableOpacity 
+                    onPress={this.handleAddToAddressBook}
+                    style={{ padding: 8 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <MaterialCommunityIcons 
+                      name="account-plus" 
+                      size={22} 
+                      color={Colors.primaryColor} 
+                    />
+                  </TouchableOpacity>
+                ) : null
               },
               {
                 key: "Time",

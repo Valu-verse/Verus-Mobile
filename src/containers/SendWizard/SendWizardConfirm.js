@@ -71,6 +71,9 @@
   - Updated 2026-01-22: Fixed grey placeholder icons by adding currencyId field to targetInfo
     and using it as fallback for icon rendering. Coins without CoinDirectory entries
     now show algorithmically generated mosaic icons instead of grey letter placeholders.
+  - Updated 2026-01-22: Added hold-to-confirm functionality to the send button.
+    Users must now press and hold for 2.5 seconds to confirm and send the transaction.
+    This prevents accidental sends and provides clear visual feedback with progress animation.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -1139,8 +1142,11 @@ const SendWizardConfirm = () => {
         <GradientButton
           onPress={handleSend}
           disabled={sending || !preflightResult}
+          holdToConfirm={true}
+          holdDuration={2500}
+          holdingText="Hold to confirm..."
         >
-          {sending ? 'Sending...' : 'Confirm & send'}
+          {sending ? 'Sending...' : 'Hold to confirm & send'}
         </GradientButton>
       </View>
 

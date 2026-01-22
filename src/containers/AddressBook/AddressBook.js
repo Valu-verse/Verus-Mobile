@@ -10,9 +10,11 @@
   - Updated 2026-01-22: Redesigned header to match Identity/Wallet pattern with + icon in header
   - Updated 2026-01-22: Hide filters and search bar until 6+ addresses saved
   - Updated 2026-01-22: Removed FAB, updated chain badge styling
+  - Updated 2026-01-22: Replaced copy popup with subtle checkmark feedback,
+    replaced network badge with coin icon at start of row
 */
 
-import React, { useState, useMemo, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -20,10 +22,9 @@ import {
   TouchableOpacity,
   TextInput as RNTextInput,
   Alert,
-  Image,
   Clipboard,
 } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,12 +39,25 @@ import {
 import AddressBookEditSheet from './components/AddressBookEditSheet';
 import {
   truncateAddress,
-  ADDRESS_TYPE_SHORT_LABELS,
+  ADDRESS_TYPE,
   ADDRESS_GROUP,
   getAddressGroup,
 } from '../../utils/constants/addressBook';
 import GradientButton from '../../components/GradientButton';
-import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
+import { RenderPlainCoinLogo } from '../../utils/CoinData/Graphics';
+
+// Map address types to coin tickers for logo display
+const ADDRESS_TYPE_TO_TICKER = {
+  [ADDRESS_TYPE.VERUS_R]: 'VRSC',
+  [ADDRESS_TYPE.VERUS_I]: 'VRSC',
+  [ADDRESS_TYPE.VERUS_ID]: 'VRSC',
+  [ADDRESS_TYPE.ETHEREUM]: 'ETH',
+  [ADDRESS_TYPE.BITCOIN]: 'BTC',
+  [ADDRESS_TYPE.LITECOIN]: 'LTC',
+  [ADDRESS_TYPE.ZCASH]: 'ZEC',
+  [ADDRESS_TYPE.KOMODO]: 'KMD',
+  [ADDRESS_TYPE.OTHER_CRYPTO]: 'BTC', // Default to BTC icon for unknown crypto
+};
 
 const iconHitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -68,6 +82,8 @@ const AddressBook = () => {
   const [editSheetVisible, setEditSheetVisible] = useState(false);
   const [editingAddress, setEditingAddress] = useState(null);
   const [showHeaderDivider, setShowHeaderDivider] = useState(false);
+  const [copiedAddressId, setCopiedAddressId] = useState(null);
+  const copyTimeoutRef = useRef(null);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -120,10 +136,22 @@ const AddressBook = () => {
     setEditSheetVisible(true);
   }, []);
 
-  // Handle copy
+  // Handle copy - show checkmark briefly instead of popup
   const handleCopy = useCallback((address) => {
     Clipboard.setString(address.address);
-    createAlert('Copied', `Address copied to clipboard`);
+    
+    // Clear any existing timeout
+    if (copyTimeoutRef.current) {
+      clearTimeout(copyTimeoutRef.current);
+    }
+    
+    // Show checkmark for this address
+    setCopiedAddressId(address.id);
+    
+    // Reset after 1.5 seconds
+    copyTimeoutRef.current = setTimeout(() => {
+      setCopiedAddressId(null);
+    }, 1500);
   }, []);
 
   // Handle delete
@@ -300,65 +328,66 @@ const AddressBook = () => {
                 </Text>
               </View>
             ) : (
-              filteredAddresses.map((item) => (
-                <View
-                  key={item.id}
-                  style={styles.addressCard}
-                >
-                  <View style={styles.addressContent}>
-                    <Text style={styles.labelText} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                    <View style={styles.addressRow}>
-                      {item.type && (
-                        <View style={styles.typeBadge}>
-                          <Text style={styles.typeBadgeText}>
-                            {ADDRESS_TYPE_SHORT_LABELS[item.type] || item.type}
-                          </Text>
-                        </View>
-                      )}
+              filteredAddresses.map((item) => {
+                const isCopied = copiedAddressId === item.id;
+                const coinTicker = ADDRESS_TYPE_TO_TICKER[item.type] || 'VRSC';
+                
+                return (
+                  <View
+                    key={item.id}
+                    style={styles.addressCard}
+                  >
+                    {/* Coin icon at start of row */}
+                    <View style={styles.coinIconContainer}>
+                      {RenderPlainCoinLogo(coinTicker, {}, 28, 28)}
+                    </View>
+                    
+                    <View style={styles.addressContent}>
+                      <Text style={styles.labelText} numberOfLines={1}>
+                        {item.label}
+                      </Text>
                       <Text style={styles.addressText} numberOfLines={1}>
                         {truncateAddress(item.address, 8, 8)}
                       </Text>
                     </View>
+                    <View style={styles.cardActions}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleCopy(item)}
+                        hitSlop={iconHitSlop}
+                      >
+                        <MaterialCommunityIcons 
+                          name={isCopied ? "check" : "content-copy"}
+                          size={18} 
+                          color={isCopied ? Colors.verusGreenColor : Colors.verusDarkGray} 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => handleEdit(item)}
+                        hitSlop={iconHitSlop}
+                      >
+                        <MaterialCommunityIcons 
+                          name="pencil-outline" 
+                          size={18} 
+                          color={Colors.verusDarkGray} 
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={(e) => handleDelete(item, e)}
+                        hitSlop={iconHitSlop}
+                      >
+                        <MaterialCommunityIcons 
+                          name="trash-can-outline" 
+                          size={18} 
+                          color={Colors.verusDarkGray} 
+                        />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                  <View style={styles.cardActions}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleCopy(item)}
-                      hitSlop={iconHitSlop}
-                    >
-                      <MaterialCommunityIcons 
-                        name="content-copy" 
-                        size={18} 
-                        color={Colors.verusDarkGray} 
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleEdit(item)}
-                      hitSlop={iconHitSlop}
-                    >
-                      <MaterialCommunityIcons 
-                        name="pencil-outline" 
-                        size={18} 
-                        color={Colors.verusDarkGray} 
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={(e) => handleDelete(item, e)}
-                      hitSlop={iconHitSlop}
-                    >
-                      <MaterialCommunityIcons 
-                        name="trash-can-outline" 
-                        size={18} 
-                        color={Colors.verusDarkGray} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
           </ScrollView>
         </>
@@ -483,6 +512,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 10,
   },
+  coinIconContainer: {
+    marginRight: 12,
+  },
   addressContent: {
     flex: 1,
   },
@@ -490,28 +522,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeBadge: {
-    backgroundColor: '#F0F0F0',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  typeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#666',
+    marginBottom: 2,
   },
   addressText: {
     fontSize: 14,
     color: '#888',
-    flex: 1,
   },
   cardActions: {
     flexDirection: 'row',
