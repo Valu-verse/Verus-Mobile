@@ -3,7 +3,8 @@ import { BigNumber } from 'verus-typescript-primitives';
 import { 
   USER_DATA_STORAGE_INTERNAL_KEY,
   PERSONAL_DATA_STORAGE_INTERNAL_KEY,
-  SERVICE_STORAGE_INTERNAL_KEY
+  SERVICE_STORAGE_INTERNAL_KEY,
+  ADDRESS_BOOK_STORAGE_INTERNAL_KEY
 } from '../../../env/index';
 import { saltedDecryptMGK, saltedEncryptMGK } from '../crypto/crypto';
 import { 
@@ -343,6 +344,7 @@ export const SecureStorage = new SecureStore(
   [
     USER_DATA_STORAGE_INTERNAL_KEY,
     PERSONAL_DATA_STORAGE_INTERNAL_KEY,
-    SERVICE_STORAGE_INTERNAL_KEY
+    SERVICE_STORAGE_INTERNAL_KEY,
+    ADDRESS_BOOK_STORAGE_INTERNAL_KEY
   ]
 );

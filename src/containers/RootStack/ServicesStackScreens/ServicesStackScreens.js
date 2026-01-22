@@ -12,6 +12,7 @@ import ValuAttestation from '../../Services/ServiceComponents/ValuService/ValuAt
 import ValuOnRampChooseSource from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRampChooseSource';
 import ValuAttestationAccept from '../../Services/ServiceComponents/ValuService/ValuAttestationAccept/ValuAttestationAccept';
 import ValuChooseIdentity from '../../Services/ServiceComponents/ValuService/ValuChooseIdentity/ValuChooseIdentity';
+import AddressBook from '../../AddressBook/AddressBook';
 import GetSponsoredAttestation from '../../Services/ServiceComponents/ValuService/GetSponsoredAttestation/GetSponsoredAttestation';
 
 const ServicesStack = createStackNavigator();
@@ -83,6 +84,14 @@ const ServicesStackScreens = props => {
         component={ValuChooseIdentity}
         options={{
           title: "Choose Identity",
+        }}
+      />
+      <ServicesStack.Screen
+        name="AddressBook"
+        component={AddressBook}
+        options={{
+          title: "Address book",
+          headerRight: () => null,
         }}
       />
       <ServicesStack.Screen

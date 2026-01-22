@@ -28,3 +28,6 @@ export * from './actions/widgets/dispatchers/widgets'
 
 // Loading modal
 export * from './actions/loadingModal/dispatchers/loadingModal'
+
+// Address Book
+export * from './actions/addressBook/dispatchers/addressBook'

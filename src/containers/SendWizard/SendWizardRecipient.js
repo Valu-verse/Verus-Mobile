@@ -8,16 +8,26 @@
   - Updated 2024-12-09: Uses destinationAddressType for validation, added QR/paste buttons
   - Updated 2024-12-15: VerusID selection now populates VerusID name instead of i-address
   - Updated 2026-01-15: Added a header close X to exit the send flow.
+  - Updated 2026-01-22: Styled address input to match Unlock password input pattern
+    (matching the search inputs in SendWizardSelectSource and SendWizardSelectTarget).
+  - Updated 2026-01-22: Added address book integration - select from saved addresses,
+    option to save new addresses to address book after successful entry.
+  - Updated 2026-01-22: Redesigned quick access UI - moved Paste/QR utilities inside
+    input field, converted quick access cards to white with subtle borders for better
+    visual hierarchy and cleaner design.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, TextInput as RNTextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Dimensions, Clipboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Text, Button, List, IconButton } from 'react-native-paper';
+import { useSelector } from 'react-redux';
+import { Text, Button } from 'react-native-paper';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import Colors from '../../globals/colors';
 import { useSendWizard } from './SendWizardContext';
 import SendSelfAddressSheet from './components/SendSelfAddressSheet';
+import AddressBookSheet from './components/AddressBookSheet';
+import AddressBookEditSheet from '../AddressBook/components/AddressBookEditSheet';
 import { ethers } from 'ethers';
 import { fromBase58Check } from 'verus-typescript-primitives';
 import { ADDRESS_TYPE } from './sendWizardDisplayInfo';
@@ -26,6 +36,7 @@ import Styles from '../../styles';
 import { ETH, ERC20, VRPC } from '../../utils/constants/intervalConstants';
 import GradientButton from '../../components/GradientButton';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { saveAddressToBook, markAddressAsUsed, checkAddressExists } from '../../actions/actionDispatchers';
 
 const SendWizardRecipient = () => {
   const navigation = useNavigation();
@@ -35,12 +46,17 @@ const SendWizardRecipient = () => {
 
   const activeAccount = useObjectSelector((s) => s.authentication.activeAccount);
   const allSubWallets = useObjectSelector((s) => s.coinMenus.allSubWallets);
+  const savedAddresses = useObjectSelector((s) => s.addressBook.addresses);
+  const accountHash = activeAccount?.accountHash;
 
   const [inputValue, setInputValue] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [selfSheetVisible, setSelfSheetVisible] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [addressBookSheetVisible, setAddressBookSheetVisible] = useState(false);
+  const [saveAddressSheetVisible, setSaveAddressSheetVisible] = useState(false);
+  const [selectedFromAddressBook, setSelectedFromAddressBook] = useState(null);
 
   const handleClose = useCallback(() => {
     const parent = navigation.getParent?.();
@@ -298,6 +314,62 @@ const SendWizardRecipient = () => {
     setScannerOpen(!scannerOpen);
   }, [scannerOpen]);
 
+  // Address book handlers
+  const handleAddressBookSelect = useCallback((addressEntry) => {
+    setInputValue(addressEntry.address);
+    setSelectedFromAddressBook(addressEntry);
+    setAddressBookSheetVisible(false);
+    
+    // Update lastUsed timestamp
+    if (accountHash && addressEntry.id) {
+      markAddressAsUsed(addressEntry.id, accountHash).catch(console.warn);
+    }
+  }, [accountHash]);
+
+  const handleOpenAddressBook = useCallback(() => {
+    setAddressBookSheetVisible(true);
+  }, []);
+
+  const handleManageAddressBook = useCallback(() => {
+    setAddressBookSheetVisible(false);
+    // Navigate to the Services stack's AddressBook screen
+    navigation.navigate('ServicesHome', {
+      screen: 'AddressBook',
+    });
+  }, [navigation]);
+
+  const handleSaveNewAddress = useCallback(async (data) => {
+    if (!accountHash) return;
+    await saveAddressToBook(data, accountHash);
+  }, [accountHash]);
+
+  const handleOpenSaveAddress = useCallback(() => {
+    setSaveAddressSheetVisible(true);
+  }, []);
+
+  // Check if current input address is already saved
+  const isAddressAlreadySaved = useMemo(() => {
+    if (!inputValue.trim() || !savedAddresses || savedAddresses.length === 0) {
+      return false;
+    }
+    const normalizedInput = inputValue.trim().toLowerCase();
+    return savedAddresses.some(
+      (addr) => addr.address.toLowerCase() === normalizedInput
+    );
+  }, [inputValue, savedAddresses]);
+
+  // Show "Save to address book" option when valid, not already saved, and not from address book
+  const showSaveOption = useMemo(() => {
+    return isValidAddress && !isAddressAlreadySaved && !selectedFromAddressBook;
+  }, [isValidAddress, isAddressAlreadySaved, selectedFromAddressBook]);
+
+  // Reset selectedFromAddressBook when input changes manually
+  useEffect(() => {
+    if (selectedFromAddressBook && inputValue !== selectedFromAddressBook.address) {
+      setSelectedFromAddressBook(null);
+    }
+  }, [inputValue, selectedFromAddressBook]);
+
   if (!sourceCoin) {
     return (
       <View style={[styles.container, styles.centered]}>
@@ -343,45 +415,47 @@ const SendWizardRecipient = () => {
 
           {/* Address Input */}
           <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
+            <View
+              style={[
+                styles.addressInputContainer,
+                inputFocused && styles.addressInputFocused,
+                validationError && styles.addressInputError,
+              ]}
+            >
               <RNTextInput
                 value={inputValue}
                 onChangeText={setInputValue}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={placeholderText}
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor="#999"
                 autoCorrect={false}
                 autoCapitalize="none"
                 multiline={true}
                 numberOfLines={2}
-                style={[
-                  styles.addressInput,
-                  inputFocused && styles.addressInputFocused,
-                  validationError && styles.addressInputError,
-                ]}
+                style={styles.addressInput}
               />
-            </View>
-            
-            {/* Action Buttons Row */}
-            <View style={styles.actionsRow}>
-              <TouchableOpacity 
-                style={styles.actionChip} 
-                onPress={handlePaste}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="content-paste" size={18} color="#666" style={{ marginRight: 6 }} />
-                <Text style={styles.actionChipText}>Paste</Text>
-              </TouchableOpacity>
               
-              <TouchableOpacity 
-                style={styles.actionChip} 
-                onPress={toggleScanner}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="qrcode-scan" size={18} color="#666" style={{ marginRight: 6 }} />
-                <Text style={styles.actionChipText}>Scan QR</Text>
-              </TouchableOpacity>
+              {/* Integrated Action Icons */}
+              <View style={styles.inputActionsContainer}>
+                <TouchableOpacity 
+                  style={styles.inputActionButton} 
+                  onPress={handlePaste}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="content-paste" size={20} color="#999" />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.inputActionButton} 
+                  onPress={toggleScanner}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="qrcode-scan" size={20} color="#999" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {validationError && (
@@ -394,25 +468,66 @@ const SendWizardRecipient = () => {
             </View>
           </View>
 
-          {/* Send to Self */}
-          {ownAddresses.length > 0 && (
-            <View style={styles.selfSection}>
-              <List.Item
-                onPress={handleSelfPress}
-                right={(props) => <List.Icon {...props} icon="chevron-right" color="#BDBDBD" />}
-                title={() => (
-                  <Text style={styles.selfTitle}>
-                    Send to self
+          {/* Save to Address Book option */}
+          {showSaveOption && (
+            <TouchableOpacity
+              style={styles.saveAddressButton}
+              onPress={handleOpenSaveAddress}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="book-plus-outline" size={18} color={Colors.primaryColor} />
+              <Text style={styles.saveAddressButtonText}>Save to address book</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Quick Access Cards - Horizontal Layout */}
+          {(savedAddresses?.length > 0 || ownAddresses.length > 0) && (
+            <View style={styles.quickAccessContainer}>
+              {/* Saved Addresses Card */}
+              {savedAddresses && savedAddresses.length > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.quickAccessCard,
+                    ownAddresses.length === 0 && styles.quickAccessCardFull
+                  ]}
+                  onPress={handleOpenAddressBook}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons 
+                    name="book-account-outline" 
+                    size={24} 
+                    color={Colors.primaryColor} 
+                    style={styles.quickAccessIcon}
+                  />
+                  <Text style={styles.quickAccessTitle}>Saved addresses</Text>
+                  <Text style={styles.quickAccessSubtitle}>
+                    {savedAddresses.length} saved
                   </Text>
-                )}
-                description={() => (
-                  <Text style={styles.selfDescription}>
-                    Use one of your own {destinationAddressType === ADDRESS_TYPE.ETHEREUM ? 'Ethereum' : 'Verus'} addresses
+                </TouchableOpacity>
+              )}
+
+              {/* Send to Self Card */}
+              {ownAddresses.length > 0 && (
+                <TouchableOpacity
+                  style={[
+                    styles.quickAccessCard,
+                    (!savedAddresses || savedAddresses.length === 0) && styles.quickAccessCardFull
+                  ]}
+                  onPress={handleSelfPress}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons 
+                    name="account-arrow-right" 
+                    size={24} 
+                    color={Colors.primaryColor} 
+                    style={styles.quickAccessIcon}
+                  />
+                  <Text style={styles.quickAccessTitle}>Send to self</Text>
+                  <Text style={styles.quickAccessSubtitle}>
+                    {ownAddresses.length} address{ownAddresses.length !== 1 ? 'es' : ''}
                   </Text>
-                )}
-                style={styles.selfItem}
-                rippleColor="rgba(0,0,0,0.05)"
-              />
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -439,6 +554,27 @@ const SendWizardRecipient = () => {
           addressType={destinationAddressType}
         />
       )}
+
+      {/* Address Book Sheet */}
+      <AddressBookSheet
+        visible={addressBookSheetVisible}
+        addresses={savedAddresses}
+        destinationType={destinationAddressType}
+        onClose={() => setAddressBookSheetVisible(false)}
+        onSelect={handleAddressBookSelect}
+        onManage={handleManageAddressBook}
+        onAddNew={handleOpenSaveAddress}
+      />
+
+      {/* Save Address Sheet */}
+      <AddressBookEditSheet
+        visible={saveAddressSheetVisible}
+        onClose={() => setSaveAddressSheetVisible(false)}
+        onSave={handleSaveNewAddress}
+        initialAddress={inputValue}
+        initialLabel=""
+        editMode={false}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -476,60 +612,65 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 24,
   },
-  inputWrapper: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  addressInput: {
-    minHeight: 56,
+  addressInputContainer: {
+    backgroundColor: '#F7F7F7',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    paddingHorizontal: 16,
-    paddingTop: 16, // Ensure text starts with good spacing from top
-    paddingBottom: 16,
-    fontSize: 16,
-    color: '#1A1A1A',
-    backgroundColor: '#F5F5F5',
-    textAlignVertical: 'top', // Consistent alignment
-  },
-  addressInputFocused: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: 'white',
-    // slight shadow when focused
-    shadowColor: Colors.primaryColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  addressInputError: {
-    borderColor: '#E53935',
-    backgroundColor: '#FFF8F8',
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionChip: {
+    borderColor: 'transparent',
+    marginBottom: 12,
+    minHeight: 56,
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 24,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
-  actionChipText: {
-    fontSize: 13,
-    color: '#666',
-    fontWeight: '600',
+  addressInputFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  addressInputError: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.warningButtonColor,
+    shadowColor: Colors.warningButtonColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  addressInput: {
+    flex: 1,
+    minHeight: 56,
+    paddingHorizontal: 16,
+    paddingRight: 90,
+    paddingTop: 16,
+    paddingBottom: 16,
+    fontSize: 16,
+    color: '#000',
+    textAlignVertical: 'top',
+  },
+  inputActionsContainer: {
+    position: 'absolute',
+    right: 8,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  inputActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   errorText: {
     fontSize: 13,
-    color: '#E53935',
-    marginTop: 8,
+    color: Colors.warningButtonColor,
+    marginBottom: 8,
     paddingHorizontal: 4,
   },
   hintsContainer: {
@@ -541,24 +682,63 @@ const styles = StyleSheet.create({
     color: '#999',
     lineHeight: 18,
   },
-  selfSection: {
-    marginTop: 8,
+  saveAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    backgroundColor: '#EBF6FF',
+    borderRadius: 20,
+    gap: 6,
+  },
+  saveAddressButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.primaryColor,
+  },
+  quickAccessContainer: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 24,
+    marginTop: 8,
   },
-  selfItem: {
-    backgroundColor: '#F8F8F8',
-    borderRadius: 12,
-    paddingVertical: 4,
+  quickAccessCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 70,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  selfTitle: {
-    fontSize: 16, 
-    fontWeight: '600', 
-    color: 'black'
+  quickAccessCardFull: {
+    flex: 1,
   },
-  selfDescription: {
-    fontSize: 13, 
-    color: '#888', 
-    marginTop: 4
+  quickAccessIcon: {
+    marginBottom: 6,
+  },
+  quickAccessTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  quickAccessSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#888',
+    textAlign: 'center',
   },
   buttonContainer: {
     paddingHorizontal: 16,

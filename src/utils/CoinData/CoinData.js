@@ -1,3 +1,10 @@
+/**
+ * CoinData.js
+ * 
+ * Changes:
+ * - 2026-01-22: Added logo mapping for vUSDT.vETH (i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY) to use Tether icon
+ */
+
 import { electrumServers } from './electrum/servers';
 import Colors from '../../globals/colors'
 import { coinsList } from './CoinsList'
@@ -160,6 +167,7 @@ export const CoinLogos = {
   ["iJ3WZocnjG9ufv7GKUA4LijQno5gTMb7tP"]: CoinLogoIcons.pbaas.CHIPS,
   ["i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj"]: CoinLogoIcons.web3.SCRVUSD, // scrvUSD on Verus
   ["iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB"]: CoinLogoIcons.web3.CRVUSD, // crvUSD on Verus
+  ["i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY"]: CoinLogoIcons.web3.USDT, // USDT on Verus
 
   // web3 protocol
   BAT: CoinLogoIcons.web3.BAT,

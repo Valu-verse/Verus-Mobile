@@ -1,22 +1,24 @@
 /*
   This component represents the screen the user can use to oversee all of the
   services they can connect to Verus Mobile
+  - Updated 2026-01-22: Added Address Book widget integration
 */  
 
-import React, { useEffect, useState, useLayoutEffect } from "react"
+import React, { useEffect, useState, useLayoutEffect, useCallback } from "react"
 import { useDispatch, useSelector } from 'react-redux'
 import { clearSecureLoadingData } from "../../../actions/actionCreators";
 import { ServicesOverviewRender } from "./ServicesOverview.render"
 import { requestAttestationData } from '../../../utils/auth/authBox';
 import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
 import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../../utils/constants/services';
-import { VERUSID_WIDGET_TYPE, ATTESTATION_WIDGET_TYPE } from '../../../utils/constants/widgets';
+import { VERUSID_WIDGET_TYPE, ATTESTATION_WIDGET_TYPE, ADDRESS_BOOK_WIDGET_TYPE } from '../../../utils/constants/widgets';
 
 const ServicesOverview = ({ navigation }) => {
   const dispatch = useDispatch();
   const passthrough = useSelector(state => state.secureLoading.successData);
   const activeAccount = useSelector(state => state.authentication.activeAccount);
   const attestation = useSelector((state) => state.attestation);
+  const addressBookAddresses = useSelector((state) => state.addressBook?.addresses || []);
 
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
 
@@ -66,7 +68,7 @@ const ServicesOverview = ({ navigation }) => {
     navigation.navigate("Service", { service });
   }
   
-  const handleWidgetPress = (widgetType) => {
+  const handleWidgetPress = useCallback((widgetType) => {
     if (widgetType === VERUSID_WIDGET_TYPE) {
         navigation.navigate('Service', {
         service: VERUSID_SERVICE_ID,
@@ -76,8 +78,10 @@ const ServicesOverview = ({ navigation }) => {
         service: VALU_SERVICE_ID,
         subScreen: 'attestation'
       });
+    } else if (widgetType === ADDRESS_BOOK_WIDGET_TYPE) {
+      navigation.navigate('AddressBook');
     }
-  }
+  }, [navigation]);
 
   return (
     <ServicesOverviewRender 
@@ -85,6 +89,7 @@ const ServicesOverview = ({ navigation }) => {
       openService={openService}
       hasValuProofOfPersonhood={hasValuProofOfPersonhood}
       handleWidgetPress={handleWidgetPress}
+      addressBookCount={addressBookAddresses.length}
     />
   );
 }

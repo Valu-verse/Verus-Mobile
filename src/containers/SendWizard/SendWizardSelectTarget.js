@@ -43,6 +43,12 @@
   - Updated 2026-01-15: Added a header close X to exit the send flow.
   - Updated 2026-01-15: Precompute VRSC bridge fee for Ethereum exports and
     pass it to the export sheet for display and gating.
+  - Updated 2026-01-21: Fixed ERC20 → Verus mapping sends (e.g., USDC → vUSDC.vETH).
+    When an export option has a mappingDestination, extract the fullyqualifiedname
+    and pass it as mapTo so the ERC20 bridge preflight can resolve the mapped currency.
+  - Updated 2026-01-22: Fixed grey placeholder icons by using currency ID fallback
+    for icon rendering. Coins without explicit CoinDirectory entries now show
+    algorithmically generated mosaic icons instead of grey letter placeholders.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
@@ -678,7 +684,18 @@ const SendWizardSelectTarget = () => {
         : target.id;
 
       // mapTo is only used for non-bounceback mapping paths (mapping: true flag)
-      const mapTo = target.mapping ? target.id : null;
+      // Also check if the selected export option has a mappingDestination (for ERC20 → Verus sends)
+      let mapTo = target.mapping ? target.id : null;
+      if (!mapTo && exportTo != null) {
+        const selectedExportOption = (target?.exportOptions || []).find((o) => o.exportTo === exportTo);
+        if (selectedExportOption?.mappingDestination) {
+          // Use the fullyqualifiedname of the mapping destination for mapto
+          // This is what the ERC20 bridge preflight expects
+          mapTo = selectedExportOption.mappingDestination.fullyqualifiedname 
+            || selectedExportOption.mappingDestination.name 
+            || selectedExportOption.mappingDestination.currencyid;
+        }
+      }
 
       // For bounceback paths, pass the ETH display info for proper display in Amount screen
       const isBounceback = target.isEthDest === true;
@@ -779,23 +796,15 @@ const SendWizardSelectTarget = () => {
       activeOpacity={0.7}
     >
       <View style={styles.optionLeft}>
-        {item.coinId ? (
-          // Use plain icon (no badge) for grouped items, regular icon for others
-          item.isGrouped 
-            ? RenderPlainCoinLogo(item.coinId, {}, 40, 40)
-            : RenderSquareCoinLogo(item.coinId, {}, 40, 40, {
-                badgeIcons: getDualBadgeIcons(item),
-                disableBadge: Array.isArray(item.exportOptions)
-                  ? item.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
-                  : false,
-              })
-        ) : (
-          <View style={styles.placeholderLogo}>
-            <Text style={styles.placeholderText}>
-              {(item.ticker || '?').substring(0, 2).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        {/* Use coinId if available, otherwise fall back to item.id for mosaic generation */}
+        {item.isGrouped 
+          ? RenderPlainCoinLogo(item.coinId || item.id, {}, 40, 40)
+          : RenderSquareCoinLogo(item.coinId || item.id, {}, 40, 40, {
+              badgeIcons: getDualBadgeIcons(item),
+              disableBadge: Array.isArray(item.exportOptions)
+                ? item.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
+                : false,
+            })}
       </View>
       <View style={styles.optionCenter}>
         <Text style={styles.optionName} numberOfLines={1}>{item.name}</Text>
@@ -824,19 +833,12 @@ const SendWizardSelectTarget = () => {
           activeOpacity={0.7}
         >
           <View style={styles.optionLeft}>
-            {filteredSend.coinId ? (
-            RenderSquareCoinLogo(filteredSend.coinId, {}, 40, 40, {
+            {/* Use coinId if available, otherwise fall back to id for mosaic generation */}
+            {RenderSquareCoinLogo(filteredSend.coinId || filteredSend.id, {}, 40, 40, {
               disableBadge: Array.isArray(filteredSend.exportOptions)
                 ? filteredSend.exportOptions.some((o) => o?.exportTo === VETH_SYSTEM_ID)
                 : false,
-            })
-            ) : (
-              <View style={styles.placeholderLogo}>
-                <Text style={styles.placeholderText}>
-                  {(filteredSend.ticker || '?').substring(0, 2).toUpperCase()}
-                </Text>
-              </View>
-            )}
+            })}
           </View>
           <View style={styles.optionCenter}>
             <Text style={styles.optionName}>{filteredSend.name}</Text>

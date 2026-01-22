@@ -23,13 +23,62 @@
   - Updated 2026-01-15: Removed duplicate icon import causing a redeclare error.
   - Updated 2026-01-15: Pass full preflight payload for simple sends so
     VRPC has hex/inputs available during send.
+  - Updated 2026-01-21: Added fiat currency display for send amount and network fee.
+    Shows user's preferred fiat currency (e.g., USD) alongside crypto values.
+    Updated 'From' field to show actual sending address instead of wallet name.
+    Redesigned amount display: smaller icon (24px), ticker inline with amount,
+    larger fiat text (15px). Limited fee decimals for cleaner ETH display.
+  - Updated 2026-01-21: Fixed ERC20 network fee fiat display bug. For simple sends with
+    different fee currency (e.g., ERC20 tokens paying fees in ETH), now correctly looks up
+    the fee currency's coin ID for accurate fiat conversion instead of using source coin ID.
+    This fixes the issue where ERC20 sends showed "€0" for network fees.
+  - Updated 2026-01-21: Fixed fee currency display for bridge transfers. The ETH null
+    address (0x000...000) is now recognized as "ETH" instead of showing the raw hex.
+    Also improved lookup for 0x addresses to find matching coins by currency_id.
+  - Updated 2026-01-21: Show higher precision for VRSC fee fiat amounts to demonstrate
+    how small they are (e.g., €0.0012 instead of €0). Uses up to 4 decimals for very
+    small amounts. Only applies to VRSC fees; other currencies keep standard 2 decimals.
+  - Updated 2026-01-21: Fixed VRSC fee fiat formatting to preserve locale separators
+    and currency placement. Avoids incorrect outputs like "00.0002".
+  - Updated 2026-01-21: Added info icons ("?") next to estimated time and network fee
+    for bridge transactions. Tapping opens info sheets explaining why bridge transactions
+    take 1-3 hours and why ETH gas fees are higher.
+  - Updated 2026-01-21: Added fiat display for estimated receive amount.
+    Added help icon for estimated receive amount explaining it's an estimate.
+    Added hourglass icon for PBaaS conversions (2-10 mins) alongside bridge transactions.
+    Added info sheet for PBaaS conversion time estimates (2-10 mins) explaining block bundling.
+    Updated explanation text for estimated receive amount help sheet.
+    Redesigned amount section: left-aligned modern layout, divider with arrow circle,
+    "Estimated" badge for receive amount. Cleaner visual hierarchy.
+    Added conversion fee display for DeFi conversions (0.025% direct, 0.05% via).
+    Fee is shown as a separate row with percentage and note that it's included in amount.
+  - Updated 2026-01-22: Made details table more compact:
+    Reduced row padding from 14px to 10px.
+    Combined Route via + Estimated time into single row (e.g., "Floralis · 2-10 min").
+    Combined Network fee + Conversion fee into single "Fees" row showing total fiat.
+    Fees row is now clickable and opens FeesInfoSheet with detailed breakdown.
+    Improved fee fiat formatting to avoid rounding to zero for small amounts.
+  - Updated 2026-01-22: When amount is adjusted for fees (e.g., send max scenarios),
+    the displayed "You're sending" amount now shows the actual adjusted amount from
+    preflight instead of the original input. Warning message made more compact
+    (smaller font size and padding). This provides clearer UX - the big amount matches
+    what will actually be sent.
+  - Updated 2026-01-22: Fixed receive amount fiat display for bridge currencies.
+    When target currency is an i-address (e.g., EURC.vETH), falls back to canonical
+    asset key lookup (e.g., EURC) to find fiat rate. Uses getCanonicalAssetKey from
+    sendWizardDisplayInfo.js which maps i-addresses to their base asset symbols.
+    Also restyled "Estimated" badge: positioned in top-right corner, blue text/border.
+  - Updated 2026-01-22: Fixed grey placeholder icons by adding currencyId field to targetInfo
+    and using it as fallback for icon rendering. Coins without CoinDirectory entries
+    now show algorithmically generated mosaic icons instead of grey letter placeholders.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Text, Button } from 'react-native-paper';
-import { useDispatch } from 'react-redux';
+import { Text, Button, Portal } from 'react-native-paper';
+import { useDispatch, useSelector } from 'react-redux';
+import { formatCurrency } from 'react-native-format-currency';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -43,7 +92,7 @@ import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { expireCoinData } from '../../actions/actionCreators';
-import { API_GET_BALANCES, API_GET_TRANSACTIONS, API_GET_FIATPRICE, VRPC, ETH, ERC20, ELECTRUM } from '../../utils/constants/intervalConstants';
+import { API_GET_BALANCES, API_GET_TRANSACTIONS, API_GET_FIATPRICE, VRPC, ETH, ERC20, ELECTRUM, GENERAL, WYRE_SERVICE, USD } from '../../utils/constants/intervalConstants';
 import {
   DEST_PKH,
   DEST_ID,
@@ -55,8 +104,13 @@ import {
 } from 'verus-typescript-primitives';
 import { ethers } from 'ethers';
 import { getIdentity } from '../../utils/api/routers/getIdentity';
-import { getCurrencyDisplayName, getNetworkDisplayName } from './sendWizardDisplayInfo';
+import { getCurrencyDisplayName, getNetworkDisplayName, getCanonicalAssetKey } from './sendWizardDisplayInfo';
 import GradientButton from '../../components/GradientButton';
+import BridgeEstimatedTimeInfoSheet from './components/BridgeEstimatedTimeInfoSheet';
+import BridgeFeeInfoSheet from './components/BridgeFeeInfoSheet';
+import ConversionReceiveInfoSheet from './components/ConversionReceiveInfoSheet';
+import PbaasEstimatedTimeInfoSheet from './components/PbaasEstimatedTimeInfoSheet';
+import FeesInfoSheet from './components/FeesInfoSheet';
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -88,10 +142,21 @@ const SendWizardConfirm = () => {
 
   const activeAccount = useObjectSelector((s) => s.authentication.activeAccount);
 
+  // Fiat display currency and rates
+  const displayCurrency = useSelector(
+    (s) => s.settings.generalWalletSettings.displayCurrency || USD,
+  );
+  const rates = useObjectSelector((s) => s.ledger.rates);
+
   const [loading, setLocalLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [warnings, setWarnings] = useState([]);
+  const [estimatedTimeInfoVisible, setEstimatedTimeInfoVisible] = useState(false);
+  const [feeInfoVisible, setFeeInfoVisible] = useState(false);
+  const [conversionReceiveInfoVisible, setConversionReceiveInfoVisible] = useState(false);
+  const [pbaasTimeInfoVisible, setPbaasTimeInfoVisible] = useState(false);
+  const [feesInfoVisible, setFeesInfoVisible] = useState(false);
 
   const handleClose = useCallback(() => {
     if (sending) return;
@@ -148,6 +213,111 @@ const SendWizardConfirm = () => {
     return channel.split('.')[0];
   }, [channel]);
 
+  // Get rate for a specific coin (checks WYRE_SERVICE first, then GENERAL)
+  const getRate = useCallback(
+    (coinId) => {
+      if (!coinId) return null;
+      return rates?.[WYRE_SERVICE]?.[coinId]?.[displayCurrency] != null
+        ? rates[WYRE_SERVICE][coinId][displayCurrency]
+        : rates?.[GENERAL]?.[coinId]?.[displayCurrency] != null
+          ? rates[GENERAL][coinId][displayCurrency]
+          : null;
+    },
+    [rates, displayCurrency],
+  );
+
+  // Format crypto amount to fiat display string
+  const formatFiat = useCallback(
+    (cryptoAmount, coinId) => {
+      const rate = getRate(coinId);
+      if (!rate || !cryptoAmount) return null;
+      try {
+        const fiatValue = BigNumber(cryptoAmount).multipliedBy(BigNumber(rate));
+        if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+        const [formatted] = formatCurrency({
+          amount: fiatValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber(),
+          code: displayCurrency,
+        });
+        return formatted;
+      } catch (e) {
+        return null;
+      }
+    },
+    [getRate, displayCurrency],
+  );
+
+  // Format fiat BigNumber with custom decimals and locale handling
+  const formatFiatWithDecimals = useCallback(
+    (fiatValue, decimals) => {
+      const [formatted, valueWithoutSymbol, symbol] = formatCurrency({
+        amount: '0.00',
+        code: displayCurrency,
+      });
+
+      const referenceValue = valueWithoutSymbol || '0.00';
+      let prefix = '';
+      let suffix = '';
+
+      if (formatted && formatted.includes(referenceValue)) {
+        const idx = formatted.indexOf(referenceValue);
+        prefix = formatted.slice(0, idx);
+        suffix = formatted.slice(idx + referenceValue.length);
+      } else {
+        prefix = symbol || displayCurrency;
+      }
+
+      const lastDot = referenceValue.lastIndexOf('.');
+      const lastComma = referenceValue.lastIndexOf(',');
+      const decimalSeparator = lastComma > lastDot ? ',' : '.';
+
+      const rawValue = fiatValue
+        .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+        .toFixed(decimals);
+      const localizedValue = decimalSeparator === '.'
+        ? rawValue
+        : rawValue.replace('.', decimalSeparator);
+
+      return `${prefix}${localizedValue}${suffix}`;
+    },
+    [displayCurrency],
+  );
+
+  // Use more precision for very small fiat values
+  const formatFiatWithDynamicDecimals = useCallback(
+    (fiatValue) => {
+      if (fiatValue.isLessThan(0.01)) {
+        return formatFiatWithDecimals(fiatValue, 4);
+      }
+      if (fiatValue.isLessThan(0.1)) {
+        return formatFiatWithDecimals(fiatValue, 3);
+      }
+      return formatFiatWithDecimals(fiatValue, 2);
+    },
+    [formatFiatWithDecimals],
+  );
+
+  // Get sending address from subwallet based on coin protocol
+  const getSendingAddress = useCallback(() => {
+    if (!sourceSubWallet || !sourceCoin || !activeAccount) return null;
+
+    const proto = sourceCoin.proto;
+    const coinId = sourceCoin.id;
+
+    // ETH/ERC20: from activeAccount.keys
+    if (proto === 'eth' || proto === 'erc20') {
+      const keyChannel = proto === 'eth' ? ETH : ERC20;
+      return activeAccount.keys?.[coinId]?.[keyChannel]?.addresses?.[0] || null;
+    }
+
+    // VRPC: from subwallet channel (format: VRPC.address.systemId)
+    if (sourceSubWallet.channel) {
+      const parts = sourceSubWallet.channel.split('.');
+      return parts.length > 1 ? parts[1] : null;
+    }
+
+    return null;
+  }, [sourceSubWallet, sourceCoin, activeAccount]);
+
   // Calculate estimated time until arrival based on transaction type
   const estimatedTime = useMemo(() => {
     // Don't show time estimate for preconvert transactions
@@ -175,6 +345,16 @@ const SendWizardConfirm = () => {
 
     return null;
   }, [channelType, isConversion, isCrossChain, exportTo, isSimpleSend, preconvert]);
+
+  // Flag to determine if this is a bridge transaction (1-3 hour estimate)
+  // Used to show info icons explaining the longer time and higher fees
+  const isBridgeTransaction = useMemo(() => {
+    return estimatedTime === '1-3 hours';
+  }, [estimatedTime]);
+
+  const isPbaasConversion = useMemo(() => {
+    return estimatedTime === '2-10 minutes';
+  }, [estimatedTime]);
 
   // Build destination from address
   const buildDestination = useCallback(async () => {
@@ -382,6 +562,20 @@ const SendWizardConfirm = () => {
     return preflightResult?.estimate || estimate || null;
   }, [preflightResult, estimate]);
 
+  // Use adjusted amount from preflight when fees are deducted from the send amount
+  const displayAmount = useMemo(() => {
+    if (preflightResult?.output?.satoshis && preflightResult?.submittedsats) {
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      if (!submitted.isEqualTo(actual)) {
+        // Amount was adjusted - show the actual amount that will be sent
+        return satsToCoins(actual).toString();
+      }
+    }
+    return amount;
+  }, [preflightResult, amount]);
+
   // Get currency info for display
   const getCurrencyInfo = useCallback((currencyId, optionalViaOptions = null) => {
     if (!currencyId) return { name: 'Unknown', ticker: '?', coinId: null };
@@ -421,59 +615,251 @@ const SendWizardConfirm = () => {
         name: targetDisplayName || targetDisplayTicker || 'Unknown',
         ticker: targetDisplayTicker || targetDisplayName || '?',
         coinId,
+        currencyId: targetCurrency, // Keep original ID for icon fallback
       };
     }
     
-    return getCurrencyInfo(targetCurrency);
+    const info = getCurrencyInfo(targetCurrency);
+    return { ...info, currencyId: targetCurrency };
   }, [targetCurrency, getCurrencyInfo, targetDisplayName, targetDisplayTicker]);
 
   // Extract fee information from preflight result
   const feeInfo = useMemo(() => {
     if (!preflightResult) return null;
 
+    // Helper to format fee amount - limit decimals for cleaner display
+    const formatFeeAmount = (feeCoins) => {
+      const bn = BigNumber(feeCoins);
+      // For very small amounts (ETH fees), show up to 6 significant decimals
+      // For larger amounts, use fewer decimals
+      if (bn.isLessThan(0.0001)) {
+        return bn.decimalPlaces(8).toString();
+      } else if (bn.isLessThan(0.01)) {
+        return bn.decimalPlaces(6).toString();
+      } else {
+        return bn.decimalPlaces(4).toString();
+      }
+    };
+
     // Simple send - fee is directly available
     if (preflightResult.fee) {
+      const feeCurrency = preflightResult.feeCurr || sourceCoin?.display_ticker || 'VRSC';
+      let feeCoinId = null;
+      
+      // Look up the fee currency's coin ID for accurate fiat conversion
+      // This is especially important for ERC20 where fees are in ETH, not the token
+      if (preflightResult.feeCurr) {
+        try {
+          const coin = CoinDirectory.findCoinObj(preflightResult.feeCurr);
+          if (coin) {
+            feeCoinId = coin.id;
+          }
+        } catch (e) {
+          // Fee currency not found in directory, fallback to source coin
+          feeCoinId = sourceCoin?.id || null;
+        }
+      } else {
+        // No explicit fee currency, use source coin
+        feeCoinId = sourceCoin?.id || null;
+      }
+      
       return {
-        amount: preflightResult.fee,
-        currency: preflightResult.feeCurr || sourceCoin?.display_ticker || 'VRSC',
+        amount: formatFeeAmount(preflightResult.fee),
+        currency: feeCurrency,
+        coinId: feeCoinId,
       };
     }
 
     // Convert/cross-chain - fee might be in validation.fees
     if (preflightResult.validation?.fees) {
       const fees = preflightResult.validation.fees;
-      const systemId = sourceCoin?.system_id || sourceCoin?.id;
       
       for (const currencyId of Object.keys(fees)) {
         const feeSats = BigNumber(fees[currencyId]);
         if (feeSats.isGreaterThan(0)) {
-          const feeCoins = satsToCoins(feeSats).decimalPlaces(8).toString();
+          const feeCoins = satsToCoins(feeSats);
           // Try to get friendly name for fee currency
           let feeCurrName = currencyId;
-          try {
-            const coin = CoinDirectory.findCoinObj(currencyId);
-            if (coin) feeCurrName = coin.display_ticker;
-          } catch (e) {
-            feeCurrName = getCurrencyDisplayName(currencyId, currencyId);
+          let feeCoinId = null;
+          
+          // Special handling for ETH contract address (null address represents native ETH)
+          const ETH_NULL_ADDRESS = '0x0000000000000000000000000000000000000000';
+          if (currencyId.toLowerCase() === ETH_NULL_ADDRESS.toLowerCase()) {
+            feeCurrName = 'ETH';
+            feeCoinId = 'ETH';
+          } else {
+            try {
+              const coin = CoinDirectory.findCoinObj(currencyId);
+              if (coin) {
+                feeCurrName = coin.display_ticker;
+                feeCoinId = coin.id;
+              }
+            } catch (e) {
+              // Not found by id, try looking up by currency_id for 0x addresses
+              if (currencyId.startsWith('0x')) {
+                try {
+                  const allCoins = Object.values(CoinDirectory.coins || {});
+                  const matchingCoin = allCoins.find(c => 
+                    c.currency_id && c.currency_id.toLowerCase() === currencyId.toLowerCase()
+                  );
+                  if (matchingCoin) {
+                    feeCurrName = matchingCoin.display_ticker;
+                    feeCoinId = matchingCoin.id;
+                  }
+                } catch (e2) {
+                  // Fall through to default
+                }
+              }
+              if (!feeCoinId) {
+                feeCurrName = getCurrencyDisplayName(currencyId, currencyId);
+              }
+            }
           }
-          return { amount: feeCoins, currency: feeCurrName };
+          return { amount: formatFeeAmount(feeCoins), currency: feeCurrName, coinId: feeCoinId };
         }
       }
     }
 
     // Fallback - calculate from nativeFeesPaid if available
     if (preflightResult.nativeFeesPaid) {
-      const feeCoins = satsToCoins(BigNumber(preflightResult.nativeFeesPaid)).decimalPlaces(8).toString();
-      return { amount: feeCoins, currency: sourceCoin?.display_ticker || 'VRSC' };
+      const feeCoins = satsToCoins(BigNumber(preflightResult.nativeFeesPaid));
+      return { amount: formatFeeAmount(feeCoins), currency: sourceCoin?.display_ticker || 'VRSC', coinId: sourceCoin?.id || null };
     }
 
     // Default minimum fee for VRPC transactions
     if (channelType === VRPC) {
-      return { amount: '0.0001', currency: sourceCoin?.display_ticker || 'VRSC' };
+      return { amount: '0.0001', currency: sourceCoin?.display_ticker || 'VRSC', coinId: sourceCoin?.id || null };
     }
 
     return null;
   }, [preflightResult, sourceCoin, channelType]);
+
+  // Calculate fiat value for the amount being sent (uses adjusted amount if applicable)
+  const amountFiatDisplay = useMemo(() => {
+    if (!displayAmount || !sourceCoin?.id) return null;
+    return formatFiat(displayAmount, sourceCoin.id);
+  }, [displayAmount, sourceCoin, formatFiat]);
+
+  // Calculate fiat value for the receiving amount
+  // Falls back to canonical asset key (e.g., EURC.vETH -> EURC) when direct coinId lookup fails
+  const receiveFiatDisplay = useMemo(() => {
+    if (!displayEstimate?.estimatedcurrencyout) return null;
+    
+    // Try direct coinId first
+    if (targetInfo?.coinId) {
+      const result = formatFiat(displayEstimate.estimatedcurrencyout, targetInfo.coinId);
+      if (result) return result;
+    }
+    
+    // Fallback: use canonical asset key to find a rate
+    // This handles cases like EURC.vETH (i-address) -> EURC (coin with rate)
+    const canonicalKey = getCanonicalAssetKey(targetCurrency, targetInfo?.ticker, targetInfo?.name);
+    if (canonicalKey) {
+      const result = formatFiat(displayEstimate.estimatedcurrencyout, canonicalKey);
+      if (result) return result;
+    }
+    
+    return null;
+  }, [displayEstimate, targetInfo, targetCurrency, formatFiat]);
+
+  // Calculate fiat value for the network fee
+  // For VRSC fees, show more precision to demonstrate how small they are
+  const feeFiatDisplay = useMemo(() => {
+    if (!feeInfo?.amount || !feeInfo?.coinId) return null;
+
+    // For VRSC fees, use higher precision to show the actual small value
+    const isVrscFee = feeInfo.coinId === 'VRSC' || feeInfo.currency === 'VRSC';
+    if (isVrscFee) {
+      const rate = getRate(feeInfo.coinId);
+      if (!rate) return null;
+      try {
+        const fiatValue = BigNumber(feeInfo.amount).multipliedBy(BigNumber(rate));
+        if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+        return formatFiatWithDynamicDecimals(fiatValue);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    return formatFiat(feeInfo.amount, feeInfo.coinId);
+  }, [feeInfo, formatFiat, getRate, formatFiatWithDynamicDecimals]);
+
+  // Calculate conversion fee (taken from send amount for DeFi conversions)
+  // Direct conversion: 0.025% (0.00025), Via conversion: 0.05% (0.0005)
+  const conversionFeeInfo = useMemo(() => {
+    if (!isConversion || !amount) return null;
+
+    let multiplier = BigNumber(0);
+    if (via) {
+      // Conversion via an intermediate currency: 0.05%
+      multiplier = BigNumber(0.0005);
+    } else {
+      // Direct conversion: 0.025%
+      multiplier = BigNumber(0.00025);
+    }
+
+    const fee = BigNumber(amount).multipliedBy(multiplier);
+    if (fee.isZero() || fee.isNaN()) return null;
+
+    return {
+      amount: fee.decimalPlaces(8).toString(),
+      currency: sourceCoin?.display_ticker || '',
+      percentage: via ? '0.05%' : '0.025%',
+    };
+  }, [isConversion, amount, via, sourceCoin]);
+
+  // Calculate fiat value for the conversion fee
+  const conversionFeeFiatDisplay = useMemo(() => {
+    if (!conversionFeeInfo?.amount || !sourceCoin?.id) return null;
+    const rate = getRate(sourceCoin.id);
+    if (!rate) return null;
+    try {
+      const fiatValue = BigNumber(conversionFeeInfo.amount).multipliedBy(BigNumber(rate));
+      if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+      return formatFiatWithDynamicDecimals(fiatValue);
+    } catch (e) {
+      return null;
+    }
+  }, [conversionFeeInfo, sourceCoin, getRate, formatFiatWithDynamicDecimals]);
+
+  // Calculate combined fees fiat total for display
+  const combinedFeesFiatDisplay = useMemo(() => {
+    if (!feeInfo?.amount) return null;
+    
+    const networkFeeRate = getRate(feeInfo.coinId);
+    const conversionFeeRate = sourceCoin?.id ? getRate(sourceCoin.id) : null;
+    
+    let totalFiat = BigNumber(0);
+    
+    // Add network fee fiat
+    if (networkFeeRate) {
+      const networkFeeFiat = BigNumber(feeInfo.amount).multipliedBy(BigNumber(networkFeeRate));
+      if (!networkFeeFiat.isNaN() && networkFeeFiat.isFinite()) {
+        totalFiat = totalFiat.plus(networkFeeFiat);
+      }
+    }
+    
+    // Add conversion fee fiat
+    if (conversionFeeInfo?.amount && conversionFeeRate) {
+      const conversionFeeFiat = BigNumber(conversionFeeInfo.amount).multipliedBy(BigNumber(conversionFeeRate));
+      if (!conversionFeeFiat.isNaN() && conversionFeeFiat.isFinite()) {
+        totalFiat = totalFiat.plus(conversionFeeFiat);
+      }
+    }
+    
+    if (totalFiat.isZero()) return null;
+
+    try {
+      return formatFiatWithDynamicDecimals(totalFiat);
+    } catch (e) {
+      return null;
+    }
+  }, [feeInfo, conversionFeeInfo, sourceCoin, getRate, formatFiatWithDynamicDecimals]);
+
+  // Get the sending address for display
+  const sendingAddress = useMemo(() => {
+    return getSendingAddress();
+  }, [getSendingAddress]);
 
   // Handle send
   const handleSend = useCallback(async () => {
@@ -594,36 +980,63 @@ const SendWizardConfirm = () => {
             </View>
           )}
 
-          {/* Amount Section - Compact display */}
+          {/* Amount Section - Modern left-aligned display */}
           <View style={styles.amountSection}>
-            <Text style={styles.amountLabel}>You're sending</Text>
-            <View style={styles.amountRow}>
-              {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 10 }, 32, 32)}
-              <View>
-                <Text style={styles.amountValue}>{amount}</Text>
-                <Text style={styles.amountTicker}>{sourceCoin.display_ticker}</Text>
+            {/* Sending */}
+            <View style={styles.amountBlock}>
+              <Text style={styles.amountLabel}>You're sending</Text>
+              <View style={styles.amountRow}>
+                {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 10 }, 28, 28)}
+                <View style={styles.amountTextContainer}>
+                  <View style={styles.amountValueRow}>
+                    <Text style={styles.amountValue}>{displayAmount}</Text>
+                    <Text style={styles.amountTicker}>{sourceCoin.display_ticker}</Text>
+                  </View>
+                  {amountFiatDisplay && (
+                    <Text style={styles.amountFiat}>{amountFiatDisplay}</Text>
+                  )}
+                </View>
               </View>
             </View>
 
-            {/* Conversion arrow and receive amount */}
+            {/* Divider with arrow - only for conversions */}
             {isConversion && (
-              <View style={styles.conversionSection}>
-                <MaterialCommunityIcons name="arrow-down" size={20} color="#CCC" style={{ marginVertical: 8 }} />
-                <Text style={styles.amountLabel}>You'll receive approximately</Text>
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <View style={styles.arrowCircle}>
+                  <MaterialCommunityIcons name="arrow-down" size={16} color="#888" />
+                </View>
+                <View style={styles.dividerLine} />
+              </View>
+            )}
+
+            {/* Receiving */}
+            {isConversion && (
+              <View style={styles.amountBlock}>
+                <TouchableOpacity
+                  onPress={() => setConversionReceiveInfoVisible(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.estimateBadge}
+                >
+                  <Text style={styles.estimateBadgeText}>Estimated</Text>
+                  <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                </TouchableOpacity>
+                <Text style={styles.amountLabel}>You'll receive</Text>
                 <View style={styles.amountRow}>
-                  {targetInfo.coinId && RenderSquareCoinLogo(targetInfo.coinId, { marginRight: 10 }, 32, 32)}
-                  {!targetInfo.coinId && (
-                    <View style={styles.placeholderLogo}>
-                      <Text style={styles.placeholderText}>{(targetInfo.ticker || '?').substring(0, 2).toUpperCase()}</Text>
+                  {/* Use coinId if available, otherwise fall back to currencyId for mosaic generation */}
+                  {RenderSquareCoinLogo(targetInfo.coinId || targetInfo.currencyId, { marginRight: 10 }, 28, 28)}
+                  <View style={styles.amountTextContainer}>
+                    <View style={styles.amountValueRow}>
+                      <Text style={styles.amountValue}>
+                        ~{displayEstimate?.estimatedcurrencyout
+                          ? BigNumber(displayEstimate.estimatedcurrencyout).decimalPlaces(8).toString()
+                          : '?'}
+                      </Text>
+                      <Text style={styles.amountTicker}>{targetInfo.ticker}</Text>
                     </View>
-                  )}
-                  <View>
-                    <Text style={styles.amountValue}>
-                      ~{displayEstimate?.estimatedcurrencyout
-                        ? BigNumber(displayEstimate.estimatedcurrencyout).decimalPlaces(8).toString()
-                        : '?'}
-                    </Text>
-                    <Text style={styles.amountTicker}>{targetInfo.ticker}</Text>
+                    {receiveFiatDisplay && (
+                      <Text style={styles.amountFiat}>~{receiveFiatDisplay}</Text>
+                    )}
                   </View>
                 </View>
               </View>
@@ -650,48 +1063,73 @@ const SendWizardConfirm = () => {
               </View>
             )}
 
-            {/* Route via */}
-            {via && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Route via</Text>
-                <Text style={styles.detailValue}>
-                  {getCurrencyInfo(via).name}
-                </Text>
-              </View>
-            )}
-
-            {/* Estimated time until arrival */}
+            {/* Route + Estimated time combined */}
             {estimatedTime && (
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Estimated time</Text>
-                <Text style={styles.detailValue}>
-                  {estimatedTime}
-                </Text>
+                <Text style={styles.detailLabel}>{via ? 'Route' : 'Estimated time'}</Text>
+                <View style={styles.detailValueWithInfo}>
+                  <Text style={[styles.detailValue, { maxWidth: undefined }]}>
+                    {via ? `${getCurrencyInfo(via).name} · ${estimatedTime}` : estimatedTime}
+                  </Text>
+                  {(isBridgeTransaction || isPbaasConversion) && (
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (isBridgeTransaction) {
+                          setEstimatedTimeInfoVisible(true);
+                        } else if (isPbaasConversion) {
+                          setPbaasTimeInfoVisible(true);
+                        }
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.infoIconButton}
+                    >
+                      <MaterialCommunityIcons
+                        name="timer-sand"
+                        size={20}
+                        color={Colors.primaryColor}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
 
-            {/* Network fee */}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Network fee</Text>
-              <Text style={styles.detailValue}>
-                {feeInfo ? `${feeInfo.amount} ${feeInfo.currency}` : '~0.0001 VRSC'}
-              </Text>
-            </View>
+            {/* Fees - clickable to show detailed breakdown */}
+            <TouchableOpacity 
+              style={styles.detailRow}
+              onPress={() => setFeesInfoVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.detailLabel}>Fees</Text>
+              <View style={styles.detailValueWithInfo}>
+                <View style={styles.feeValueContainer}>
+                  <Text style={[styles.detailValue, { maxWidth: undefined }]} numberOfLines={1}>
+                    {combinedFeesFiatDisplay || feeFiatDisplay || '—'}
+                  </Text>
+                  <Text style={styles.feeFiat}>Tap for details</Text>
+                </View>
+                <View style={styles.infoIconButton}>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={20}
+                    color={Colors.primaryColor}
+                  />
+                </View>
+              </View>
+            </TouchableOpacity>
 
             {/* From */}
             <View style={[styles.detailRow, styles.detailRowLast]}>
               <Text style={styles.detailLabel}>From</Text>
-              <View style={styles.fromValue}>
-                <Text style={[styles.detailValue, { maxWidth: '100%' }]}>
-                  {truncateAddress(sourceSubWallet?.name) || 'My wallet'}
-                </Text>
-              </View>
+              <Text style={styles.detailValue} numberOfLines={1}>
+                {sendingAddress ? truncateAddress(sendingAddress) : (sourceSubWallet?.name || 'My wallet')}
+              </Text>
             </View>
           </View>
 
           {/* Balance info */}
           <Text style={styles.balanceNote}>
-            Balance after: {BigNumber(sourceBalance || 0).minus(BigNumber(amount || 0)).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
+            Balance after: {BigNumber(sourceBalance || 0).minus(BigNumber(displayAmount || 0)).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
           </Text>
         </View>
       </ScrollView>
@@ -705,6 +1143,39 @@ const SendWizardConfirm = () => {
           {sending ? 'Sending...' : 'Confirm & send'}
         </GradientButton>
       </View>
+
+            {/* Bridge transaction info sheets */}
+            <Portal>
+              <BridgeEstimatedTimeInfoSheet
+                visible={estimatedTimeInfoVisible}
+                onClose={() => setEstimatedTimeInfoVisible(false)}
+                isToEthereum={channelType === VRPC}
+              />
+              <BridgeFeeInfoSheet
+                visible={feeInfoVisible}
+                onClose={() => setFeeInfoVisible(false)}
+                isToEthereum={channelType === VRPC}
+              />
+              <ConversionReceiveInfoSheet
+                visible={conversionReceiveInfoVisible}
+                onClose={() => setConversionReceiveInfoVisible(false)}
+              />
+              <PbaasEstimatedTimeInfoSheet
+                visible={pbaasTimeInfoVisible}
+                onClose={() => setPbaasTimeInfoVisible(false)}
+              />
+              <FeesInfoSheet
+                visible={feesInfoVisible}
+                onClose={() => setFeesInfoVisible(false)}
+                networkFee={feeInfo?.amount || '0.0001'}
+                networkFeeCurrency={feeInfo?.currency || 'VRSC'}
+                networkFeeFiat={feeFiatDisplay}
+                conversionFee={conversionFeeInfo?.amount}
+                conversionFeeCurrency={conversionFeeInfo?.currency}
+                conversionFeePercentage={conversionFeeInfo?.percentage}
+                conversionFeeFiat={conversionFeeFiatDisplay}
+              />
+            </Portal>
     </View>
   );
 };
@@ -748,33 +1219,45 @@ const styles = StyleSheet.create({
   },
   warningItem: {
     backgroundColor: '#FFF3E0',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 8,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#E65100',
-    lineHeight: 20,
+    lineHeight: 17,
   },
-  // Amount section - compact display
+  // Amount section - modern left-aligned display
   amountSection: {
     backgroundColor: '#F8F8F8',
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     marginBottom: 16,
-    alignItems: 'center',
+  },
+  amountBlock: {
+    paddingVertical: 4,
+    position: 'relative',
   },
   amountLabel: {
     fontSize: 11,
     color: '#888',
-    marginBottom: 8,
+    marginBottom: 6,
+    fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  amountTextContainer: {
+    flex: 1,
+  },
+  amountValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   amountValue: {
     fontSize: 22,
@@ -782,25 +1265,68 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
   },
   amountTicker: {
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '600',
     color: '#666',
-    marginTop: 1,
+    marginLeft: 6,
   },
-  conversionSection: {
+  amountFiat: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 2,
+  },
+  // Divider with arrow
+  dividerContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginVertical: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E8E8E8',
+  },
+  arrowCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+  },
+  estimateBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 125, 237, 0.35)',
+  },
+  estimateBadgeText: {
+    fontSize: 11,
+    color: Colors.primaryColor,
+    fontWeight: '600',
+    marginRight: 4,
   },
   placeholderLogo: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: '#E0E0E0',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   placeholderText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
     color: '#888',
   },
@@ -815,7 +1341,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
@@ -831,6 +1357,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1A1A1A',
     maxWidth: '60%',
+    textAlign: 'right',
+  },
+  detailValueWithInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+  },
+  feeValueContainer: {
+    alignItems: 'flex-end',
+  },
+  feeValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoIconButton: {
+    marginLeft: 6,
+    padding: 2,
+  },
+  feeFiat: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
     textAlign: 'right',
   },
   fromValue: {

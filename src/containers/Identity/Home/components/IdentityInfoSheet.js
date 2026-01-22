@@ -87,7 +87,7 @@ const IdentityInfoSheet = ({ visible, onClose }) => {
         <View style={styles.sheetBody}>
           {/* Option B: quick summary + expandable FAQ */}
           <Text style={styles.summary}>
-            VerusID is a self-sovereign identity and personal data vault — controlled by you, not companies.
+            VerusID is a self-sovereign identity and personal data vault. Controlled by you, not companies.
           </Text>
 
           <View style={styles.accordionWrap}>

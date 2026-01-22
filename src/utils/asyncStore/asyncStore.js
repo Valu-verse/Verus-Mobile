@@ -10,6 +10,7 @@ export * from './settingsStorage'
 export * from './coinStorage'
 export * from './cache/cache'
 export * from './notificationsStorage'
+export * from './addressBookStorage'
 
 const vc = require('version_compare')
 export const PIN = "pin"

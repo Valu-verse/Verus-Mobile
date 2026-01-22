@@ -1,3 +1,13 @@
+/**
+ * CoinsList.js
+ * 
+ * Changes:
+ * - 2026-01-22: Added scrvUSD.vETH (i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj) with CoinPaprika pricing support
+ *   to enable fiat value calculations for Savings crvUSD bridged to Verus
+ * - 2026-01-22: Added vUSDT.vETH (i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY) with CoinPaprika pricing support
+ *   to enable fiat value calculations for Tether bridged to Verus
+ */
+
 import {
   DLIGHT_PRIVATE,
   ELECTRUM,
@@ -211,6 +221,48 @@ export const coinsList = {
     rate_url_params: {coin_paprika: 'eurc-eurc'},
     website: 'https://www.circle.com/en/usdc',
     mapped_to: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c'
+  },
+  ["i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj"]: {
+    pbaas_options: 32,
+    id: "i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj",
+    currency_id: "i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj",
+    system_id: "i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X",
+    launch_system_id: "i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV",
+    bitgojs_network_key: "verus",
+    display_ticker: "scrvUSD.vETH",
+    display_name: "Savings crvUSD on Verus",
+    alt_names: [],
+    theme_color: '#29233b',
+    compatible_channels: [VERUSID, VRPC, GENERAL],
+    tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
+    proto: "vrsc",
+    decimals: 8,
+    default_app: "wallet",
+    apps: VERUS_APPS,
+    rate_url_params: {coin_paprika: 'scrvusd-savings-crvusd'},
+    website: 'https://crvusd.curve.fi',
+    mapped_to: '0x0655977FEb2f289A4aB78af67BAB0d17aAb84367'
+  },
+  ["i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY"]: {
+    pbaas_options: 32,
+    id: "i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY",
+    currency_id: "i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY",
+    system_id: "i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X",
+    launch_system_id: "i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV",
+    bitgojs_network_key: "verus",
+    display_ticker: "vUSDT.vETH",
+    display_name: "Tether on Verus",
+    alt_names: [],
+    theme_color: '#50AF95',
+    compatible_channels: [VERUSID, VRPC, GENERAL],
+    tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
+    proto: "vrsc",
+    decimals: 8,
+    default_app: "wallet",
+    apps: VERUS_APPS,
+    rate_url_params: {coin_paprika: 'usdt-tether-coin'},
+    website: 'https://tether.to',
+    mapped_to: 'USDT'
   },
   ["i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X"]: {
     pbaas_options: 128,
