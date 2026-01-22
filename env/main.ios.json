@@ -50,6 +50,7 @@
   "WIDGET_STORAGE_INTERNAL_KEY": "widgets",
   "CURRENCY_DEFINITION_STORAGE_INTERNAL_KEY": "currencyDefinitions",
   "CONTRACT_DEFINITION_STORAGE_INTERNAL_KEY": "ethereumContractDefinitions",
+  "ADDRESS_BOOK_STORAGE_INTERNAL_KEY": "addressBook",
 
   "WYRE_ACCESSIBLE": true,
 

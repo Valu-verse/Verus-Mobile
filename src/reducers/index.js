@@ -5,6 +5,7 @@ import { ledger } from './ledger';
 import { settings } from './settings';
 import { personal } from './personal';
 import { attestation } from './attestations';
+import { addressBook } from './addressBook';
 import { services } from './services';
 import { electrum } from './cache/electrum';
 import { headers } from './cache/headers';
@@ -75,5 +76,6 @@ export default combineReducers({
   loadingModal,
   secureLoading,
   deeplink,
-  attestation
+  attestation,
+  addressBook
 });

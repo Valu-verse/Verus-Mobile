@@ -10,14 +10,16 @@ import {
 } from '../../../utils/constants/services';
 import VerusIdWidget from '../../Home/HomeWidgets/VerusIdWidget';
 import AttestationWidget from '../../Home/HomeWidgets/AttestationWidget';
+import AddressBookWidget from '../../Home/HomeWidgets/AddressBookWidget';
 import { HomeListItemThemeLight } from '../../Home/Home.themes';
-import { VERUSID_WIDGET_TYPE, ATTESTATION_WIDGET_TYPE } from '../../../utils/constants/widgets';
+import { VERUSID_WIDGET_TYPE, ATTESTATION_WIDGET_TYPE, ADDRESS_BOOK_WIDGET_TYPE } from '../../../utils/constants/widgets';
 
 export const ServicesOverviewRender = ({ 
   activeAccount, 
   openService, 
   hasValuProofOfPersonhood,
-  handleWidgetPress 
+  handleWidgetPress,
+  addressBookCount = 0,
 }) => {
   const centralized = [];
   const decentralized = [];
@@ -73,6 +75,16 @@ export const ServicesOverviewRender = ({
           >
             <Provider theme={HomeListItemThemeLight}>
               <AttestationWidget hasValuProofOfPersonhood={hasValuProofOfPersonhood} />
+            </Provider>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => handleWidgetPress(ADDRESS_BOOK_WIDGET_TYPE)}
+            style={{ width: '100%', marginBottom: 16 }}
+          >
+            <Provider theme={HomeListItemThemeLight}>
+              <AddressBookWidget addressCount={addressBookCount} />
             </Provider>
           </TouchableOpacity>
         </View>

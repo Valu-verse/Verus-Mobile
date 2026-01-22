@@ -1,5 +1,6 @@
 /*
   IdentityHome.render
+  - 2026-01-22: Updated 'Identity' title styling to match 'Services' title (fontWeight: 'bold', removed letterSpacing).
   - 2026-01-14: Match Wallet header behavior by adding a conditional hairline divider that
     appears only when the identity list is scrolled (fixed header + subtle border on scroll).
   - 2026-01-14: Convert the identity list to a full-width SectionList, remove i-address from list rows,
@@ -330,9 +331,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: 'bold',
     color: 'black',
-    letterSpacing: -0.5,
   },
   headerActions: {
     flexDirection: 'row',
