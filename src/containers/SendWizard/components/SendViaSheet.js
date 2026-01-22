@@ -9,6 +9,8 @@
   - Updated 2026-01-09: Show route option outputs truncated to 8 decimals (trim trailing zeros),
     display the target FQN under the output, and hide per-option rate lines.
   - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
+  - 2026-01-22: Fixed grey placeholder icons by using currency ID fallback for icon rendering.
+    Via options without explicit CoinDirectory entries now show mosaic icons.
 */
 
 import React, { useMemo } from 'react';
@@ -150,17 +152,10 @@ const SendViaSheet = ({
                   >
                     {/* Left: Icon and name */}
                     <View style={styles.optionLeft}>
-                      {info.coinId ? (
-                        <View style={styles.iconContainer}>
-                          {RenderSquareCoinLogo(info.coinId, {}, 36, 36)}
-                        </View>
-                      ) : (
-                        <View style={styles.placeholderIcon}>
-                          <Text style={styles.placeholderText}>
-                            {(info.ticker || '??').substring(0, 2).toUpperCase()}
-                          </Text>
-                        </View>
-                      )}
+                      {/* Use coinId if available, otherwise fall back to viaId for mosaic generation */}
+                      <View style={styles.iconContainer}>
+                        {RenderSquareCoinLogo(info.coinId || viaId, {}, 36, 36)}
+                      </View>
                       <View style={styles.optionInfo}>
                         <View style={styles.nameRow}>
                           <Text style={styles.optionName}>{info.name}</Text>

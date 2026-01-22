@@ -8,6 +8,8 @@
   - Updated 2024-12-09: Uses destinationAddressType for validation, added QR/paste buttons
   - Updated 2024-12-15: VerusID selection now populates VerusID name instead of i-address
   - Updated 2026-01-15: Added a header close X to exit the send flow.
+  - Updated 2026-01-22: Styled address input to match Unlock password input pattern
+    (matching the search inputs in SendWizardSelectSource and SendWizardSelectTarget).
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -343,23 +345,25 @@ const SendWizardRecipient = () => {
 
           {/* Address Input */}
           <View style={styles.inputContainer}>
-            <View style={styles.inputWrapper}>
+            <View
+              style={[
+                styles.addressInputContainer,
+                inputFocused && styles.addressInputFocused,
+                validationError && styles.addressInputError,
+              ]}
+            >
               <RNTextInput
                 value={inputValue}
                 onChangeText={setInputValue}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={placeholderText}
-                placeholderTextColor="#A0A0A0"
+                placeholderTextColor="#999"
                 autoCorrect={false}
                 autoCapitalize="none"
                 multiline={true}
                 numberOfLines={2}
-                style={[
-                  styles.addressInput,
-                  inputFocused && styles.addressInputFocused,
-                  validationError && styles.addressInputError,
-                ]}
+                style={styles.addressInput}
               />
             </View>
             
@@ -476,36 +480,38 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 24,
   },
-  inputWrapper: {
-    position: 'relative',
-    marginBottom: 12,
+  addressInputContainer: {
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    marginBottom: 16,
+    minHeight: 56,
+  },
+  addressInputFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  addressInputError: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.warningButtonColor,
+    shadowColor: Colors.warningButtonColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   addressInput: {
     minHeight: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
     paddingHorizontal: 16,
-    paddingTop: 16, // Ensure text starts with good spacing from top
+    paddingTop: 16,
     paddingBottom: 16,
     fontSize: 16,
-    color: '#1A1A1A',
-    backgroundColor: '#F5F5F5',
-    textAlignVertical: 'top', // Consistent alignment
-  },
-  addressInputFocused: {
-    borderColor: Colors.primaryColor,
-    backgroundColor: 'white',
-    // slight shadow when focused
-    shadowColor: Colors.primaryColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  addressInputError: {
-    borderColor: '#E53935',
-    backgroundColor: '#FFF8F8',
+    color: '#000',
+    textAlignVertical: 'top',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -528,8 +534,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#E53935',
-    marginTop: 8,
+    color: Colors.warningButtonColor,
+    marginBottom: 8,
     paddingHorizontal: 4,
   },
   hintsContainer: {

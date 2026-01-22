@@ -8,6 +8,15 @@
     return to Home via parent reset to avoid hook errors.
   - Updated 2026-01-21: Added fiat amount display, made checkmark smaller,
     improved copy button feedback to show "Copied" text with timeout.
+  - Updated 2026-01-22: Enhanced success screen to show transaction type context.
+    For bridge/cross-chain transactions: shows destination network, expected arrival time,
+    and "what happens next" messaging. For conversions: shows receiving currency clearly.
+    Uses same transaction type detection logic as confirm screen for consistency.
+  - Updated 2026-01-22: Fixed grey placeholder icons by adding currencyId field to targetInfo
+    and using it as fallback for icon rendering. Coins without CoinDirectory entries
+    now show algorithmically generated mosaic icons.
+  - Updated 2026-01-22: Fixed "Expected arrival" time text wrapping issue by removing
+    maxWidth constraint on time value text (detailValueNoWrap style).
 */
 
 import React, { useCallback, useLayoutEffect, useEffect, useState, useRef, useMemo } from 'react';
@@ -21,12 +30,12 @@ import BigNumber from 'bignumber.js';
 import { useSendWizard } from './SendWizardContext';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
-import { getCurrencyDisplayName } from './sendWizardDisplayInfo';
+import { getCurrencyDisplayName, getNetworkDisplayName } from './sendWizardDisplayInfo';
 import GradientButton from '../../components/GradientButton';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
-import { GENERAL, WYRE_SERVICE, USD } from '../../utils/constants/intervalConstants';
+import { GENERAL, WYRE_SERVICE, USD, ETH, ERC20 } from '../../utils/constants/intervalConstants';
 
 const SendWizardSuccess = () => {
   const navigation = useNavigation();
@@ -35,10 +44,16 @@ const SendWizardSuccess = () => {
     sourceCoin,
     targetCurrency,
     isConversion,
+    isCrossChain,
+    exportTo,
+    targetDisplayName,
+    targetDisplayTicker,
     amount,
     estimate,
+    preflightResult,
     recipientAddress,
     txResult,
+    channel,
   } = state;
 
   // Copy feedback state
@@ -82,6 +97,108 @@ const SendWizardSuccess = () => {
     }
   }, [amount, sourceCoin, getRate, displayCurrency]);
 
+  // Get channel type for transaction type detection
+  const channelType = useMemo(() => {
+    if (!channel) return null;
+    return channel.split('.')[0];
+  }, [channel]);
+
+  // Determine if this is a simple send (no conversion, no cross-chain)
+  const isSimpleSend = useMemo(() => {
+    return !isConversion && !isCrossChain && !exportTo;
+  }, [isConversion, isCrossChain, exportTo]);
+
+  // Calculate estimated time until arrival based on transaction type
+  // Mirrors logic from SendWizardConfirm.js for consistency
+  const estimatedTime = useMemo(() => {
+    // ETH/ERC20 on-chain conversion (bridge from Ethereum to Verus)
+    if ((channelType === ETH || channelType === ERC20) && isConversion && !exportTo) {
+      return '1-3 hours';
+    }
+
+    // Cross-chain transfer (exportto is set)
+    if (isCrossChain && exportTo) {
+      return '1-3 hours';
+    }
+
+    // Regular conversion on Verus (PBaaS conversion)
+    if (isConversion && !exportTo) {
+      return '2-10 minutes';
+    }
+
+    // Simple send (no conversion, no cross-chain)
+    if (isSimpleSend) {
+      return '1-5 minutes';
+    }
+
+    return null;
+  }, [channelType, isConversion, isCrossChain, exportTo, isSimpleSend]);
+
+  // Flag for bridge transactions (1-3 hour estimate)
+  const isBridgeTransaction = useMemo(() => {
+    return estimatedTime === '1-3 hours';
+  }, [estimatedTime]);
+
+  // Flag for PBaaS conversions (2-10 minute estimate)
+  const isPbaasConversion = useMemo(() => {
+    return estimatedTime === '2-10 minutes';
+  }, [estimatedTime]);
+
+  // Prefer preflight estimate for more accurate receive amounts
+  const displayEstimate = useMemo(() => {
+    return preflightResult?.estimate || estimate || null;
+  }, [preflightResult, estimate]);
+
+  // Get destination network display name for cross-chain transactions
+  const destinationNetworkName = useMemo(() => {
+    if (!exportTo) return null;
+    return getNetworkDisplayName(exportTo, null);
+  }, [exportTo]);
+
+  // Get contextual "what happens next" message based on transaction type
+  const whatsNextMessage = useMemo(() => {
+    if (isBridgeTransaction) {
+      return 'Your transaction is being verified by the Verus-Ethereum Bridge. This process takes usually 1-4 hours for security.';
+    }
+    if (isPbaasConversion) {
+      return 'Your conversion will be processed in the next 2-10 blocks.';
+    }
+    return 'It may take a few minutes for this transaction to be confirmed on the network.';
+  }, [isBridgeTransaction, isPbaasConversion]);
+
+  // Get title based on transaction type
+  const successTitle = useMemo(() => {
+    if (isBridgeTransaction) {
+      return 'Bridge transaction sent!';
+    }
+    if (isConversion) {
+      return 'Conversion sent!';
+    }
+    return 'Transaction sent!';
+  }, [isBridgeTransaction, isConversion]);
+
+  // Get subtitle based on transaction type
+  const successSubtitle = useMemo(() => {
+    if (isBridgeTransaction && destinationNetworkName) {
+      return `Your transaction is on its way to ${destinationNetworkName}`;
+    }
+    if (isConversion) {
+      return 'Your conversion has been submitted to the network';
+    }
+    return 'Your transaction has been submitted to the network';
+  }, [isBridgeTransaction, isConversion, destinationNetworkName]);
+
+  // Get label for sent amount based on transaction type
+  const sentLabel = useMemo(() => {
+    if (isBridgeTransaction) {
+      return 'Bridging';
+    }
+    if (isConversion) {
+      return 'Converting';
+    }
+    return 'Sent';
+  }, [isBridgeTransaction, isConversion]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: '',
@@ -97,16 +214,53 @@ const SendWizardSuccess = () => {
     };
   }, [reset]);
 
-  // Get target currency info
-  const targetInfo = React.useMemo(() => {
-    if (!targetCurrency) return { name: 'Unknown', ticker: '?', coinId: null };
+  // Get target currency info - prefer display names from context, then lookup
+  const targetInfo = useMemo(() => {
+    // Prefer display labels captured during path selection (never show vUSDC.vETH / i-addresses)
+    if (targetDisplayName || targetDisplayTicker) {
+      let coinId = null;
+      try {
+        const coin = CoinDirectory.findCoinObj(targetCurrency);
+        if (coin) coinId = coin.id;
+      } catch (e) {}
+      
+      return {
+        name: targetDisplayName || targetDisplayTicker || 'Unknown',
+        ticker: targetDisplayTicker || targetDisplayName || '?',
+        coinId,
+        currencyId: targetCurrency, // Keep original ID for icon fallback
+      };
+    }
+    
+    // Fallback to lookup
+    if (!targetCurrency) return { name: 'Unknown', ticker: '?', coinId: null, currencyId: null };
     try {
       const coin = CoinDirectory.findCoinObj(targetCurrency);
-      if (coin) return { name: coin.display_name, ticker: coin.display_ticker, coinId: coin.id };
+      if (coin) return { name: coin.display_name, ticker: coin.display_ticker, coinId: coin.id, currencyId: targetCurrency };
     } catch (e) {}
     const displayName = getCurrencyDisplayName(targetCurrency, targetCurrency);
-    return { name: displayName, ticker: displayName, coinId: null };
-  }, [targetCurrency]);
+    return { name: displayName, ticker: displayName, coinId: null, currencyId: targetCurrency };
+  }, [targetCurrency, targetDisplayName, targetDisplayTicker]);
+
+  // Calculate fiat display for receive amount
+  const receiveFiatDisplay = useMemo(() => {
+    if (!displayEstimate?.estimatedcurrencyout) return null;
+    const targetCoinId = targetInfo?.coinId;
+    if (!targetCoinId) return null;
+    const rate = getRate(targetCoinId);
+    if (!rate) return null;
+    try {
+      const fiatValue = BigNumber(displayEstimate.estimatedcurrencyout).multipliedBy(BigNumber(rate));
+      if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+      const [formatted] = formatCurrency({
+        amount: fiatValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber(),
+        code: displayCurrency,
+      });
+      return formatted;
+    } catch (e) {
+      return null;
+    }
+  }, [displayEstimate, targetInfo, getRate, displayCurrency]);
 
   // Truncate address/txid for display
   const truncate = (str, startLen = 10, endLen = 8) => {
@@ -149,16 +303,16 @@ const SendWizardSuccess = () => {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Transaction sent!</Text>
-        <Text style={styles.subtitle}>Your transaction has been submitted to the network</Text>
+        <Text style={styles.title}>{successTitle}</Text>
+        <Text style={styles.subtitle}>{successSubtitle}</Text>
 
         {/* Amount summary */}
         <View style={styles.summaryCard}>
-          {/* Sent amount */}
+          {/* Sent/Bridging/Converting amount */}
           <View style={styles.amountRow}>
             {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 12 }, 36, 36)}
             <View style={{ flex: 1 }}>
-              <Text style={styles.amountLabel}>Sent</Text>
+              <Text style={styles.amountLabel}>{sentLabel}</Text>
               <Text style={styles.amountValue}>
                 {amount} {sourceCoin?.display_ticker}
               </Text>
@@ -168,29 +322,25 @@ const SendWizardSuccess = () => {
             </View>
           </View>
 
-          {/* Conversion result */}
+          {/* Conversion/Bridge result - show what user will receive */}
           {isConversion && (
             <>
               <View style={styles.arrowContainer}>
                 <MaterialCommunityIcons name="arrow-down" size={20} color="#CCC" />
               </View>
               <View style={styles.amountRow}>
-                {targetInfo.coinId ? (
-                  RenderSquareCoinLogo(targetInfo.coinId, { marginRight: 12 }, 36, 36)
-                ) : (
-                  <View style={styles.placeholderLogo}>
-                    <Text style={styles.placeholderText}>
-                      {(targetInfo.ticker || '?').substring(0, 2).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
+                {/* Use coinId if available, otherwise fall back to currencyId for mosaic generation */}
+                {RenderSquareCoinLogo(targetInfo.coinId || targetInfo.currencyId, { marginRight: 12 }, 36, 36)}
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.amountLabel}>You'll receive approx.</Text>
+                  <Text style={styles.amountLabel}>You'll receive</Text>
                   <Text style={styles.amountValue}>
-                    ~{estimate?.estimatedcurrencyout
-                      ? BigNumber(estimate.estimatedcurrencyout).decimalPlaces(8).toString()
+                    ~{displayEstimate?.estimatedcurrencyout
+                      ? BigNumber(displayEstimate.estimatedcurrencyout).decimalPlaces(8).toString()
                       : '?'} {targetInfo.ticker}
                   </Text>
+                  {receiveFiatDisplay && (
+                    <Text style={styles.amountFiat}>~{receiveFiatDisplay}</Text>
+                  )}
                 </View>
               </View>
             </>
@@ -203,6 +353,34 @@ const SendWizardSuccess = () => {
               {recipientAddress?.endsWith('@') ? recipientAddress : truncate(recipientAddress)}
             </Text>
           </View>
+
+          {/* Destination network for cross-chain */}
+          {destinationNetworkName && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Destination</Text>
+              <Text style={styles.detailValue}>{destinationNetworkName}</Text>
+            </View>
+          )}
+
+          {/* Estimated arrival time */}
+          {estimatedTime && (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Expected arrival</Text>
+              <View style={styles.estimatedTimeContainer}>
+                {isBridgeTransaction && (
+                  <MaterialCommunityIcons 
+                    name="timer-sand" 
+                    size={14} 
+                    color="#888"
+                    style={{ marginRight: 5 }}
+                  />
+                )}
+                <Text style={styles.detailValueNoWrap}>
+                  {estimatedTime}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Transaction ID */}
           {txResult?.txid && (
@@ -226,9 +404,9 @@ const SendWizardSuccess = () => {
           )}
         </View>
 
-        {/* Info note */}
+        {/* Contextual info note */}
         <Text style={styles.infoNote}>
-          It may take a few minutes for this transaction to be confirmed on the network.
+          {whatsNextMessage}
         </Text>
       </View>
 
@@ -339,6 +517,12 @@ const styles = StyleSheet.create({
     maxWidth: '60%',
     textAlign: 'right',
   },
+  detailValueNoWrap: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    textAlign: 'right',
+  },
   detailValueMono: {
     fontSize: 13,
     fontWeight: '500',
@@ -353,6 +537,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primaryColor,
     marginLeft: 6,
+  },
+  estimatedTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexShrink: 0,
   },
   infoNote: {
     fontSize: 13,

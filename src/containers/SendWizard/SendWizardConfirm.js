@@ -52,6 +52,25 @@
     "Estimated" badge for receive amount. Cleaner visual hierarchy.
     Added conversion fee display for DeFi conversions (0.025% direct, 0.05% via).
     Fee is shown as a separate row with percentage and note that it's included in amount.
+  - Updated 2026-01-22: Made details table more compact:
+    Reduced row padding from 14px to 10px.
+    Combined Route via + Estimated time into single row (e.g., "Floralis · 2-10 min").
+    Combined Network fee + Conversion fee into single "Fees" row showing total fiat.
+    Fees row is now clickable and opens FeesInfoSheet with detailed breakdown.
+    Improved fee fiat formatting to avoid rounding to zero for small amounts.
+  - Updated 2026-01-22: When amount is adjusted for fees (e.g., send max scenarios),
+    the displayed "You're sending" amount now shows the actual adjusted amount from
+    preflight instead of the original input. Warning message made more compact
+    (smaller font size and padding). This provides clearer UX - the big amount matches
+    what will actually be sent.
+  - Updated 2026-01-22: Fixed receive amount fiat display for bridge currencies.
+    When target currency is an i-address (e.g., EURC.vETH), falls back to canonical
+    asset key lookup (e.g., EURC) to find fiat rate. Uses getCanonicalAssetKey from
+    sendWizardDisplayInfo.js which maps i-addresses to their base asset symbols.
+    Also restyled "Estimated" badge: positioned in top-right corner, blue text/border.
+  - Updated 2026-01-22: Fixed grey placeholder icons by adding currencyId field to targetInfo
+    and using it as fallback for icon rendering. Coins without CoinDirectory entries
+    now show algorithmically generated mosaic icons instead of grey letter placeholders.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -85,12 +104,13 @@ import {
 } from 'verus-typescript-primitives';
 import { ethers } from 'ethers';
 import { getIdentity } from '../../utils/api/routers/getIdentity';
-import { getCurrencyDisplayName, getNetworkDisplayName } from './sendWizardDisplayInfo';
+import { getCurrencyDisplayName, getNetworkDisplayName, getCanonicalAssetKey } from './sendWizardDisplayInfo';
 import GradientButton from '../../components/GradientButton';
 import BridgeEstimatedTimeInfoSheet from './components/BridgeEstimatedTimeInfoSheet';
 import BridgeFeeInfoSheet from './components/BridgeFeeInfoSheet';
 import ConversionReceiveInfoSheet from './components/ConversionReceiveInfoSheet';
 import PbaasEstimatedTimeInfoSheet from './components/PbaasEstimatedTimeInfoSheet';
+import FeesInfoSheet from './components/FeesInfoSheet';
 
 const SendWizardConfirm = () => {
   const navigation = useNavigation();
@@ -136,6 +156,7 @@ const SendWizardConfirm = () => {
   const [feeInfoVisible, setFeeInfoVisible] = useState(false);
   const [conversionReceiveInfoVisible, setConversionReceiveInfoVisible] = useState(false);
   const [pbaasTimeInfoVisible, setPbaasTimeInfoVisible] = useState(false);
+  const [feesInfoVisible, setFeesInfoVisible] = useState(false);
 
   const handleClose = useCallback(() => {
     if (sending) return;
@@ -223,6 +244,56 @@ const SendWizardConfirm = () => {
       }
     },
     [getRate, displayCurrency],
+  );
+
+  // Format fiat BigNumber with custom decimals and locale handling
+  const formatFiatWithDecimals = useCallback(
+    (fiatValue, decimals) => {
+      const [formatted, valueWithoutSymbol, symbol] = formatCurrency({
+        amount: '0.00',
+        code: displayCurrency,
+      });
+
+      const referenceValue = valueWithoutSymbol || '0.00';
+      let prefix = '';
+      let suffix = '';
+
+      if (formatted && formatted.includes(referenceValue)) {
+        const idx = formatted.indexOf(referenceValue);
+        prefix = formatted.slice(0, idx);
+        suffix = formatted.slice(idx + referenceValue.length);
+      } else {
+        prefix = symbol || displayCurrency;
+      }
+
+      const lastDot = referenceValue.lastIndexOf('.');
+      const lastComma = referenceValue.lastIndexOf(',');
+      const decimalSeparator = lastComma > lastDot ? ',' : '.';
+
+      const rawValue = fiatValue
+        .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
+        .toFixed(decimals);
+      const localizedValue = decimalSeparator === '.'
+        ? rawValue
+        : rawValue.replace('.', decimalSeparator);
+
+      return `${prefix}${localizedValue}${suffix}`;
+    },
+    [displayCurrency],
+  );
+
+  // Use more precision for very small fiat values
+  const formatFiatWithDynamicDecimals = useCallback(
+    (fiatValue) => {
+      if (fiatValue.isLessThan(0.01)) {
+        return formatFiatWithDecimals(fiatValue, 4);
+      }
+      if (fiatValue.isLessThan(0.1)) {
+        return formatFiatWithDecimals(fiatValue, 3);
+      }
+      return formatFiatWithDecimals(fiatValue, 2);
+    },
+    [formatFiatWithDecimals],
   );
 
   // Get sending address from subwallet based on coin protocol
@@ -491,6 +562,20 @@ const SendWizardConfirm = () => {
     return preflightResult?.estimate || estimate || null;
   }, [preflightResult, estimate]);
 
+  // Use adjusted amount from preflight when fees are deducted from the send amount
+  const displayAmount = useMemo(() => {
+    if (preflightResult?.output?.satoshis && preflightResult?.submittedsats) {
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      if (!submitted.isEqualTo(actual)) {
+        // Amount was adjusted - show the actual amount that will be sent
+        return satsToCoins(actual).toString();
+      }
+    }
+    return amount;
+  }, [preflightResult, amount]);
+
   // Get currency info for display
   const getCurrencyInfo = useCallback((currencyId, optionalViaOptions = null) => {
     if (!currencyId) return { name: 'Unknown', ticker: '?', coinId: null };
@@ -530,10 +615,12 @@ const SendWizardConfirm = () => {
         name: targetDisplayName || targetDisplayTicker || 'Unknown',
         ticker: targetDisplayTicker || targetDisplayName || '?',
         coinId,
+        currencyId: targetCurrency, // Keep original ID for icon fallback
       };
     }
     
-    return getCurrencyInfo(targetCurrency);
+    const info = getCurrencyInfo(targetCurrency);
+    return { ...info, currencyId: targetCurrency };
   }, [targetCurrency, getCurrencyInfo, targetDisplayName, targetDisplayTicker]);
 
   // Extract fee information from preflight result
@@ -647,54 +734,38 @@ const SendWizardConfirm = () => {
     return null;
   }, [preflightResult, sourceCoin, channelType]);
 
-  // Calculate fiat value for the amount being sent
+  // Calculate fiat value for the amount being sent (uses adjusted amount if applicable)
   const amountFiatDisplay = useMemo(() => {
-    if (!amount || !sourceCoin?.id) return null;
-    return formatFiat(amount, sourceCoin.id);
-  }, [amount, sourceCoin, formatFiat]);
+    if (!displayAmount || !sourceCoin?.id) return null;
+    return formatFiat(displayAmount, sourceCoin.id);
+  }, [displayAmount, sourceCoin, formatFiat]);
 
   // Calculate fiat value for the receiving amount
+  // Falls back to canonical asset key (e.g., EURC.vETH -> EURC) when direct coinId lookup fails
   const receiveFiatDisplay = useMemo(() => {
-    if (!displayEstimate?.estimatedcurrencyout || !targetInfo?.coinId) return null;
-    return formatFiat(displayEstimate.estimatedcurrencyout, targetInfo.coinId);
-  }, [displayEstimate, targetInfo, formatFiat]);
+    if (!displayEstimate?.estimatedcurrencyout) return null;
+    
+    // Try direct coinId first
+    if (targetInfo?.coinId) {
+      const result = formatFiat(displayEstimate.estimatedcurrencyout, targetInfo.coinId);
+      if (result) return result;
+    }
+    
+    // Fallback: use canonical asset key to find a rate
+    // This handles cases like EURC.vETH (i-address) -> EURC (coin with rate)
+    const canonicalKey = getCanonicalAssetKey(targetCurrency, targetInfo?.ticker, targetInfo?.name);
+    if (canonicalKey) {
+      const result = formatFiat(displayEstimate.estimatedcurrencyout, canonicalKey);
+      if (result) return result;
+    }
+    
+    return null;
+  }, [displayEstimate, targetInfo, targetCurrency, formatFiat]);
 
   // Calculate fiat value for the network fee
   // For VRSC fees, show more precision to demonstrate how small they are
   const feeFiatDisplay = useMemo(() => {
     if (!feeInfo?.amount || !feeInfo?.coinId) return null;
-
-    const formatFiatWithDecimals = (fiatValue, decimals) => {
-      const [formatted, valueWithoutSymbol, symbol] = formatCurrency({
-        amount: '0.00',
-        code: displayCurrency,
-      });
-
-      const referenceValue = valueWithoutSymbol || '0.00';
-      let prefix = '';
-      let suffix = '';
-
-      if (formatted && formatted.includes(referenceValue)) {
-        const idx = formatted.indexOf(referenceValue);
-        prefix = formatted.slice(0, idx);
-        suffix = formatted.slice(idx + referenceValue.length);
-      } else {
-        prefix = symbol || displayCurrency;
-      }
-
-      const lastDot = referenceValue.lastIndexOf('.');
-      const lastComma = referenceValue.lastIndexOf(',');
-      const decimalSeparator = lastComma > lastDot ? ',' : '.';
-
-      const rawValue = fiatValue
-        .decimalPlaces(decimals, BigNumber.ROUND_HALF_UP)
-        .toFixed(decimals);
-      const localizedValue = decimalSeparator === '.'
-        ? rawValue
-        : rawValue.replace('.', decimalSeparator);
-
-      return `${prefix}${localizedValue}${suffix}`;
-    };
 
     // For VRSC fees, use higher precision to show the actual small value
     const isVrscFee = feeInfo.coinId === 'VRSC' || feeInfo.currency === 'VRSC';
@@ -704,21 +775,14 @@ const SendWizardConfirm = () => {
       try {
         const fiatValue = BigNumber(feeInfo.amount).multipliedBy(BigNumber(rate));
         if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
-
-        if (fiatValue.isLessThan(0.01)) {
-          return formatFiatWithDecimals(fiatValue, 4);
-        }
-        if (fiatValue.isLessThan(0.1)) {
-          return formatFiatWithDecimals(fiatValue, 3);
-        }
-        return formatFiatWithDecimals(fiatValue, 2);
+        return formatFiatWithDynamicDecimals(fiatValue);
       } catch (e) {
         return null;
       }
     }
 
     return formatFiat(feeInfo.amount, feeInfo.coinId);
-  }, [feeInfo, formatFiat, getRate, displayCurrency]);
+  }, [feeInfo, formatFiat, getRate, formatFiatWithDynamicDecimals]);
 
   // Calculate conversion fee (taken from send amount for DeFi conversions)
   // Direct conversion: 0.025% (0.00025), Via conversion: 0.05% (0.0005)
@@ -743,6 +807,54 @@ const SendWizardConfirm = () => {
       percentage: via ? '0.05%' : '0.025%',
     };
   }, [isConversion, amount, via, sourceCoin]);
+
+  // Calculate fiat value for the conversion fee
+  const conversionFeeFiatDisplay = useMemo(() => {
+    if (!conversionFeeInfo?.amount || !sourceCoin?.id) return null;
+    const rate = getRate(sourceCoin.id);
+    if (!rate) return null;
+    try {
+      const fiatValue = BigNumber(conversionFeeInfo.amount).multipliedBy(BigNumber(rate));
+      if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
+      return formatFiatWithDynamicDecimals(fiatValue);
+    } catch (e) {
+      return null;
+    }
+  }, [conversionFeeInfo, sourceCoin, getRate, formatFiatWithDynamicDecimals]);
+
+  // Calculate combined fees fiat total for display
+  const combinedFeesFiatDisplay = useMemo(() => {
+    if (!feeInfo?.amount) return null;
+    
+    const networkFeeRate = getRate(feeInfo.coinId);
+    const conversionFeeRate = sourceCoin?.id ? getRate(sourceCoin.id) : null;
+    
+    let totalFiat = BigNumber(0);
+    
+    // Add network fee fiat
+    if (networkFeeRate) {
+      const networkFeeFiat = BigNumber(feeInfo.amount).multipliedBy(BigNumber(networkFeeRate));
+      if (!networkFeeFiat.isNaN() && networkFeeFiat.isFinite()) {
+        totalFiat = totalFiat.plus(networkFeeFiat);
+      }
+    }
+    
+    // Add conversion fee fiat
+    if (conversionFeeInfo?.amount && conversionFeeRate) {
+      const conversionFeeFiat = BigNumber(conversionFeeInfo.amount).multipliedBy(BigNumber(conversionFeeRate));
+      if (!conversionFeeFiat.isNaN() && conversionFeeFiat.isFinite()) {
+        totalFiat = totalFiat.plus(conversionFeeFiat);
+      }
+    }
+    
+    if (totalFiat.isZero()) return null;
+
+    try {
+      return formatFiatWithDynamicDecimals(totalFiat);
+    } catch (e) {
+      return null;
+    }
+  }, [feeInfo, conversionFeeInfo, sourceCoin, getRate, formatFiatWithDynamicDecimals]);
 
   // Get the sending address for display
   const sendingAddress = useMemo(() => {
@@ -877,7 +989,7 @@ const SendWizardConfirm = () => {
                 {sourceCoin && RenderSquareCoinLogo(sourceCoin.id, { marginRight: 10 }, 28, 28)}
                 <View style={styles.amountTextContainer}>
                   <View style={styles.amountValueRow}>
-                    <Text style={styles.amountValue}>{amount}</Text>
+                    <Text style={styles.amountValue}>{displayAmount}</Text>
                     <Text style={styles.amountTicker}>{sourceCoin.display_ticker}</Text>
                   </View>
                   {amountFiatDisplay && (
@@ -887,36 +999,32 @@ const SendWizardConfirm = () => {
               </View>
             </View>
 
-            {/* Divider with arrow */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <View style={styles.arrowCircle}>
-                <MaterialCommunityIcons name="arrow-down" size={16} color="#888" />
+            {/* Divider with arrow - only for conversions */}
+            {isConversion && (
+              <View style={styles.dividerContainer}>
+                <View style={styles.dividerLine} />
+                <View style={styles.arrowCircle}>
+                  <MaterialCommunityIcons name="arrow-down" size={16} color="#888" />
+                </View>
+                <View style={styles.dividerLine} />
               </View>
-              <View style={styles.dividerLine} />
-            </View>
+            )}
 
             {/* Receiving */}
             {isConversion && (
               <View style={styles.amountBlock}>
-                <View style={styles.receiveLabelRow}>
-                  <Text style={styles.amountLabel}>You'll receive</Text>
-                  <TouchableOpacity
-                    onPress={() => setConversionReceiveInfoVisible(true)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    style={styles.estimateBadge}
-                  >
-                    <Text style={styles.estimateBadgeText}>Estimated</Text>
-                    <MaterialCommunityIcons name="information-outline" size={11} color={Colors.primaryColor} />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  onPress={() => setConversionReceiveInfoVisible(true)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.estimateBadge}
+                >
+                  <Text style={styles.estimateBadgeText}>Estimated</Text>
+                  <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                </TouchableOpacity>
+                <Text style={styles.amountLabel}>You'll receive</Text>
                 <View style={styles.amountRow}>
-                  {targetInfo.coinId && RenderSquareCoinLogo(targetInfo.coinId, { marginRight: 10 }, 28, 28)}
-                  {!targetInfo.coinId && (
-                    <View style={styles.placeholderLogo}>
-                      <Text style={styles.placeholderText}>{(targetInfo.ticker || '?').substring(0, 2).toUpperCase()}</Text>
-                    </View>
-                  )}
+                  {/* Use coinId if available, otherwise fall back to currencyId for mosaic generation */}
+                  {RenderSquareCoinLogo(targetInfo.coinId || targetInfo.currencyId, { marginRight: 10 }, 28, 28)}
                   <View style={styles.amountTextContainer}>
                     <View style={styles.amountValueRow}>
                       <Text style={styles.amountValue}>
@@ -955,23 +1063,13 @@ const SendWizardConfirm = () => {
               </View>
             )}
 
-            {/* Route via */}
-            {via && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Route via</Text>
-                <Text style={styles.detailValue}>
-                  {getCurrencyInfo(via).name}
-                </Text>
-              </View>
-            )}
-
-            {/* Estimated time until arrival */}
+            {/* Route + Estimated time combined */}
             {estimatedTime && (
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Estimated time</Text>
+                <Text style={styles.detailLabel}>{via ? 'Route' : 'Estimated time'}</Text>
                 <View style={styles.detailValueWithInfo}>
                   <Text style={[styles.detailValue, { maxWidth: undefined }]}>
-                    {estimatedTime}
+                    {via ? `${getCurrencyInfo(via).name} · ${estimatedTime}` : estimatedTime}
                   </Text>
                   {(isBridgeTransaction || isPbaasConversion) && (
                     <TouchableOpacity
@@ -987,7 +1085,7 @@ const SendWizardConfirm = () => {
                     >
                       <MaterialCommunityIcons
                         name="timer-sand"
-                        size={22}
+                        size={20}
                         color={Colors.primaryColor}
                       />
                     </TouchableOpacity>
@@ -996,46 +1094,29 @@ const SendWizardConfirm = () => {
               </View>
             )}
 
-            {/* Network fee */}
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Network fee</Text>
+            {/* Fees - clickable to show detailed breakdown */}
+            <TouchableOpacity 
+              style={styles.detailRow}
+              onPress={() => setFeesInfoVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.detailLabel}>Fees</Text>
               <View style={styles.detailValueWithInfo}>
                 <View style={styles.feeValueContainer}>
                   <Text style={[styles.detailValue, { maxWidth: undefined }]} numberOfLines={1}>
-                    {feeInfo ? `${feeInfo.amount} ${feeInfo.currency}` : '~0.0001 VRSC'}
+                    {combinedFeesFiatDisplay || feeFiatDisplay || '—'}
                   </Text>
-                  {feeFiatDisplay && (
-                    <Text style={styles.feeFiat}>{feeFiatDisplay}</Text>
-                  )}
+                  <Text style={styles.feeFiat}>Tap for details</Text>
                 </View>
-                {isBridgeTransaction && (
-                  <TouchableOpacity
-                    onPress={() => setFeeInfoVisible(true)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.infoIconButton}
-                  >
-                    <MaterialCommunityIcons
-                      name="gas-station-outline"
-                      size={22}
-                      color={Colors.primaryColor}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* Conversion fee (only for conversions) */}
-            {conversionFeeInfo && (
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Conversion fee</Text>
-                <View style={styles.feeValueContainer}>
-                  <Text style={[styles.detailValue, { maxWidth: undefined }]} numberOfLines={1}>
-                    {conversionFeeInfo.amount} {conversionFeeInfo.currency}
-                  </Text>
-                  <Text style={styles.feeFiat}>({conversionFeeInfo.percentage}, included in amount)</Text>
+                <View style={styles.infoIconButton}>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={20}
+                    color={Colors.primaryColor}
+                  />
                 </View>
               </View>
-            )}
+            </TouchableOpacity>
 
             {/* From */}
             <View style={[styles.detailRow, styles.detailRowLast]}>
@@ -1048,7 +1129,7 @@ const SendWizardConfirm = () => {
 
           {/* Balance info */}
           <Text style={styles.balanceNote}>
-            Balance after: {BigNumber(sourceBalance || 0).minus(BigNumber(amount || 0)).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
+            Balance after: {BigNumber(sourceBalance || 0).minus(BigNumber(displayAmount || 0)).decimalPlaces(4).toString()} {sourceCoin.display_ticker}
           </Text>
         </View>
       </ScrollView>
@@ -1082,6 +1163,17 @@ const SendWizardConfirm = () => {
               <PbaasEstimatedTimeInfoSheet
                 visible={pbaasTimeInfoVisible}
                 onClose={() => setPbaasTimeInfoVisible(false)}
+              />
+              <FeesInfoSheet
+                visible={feesInfoVisible}
+                onClose={() => setFeesInfoVisible(false)}
+                networkFee={feeInfo?.amount || '0.0001'}
+                networkFeeCurrency={feeInfo?.currency || 'VRSC'}
+                networkFeeFiat={feeFiatDisplay}
+                conversionFee={conversionFeeInfo?.amount}
+                conversionFeeCurrency={conversionFeeInfo?.currency}
+                conversionFeePercentage={conversionFeeInfo?.percentage}
+                conversionFeeFiat={conversionFeeFiatDisplay}
               />
             </Portal>
     </View>
@@ -1127,14 +1219,14 @@ const styles = StyleSheet.create({
   },
   warningItem: {
     backgroundColor: '#FFF3E0',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     marginBottom: 8,
   },
   warningText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#E65100',
-    lineHeight: 20,
+    lineHeight: 17,
   },
   // Amount section - modern left-aligned display
   amountSection: {
@@ -1146,11 +1238,12 @@ const styles = StyleSheet.create({
   },
   amountBlock: {
     paddingVertical: 4,
+    position: 'relative',
   },
   amountLabel: {
     fontSize: 11,
     color: '#888',
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '500',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
@@ -1204,26 +1297,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E8E8E8',
   },
-  // Receive label row with badge
-  receiveLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   estimateBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E3F2FD',
+    backgroundColor: 'transparent',
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 4,
-    marginLeft: 8,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 125, 237, 0.35)',
   },
   estimateBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.primaryColor,
     fontWeight: '600',
-    marginRight: 3,
+    marginRight: 4,
   },
   placeholderLogo: {
     width: 28,
@@ -1250,7 +1341,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },

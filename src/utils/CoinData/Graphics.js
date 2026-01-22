@@ -8,6 +8,8 @@
     to the single-badge position and additional badges spaced to the right.
   - Updated 2026-01-15: Increased multi-badge right spacing to better separate
     dual badges in dense lists.
+  - Updated 2026-01-22: Badge lookup now checks if coin exists in directory first,
+    avoiding console warnings for dynamically discovered currencies.
 */
 
 import React from "react";
@@ -214,27 +216,32 @@ export const RenderSquareCoinLogo = (
   }
 
   if (!disableBadge && !hasCustomBadges) {
-    try {
-      const coinObj = CoinDirectory.findCoinObj(chainTicker);
-      
-      // Determine if we need a badge (SubLogo)
-      if (
-        (coinObj.display_ticker.includes('.vETH') || 
-        coinObj.display_name.includes('on Verus')) &&
-        !coinObj.display_ticker.includes('Bridge.vETH') // Exception for Bridge.vETH
-      ) {
-        // It's a mapped token on Verus -> Badge is Verus
-        const verusLogoData = getSimpleLogo('VRSC', 'dark');
-        SubLogo = verusLogoData.Logo;
-      } else if (
-        coinObj.display_name.includes('on Ethereum')
-      ) {
-        // It's a mapped token on Ethereum -> Badge is Ethereum
-        const ethLogoData = getSimpleLogo('ETH', 'dark');
-        SubLogo = ethLogoData.Logo;
+    // Only attempt badge lookup for coins that exist in the directory
+    // This avoids warnings for dynamically discovered currencies
+    if (CoinDirectory.coinExistsInDirectory(chainTicker)) {
+      try {
+        const coinObj = CoinDirectory.findCoinObj(chainTicker);
+        
+        // Determine if we need a badge (SubLogo)
+        if (
+          (coinObj.display_ticker.includes('.vETH') || 
+          coinObj.display_name.includes('on Verus')) &&
+          !coinObj.display_ticker.includes('Bridge.vETH') // Exception for Bridge.vETH
+        ) {
+          // It's a mapped token on Verus -> Badge is Verus
+          const verusLogoData = getSimpleLogo('VRSC', 'dark');
+          SubLogo = verusLogoData.Logo;
+        } else if (
+          coinObj.display_name.includes('on Ethereum')
+        ) {
+          // It's a mapped token on Ethereum -> Badge is Ethereum
+          const ethLogoData = getSimpleLogo('ETH', 'dark');
+          SubLogo = ethLogoData.Logo;
+        }
+      } catch (e) {
+        // Should rarely happen now, but keep as safety net
+        console.warn("Failed to determine badge for", chainTicker, e);
       }
-    } catch (e) {
-      console.warn("Failed to determine badge for", chainTicker, e);
     }
   }
 
