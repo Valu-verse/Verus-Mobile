@@ -4,6 +4,7 @@
     Displays identity information using VerusIdObjectData component and shows attestations
     linked to this specific VerusID. Uses React Navigation header with Back button matching
     SendWizard style. Includes BottomFadeOverlay for smooth scrolling under tab bar.
+    Conditionally renders accordion only when attestations exist; shows centered empty state otherwise.
 */
 import React, { useCallback, useEffect, useState, useMemo, useLayoutEffect } from 'react';
 import {
@@ -374,38 +375,38 @@ const VerusIdDetails = () => {
         />
 
         {/* Attestations Section */}
-        <View style={styles.attestationsSection}>
-          <List.Accordion
-            title="Attestations"
-            description={attestations.length > 0 ? `${attestations.length} attestation${attestations.length > 1 ? 's' : ''}` : 'No attestations'}
-            expanded={attestationsExpanded}
-            onPress={() => setAttestationsExpanded(!attestationsExpanded)}
-            style={styles.attestationsAccordion}
-            titleStyle={styles.attestationsTitle}
-            left={props => (
-              <List.Icon {...props} icon="certificate" color={Colors.verusDarkGray} />
-            )}
-          >
-            {attestations.length > 0 ? (
-              attestations.map((att, idx) => renderAttestationItem(att, idx))
-            ) : (
-              <View style={styles.emptyAttestations}>
-                <MaterialCommunityIcons
-                  name="certificate-outline"
-                  size={48}
-                  color={Colors.verusDarkGray}
-                  style={styles.emptyIcon}
-                />
-                <Text style={styles.emptyText}>
-                  No attestations linked to this identity
-                </Text>
-                <Text style={styles.emptySubtext}>
-                  Attestations you receive for this VerusID will appear here
-                </Text>
-              </View>
-            )}
-          </List.Accordion>
-        </View>
+        {attestations.length > 0 ? (
+          <View style={styles.attestationsSection}>
+            <List.Accordion
+              title="Attestations"
+              description={`${attestations.length} attestation${attestations.length > 1 ? 's' : ''}`}
+              expanded={attestationsExpanded}
+              onPress={() => setAttestationsExpanded(!attestationsExpanded)}
+              style={styles.attestationsAccordion}
+              titleStyle={styles.attestationsTitle}
+              left={props => (
+                <List.Icon {...props} icon="certificate" color={Colors.verusDarkGray} />
+              )}
+            >
+              {attestations.map((att, idx) => renderAttestationItem(att, idx))}
+            </List.Accordion>
+          </View>
+        ) : (
+          <View style={styles.emptyAttestationsSection}>
+            <MaterialCommunityIcons
+              name="certificate-outline"
+              size={48}
+              color={Colors.verusDarkGray}
+              style={styles.emptyIcon}
+            />
+            <Text style={styles.emptyText}>
+              No attestations linked to this identity
+            </Text>
+            <Text style={styles.emptySubtext}>
+              Attestations you receive for this VerusID will appear here
+            </Text>
+          </View>
+        )}
 
         {/* Unlink Button */}
         <View style={styles.unlinkContainer}>
@@ -478,8 +479,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     marginRight: 4,
   },
-  emptyAttestations: {
-    paddingVertical: 40,
+  emptyAttestationsSection: {
+    marginTop: 8,
+    paddingVertical: 60,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
