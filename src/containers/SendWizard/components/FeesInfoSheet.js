@@ -30,7 +30,7 @@ const FeesInfoSheet = ({
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
-      title="Fee Breakdown"
+      title="Fee breakdown"
       flexHeight={0.01}
       contentContainerStyle={styles.sheetContent}
     >

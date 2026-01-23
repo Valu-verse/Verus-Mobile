@@ -6,6 +6,8 @@
   - Round fiat balances to two decimals before formatting to match coin overview screens
   - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
   - 2026-01-09: Allow passing onScroll through to FlatList (used for Wallet sticky-header divider).
+  - 2026-01-23: Display "Price unavailable" for assets without fiat pricing data instead 
+    of showing €0,00.
 */
 import React from 'react';
 import { FlatList, StyleSheet, View, TouchableOpacity } from 'react-native';
@@ -16,9 +18,24 @@ import BigNumber from 'bignumber.js';
 
 const Row = ({ item, displayCurrency, showBalance, onPress }) => {
   const { coinObj, fiat, crypto } = item;
-  const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
-  const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
   const cryptoAmount = BigNumber(crypto || 0);
+  const hasBalance = cryptoAmount.isGreaterThan(0);
+  
+  // Only show "N/A" if there's a balance but no fiat price
+  const fiatFormatted = fiat != null
+    ? (() => {
+        const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+        const [formatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
+        return formatted;
+      })()
+    : hasBalance
+    ? null // Will render N/A separately
+    : (() => {
+        // Zero balance - show formatted zero
+        const [formatted] = formatCurrency({ amount: '0.00', code: displayCurrency });
+        return formatted;
+      })();
+  
   const cryptoFormatted = cryptoAmount.isFinite()
     ? cryptoAmount.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)
     : '0.0000';
@@ -30,9 +47,15 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
       title={() => (
         <View style={styles.titleRow}>
           <Text style={styles.title}>{coinObj.display_name}</Text>
-          <Text style={styles.fiatValue}>
-            {showBalance ? fiatFormatted : '*****'}
-          </Text>
+          {showBalance ? (
+            fiatFormatted != null ? (
+              <Text style={styles.fiatValue}>{fiatFormatted}</Text>
+            ) : (
+              <Text style={styles.fiatNA}>N/A</Text>
+            )
+          ) : (
+            <Text style={styles.fiatValue}>*****</Text>
+          )}
         </View>
       )}
       description={() => (
@@ -159,6 +182,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
+    marginLeft: 12,
+  },
+  fiatNA: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#999999',
     marginLeft: 12,
   },
   cryptoValue: {

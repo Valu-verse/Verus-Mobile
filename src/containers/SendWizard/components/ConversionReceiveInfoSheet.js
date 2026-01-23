@@ -15,7 +15,7 @@ const ConversionReceiveInfoSheet = ({ visible, onClose }) => {
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
-      title="Estimated Amount"
+      title="Estimated amount"
       flexHeight={0.01}
       contentContainerStyle={styles.sheetContent}
     >

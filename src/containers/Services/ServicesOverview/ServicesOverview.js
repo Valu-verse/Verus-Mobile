@@ -2,6 +2,8 @@
   This component represents the screen the user can use to oversee all of the
   services they can connect to Verus Mobile
   - Updated 2026-01-22: Added Address Book widget integration
+  - Updated 2026-01-23: Added ValuSocial widget handler, removed VerusID widget handling
+  - Updated 2026-01-23: Changed ValuSocial widget to open modal instead of navigating to screen
 */  
 
 import React, { useEffect, useState, useLayoutEffect, useCallback } from "react"
@@ -10,8 +12,8 @@ import { clearSecureLoadingData } from "../../../actions/actionCreators";
 import { ServicesOverviewRender } from "./ServicesOverview.render"
 import { requestAttestationData } from '../../../utils/auth/authBox';
 import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
-import { VERUSID_SERVICE_ID, VALU_SERVICE_ID } from '../../../utils/constants/services';
-import { VERUSID_WIDGET_TYPE, ATTESTATION_WIDGET_TYPE, ADDRESS_BOOK_WIDGET_TYPE } from '../../../utils/constants/widgets';
+import { VALU_SERVICE_ID } from '../../../utils/constants/services';
+import { ATTESTATION_WIDGET_TYPE, ADDRESS_BOOK_WIDGET_TYPE, VALU_SOCIAL_WIDGET_TYPE } from '../../../utils/constants/widgets';
 
 const ServicesOverview = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -21,6 +23,7 @@ const ServicesOverview = ({ navigation }) => {
   const addressBookAddresses = useSelector((state) => state.addressBook?.addresses || []);
 
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
+  const [valuSocialModalVisible, setValuSocialModalVisible] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -69,10 +72,8 @@ const ServicesOverview = ({ navigation }) => {
   }
   
   const handleWidgetPress = useCallback((widgetType) => {
-    if (widgetType === VERUSID_WIDGET_TYPE) {
-        navigation.navigate('Service', {
-        service: VERUSID_SERVICE_ID,
-      });
+    if (widgetType === VALU_SOCIAL_WIDGET_TYPE) {
+      setValuSocialModalVisible(true);
     } else if (widgetType === ATTESTATION_WIDGET_TYPE) {
       navigation.navigate('Service', {
         service: VALU_SERVICE_ID,
@@ -90,6 +91,8 @@ const ServicesOverview = ({ navigation }) => {
       hasValuProofOfPersonhood={hasValuProofOfPersonhood}
       handleWidgetPress={handleWidgetPress}
       addressBookCount={addressBookAddresses.length}
+      valuSocialModalVisible={valuSocialModalVisible}
+      onCloseValuSocialModal={() => setValuSocialModalVisible(false)}
     />
   );
 }

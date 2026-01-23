@@ -74,6 +74,9 @@
   - Updated 2026-01-22: Added hold-to-confirm functionality to the send button.
     Users must now press and hold for 2.5 seconds to confirm and send the transaction.
     This prevents accidental sends and provides clear visual feedback with progress animation.
+  - Updated 2026-01-23: Fixed touchable area for "Estimated" badge by increasing padding
+    from 3px to 6px vertical and 8px to 10px horizontal. Previously, only the borders
+    were easily tappable due to the very small padding.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -1021,8 +1024,10 @@ const SendWizardConfirm = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.estimateBadge}
                 >
-                  <Text style={styles.estimateBadgeText}>Estimated</Text>
-                  <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                  <View style={styles.estimateBadgeContent} pointerEvents="none">
+                    <Text style={styles.estimateBadgeText}>Estimated</Text>
+                    <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                  </View>
                 </TouchableOpacity>
                 <Text style={styles.amountLabel}>You'll receive</Text>
                 <View style={styles.amountRow}>
@@ -1305,16 +1310,18 @@ const styles = StyleSheet.create({
   },
   estimateBadge: {
     position: 'absolute',
-    top: 0,
+    top: -8,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'transparent',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 5,
     borderWidth: 1,
     borderColor: 'rgba(59, 125, 237, 0.35)',
+  },
+  estimateBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   estimateBadgeText: {
     fontSize: 11,

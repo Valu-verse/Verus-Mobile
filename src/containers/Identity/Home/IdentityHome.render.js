@@ -1,5 +1,11 @@
 /*
   IdentityHome.render
+  - 2026-01-23: Replaced VerusIdDetailsModal with navigation to VerusIdDetails screen.
+    Clicking a VerusID now navigates to a full-screen detail view instead of opening a bottom sheet.
+  - 2026-01-23: Updated Link button styling to match "Lock profile" button (soft blue background #EBF6FF,
+    blue text, increased size to 44px height with 22px border radius for better touch target and visual consistency).
+    Vertically centered the Link button using transform translateY.
+  - 2026-01-23: Removed "Ready to link" subtitle from ready-to-link items since the Link button makes it obvious.
   - 2026-01-22: Updated 'Identity' title styling to match 'Services' title (fontWeight: 'bold', removed letterSpacing).
   - 2026-01-14: Match Wallet header behavior by adding a conditional hairline divider that
     appears only when the identity list is scrolled (fixed header + subtle border on scroll).
@@ -22,7 +28,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import IdentityInfoSheet from './components/IdentityInfoSheet';
 import IdentityListItem from './components/IdentityListItem';
-import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import GradientButton from '../../../components/GradientButton';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { NOTIFICATION_TYPE_VERUSID_READY, NOTIFICATION_TYPE_VERUSID_ERROR } from '../../../utils/constants/services';
@@ -46,10 +51,7 @@ const IdentityHomeRender = ({
   setInfoSheetVisible,
   openLink,
   openLinkPrefilled,
-  openVerusIdDetailsModal,
-  verusIdDetailsModalProps,
-  setVerusIdDetailsModalProps,
-  unlinkIdentity,
+  navigateToVerusIdDetails,
   identityNetwork,
   onLayout
 }) => {
@@ -76,28 +78,6 @@ const IdentityHomeRender = ({
         visible={infoSheetVisible} 
         onClose={() => setInfoSheetVisible(false)}
       />
-      
-      {verusIdDetailsModalProps != null && (
-        <VerusIdDetailsModal
-          {...verusIdDetailsModalProps}
-          StickyFooterComponent={
-            <View style={styles.modalFooter}>
-              <Button
-                mode="text"
-                textColor={Colors.warningButtonColor}
-                onPress={async () => {
-                  const { iAddress, chain } = verusIdDetailsModalProps;
-                  setVerusIdDetailsModalProps(null);
-                  await unlinkIdentity(iAddress, chain);
-                }}
-                labelStyle={styles.unlinkLabel}
-              >
-                Unlink Identity
-              </Button>
-            </View>
-          }
-        />
-      )}
     </Portal>
   );
 
@@ -134,13 +114,6 @@ const IdentityHomeRender = ({
               </TouchableOpacity>
             </View>
           </View>
-
-          {(hasLinkedIds || hasPending) && (
-            <View style={styles.headerSubRow}>
-              <Text style={styles.subHeaderTitle}>Your VerusIDs</Text>
-              <Text style={styles.sectionCount}>{linkedIdCount ?? 0}</Text>
-            </View>
-          )}
         </View>
 
         {loading ? (
@@ -212,6 +185,17 @@ const IdentityHomeRender = ({
             scrollEventThrottle={16}
             onLayout={onLayout}
             stickySectionHeadersEnabled={false}
+            renderSectionHeader={({ section: { key } }) => {
+              if (key === 'linked' && (hasLinkedIds || hasPending)) {
+                return (
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.subHeaderTitle}>Your VerusIDs</Text>
+                    <Text style={styles.sectionCount}>{linkedIdCount ?? 0}</Text>
+                  </View>
+                );
+              }
+              return null;
+            }}
             ListHeaderComponent={() => {
               const ready = pendingGroups?.ready || [];
               const attention = pendingGroups?.attention || [];
@@ -220,23 +204,25 @@ const IdentityHomeRender = ({
               const hasAny = ready.length + attention.length + progress.length > 0;
               if (!hasAny) return <View style={{ height: 8 }} />;
 
-              const renderPendingGroup = (title, items) => {
+              const renderPendingGroup = (title, items, showHeader = true) => {
                 if (!items.length) return null;
                 return (
                   <View style={{ marginBottom: 18 }}>
-                    <View style={styles.pendingHeader}>
-                      <Text style={styles.pendingTitle}>{title}</Text>
-                      <Text style={styles.pendingCount}>{items.length}</Text>
-                    </View>
+                    {showHeader && (
+                      <View style={styles.pendingHeader}>
+                        <Text style={styles.pendingTitle}>{title}</Text>
+                        <Text style={styles.pendingCount}>{items.length}</Text>
+                      </View>
+                    )}
                     <View style={{ gap: 12 }}>
                       {items.map((item) => {
                         const isReady = item.status === NOTIFICATION_TYPE_VERUSID_READY;
                         const isError = item.status === NOTIFICATION_TYPE_VERUSID_ERROR;
-                        const subtitle = isReady
-                          ? 'Ready to link'
-                          : isError
-                            ? 'Needs attention'
-                            : 'In progress';
+                        const subtitle = isError
+                          ? 'Needs attention'
+                          : !isReady
+                            ? 'In progress'
+                            : undefined;
 
                         return (
                           <View key={`${item.chainId}:${item.iAddr}`} style={styles.pendingRow}>
@@ -252,10 +238,10 @@ const IdentityHomeRender = ({
                                 <Button
                                   mode="contained"
                                   onPress={() => openLinkPrefilled(item.chainId, item.linkInput)}
-                                  contentStyle={{ height: 36 }}
+                                  contentStyle={{ height: 44 }}
                                   uppercase={false}
-                                  buttonColor={Colors.primaryColor}
-                                  textColor="white"
+                                  buttonColor="#EBF6FF"
+                                  textColor={Colors.primaryColor}
                                   style={styles.pendingCta}
                                   labelStyle={styles.pendingCtaLabel}
                                 >
@@ -273,7 +259,7 @@ const IdentityHomeRender = ({
 
               return (
                 <View style={{ paddingTop: 8 }}>
-                  {renderPendingGroup('Ready to link', ready)}
+                  {renderPendingGroup('Ready to link', ready, false)}
                   {renderPendingGroup('Needs attention', attention)}
                   {renderPendingGroup('In progress', progress)}
                 </View>
@@ -285,7 +271,7 @@ const IdentityHomeRender = ({
                 name={item.display}
                 network={item.chainId}
                 isPreferred={item.chainId === identityNetwork}
-                onPress={() => openVerusIdDetailsModal(item.chainId, item.iAddr, item.display)}
+                onPress={() => navigateToVerusIdDetails(item.chainId, item.iAddr, item.display)}
               />
             )}
           />
@@ -476,33 +462,34 @@ const styles = StyleSheet.create({
 
   pendingRow: {
     width: '100%',
+    justifyContent: 'center', // Helps vertical alignment
   },
   pendingCtaWrap: {
     position: 'absolute',
     right: 12,
-    top: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center', // Safest way to vertically center in the absolute container
   },
   pendingCta: {
-    borderRadius: 18,
-    height: 36,
-    paddingHorizontal: 2,
+    borderRadius: 22,
+    height: 44,
+    paddingHorizontal: 4,
+    borderWidth: 0,
+    backgroundColor: '#EBF6FF',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
   },
   pendingCtaLabel: {
+    color: Colors.primaryColor,
     fontWeight: '700',
-    fontSize: 13,
-    letterSpacing: -0.2,
-  },
-
-  // Modal
-  modalFooter: {
-    padding: 16,
-    backgroundColor: 'white',
-    alignItems: 'center',
-  },
-  unlinkLabel: {
     fontSize: 16,
-    fontWeight: '600',
-  }
+    letterSpacing: -0.2,
+    textTransform: 'none',
+  },
 });
 
 export default IdentityHomeRender;

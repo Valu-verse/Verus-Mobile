@@ -1,5 +1,8 @@
 /*
   LoginRequestIdentity
+  - 2026-01-23: Fixed bug where 'Request VerusID' modal would reopen after successful provisioning.
+    Added checks for idProvisionSuccess and sendModal.data?.success to prevent auto-opening
+    the modal when provisioning has completed successfully.
   - 2026-01-16: Fixed modal stack overlap issue where auto-opening the provisioning modal
     would occur while the auth modal was still closing, leaving only a dark overlay visible
     and blocking all user interaction. Now delays auto-open by 100ms and checks sendModal.visible
@@ -70,7 +73,12 @@ const LoginRequestIdentity = props => {
 
     // Automatically open provision identity modal if canProvision is true and we're not autolinking
     // BUT ONLY if no SendModal is currently visible (avoid modal stack overlap)
-    if (canProvision && !passthrough?.fqnToAutoLink && !sendModal.visible) {
+    // AND provisioning hasn't already completed successfully (prevent reopening after success)
+    if (canProvision && 
+        !passthrough?.fqnToAutoLink && 
+        !sendModal.visible && 
+        !idProvisionSuccess && 
+        !sendModal.data?.success) {
       // Delay to ensure any closing modal finishes first (avoid modal stack race)
       const timer = setTimeout(() => {
         openProvisionIdentityModalFromChain();
@@ -78,7 +86,7 @@ const LoginRequestIdentity = props => {
       
       return () => clearTimeout(timer);
     }
-  }, [linkedIds, sendModal.visible])
+  }, [linkedIds, sendModal.visible, idProvisionSuccess])
 
   const activeCoinsForUser = useObjectSelector(state => state.coins.activeCoinsForUser)
   const testnetOverrides = useObjectSelector(state => state.authentication.activeAccount.testnetOverrides)

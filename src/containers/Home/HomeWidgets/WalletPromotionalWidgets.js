@@ -1,3 +1,9 @@
+/*
+  WalletPromotionalWidgets
+  2026-01-23: Updated ValuSocial widget to open ValuSocialModal instead of navigating
+              to a separate screen.
+*/
+
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, FlatList, Dimensions, LayoutAnimation, UIManager, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -5,6 +11,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import { VALU_SERVICE_ID } from '../../../utils/constants/services';
+import ValuSocialModal from '../../../components/ValuSocialModal/ValuSocialModal';
 
 // Enable LayoutAnimation on Android
 if (
@@ -36,6 +43,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     [WIDGET_DUMMY]: true,
   });
   const [loaded, setLoaded] = useState(false);
+  const [valuSocialModalVisible, setValuSocialModalVisible] = useState(false);
 
   useEffect(() => {
     // Always reset state to show widgets when component mounts (e.g., new session/sign-in)
@@ -135,7 +143,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     {
       id: WIDGET_SOCIAL,
       text: "Immerse yourself\nin Valu Social",
-      action: () => navigation.navigate('ValuSocial'),
+      action: () => setValuSocialModalVisible(true),
       background: (
         <>
           <Image
@@ -166,23 +174,36 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     }
   ].filter(w => !dismissedWidgets[w.id]);
 
-  if (widgets.length === 0) return null;
+  if (widgets.length === 0) {
+    return (
+      <ValuSocialModal
+        visible={valuSocialModalVisible}
+        onClose={() => setValuSocialModalVisible(false)}
+      />
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={widgets}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ width: CARD_SPACING }} />}
-        snapToInterval={CARD_WIDTH + CARD_SPACING}
-        decelerationRate="fast"
-        snapToAlignment="start"
+    <>
+      <View style={styles.container}>
+        <FlatList
+          data={widgets}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={{ width: CARD_SPACING }} />}
+          snapToInterval={CARD_WIDTH + CARD_SPACING}
+          decelerationRate="fast"
+          snapToAlignment="start"
+        />
+      </View>
+      <ValuSocialModal
+        visible={valuSocialModalVisible}
+        onClose={() => setValuSocialModalVisible(false)}
       />
-    </View>
+    </>
   );
 };
 
