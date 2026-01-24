@@ -77,6 +77,11 @@
   - Updated 2026-01-23: Fixed touchable area for "Estimated" badge by increasing padding
     from 3px to 6px vertical and 8px to 10px horizontal. Previously, only the borders
     were easily tappable due to the very small padding.
+  - Updated 2026-01-24: Fixed receive amount calculation when amount is adjusted for fees.
+    When preflight reduces the send amount (e.g., ETH bridge transfers where fees are
+    deducted from amount), the receive estimate is now recalculated using the adjusted
+    amount and the original exchange rate from viaOptions. Previously showed incorrect
+    receive amount based on the original unadjusted send amount.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -564,9 +569,47 @@ const SendWizardConfirm = () => {
   ]);
   
   // Prefer the preflight estimate (more accurate). Fall back to the earlier wizard estimate.
+  // If the amount was adjusted during preflight, recalculate the estimate using the adjusted amount.
   const displayEstimate = useMemo(() => {
-    return preflightResult?.estimate || estimate || null;
-  }, [preflightResult, estimate]);
+    let baseEstimate = preflightResult?.estimate || estimate || null;
+    
+    // Check if amount was adjusted (fees deducted from send amount)
+    if (preflightResult?.output?.satoshis && 
+        preflightResult?.submittedsats && 
+        baseEstimate?.estimatedcurrencyout &&
+        viaOptions?.length > 0) {
+      
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      // Only recalculate if amount was actually adjusted
+      if (!submitted.isEqualTo(actual)) {
+        // Find the selected via option (or direct option if no via)
+        const selectedViaOption = viaOptions.find(opt => 
+          via ? opt.id === via : (opt.isDirect || opt.id === 'direct')
+        );
+        
+        // If we have a price, recalculate the estimate using the adjusted amount
+        if (selectedViaOption?.price) {
+          const adjustedAmountBn = satsToCoins(actual);
+          const priceBn = BigNumber(selectedViaOption.price);
+          
+          if (priceBn.isFinite() && !priceBn.isNaN() && priceBn.isGreaterThan(0)) {
+            const recalculatedOutput = adjustedAmountBn.multipliedBy(priceBn);
+            
+            return {
+              ...baseEstimate,
+              estimatedcurrencyout: recalculatedOutput.toString(),
+              precomputed: true,
+              recalculated: true, // Flag to indicate this was recalculated
+            };
+          }
+        }
+      }
+    }
+    
+    return baseEstimate;
+  }, [preflightResult, estimate, viaOptions, via]);
 
   // Use adjusted amount from preflight when fees are deducted from the send amount
   const displayAmount = useMemo(() => {
