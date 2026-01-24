@@ -1,5 +1,13 @@
 /*
   VerusIdDetails
+  - 2026-01-24: Added loading state to unlink button - shows spinner and "Unlinking..." text
+    while operation processes. Sheet stays open and close is disabled during operation.
+  - 2026-01-24: Added unlink confirmation sheet (SemiModal) with red-tinted unlink icon.
+    Shows reassuring message that identity can be linked back anytime.
+  - 2026-01-24: Redesigned header with large inline title and action icons (open in browser, unlink)
+    in the navigation bar. Removed bottom unlink button and navigation title in favor of prominent
+    inline title matching SendWizard style.
+  - 2026-01-24: Updated attestations accordion title color to black for neutral appearance.
   - 2026-01-23: Created new full-screen VerusID detail view to replace the bottom sheet modal.
     Displays identity information using VerusIdObjectData component and shows attestations
     linked to this specific VerusID. Uses React Navigation header with Back button matching
@@ -14,8 +22,9 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
-import { Button, List, Divider } from 'react-native-paper';
+import { List, Divider, Portal } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDispatch } from 'react-redux';
@@ -26,6 +35,8 @@ import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIn
 import VerusIdObjectData from '../../../components/VerusIdObjectData';
 import MissingInfoRedirect from '../../../components/MissingInfoRedirect/MissingInfoRedirect';
 import BottomFadeOverlay from '../../../components/BottomFadeOverlay';
+import SemiModal from '../../../components/SemiModal';
+import GradientButton from '../../../components/GradientButton';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { unlinkVerusId } from '../../../actions/actions/services/dispatchers/verusid/verusid';
@@ -62,44 +73,83 @@ const VerusIdDetails = () => {
   const [failedToLoad, setFailedToLoad] = useState(false);
   const [failedMessage, setFailedMessage] = useState('Failed to load VerusID');
   const [attestationsExpanded, setAttestationsExpanded] = useState(true);
+  const [unlinkSheetVisible, setUnlinkSheetVisible] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
 
   // Bottom fade dimensions
   const bottomPadding = Math.max(insets.bottom, 20);
   const bottomFadeHeight = 48;
 
-  // Get VerusID title for header
-  const verusIdTitle = useMemo(() => {
+  // Get VerusID display name for inline title
+  const verusIdDisplayName = useMemo(() => {
     if (verusId) {
-      const fullTitle = convertFqnToDisplayFormat(verusId.fullyqualifiedname);
-      return fullTitle.length < 20 ? fullTitle : displayName || 'VerusID';
+      return convertFqnToDisplayFormat(verusId.fullyqualifiedname);
     }
     return displayName || 'VerusID';
   }, [verusId, displayName]);
 
-  // Render details button for header right
-  const renderDetailsButton = useCallback(() => (
-    <TouchableOpacity
-      onPress={() => {
-        if (verusId) {
-          const url = `https://verus.io/verusid-lookup/${verusId.fullyqualifiedname}`;
-          openUrl(url);
-        }
-      }}
-      accessibilityRole="button"
-      accessibilityLabel="View details"
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-      style={styles.headerDetailsButton}
-    >
-      <Text style={styles.headerDetailsText}>Details</Text>
-    </TouchableOpacity>
-  ), [verusId]);
+  // Open identity in browser
+  const openInBrowser = useCallback(() => {
+    if (verusId) {
+      const url = `https://verus.io/verusid-lookup/${verusId.fullyqualifiedname}`;
+      openUrl(url);
+    }
+  }, [verusId]);
+
+  // Show unlink confirmation sheet
+  const showUnlinkConfirmation = useCallback(() => {
+    setUnlinkSheetVisible(true);
+  }, []);
+
+  // Handle confirmed unlink
+  const handleConfirmedUnlink = useCallback(async () => {
+    setUnlinking(true);
+    try {
+      await unlinkIdentity();
+    } catch (e) {
+      // Error handled in unlinkIdentity, just reset state
+      setUnlinking(false);
+    }
+  }, [unlinkIdentity]);
+
+  // Render header icons (open in browser + unlink)
+  const renderHeaderIcons = useCallback(() => (
+    <View style={styles.headerIconsContainer}>
+      <TouchableOpacity
+        onPress={openInBrowser}
+        accessibilityRole="button"
+        accessibilityLabel="Open in browser"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.headerIcon}
+      >
+        <MaterialCommunityIcons
+          name="open-in-new"
+          size={22}
+          color={Colors.verusDarkGray}
+        />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={showUnlinkConfirmation}
+        accessibilityRole="button"
+        accessibilityLabel="Unlink identity"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.headerIconLast}
+      >
+        <MaterialCommunityIcons
+          name="link-variant-off"
+          size={22}
+          color="#E57373"
+        />
+      </TouchableOpacity>
+    </View>
+  ), [openInBrowser, showUnlinkConfirmation]);
 
   // Set up navigation header (matching SendWizard style)
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: true,
-      title: verusIdTitle,
-      headerRight: renderDetailsButton,
+      title: '',
+      headerRight: renderHeaderIcons,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -107,13 +157,8 @@ const VerusIdDetails = () => {
         elevation: 0,
         shadowOpacity: 0,
       },
-      headerTitleStyle: {
-        fontSize: 17,
-        fontWeight: '600',
-        color: Colors.quaternaryColor,
-      },
     });
-  }, [navigation, verusIdTitle, renderDetailsButton]);
+  }, [navigation, renderHeaderIcons]);
 
   // Load VerusID data
   const loadVerusIdData = useCallback(async () => {
@@ -366,6 +411,13 @@ const VerusIdDetails = () => {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Large Inline Title */}
+        <View style={styles.inlineTitleContainer}>
+          <Text style={styles.inlineTitle} numberOfLines={2}>
+            {verusIdDisplayName}
+          </Text>
+        </View>
+
         {/* Identity Info */}
         <VerusIdObjectData
           verusId={verusId}
@@ -407,18 +459,6 @@ const VerusIdDetails = () => {
             </Text>
           </View>
         )}
-
-        {/* Unlink Button */}
-        <View style={styles.unlinkContainer}>
-          <Button
-            mode="text"
-            textColor={Colors.warningButtonColor}
-            onPress={unlinkIdentity}
-            labelStyle={styles.unlinkLabel}
-          >
-            Unlink Identity
-          </Button>
-        </View>
       </ScrollView>
 
       {/* Bottom fade overlay for smooth scrolling under tab bar */}
@@ -427,6 +467,37 @@ const VerusIdDetails = () => {
         solidHeight={bottomPadding}
         backgroundColor="#FFFFFF"
       />
+
+      {/* Unlink Confirmation Sheet */}
+      <Portal>
+        <SemiModal
+          animationType="slide"
+          transparent={true}
+          visible={unlinkSheetVisible}
+          onRequestClose={() => !unlinking && setUnlinkSheetVisible(false)}
+          closeDisabled={unlinking}
+          title="Unlink identity"
+          flexHeight={0.01}
+          contentContainerStyle={styles.unlinkSheetContent}
+        >
+          <View style={styles.unlinkSheetBody}>
+            <Text style={styles.unlinkSheetDescription}>
+              This will remove the identity from your wallet. Your VerusID remains safe on the blockchain and you can link it again anytime.
+            </Text>
+            <GradientButton
+              onPress={handleConfirmedUnlink}
+              topColor="#EF5350"
+              bottomColor="#D32F2F"
+              disabled={unlinking}
+              leftIcon={unlinking ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : null}
+            >
+              {unlinking ? 'Unlinking...' : 'Unlink identity'}
+            </GradientButton>
+          </View>
+        </SemiModal>
+      </Portal>
     </View>
   );
 };
@@ -436,14 +507,30 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  headerDetailsButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  headerIconsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 8,
   },
-  headerDetailsText: {
-    fontSize: 16,
-    color: Colors.primaryColor,
-    fontWeight: '500',
+  headerIcon: {
+    padding: 6,
+    marginRight: 10,
+  },
+  headerIconLast: {
+    padding: 6,
+    marginRight: 6,
+  },
+  inlineTitleContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  inlineTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: 'black',
+    letterSpacing: -0.2,
   },
   scrollView: {
     flex: 1,
@@ -467,7 +554,7 @@ const styles = StyleSheet.create({
   },
   attestationsTitle: {
     fontWeight: '600',
-    color: Colors.quaternaryColor,
+    color: Colors.quinaryColor,
   },
   attestationItem: {
     backgroundColor: '#FFFFFF',
@@ -504,13 +591,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  unlinkContainer: {
-    padding: 24,
-    alignItems: 'center',
+  unlinkSheetContent: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    flex: 0,
+    alignSelf: 'flex-end',
+    width: '100%',
+    backgroundColor: 'white',
   },
-  unlinkLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+  unlinkSheetBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 8,
+  },
+  unlinkSheetDescription: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 21,
+    marginBottom: 24,
   },
 });
 
