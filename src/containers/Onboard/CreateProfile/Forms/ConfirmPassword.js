@@ -3,12 +3,14 @@
   - Single confirm input to match password set in previous step
   - Styling aligned with ChooseName/CreatePassword
   - On success, proceeds to UseBiometrics or CreateWallet depending on availability
+  - 2026-01-26: Updated input field and primary button to match Unlock.js styling pattern
+    (soft background with focus border/shadow, GradientButton for primary CTA).
 */
 import React, { useState } from 'react';
-import { View, Dimensions, TouchableWithoutFeedback, Keyboard, TextInput as RNTextInput, SafeAreaView } from 'react-native';
+import { View, Dimensions, TouchableWithoutFeedback, Keyboard, TextInput as RNTextInput, SafeAreaView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import Colors from '../../../../globals/colors';
-import TallButton from '../../../../components/LargerButton';
+import GradientButton from '../../../../components/GradientButton';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
 import { createAlert } from '../../../../actions/actions/alert/dispatchers/alert';
@@ -45,54 +47,71 @@ export default function ConfirmPassword({ password, navigation }) {
 
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>{'Password'}</Text>
-            <RNTextInput
-              value={confirm}
-              onChangeText={setConfirm}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={'Enter password'}
-              placeholderTextColor={'#999'}
-              returnKeyType={'done'}
-              autoCapitalize={'none'}
-              autoCorrect={false}
-              spellCheck={false}
-              secureTextEntry={true}
-              onSubmitEditing={next}
-              style={{
-                height: 56,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: isFocused ? Colors.primaryColor : '#E0E0E0',
-                paddingHorizontal: 16,
-                fontSize: 16,
-                color: '#1A1A1A',
-                backgroundColor: '#FAFAFA',
-              }}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                isFocused && styles.inputContainerFocused,
+              ]}
+            >
+              <RNTextInput
+                value={confirm}
+                onChangeText={setConfirm}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder={'Enter password'}
+                placeholderTextColor={'#999'}
+                returnKeyType={'done'}
+                autoCapitalize={'none'}
+                autoCorrect={false}
+                spellCheck={false}
+                secureTextEntry={true}
+                onSubmitEditing={next}
+                style={styles.input}
+              />
+            </View>
           </View>
 
           <View style={{ flex: 1 }} />
 
-          <TallButton
+          <GradientButton
             onPress={next}
-            mode={'contained'}
-            labelStyle={[
-              { color: Colors.secondaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' },
-              (!confirm || confirm !== password) ? { color: '#F0F9FC' } : null
-            ]}
-            contentStyle={{ height: 56 }}
             disabled={!confirm || confirm !== password}
-            style={[
-              { width: '100%', borderRadius: 24, backgroundColor: Colors.primaryColor, elevation: 0, shadowColor: 'transparent', shadowOpacity: 0, shadowRadius: 0, shadowOffset: { width: 0, height: 0 }, marginBottom: 24 },
-              (!confirm || confirm !== password) ? { backgroundColor: '#CFEAF2' } : null
-            ]}
+            style={styles.continueButton}
           >
             {'Continue'}
-          </TallButton>
+          </GradientButton>
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
 
-
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    height: 52,
+  },
+  inputContainerFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  input: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  continueButton: {
+    marginBottom: 24,
+  },
+});

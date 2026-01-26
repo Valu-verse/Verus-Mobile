@@ -1,6 +1,6 @@
 /*
   Updated LandingScreen:
-  - Added looping muted background video for onboarding hero
+  - Implemented looping muted background video for onboarding hero using react-native-video
   - Refined "Powered by Verus" pill placement/sizing for top-right alignment
   - Introduced refreshed VALU glyph PNG above headline copy with updated messaging
   - Softened primary CTA to a translucent pill and added inline policy disclaimer below it
@@ -9,15 +9,27 @@
 import React from 'react';
 import { View, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
+import Video from 'react-native-video';
 import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
 import VerusLogoWhite from '../../../images/customIcons/verus-logo-white.svg';
 
 const ValuGlyph = require('../../../images/customIcons/valu-icon.png');
+const OnboardingVideo = require('../../../images/valu-onb-video1.mp4');
 
 export default function LandingScreen(props) {
   return (
     <View style={styles.root}>
+      <Video
+        source={OnboardingVideo}
+        style={styles.backgroundVideo}
+        resizeMode="cover"
+        repeat
+        muted
+        playInBackground={false}
+        playWhenInactive={false}
+        disableFocus
+      />
       <View style={styles.poweredPill}>
         <Text style={styles.poweredText}>Powered by</Text>
         <VerusLogoWhite width={68} height={16} />
@@ -61,6 +73,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.secondaryColor,
     justifyContent: 'center',
+  },
+  backgroundVideo: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
   },
   poweredPill: {
     position: 'absolute',

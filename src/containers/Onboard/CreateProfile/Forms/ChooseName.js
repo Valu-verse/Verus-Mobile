@@ -8,12 +8,14 @@
   - Added "How it works" modal using SemiModal pattern
   - Removed on-page bullet points; moved note about multiple profiles into modal
   - 2026-01-12: Standardized sheet close affordance to shared SemiModal header (top-right X).
+  - 2026-01-26: Updated input field and primary button to match Unlock.js styling pattern
+    (soft background with focus border/shadow, GradientButton for primary CTA).
 */
 import React, { useState } from 'react';
-import {View, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, SafeAreaView} from 'react-native';
-import {Text, Button, Portal} from 'react-native-paper';
+import {View, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, SafeAreaView, StyleSheet} from 'react-native';
+import {Text, Portal} from 'react-native-paper';
 import { createAlert } from '../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../components/LargerButton';
+import GradientButton from '../../../../components/GradientButton';
 import Colors from '../../../../globals/colors';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
@@ -106,34 +108,32 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
           {/* Spacer after body copy */}
           <View style={{ marginBottom: 32 }} />
 
-          {/* Custom text input - larger, cleaner */}
+          {/* Custom text input - matches Unlock.js pattern */}
           <View style={{ marginBottom: 8 }}>
             <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>
               {"Profile name"}
             </Text>
-            <RNTextInput
-              value={profileName}
-              onChangeText={setProfileName}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="e.g., Personal, Savings, Trading"
-              placeholderTextColor="#999"
-              returnKeyType="done"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              onSubmitEditing={next}
-              style={{
-                height: 56,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: isFocused ? Colors.primaryColor : '#E0E0E0',
-                paddingHorizontal: 16,
-                fontSize: 16,
-                color: '#1A1A1A',
-                backgroundColor: '#FAFAFA',
-              }}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                isFocused && styles.inputContainerFocused,
+              ]}
+            >
+              <RNTextInput
+                value={profileName}
+                onChangeText={setProfileName}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="e.g., Personal, Savings, Trading"
+                placeholderTextColor="#999"
+                returnKeyType="done"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                onSubmitEditing={next}
+                style={styles.input}
+              />
+            </View>
             <Text
               style={{
                 textAlign: 'left',
@@ -160,40 +160,14 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
             </Text>
           </TouchableOpacity>
 
-          {/* Continue button - matches Login.js primary style */}
-          <TallButton
+          {/* Continue button - matches Unlock.js GradientButton style */}
+          <GradientButton
             onPress={next}
-            mode="contained"
-            labelStyle={[
-              {
-                color: Colors.secondaryColor,
-                fontWeight: '600',
-                fontSize: 18,
-                letterSpacing: 0,
-                textTransform: 'none'
-              },
-              profileName.length === 0 ? { color: '#F0F9FC' } : null
-            ]}
-            contentStyle={{ height: 56 }}
             disabled={profileName.length === 0}
-            style={[
-              {
-                width: '100%',
-                borderRadius: 24,
-                backgroundColor: Colors.primaryColor,
-                elevation: 0,
-                shadowColor: 'transparent',
-                shadowOpacity: 0,
-                shadowRadius: 0,
-                shadowOffset: { width: 0, height: 0 },
-                marginBottom: 24,
-              },
-              profileName.length === 0 && {
-                backgroundColor: '#CFEAF2',
-              }
-            ]}>
+            style={styles.continueButton}
+          >
             {"Continue"}
-          </TallButton>
+          </GradientButton>
 
           {/* How it works modal */}
           <Portal>
@@ -245,32 +219,12 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
                     </View>
                     <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>You can create multiple profiles to keep your wallets separate.</Text>
                   </View>
-                  <Button
+                  <GradientButton
                     onPress={() => setHowItWorksVisible(false)}
-                    mode="contained"
-                    style={{
-                      borderRadius: 24,
-                      backgroundColor: Colors.primaryColor,
-                      elevation: 0,
-                      shadowColor: 'transparent',
-                      shadowOpacity: 0,
-                      shadowRadius: 0,
-                      shadowOffset: { width: 0, height: 0 },
-                      width: '100%',
-                      alignSelf: 'stretch',
-                      marginBottom: 8
-                    }}
-                    contentStyle={{ height: 48 }}
-                    labelStyle={{
-                      color: Colors.secondaryColor,
-                      fontWeight: '600',
-                      fontSize: 15,
-                      letterSpacing: 0,
-                      textTransform: 'none',
-                    }}
+                    style={{ marginBottom: 8 }}
                   >
                     {'Got it'}
-                  </Button>
+                  </GradientButton>
                 </View>
               </View>
             </SemiModal>
@@ -280,3 +234,33 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    height: 52,
+  },
+  inputContainerFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  input: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  continueButton: {
+    marginBottom: 24,
+  },
+});

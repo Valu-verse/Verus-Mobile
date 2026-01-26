@@ -4,12 +4,14 @@
   - Replaced icon with wallet hero image (png)
   - Updated CTA labels: "Create new wallet" and "I already have a wallet"
   - Both buttons have explicit shadow removal (elevation: 0, shadowColor: transparent) to prevent shadow artifacts on press
+  - 2026-01-26: Updated primary button to use GradientButton and secondary button to match
+    Unlock.js styling (light blue filled button).
 */
 import React, { useState } from 'react';
-import {View, Dimensions, TouchableOpacity, Image, SafeAreaView} from 'react-native';
-import {Text, IconButton} from 'react-native-paper';
+import {View, Dimensions, TouchableOpacity, Image, SafeAreaView, StyleSheet} from 'react-native';
+import {Text, IconButton, Button} from 'react-native-paper';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../components/LargerButton';
+import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
 import WalletHero from '../../../images/customIcons/wallet-image.png';
 import ImportWalletSheet from '../Forms/ImportWallet/Forms/ImportSheet';
@@ -119,50 +121,28 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
 
         <View style={{ flex: 1 }} />
 
-        {/* Primary and secondary CTAs (align with Login.js styles) */}
-        <TallButton
+        {/* Primary CTA - GradientButton */}
+        <GradientButton
           onPress={() => createNewWalletSync()}
-          mode="contained"
-          labelStyle={{ color: Colors.secondaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
-          contentStyle={{ height: 56 }}
           disabled={loading}
-          style={{
-            width: '100%',
-            borderRadius: 24,
-            backgroundColor: Colors.primaryColor,
-            elevation: 0,
-            shadowColor: 'transparent',
-            shadowOpacity: 0,
-            shadowRadius: 0,
-            shadowOffset: { width: 0, height: 0 },
-            marginBottom: 16,
-          }}
+          style={styles.primaryButton}
         >
           {'Create new wallet'}
-        </TallButton>
+        </GradientButton>
 
-        <TallButton
+        {/* Secondary CTA - matches Unlock.js styling */}
+        <Button
+          mode="contained"
           onPress={() => setImportSheetVisible(true)}
-          mode="outlined"
-          labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 18, letterSpacing: 0, textTransform: 'none' }}
-          contentStyle={{ height: 56 }}
           disabled={loading}
-          style={{
-            width: '100%',
-            borderRadius: 24,
-            backgroundColor: Colors.secondaryColor,
-            borderWidth: 1,
-            borderColor: Colors.primaryColor,
-            elevation: 0,
-            shadowColor: 'transparent',
-            shadowOpacity: 0,
-            shadowRadius: 0,
-            shadowOffset: { width: 0, height: 0 },
-            marginBottom: 24,
-          }}
+          style={styles.secondaryButton}
+          contentStyle={styles.secondaryButtonContent}
+          labelStyle={styles.secondaryButtonLabel}
+          buttonColor="#EBF6FF"
+          textColor={Colors.primaryColor}
         >
           {'I already have a wallet'}
-        </TallButton>
+        </Button>
         <ImportWalletSheet
           visible={importSheetVisible}
           onClose={() => setImportSheetVisible(false)}
@@ -176,3 +156,31 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  primaryButton: {
+    marginBottom: 16,
+  },
+  secondaryButton: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 0,
+    backgroundColor: '#EBF6FF',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: { width: 0, height: 0 },
+    marginBottom: 24,
+  },
+  secondaryButtonContent: {
+    height: 56,
+  },
+  secondaryButtonLabel: {
+    color: Colors.primaryColor,
+    fontWeight: '700',
+    fontSize: 16,
+    textTransform: 'none',
+    letterSpacing: -0.2,
+  },
+});

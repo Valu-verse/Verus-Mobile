@@ -5,12 +5,13 @@
   - Modern warning card with better styling
   - Improved checkbox and button styling
   - Primary button matches design system (#CFEAF2 when disabled)
+  - 2026-01-26: Updated primary button to use GradientButton for consistency.
 */
 import React, {useState} from 'react';
-import {View, Dimensions, SafeAreaView} from 'react-native';
+import {View, Dimensions, SafeAreaView, StyleSheet} from 'react-native';
 import {Text, Checkbox, Card} from 'react-native-paper';
 import Colors from '../../../../../globals/colors';
-import TallButton from '../../../../../components/LargerButton';
+import GradientButton from '../../../../../components/GradientButton';
 import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
 
 export default function SeedIntro({navigation}) {
@@ -132,40 +133,20 @@ export default function SeedIntro({navigation}) {
         />
 
         {/* Continue button */}
-        <TallButton
+        <GradientButton
           onPress={() => navigation.navigate('SeedWords')}
-          mode="contained"
-          labelStyle={[
-            {
-              color: Colors.secondaryColor,
-              fontWeight: '600',
-              fontSize: 18,
-              letterSpacing: 0,
-              textTransform: 'none',
-            },
-            !userAgrees && {color: '#F0F9FC'},
-          ]}
-          contentStyle={{height: 56}}
           disabled={!userAgrees}
-          style={[
-            {
-              width: '100%',
-              borderRadius: 24,
-              backgroundColor: Colors.primaryColor,
-              elevation: 0,
-              shadowColor: 'transparent',
-              shadowOpacity: 0,
-              shadowRadius: 0,
-              shadowOffset: {width: 0, height: 0},
-              marginBottom: 24,
-            },
-            !userAgrees && {
-              backgroundColor: '#CFEAF2',
-            },
-          ]}>
+          style={styles.continueButton}
+        >
           {'Show words 1–8'}
-        </TallButton>
+        </GradientButton>
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  continueButton: {
+    marginBottom: 24,
+  },
+});

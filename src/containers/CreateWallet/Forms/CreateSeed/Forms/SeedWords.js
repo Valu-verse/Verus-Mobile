@@ -5,6 +5,8 @@
   - Modern verification inputs with better styling
   - Primary button matches design system (#CFEAF2 when disabled)
   - Back button with text style for secondary action
+  - 2026-01-26: Updated primary button to GradientButton, secondary button to match
+    Unlock.js styling, and inputs to use container-based focus state pattern.
 */
 import React, {useEffect, useState} from 'react';
 import {
@@ -18,9 +20,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from 'react-native';
-import {Text, Card} from 'react-native-paper';
-import TallButton from '../../../../../components/LargerButton';
+import {Text, Card, Button} from 'react-native-paper';
+import GradientButton from '../../../../../components/GradientButton';
 import Colors from '../../../../../globals/colors';
 import {
   DEFAULT_SEED_PHRASE_LENGTH,
@@ -200,36 +203,31 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
                           }}>
                           {`Word ${randomI + 1}`}
                         </Text>
-                        <RNTextInput
-                          value={wordGuesses[index]}
-                          onChangeText={text => {
-                            let newGuesses = [...wordGuesses];
-                            newGuesses[index] = text.toLowerCase().trim();
-                            setWordGuesses(newGuesses);
-                          }}
-                          onFocus={() => setFocusedInput(index)}
-                          onBlur={() => setFocusedInput(-1)}
-                          placeholder={`Enter word ${randomI + 1}...`}
-                          placeholderTextColor="#999"
-                          returnKeyType={index === 2 ? 'done' : 'next'}
-                          autoCorrect={false}
-                          autoCapitalize="none"
-                          spellCheck={false}
-                          style={{
-                            height: 56,
-                            borderRadius: 12,
-                            borderWidth: 2,
-                            borderColor: wordErrors[index]
-                              ? Colors.warningButtonColor
-                              : focusedInput === index
-                              ? Colors.primaryColor
-                              : '#E0E0E0',
-                            paddingHorizontal: 16,
-                            fontSize: 16,
-                            color: '#1A1A1A',
-                            backgroundColor: wordErrors[index] ? '#FFF5F5' : '#FAFAFA',
-                          }}
-                        />
+                        <View
+                          style={[
+                            styles.inputContainer,
+                            focusedInput === index && styles.inputContainerFocused,
+                            wordErrors[index] && styles.inputContainerError,
+                          ]}
+                        >
+                          <RNTextInput
+                            value={wordGuesses[index]}
+                            onChangeText={text => {
+                              let newGuesses = [...wordGuesses];
+                              newGuesses[index] = text.toLowerCase().trim();
+                              setWordGuesses(newGuesses);
+                            }}
+                            onFocus={() => setFocusedInput(index)}
+                            onBlur={() => setFocusedInput(-1)}
+                            placeholder={`Enter word ${randomI + 1}...`}
+                            placeholderTextColor="#999"
+                            returnKeyType={index === 2 ? 'done' : 'next'}
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            style={styles.input}
+                          />
+                        </View>
                         {wordErrors[index] && (
                           <Text
                             style={{
@@ -309,67 +307,30 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
                 {/* Buttons */}
                 <View style={{flexDirection: 'row', gap: 12}}>
                   {formStep > 0 && (
-                    <TallButton
+                    <Button
+                      mode="contained"
                       onPress={back}
-                      mode="text"
-                      labelStyle={{
-                        fontWeight: '600',
-                        fontSize: 16,
-                        color: '#666',
-                        textTransform: 'none',
-                      }}
-                      contentStyle={{height: 56}}
-                      style={{
-                        flex: 1,
-                        borderRadius: 24,
-                      }}>
+                      style={styles.secondaryButton}
+                      contentStyle={styles.secondaryButtonContent}
+                      labelStyle={styles.secondaryButtonLabel}
+                      buttonColor="#EBF6FF"
+                      textColor={Colors.primaryColor}
+                    >
                       {'Back'}
-                    </TallButton>
+                    </Button>
                   )}
-                  <TallButton
+                  <GradientButton
                     onPress={next}
-                    mode="contained"
                     disabled={
                       isAtEnd &&
                       (wordGuesses[0].length === 0 ||
                         wordGuesses[1].length === 0 ||
                         wordGuesses[2].length === 0)
                     }
-                    labelStyle={[
-                      {
-                        color: Colors.secondaryColor,
-                        fontWeight: '600',
-                        fontSize: 18,
-                        letterSpacing: 0,
-                        textTransform: 'none',
-                      },
-                      isAtEnd &&
-                        (wordGuesses[0].length === 0 ||
-                          wordGuesses[1].length === 0 ||
-                          wordGuesses[2].length === 0) && {color: '#F0F9FC'},
-                    ]}
-                    contentStyle={{height: 56}}
-                    style={[
-                      {
-                        flex: formStep > 0 ? 1 : undefined,
-                        width: formStep > 0 ? undefined : '100%',
-                        borderRadius: 24,
-                        backgroundColor: Colors.primaryColor,
-                        elevation: 0,
-                        shadowColor: 'transparent',
-                        shadowOpacity: 0,
-                        shadowRadius: 0,
-                        shadowOffset: {width: 0, height: 0},
-                      },
-                      isAtEnd &&
-                        (wordGuesses[0].length === 0 ||
-                          wordGuesses[1].length === 0 ||
-                          wordGuesses[2].length === 0) && {
-                        backgroundColor: '#CFEAF2',
-                      },
-                    ]}>
+                    style={formStep > 0 ? styles.primaryButtonFlex : styles.primaryButton}
+                  >
                     {isAtEnd ? 'Complete' : 'Next'}
-                  </TallButton>
+                  </GradientButton>
                 </View>
               </View>
             </TouchableWithoutFeedback>
@@ -379,3 +340,65 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    height: 52,
+  },
+  inputContainerFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+  },
+  inputContainerError: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.warningButtonColor,
+    shadowColor: Colors.warningButtonColor,
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+  },
+  input: {
+    flex: 1,
+    height: 52,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  primaryButton: {
+    width: '100%',
+  },
+  primaryButtonFlex: {
+    flex: 1,
+  },
+  secondaryButton: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 0,
+    backgroundColor: '#EBF6FF',
+    elevation: 0,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    shadowOffset: {width: 0, height: 0},
+  },
+  secondaryButtonContent: {
+    height: 56,
+  },
+  secondaryButtonLabel: {
+    color: Colors.primaryColor,
+    fontWeight: '700',
+    fontSize: 16,
+    textTransform: 'none',
+    letterSpacing: -0.2,
+  },
+});
