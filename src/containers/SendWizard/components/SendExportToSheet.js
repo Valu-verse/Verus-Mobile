@@ -41,6 +41,10 @@
     to support mapped ERC20 receives.
   - Updated 2026-01-21: Changed "SAME NETWORK" badge style to outline (transparent bg)
     for a subtler appearance.
+  - Updated 2026-01-24: Fixed grouped asset network selection to use VRSC_SYSTEM_ID
+    instead of VETH_SYSTEM_ID for Verus network fallback. vETH is the Ethereum bridge
+    currency, not the Verus system. Using VETH_SYSTEM_ID caused the wrong address type
+    (Ethereum instead of Verus) and broke estimates for ETH → DAI.vETH conversions.
 */
 
 import React, { useMemo } from 'react';
@@ -339,7 +343,7 @@ const getNetworkInfoForGroupedOption = (option) => {
       if (tokenLc === 'veth' || tokenLc === 'verus') {
         networkName = 'Verus';
         networkIcon = 'VRSC';
-        systemId = systemId || VETH_SYSTEM_ID;
+        systemId = systemId || VRSC_SYSTEM_ID;
       } else if (tokenLc === 'eth' || tokenLc === 'ethereum') {
         networkName = 'Ethereum';
         networkIcon = 'ETH';

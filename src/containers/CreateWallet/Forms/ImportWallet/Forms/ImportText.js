@@ -5,6 +5,8 @@
   - Show/Hide toggle with icon for better UX
   - Removed "Scan QR" button as requested
   - Primary button matches design system (#CFEAF2 when disabled)
+  - 2026-01-26: Updated primary button to GradientButton and input to use
+    container-based focus state pattern matching Unlock.js.
 */
 import React, {useState} from 'react';
 import {
@@ -16,10 +18,11 @@ import {
   Keyboard,
   SafeAreaView,
   TouchableOpacity,
+  StyleSheet,
 } from 'react-native';
-import {Text, Button, IconButton} from 'react-native-paper';
+import {Text, IconButton} from 'react-native-paper';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../../components/LargerButton';
+import GradientButton from '../../../../../components/GradientButton';
 import ScanSeed from '../../../../../components/ScanSeed';
 import Colors from '../../../../../globals/colors';
 import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
@@ -127,77 +130,88 @@ export default function ImportText({
                 </TouchableOpacity>
               )}
             </View>
-            <RNTextInput
-              value={importedSeed}
-              onChangeText={setImportedSeed}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="Paste your seed phrase or key here..."
-              placeholderTextColor="#999"
-              returnKeyType="done"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              secureTextEntry={!showSeed}
-              multiline={showSeed && Platform.OS !== 'ios'}
-              numberOfLines={showSeed && Platform.OS !== 'ios' ? 4 : 1}
-              onSubmitEditing={handleImport}
-              style={{
-                minHeight: showSeed && Platform.OS !== 'ios' ? 120 : 56,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: isFocused ? Colors.primaryColor : '#E0E0E0',
-                paddingHorizontal: 16,
-                paddingVertical: 16,
-                fontSize: 16,
-                color: '#1A1A1A',
-                backgroundColor: '#FAFAFA',
-                textAlignVertical: 'top',
-              }}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                isFocused && styles.inputContainerFocused,
+                showSeed && Platform.OS !== 'ios' && styles.inputContainerMultiline,
+              ]}
+            >
+              <RNTextInput
+                value={importedSeed}
+                onChangeText={setImportedSeed}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="Paste your seed phrase or key here..."
+                placeholderTextColor="#999"
+                returnKeyType="done"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                secureTextEntry={!showSeed}
+                multiline={showSeed && Platform.OS !== 'ios'}
+                numberOfLines={showSeed && Platform.OS !== 'ios' ? 4 : 1}
+                onSubmitEditing={handleImport}
+                style={[
+                  styles.input,
+                  showSeed && Platform.OS !== 'ios' && styles.inputMultiline,
+                ]}
+              />
+            </View>
           </View>
 
           {/* Spacer */}
           <View style={{flex: 1}} />
 
           {/* Import button */}
-          <TallButton
+          <GradientButton
             onPress={handleImport}
-            mode="contained"
-            labelStyle={[
-              {
-                color: Colors.secondaryColor,
-                fontWeight: '600',
-                fontSize: 18,
-                letterSpacing: 0,
-                textTransform: 'none',
-              },
-              (!importedSeed || importedSeed.length === 0) && {
-                color: '#F0F9FC',
-              },
-            ]}
-            contentStyle={{height: 56}}
             disabled={!importedSeed || importedSeed.length === 0}
-            style={[
-              {
-                width: '100%',
-                borderRadius: 24,
-                backgroundColor: Colors.primaryColor,
-                elevation: 0,
-                shadowColor: 'transparent',
-                shadowOpacity: 0,
-                shadowRadius: 0,
-                shadowOffset: {width: 0, height: 0},
-                marginBottom: 24,
-              },
-              (!importedSeed || importedSeed.length === 0) && {
-                backgroundColor: '#CFEAF2',
-              },
-            ]}>
+            style={styles.importButton}
+          >
             {'Import'}
-          </TallButton>
+          </GradientButton>
         </View>
       </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    minHeight: 52,
+  },
+  inputContainerFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+  },
+  inputContainerMultiline: {
+    minHeight: 120,
+    alignItems: 'flex-start',
+  },
+  input: {
+    flex: 1,
+    minHeight: 52,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  inputMultiline: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  importButton: {
+    marginBottom: 24,
+  },
+});

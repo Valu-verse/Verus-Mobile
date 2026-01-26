@@ -6,6 +6,8 @@
   - Horizontal scrollable suggestion chips
   - Auto-advance to next empty slot after selecting suggestion
   - Primary button matches design system (#CFEAF2 when disabled)
+  - 2026-01-26: Updated primary button to GradientButton and input to use
+    container-based focus state pattern matching Unlock.js.
 */
 import {validateMnemonic, wordlists} from 'bip39';
 import React, {useEffect, useState, useRef} from 'react';
@@ -18,6 +20,7 @@ import {
   SafeAreaView,
   ScrollView,
   TextInput as RNTextInput,
+  StyleSheet,
 } from 'react-native';
 import {
   Text,
@@ -26,7 +29,7 @@ import {
   Chip,
 } from 'react-native-paper';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
-import TallButton from '../../../../../components/LargerButton';
+import GradientButton from '../../../../../components/GradientButton';
 import Colors from '../../../../../globals/colors';
 import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
 
@@ -287,31 +290,28 @@ export default function ImportSeed({
             {`Word ${currentWordIndex + 1}`}
           </Text>
           <View style={{flexDirection: 'row', alignItems: 'center'}}>
-            <RNTextInput
-              ref={inputRef}
-              value={currentWord}
-              onChangeText={setCurrentWord}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="Type at least 3 letters..."
-              placeholderTextColor="#999"
-              returnKeyType="done"
-              autoCorrect={false}
-              autoCapitalize="none"
-              spellCheck={false}
-              onSubmitEditing={() => addWord(currentWord)}
-              style={{
-                flex: 1,
-                height: 48,
-                borderRadius: 12,
-                borderWidth: 2,
-                borderColor: isFocused ? Colors.primaryColor : '#E0E0E0',
-                paddingHorizontal: 16,
-                fontSize: 16,
-                color: '#1A1A1A',
-                backgroundColor: '#FAFAFA',
-              }}
-            />
+            <View
+              style={[
+                styles.inputContainer,
+                isFocused && styles.inputContainerFocused,
+              ]}
+            >
+              <RNTextInput
+                ref={inputRef}
+                value={currentWord}
+                onChangeText={setCurrentWord}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="Type at least 3 letters..."
+                placeholderTextColor="#999"
+                returnKeyType="done"
+                autoCorrect={false}
+                autoCapitalize="none"
+                spellCheck={false}
+                onSubmitEditing={() => addWord(currentWord)}
+                style={styles.input}
+              />
+            </View>
             <Button
               onPress={() => addWord(currentWord)}
               mode="contained"
@@ -365,41 +365,46 @@ export default function ImportSeed({
 
         {/* Import button */}
         {keyboardOffset === 0 && (
-          <TallButton
+          <GradientButton
             onPress={handleImport}
-            mode="contained"
-            labelStyle={[
-              {
-                color: Colors.secondaryColor,
-                fontWeight: '600',
-                fontSize: 18,
-                letterSpacing: 0,
-                textTransform: 'none',
-              },
-              !isValidMnemonic ? {color: '#F0F9FC'} : null,
-            ]}
-            contentStyle={{height: 56}}
             disabled={!isValidMnemonic}
-            style={[
-              {
-                width: '100%',
-                borderRadius: 24,
-                backgroundColor: Colors.primaryColor,
-                elevation: 0,
-                shadowColor: 'transparent',
-                shadowOpacity: 0,
-                shadowRadius: 0,
-                shadowOffset: {width: 0, height: 0},
-                marginBottom: 24,
-              },
-              !isValidMnemonic && {
-                backgroundColor: '#CFEAF2',
-              },
-            ]}>
+            style={styles.importButton}
+          >
             {'Import'}
-          </TallButton>
+          </GradientButton>
         )}
       </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    height: 48,
+  },
+  inputContainerFocused: {
+    backgroundColor: '#FFF',
+    borderColor: Colors.primaryColor,
+    shadowColor: Colors.primaryColor,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: {width: 0, height: 2},
+  },
+  input: {
+    flex: 1,
+    height: 48,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#000',
+  },
+  importButton: {
+    marginBottom: 24,
+  },
+});
