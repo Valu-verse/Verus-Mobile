@@ -2,7 +2,9 @@
   FeesInfoSheet
   - Displays detailed fee breakdown when user taps the fees row
   - Shows network fee and conversion fee with amounts and fiat values
-  - Created 2026-01-22
+  - Removed subtitle descriptions under fee labels for cleaner UI
+  - Fixed alignment when only one fee is shown by removing divider and adding proper spacing
+  - Updated 2026-01-22
 */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
@@ -28,16 +30,15 @@ const FeesInfoSheet = ({
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
-      title="Fee Breakdown"
+      title="Fee breakdown"
       flexHeight={0.01}
       contentContainerStyle={styles.sheetContent}
     >
       <View style={styles.sheetBody}>
         {/* Network Fee */}
-        <View style={styles.feeRow}>
+        <View style={[styles.feeRow, !hasConversionFee && styles.feeRowLast]}>
           <View style={styles.feeLeft}>
             <Text style={styles.feeLabel}>Network fee</Text>
-            <Text style={styles.feeDescription}>Paid to miners/validators</Text>
           </View>
           <View style={styles.feeRight}>
             <Text style={styles.feeAmount}>{networkFee} {networkFeeCurrency}</Text>
@@ -52,7 +53,6 @@ const FeesInfoSheet = ({
           <View style={[styles.feeRow, styles.feeRowLast]}>
             <View style={styles.feeLeft}>
               <Text style={styles.feeLabel}>Conversion fee ({conversionFeePercentage})</Text>
-              <Text style={styles.feeDescription}>Included in send amount</Text>
             </View>
             <View style={styles.feeRight}>
               <Text style={styles.feeAmount}>{conversionFee} {conversionFeeCurrency}</Text>
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   },
   feeRowLast: {
     borderBottomWidth: 0,
-    marginBottom: 16,
+    marginBottom: 24,
   },
   feeLeft: {
     flex: 1,
@@ -107,11 +107,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 2,
-  },
-  feeDescription: {
-    fontSize: 12,
-    color: '#888',
   },
   feeAmount: {
     fontSize: 14,

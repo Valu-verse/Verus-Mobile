@@ -71,6 +71,17 @@
   - Updated 2026-01-22: Fixed grey placeholder icons by adding currencyId field to targetInfo
     and using it as fallback for icon rendering. Coins without CoinDirectory entries
     now show algorithmically generated mosaic icons instead of grey letter placeholders.
+  - Updated 2026-01-22: Added hold-to-confirm functionality to the send button.
+    Users must now press and hold for 2.5 seconds to confirm and send the transaction.
+    This prevents accidental sends and provides clear visual feedback with progress animation.
+  - Updated 2026-01-23: Fixed touchable area for "Estimated" badge by increasing padding
+    from 3px to 6px vertical and 8px to 10px horizontal. Previously, only the borders
+    were easily tappable due to the very small padding.
+  - Updated 2026-01-24: Fixed receive amount calculation when amount is adjusted for fees.
+    When preflight reduces the send amount (e.g., ETH bridge transfers where fees are
+    deducted from amount), the receive estimate is now recalculated using the adjusted
+    amount and the original exchange rate from viaOptions. Previously showed incorrect
+    receive amount based on the original unadjusted send amount.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -558,9 +569,47 @@ const SendWizardConfirm = () => {
   ]);
   
   // Prefer the preflight estimate (more accurate). Fall back to the earlier wizard estimate.
+  // If the amount was adjusted during preflight, recalculate the estimate using the adjusted amount.
   const displayEstimate = useMemo(() => {
-    return preflightResult?.estimate || estimate || null;
-  }, [preflightResult, estimate]);
+    let baseEstimate = preflightResult?.estimate || estimate || null;
+    
+    // Check if amount was adjusted (fees deducted from send amount)
+    if (preflightResult?.output?.satoshis && 
+        preflightResult?.submittedsats && 
+        baseEstimate?.estimatedcurrencyout &&
+        viaOptions?.length > 0) {
+      
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      // Only recalculate if amount was actually adjusted
+      if (!submitted.isEqualTo(actual)) {
+        // Find the selected via option (or direct option if no via)
+        const selectedViaOption = viaOptions.find(opt => 
+          via ? opt.id === via : (opt.isDirect || opt.id === 'direct')
+        );
+        
+        // If we have a price, recalculate the estimate using the adjusted amount
+        if (selectedViaOption?.price) {
+          const adjustedAmountBn = satsToCoins(actual);
+          const priceBn = BigNumber(selectedViaOption.price);
+          
+          if (priceBn.isFinite() && !priceBn.isNaN() && priceBn.isGreaterThan(0)) {
+            const recalculatedOutput = adjustedAmountBn.multipliedBy(priceBn);
+            
+            return {
+              ...baseEstimate,
+              estimatedcurrencyout: recalculatedOutput.toString(),
+              precomputed: true,
+              recalculated: true, // Flag to indicate this was recalculated
+            };
+          }
+        }
+      }
+    }
+    
+    return baseEstimate;
+  }, [preflightResult, estimate, viaOptions, via]);
 
   // Use adjusted amount from preflight when fees are deducted from the send amount
   const displayAmount = useMemo(() => {
@@ -1018,8 +1067,10 @@ const SendWizardConfirm = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.estimateBadge}
                 >
-                  <Text style={styles.estimateBadgeText}>Estimated</Text>
-                  <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                  <View style={styles.estimateBadgeContent} pointerEvents="none">
+                    <Text style={styles.estimateBadgeText}>Estimated</Text>
+                    <MaterialCommunityIcons name="information-outline" size={12} color={Colors.primaryColor} />
+                  </View>
                 </TouchableOpacity>
                 <Text style={styles.amountLabel}>You'll receive</Text>
                 <View style={styles.amountRow}>
@@ -1139,8 +1190,11 @@ const SendWizardConfirm = () => {
         <GradientButton
           onPress={handleSend}
           disabled={sending || !preflightResult}
+          holdToConfirm={true}
+          holdDuration={2500}
+          holdingText="Hold to confirm..."
         >
-          {sending ? 'Sending...' : 'Confirm & send'}
+          {sending ? 'Sending...' : 'Hold to confirm & send'}
         </GradientButton>
       </View>
 
@@ -1299,16 +1353,18 @@ const styles = StyleSheet.create({
   },
   estimateBadge: {
     position: 'absolute',
-    top: 0,
+    top: -8,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: 'transparent',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 5,
     borderWidth: 1,
     borderColor: 'rgba(59, 125, 237, 0.35)',
+  },
+  estimateBadgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   estimateBadgeText: {
     fontSize: 11,

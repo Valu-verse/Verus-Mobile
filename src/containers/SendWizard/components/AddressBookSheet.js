@@ -144,7 +144,7 @@ const AddressBookSheet = ({
               // Empty state - no addresses saved at all
               <View style={styles.emptyContainer}>
                 <MaterialCommunityIcons 
-                  name="book-plus-outline" 
+                  name="account-plus-outline" 
                   size={48} 
                   color="#CCC" 
                   style={styles.emptyIcon}

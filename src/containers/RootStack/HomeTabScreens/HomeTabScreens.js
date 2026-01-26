@@ -6,6 +6,8 @@
     so users can reach Settings without the drawer and kept icon styling intact.
   - 2026-01-13: Renamed the Identity tab route to `IdentityTab` to avoid a nested
     duplicate screen name warning (tab `IdentityHome` contained stack screen `IdentityHome`).
+  - 2026-01-22: Standardized all tab icons to Feather for visual consistency.
+    Services uses "compass", Scan uses "maximize" (scanning frame corners).
 */
 import React from 'react';
 import Feather from 'react-native-vector-icons/Feather';
@@ -60,7 +62,7 @@ const HomeTabScreens = props => {
         options={{
           title: "Services",
           tabBarIcon: ({ color }) => (
-            <Feather name="grid" color={color} size={22} style={{ marginBottom: 2 }} />
+            <Feather name="compass" color={color} size={22} style={{ marginBottom: 2 }} />
           ),
         }}
       />
@@ -107,11 +109,7 @@ const HomeTabScreens = props => {
         options={{
           title: "Scan",
           tabBarIcon: ({ color }) => (
-            <MaterialCommunityIcons
-              name="qrcode-scan"
-              color={color}
-              size={26}
-            />
+            <Feather name="maximize" color={color} size={24} style={{ marginBottom: 2 }} />
           ),
         }}
       />

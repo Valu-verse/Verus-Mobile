@@ -5,6 +5,7 @@
   - Styled to match VerusIdWidget and AttestationWidget pattern
   - Created 2026-01-22
   - Updated 2026-01-22: Simplified to match gradient card pattern of other service widgets
+  - Updated 2026-01-23: Changed title from "Address Book" to "Address book" (lowercase 'b')
 */
 
 import React from 'react';
@@ -47,7 +48,7 @@ const AddressBookWidget = ({ addressCount = 0 }) => {
         </Svg>
       </View>
       <View style={styles.textContainer}>
-        <Text style={styles.title}>Address Book</Text>
+        <Text style={styles.title}>Address book</Text>
         <Text style={styles.subtitle}>{subtitle}</Text>
       </View>
     </View>

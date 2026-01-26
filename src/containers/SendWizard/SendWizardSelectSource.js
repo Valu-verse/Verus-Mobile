@@ -13,6 +13,9 @@
   - Updated 2026-01-15: Added a header divider when the list scrolls,
     matching the Wallet screen behavior.
   - Updated 2026-01-15: Added a header close X to exit the send flow.
+  - Updated 2026-01-23: Updated pricing and sorting logic - coins without fiat 
+    pricing now display "Price unavailable" and are sorted by crypto balance 
+    instead of being treated as zero-value assets.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
@@ -176,16 +179,23 @@ const SendWizardSelectSource = () => {
       })
       .map((coinObj) => {
         const crypto = getBalanceForCoin(coinObj);
-        const rate = getRate(coinObj.id) || 0;
-        const fiat = Number(crypto.multipliedBy(rate));
+        const rate = getRate(coinObj.id);
+        const fiat = rate != null ? Number(crypto.multipliedBy(rate)) : null;
 
         return {
           coinObj,
           crypto: crypto.toNumber(),
           fiat,
+          rate,
         };
       })
-      .sort((a, b) => b.fiat - a.fiat);
+      .sort((a, b) => {
+        // All have balance here, so prioritize by fiat if available, otherwise by crypto
+        if (a.fiat != null && b.fiat != null) return b.fiat - a.fiat;
+        if (a.fiat != null) return -1;
+        if (b.fiat != null) return 1;
+        return b.crypto - a.crypto;
+      });
   }, [activeCoinsForUser, allSubWallets, getBalanceForCoin, getRate]);
 
   const filteredAssets = useMemo(() => {
@@ -283,9 +293,24 @@ const SendWizardSelectSource = () => {
   const renderItem = useCallback(
     ({ item }) => {
       const { coinObj, fiat, crypto } = item;
-      const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
-      const [fiatFormatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
       const cryptoAmount = BigNumber(crypto || 0);
+      const hasBalance = cryptoAmount.isGreaterThan(0);
+      
+      // Only show "N/A" if there's a balance but no fiat price
+      const fiatFormatted = fiat != null
+        ? (() => {
+            const fiatRounded = BigNumber(fiat).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+            const [formatted] = formatCurrency({ amount: fiatRounded.toFixed(2), code: displayCurrency });
+            return formatted;
+          })()
+        : hasBalance
+        ? null // Will render N/A separately
+        : (() => {
+            // Zero balance - show formatted zero
+            const [formatted] = formatCurrency({ amount: '0.00', code: displayCurrency });
+            return formatted;
+          })();
+      
       const cryptoFormatted = cryptoAmount.isFinite()
         ? cryptoAmount.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)
         : '0.0000';
@@ -297,9 +322,15 @@ const SendWizardSelectSource = () => {
           title={() => (
             <View style={styles.titleRow}>
               <Text style={styles.title}>{coinObj.display_name}</Text>
-              <Text style={styles.fiatValue}>
-                {showBalance ? fiatFormatted : '*****'}
-              </Text>
+              {showBalance ? (
+                fiatFormatted != null ? (
+                  <Text style={styles.fiatValue}>{fiatFormatted}</Text>
+                ) : (
+                  <Text style={styles.fiatNA}>N/A</Text>
+                )
+              ) : (
+                <Text style={styles.fiatValue}>*****</Text>
+              )}
             </View>
           )}
           description={() => (
@@ -429,6 +460,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
+    marginLeft: 12,
+  },
+  fiatNA: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#999999',
     marginLeft: 12,
   },
   cryptoValue: {

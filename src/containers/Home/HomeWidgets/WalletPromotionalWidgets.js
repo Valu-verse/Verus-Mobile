@@ -1,10 +1,20 @@
+/*
+  WalletPromotionalWidgets
+  2026-01-23: Updated ValuSocial widget to open ValuSocialModal instead of navigating
+              to a separate screen.
+  2026-01-23: Implemented 30-day dismissal system with profile-specific storage.
+              Widgets dismissed via X button stay hidden for 30 days per account.
+*/
+
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, FlatList, Dimensions, LayoutAnimation, UIManager, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
 import { VALU_SERVICE_ID } from '../../../utils/constants/services';
+import ValuSocialModal from '../../../components/ValuSocialModal/ValuSocialModal';
 
 // Enable LayoutAnimation on Android
 if (
@@ -14,10 +24,11 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const STORAGE_KEY_PREFIX = 'wallet_promo_widget_dismissed_';
+const STORAGE_KEY_PREFIX = 'wallet_promo';
 const WIDGET_ATTESTATION = 'attestation';
 const WIDGET_SOCIAL = 'social';
 const WIDGET_DUMMY = 'dummy';
+const DISMISSAL_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
 
 const CARD_HEIGHT = 100;
 const CARD_SPACING = 12;
@@ -28,31 +39,111 @@ const CONTAINER_PADDING = 16;
 // Width = (Total Width - Padding - Spacing) / 2.2 (show ~2.2 cards)
 const CARD_WIDTH = (SCREEN_WIDTH - (CONTAINER_PADDING * 2) - CARD_SPACING) / 2.2;
 
+// Helper functions for AsyncStorage
+const getStorageKey = (accountHash, widgetId) => 
+  `${STORAGE_KEY_PREFIX}_${accountHash}_${widgetId}_dismissed_at`;
+
+const saveDismissalTimestamp = async (accountHash, widgetId) => {
+  if (!accountHash) return;
+  try {
+    const timestamp = Date.now().toString();
+    const key = getStorageKey(accountHash, widgetId);
+    await AsyncStorage.setItem(key, timestamp);
+  } catch (error) {
+    console.error('Error saving widget dismissal:', error);
+  }
+};
+
+const loadDismissalTimestamp = async (accountHash, widgetId) => {
+  if (!accountHash) return null;
+  try {
+    const key = getStorageKey(accountHash, widgetId);
+    const timestamp = await AsyncStorage.getItem(key);
+    return timestamp ? parseInt(timestamp, 10) : null;
+  } catch (error) {
+    console.error('Error loading widget dismissal:', error);
+    return null;
+  }
+};
+
+const clearDismissalTimestamp = async (accountHash, widgetId) => {
+  if (!accountHash) return;
+  try {
+    const key = getStorageKey(accountHash, widgetId);
+    await AsyncStorage.removeItem(key);
+  } catch (error) {
+    console.error('Error clearing widget dismissal:', error);
+  }
+};
+
+const isWithinDismissalPeriod = (timestamp) => {
+  if (!timestamp) return false;
+  const now = Date.now();
+  const elapsed = now - timestamp;
+  return elapsed < DISMISSAL_DURATION_MS;
+};
+
 const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange }) => {
   const navigation = useNavigation();
+  const activeAccount = useSelector((state) => state.authentication.activeAccount);
+  const accountHash = activeAccount?.accountHash ?? null;
+  
   const [dismissedWidgets, setDismissedWidgets] = useState({
     [WIDGET_ATTESTATION]: true,
     [WIDGET_SOCIAL]: true,
     [WIDGET_DUMMY]: true,
   });
   const [loaded, setLoaded] = useState(false);
+  const [valuSocialModalVisible, setValuSocialModalVisible] = useState(false);
 
   useEffect(() => {
-    // Always reset state to show widgets when component mounts (e.g., new session/sign-in)
-    const newState = {
-      [WIDGET_ATTESTATION]: false,
-      [WIDGET_SOCIAL]: false,
-      [WIDGET_DUMMY]: false,
-    };
-    
-    setDismissedWidgets(newState);
-    setLoaded(true);
-    
-    if (onVisibilityChange) onVisibilityChange(true);
-  }, []);
+    const loadDismissalStates = async () => {
+      if (!accountHash) {
+        // No account logged in, show all widgets
+        setDismissedWidgets({
+          [WIDGET_ATTESTATION]: false,
+          [WIDGET_SOCIAL]: false,
+          [WIDGET_DUMMY]: false,
+        });
+        setLoaded(true);
+        if (onVisibilityChange) onVisibilityChange(true);
+        return;
+      }
 
-  // This handles per-session dismissal (in memory only)
-  const handleDismiss = (widgetKey) => {
+      // Load dismissal timestamps for each widget
+      const widgetIds = [WIDGET_ATTESTATION, WIDGET_SOCIAL, WIDGET_DUMMY];
+      const newState = {};
+
+      for (const widgetId of widgetIds) {
+        const timestamp = await loadDismissalTimestamp(accountHash, widgetId);
+        
+        if (timestamp && isWithinDismissalPeriod(timestamp)) {
+          // Still within 30-day dismissal period
+          newState[widgetId] = true;
+        } else {
+          // Either never dismissed or 30 days have passed
+          newState[widgetId] = false;
+          
+          // Clear expired timestamp if it exists
+          if (timestamp) {
+            await clearDismissalTimestamp(accountHash, widgetId);
+          }
+        }
+      }
+
+      setDismissedWidgets(newState);
+      setLoaded(true);
+      
+      // Notify parent of visibility
+      const visibleCount = Object.values(newState).filter(d => !d).length;
+      if (onVisibilityChange) onVisibilityChange(visibleCount > 0);
+    };
+
+    loadDismissalStates();
+  }, [accountHash]);
+
+  // Dismisses widget for 30 days (profile-specific)
+  const handleDismiss = async (widgetKey) => {
     // Configure layout animation with a spring for more dynamic movement
     LayoutAnimation.configureNext({
       duration: 500,
@@ -72,12 +163,16 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
       },
     });
     
+    // Update UI state
     setDismissedWidgets(prev => {
       const newState = { ...prev, [widgetKey]: true };
       const visibleCount = Object.values(newState).filter(d => !d).length;
       if (onVisibilityChange) onVisibilityChange(visibleCount > 0);
       return newState;
     });
+
+    // Save dismissal timestamp to storage (30-day timer starts now)
+    await saveDismissalTimestamp(accountHash, widgetKey);
   };
 
   const attestationText = hasValuProofOfPersonhood
@@ -135,7 +230,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     {
       id: WIDGET_SOCIAL,
       text: "Immerse yourself\nin Valu Social",
-      action: () => navigation.navigate('ValuSocial'),
+      action: () => setValuSocialModalVisible(true),
       background: (
         <>
           <Image
@@ -158,7 +253,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     },
     {
       id: WIDGET_DUMMY,
-      text: "Future Promo\nComing Soon",
+      text: "Stay tuned\nfor more...",
       action: () => {},
       background: (
         <View style={{ flex: 1, backgroundColor: '#E0E0E0' }} />
@@ -166,23 +261,36 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     }
   ].filter(w => !dismissedWidgets[w.id]);
 
-  if (widgets.length === 0) return null;
+  if (widgets.length === 0) {
+    return (
+      <ValuSocialModal
+        visible={valuSocialModalVisible}
+        onClose={() => setValuSocialModalVisible(false)}
+      />
+    );
+  }
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={widgets}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
-        ItemSeparatorComponent={() => <View style={{ width: CARD_SPACING }} />}
-        snapToInterval={CARD_WIDTH + CARD_SPACING}
-        decelerationRate="fast"
-        snapToAlignment="start"
+    <>
+      <View style={styles.container}>
+        <FlatList
+          data={widgets}
+          renderItem={renderItem}
+          keyExtractor={item => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={{ width: CARD_SPACING }} />}
+          snapToInterval={CARD_WIDTH + CARD_SPACING}
+          decelerationRate="fast"
+          snapToAlignment="start"
+        />
+      </View>
+      <ValuSocialModal
+        visible={valuSocialModalVisible}
+        onClose={() => setValuSocialModalVisible(false)}
       />
-    </View>
+    </>
   );
 };
 

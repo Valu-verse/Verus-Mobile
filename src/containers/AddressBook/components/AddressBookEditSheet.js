@@ -8,15 +8,16 @@
     cryptocurrency address formats (Bitcoin, Litecoin, etc.)
   - Updated 2026-01-22: Added truncated address preview (8...8 format) below
     input so users can verify both start and end of pasted addresses.
+  - Updated 2026-01-22: Fixed keyboard handling using marginBottom approach
+    (matching BuySellSheet pattern)
 */
 
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { 
   View, 
   StyleSheet, 
   TextInput as RNTextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
   Platform,
   Keyboard,
   Clipboard,
@@ -55,6 +56,23 @@ const AddressBookEditSheet = ({
   const [labelFocused, setLabelFocused] = useState(false);
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const labelInputRef = useRef(null);
+  const addressInputRef = useRef(null);
+
+  // Track keyboard to adjust sheet position
+  useEffect(() => {
+    const showListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 0);
+    });
+    const hideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showListener?.remove();
+      hideListener?.remove();
+    };
+  }, []);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -63,6 +81,7 @@ const AddressBookEditSheet = ({
       setLabel(initialLabel);
       setValidationError(null);
       setSaving(false);
+      setKeyboardHeight(0);
     }
   }, [visible, initialAddress, initialLabel]);
 
@@ -196,13 +215,11 @@ const AddressBookEditSheet = ({
           flex: 0,
           width: '100%',
           alignSelf: 'flex-end',
-          paddingBottom,
+          maxHeight: '80%',
+          marginBottom: keyboardHeight > 0 ? keyboardHeight : 0,
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.container}
-        >
+        <View style={[styles.contentContainer, { paddingBottom }]}>
           {/* Label input */}
           <View style={styles.inputSection}>
             <Text style={styles.inputLabel}>Name</Text>
@@ -213,6 +230,7 @@ const AddressBookEditSheet = ({
               ]}
             >
               <RNTextInput
+                ref={labelInputRef}
                 value={label}
                 onChangeText={setLabel}
                 onFocus={() => setLabelFocused(true)}
@@ -224,6 +242,11 @@ const AddressBookEditSheet = ({
                 returnKeyType="next"
                 style={styles.input}
                 editable={!saving}
+                onSubmitEditing={() => {
+                  if (!editMode) {
+                    addressInputRef.current?.focus();
+                  }
+                }}
               />
             </View>
           </View>
@@ -239,6 +262,7 @@ const AddressBookEditSheet = ({
               ]}
             >
               <RNTextInput
+                ref={addressInputRef}
                 value={address}
                 onChangeText={setAddress}
                 onFocus={() => setAddressFocused(true)}
@@ -250,6 +274,7 @@ const AddressBookEditSheet = ({
                 returnKeyType="done"
                 style={styles.input}
                 editable={!saving && !editMode}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
 
@@ -311,14 +336,14 @@ const AddressBookEditSheet = ({
               )}
             </GradientButton>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </SemiModal>
     </Portal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  contentContainer: {
     paddingHorizontal: 16,
   },
   inputSection: {

@@ -6,6 +6,10 @@
  *   to enable fiat value calculations for Savings crvUSD bridged to Verus
  * - 2026-01-22: Added vUSDT.vETH (i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY) with CoinPaprika pricing support
  *   to enable fiat value calculations for Tether bridged to Verus
+ * - 2026-01-23: Fixed CoinPaprika ID for all USDT (Tether) entries from 'usdt-tether-coin' to 
+ *   'usdt-tether' to match the correct CoinPaprika API endpoint
+ * - 2026-01-23: Added crvUSD.vETH (iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB) with CoinPaprika pricing 
+ *   support to enable fiat value calculations for regular crvUSD (not Savings) bridged to Verus
  */
 
 import {
@@ -243,6 +247,27 @@ export const coinsList = {
     website: 'https://crvusd.curve.fi',
     mapped_to: '0x0655977FEb2f289A4aB78af67BAB0d17aAb84367'
   },
+  ["iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB"]: {
+    pbaas_options: 32,
+    id: "iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB",
+    currency_id: "iQ1mX2VtESKfJ3PoWVcYKfnDEpYkWW59ZB",
+    system_id: "i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X",
+    launch_system_id: "i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV",
+    bitgojs_network_key: "verus",
+    display_ticker: "crvUSD.vETH",
+    display_name: "crvUSD on Verus",
+    alt_names: [],
+    theme_color: '#29233b',
+    compatible_channels: [VERUSID, VRPC, GENERAL],
+    tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
+    proto: "vrsc",
+    decimals: 8,
+    default_app: "wallet",
+    apps: VERUS_APPS,
+    rate_url_params: {coin_paprika: 'crvusd-crvusd'},
+    website: 'https://crvusd.curve.fi',
+    mapped_to: '0xf939E0A03FB07F59A73314E73794Be0E57ac1b4E'
+  },
   ["i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY"]: {
     pbaas_options: 32,
     id: "i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY",
@@ -260,7 +285,7 @@ export const coinsList = {
     decimals: 8,
     default_app: "wallet",
     apps: VERUS_APPS,
-    rate_url_params: {coin_paprika: 'usdt-tether-coin'},
+    rate_url_params: {coin_paprika: 'usdt-tether'},
     website: 'https://tether.to',
     mapped_to: 'USDT'
   },
@@ -867,7 +892,7 @@ export const coinsList = {
     decimals: STABLECOIN_DECIMALS,
     tags: [],
     proto: 'erc20',
-    rate_url_params: {coin_paprika: 'usdt-tether-coin'},
+    rate_url_params: {coin_paprika: 'usdt-tether'},
   },
   USDTWYRE: {
     id: 'USDTWYRE',
@@ -883,7 +908,7 @@ export const coinsList = {
     decimals: STABLECOIN_DECIMALS,
     tags: [],
     proto: 'erc20',
-    rate_url_params: {coin_paprika: 'usdt-tether-coin'},
+    rate_url_params: {coin_paprika: 'usdt-tether'},
   },
   USDC: {
     id: 'USDC',

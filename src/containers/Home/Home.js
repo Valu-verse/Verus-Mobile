@@ -7,6 +7,9 @@
   - 2025-12-11: Updated openCoin to navigate within wallet stack to preserve tab bar.
   - 2026-01-09: Removed the in-wallet Crypto/Identities category toggle; Wallet now
     always shows Crypto assets (Identity lives in its own bottom tab).
+  - 2026-01-23: Updated pricing and sorting logic - coins without fiat pricing now 
+    display "Price unavailable" and are sorted by crypto balance instead of being 
+    treated as zero-value assets.
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -224,10 +227,32 @@ const Home = () => {
           crypto = crypto.plus(BigNumber(balances[coinObj.id][wallet.id].total));
         }
       });
-      const rate = getRate(coinObj.id, displayCurrency) || 0;
-      const fiat = Number(BigNumber(crypto).multipliedBy(rate));
-      return { coinObj, crypto: crypto.toNumber(), fiat };
-    }).sort((a, b) => b.fiat - a.fiat);
+      const rate = getRate(coinObj.id, displayCurrency);
+      const fiat = rate != null ? Number(BigNumber(crypto).multipliedBy(rate)) : null;
+      return { coinObj, crypto: crypto.toNumber(), fiat, rate };
+    }).sort((a, b) => {
+      const aHasBalance = a.crypto > 0;
+      const bHasBalance = b.crypto > 0;
+      
+      // First priority: coins with balance come before coins without balance
+      if (aHasBalance && !bHasBalance) return -1;
+      if (!aHasBalance && bHasBalance) return 1;
+      
+      // Both have balance OR both don't have balance
+      if (aHasBalance && bHasBalance) {
+        // Both have balance: prioritize by fiat if available, otherwise by crypto
+        if (a.fiat != null && b.fiat != null) return b.fiat - a.fiat;
+        if (a.fiat != null) return -1;
+        if (b.fiat != null) return 1;
+        return b.crypto - a.crypto;
+      }
+      
+      // Both have zero balance: sort by fiat if available
+      if (a.fiat != null && b.fiat != null) return b.fiat - a.fiat;
+      if (a.fiat != null) return -1;
+      if (b.fiat != null) return 1;
+      return 0;
+    });
   }, [activeCoinsForUser, allSubWallets, balances, displayCurrency, getRate]);
 
   const _verusPay = () => {

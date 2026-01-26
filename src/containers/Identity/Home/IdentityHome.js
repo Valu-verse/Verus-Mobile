@@ -1,22 +1,25 @@
+/*
+  IdentityHome
+  - 2026-01-23: Updated to use navigation to VerusIdDetails screen instead of bottom sheet modal.
+    Removed modal-related state and replaced openVerusIdDetailsModal with navigateToVerusIdDetails.
+  - 2026-01-23: Fixed categorization logic to ensure already-linked IDs don't appear in pending sections.
+    Enhanced filtering with case-insensitive comparison across all chains for both iAddr and display name.
+*/
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
 import {
-  NOTIFICATION_TYPE_VERUSID_PENDING,
   NOTIFICATION_TYPE_VERUSID_READY,
   NOTIFICATION_TYPE_VERUSID_ERROR,
 } from '../../../utils/constants/services';
-import { setServiceLoading, setUserCoins } from '../../../actions/actionCreators';
+import { setServiceLoading } from '../../../actions/actionCreators';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { openLinkIdentityModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
-import { unlinkVerusId } from '../../../actions/actions/services/dispatchers/verusid/verusid';
-import { updateVerusIdWallet } from '../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
-import { clearChainLifecycle, refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import IdentityHomeRender from './IdentityHome.render';
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { SEND_MODAL_IDENTITY_TO_LINK_FIELD } from '../../../utils/constants/sendModal';
@@ -35,6 +38,7 @@ function countLinkedIds(linkedIds) {
 
 const IdentityHome = () => {
   const dispatch = useDispatch();
+  const navigation = useNavigation();
   
   // Dimensions
   const layoutWidth = useObjectSelector(state => state.windowDimensions?.width) || 0;
@@ -47,14 +51,11 @@ const IdentityHome = () => {
   );
   const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
   const pendingIds = useObjectSelector(state => state.channelStore_verusid?.pendingIds || {});
-  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
-  const activeCoinList = useObjectSelector(state => state.coins.activeCoinList);
 
   // Local state
   const [infoSheetVisible, setInfoSheetVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [linkedIds, setLinkedIds] = useState(null);
-  const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
 
   const identityNetwork = useMemo(() => {
     return testnetOverrides[VERUSID_NETWORK_DEFAULT]
@@ -95,62 +96,16 @@ const IdentityHome = () => {
     openLinkIdentityModal(coinObj, { [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityInput });
   }, []);
 
-  const getVerusId = useCallback(async (chain, iAddrOrName) => {
-    const identity = await getIdentity(CoinDirectory.getBasicCoinObj(chain).system_id, iAddrOrName);
-    if (identity.error) throw new Error(identity.error.message);
-    return identity.result;
-  }, []);
-
-  const loadFriendlyNameMap = useCallback(async (chain, iAddress) => {
-    try {
-      const identityObj = await getVerusId(chain, iAddress);
-      return getFriendlyNameMap(CoinDirectory.getBasicCoinObj(chain).system_id, identityObj);
-    } catch (e) {
-      return {
-        ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
-        ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
-      };
-    }
-  }, [getVerusId]);
-
-  const unlinkIdentity = useCallback(
-    async (iAddress, chain) => {
-      dispatch(setServiceLoading(true, VERUSID_SERVICE_ID));
-      try {
-        const coinObj = CoinDirectory.findCoinObj(chain);
-        await unlinkVerusId(iAddress, coinObj.id);
-
-        await updateVerusIdWallet();
-        clearChainLifecycle(coinObj.id);
-
-        if (activeAccount) {
-          const setUserCoinsAction = setUserCoins(activeCoinList, activeAccount.id);
-          dispatch(setUserCoinsAction);
-          refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
-        }
-      } catch (e) {
-        createAlert('Error', e.message);
-      } finally {
-        dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));
-      }
-    },
-    [dispatch, activeAccount, activeCoinList],
-  );
-
-  const openVerusIdDetailsModal = useCallback(
+  // Navigate to VerusIdDetails screen instead of opening a modal
+  const navigateToVerusIdDetails = useCallback(
     (chain, iAddress, displayName) => {
-      setVerusIdDetailsModalProps({
-        loadVerusId: () => getVerusId(chain, iAddress),
-        visible: true,
-        animationType: 'slide',
-        cancel: () => setVerusIdDetailsModalProps(null),
-        loadFriendlyNames: () => loadFriendlyNameMap(chain, iAddress),
-        iAddress,
+      navigation.navigate('VerusIdDetails', {
         chain,
-        title: displayName,
+        iAddress,
+        displayName,
       });
     },
-    [getVerusId, loadFriendlyNameMap],
+    [navigation],
   );
 
   const onLayout = (e) => {
@@ -197,15 +152,39 @@ const IdentityHome = () => {
       for (const chainId of Object.keys(pendingIds)) {
         const chainMap = pendingIds[chainId] || {};
         for (const iAddr of Object.keys(chainMap)) {
-          // Skip if already linked
-          if (linkedIds?.[chainId]?.[iAddr]) continue;
-
           const details = chainMap[iAddr] || {};
-          const status = details.status;
           const fqn = details.fqn || '';
           const display = fqn ? convertFqnToDisplayFormat(fqn) : (details.provisioningName ? `${details.provisioningName}@` : iAddr);
 
+          // Skip if already linked - check across all chains with case-insensitive comparison
+          let isAlreadyLinked = false;
+          
+          if (linkedIds && typeof linkedIds === 'object') {
+            for (const linkedChainId of Object.keys(linkedIds)) {
+              const linkedChainMap = linkedIds[linkedChainId] || {};
+              
+              // Check if iAddr matches (case-insensitive)
+              if (Object.keys(linkedChainMap).some(
+                linkedAddr => linkedAddr.toLowerCase() === iAddr.toLowerCase()
+              )) {
+                isAlreadyLinked = true;
+                break;
+              }
+              
+              // Check if display name matches (case-insensitive)
+              if (Object.values(linkedChainMap).some(
+                linkedDisplay => String(linkedDisplay).toLowerCase() === String(display).toLowerCase()
+              )) {
+                isAlreadyLinked = true;
+                break;
+              }
+            }
+          }
+          
+          if (isAlreadyLinked) continue;
+
           const linkInput = fqn ? convertFqnToDisplayFormat(fqn) : iAddr;
+          const status = details.status;
 
           const item = {
             chainId,
@@ -252,10 +231,7 @@ const IdentityHome = () => {
       linkedItems={linkedItems}
       pendingGroups={pendingGroups}
       hasPending={hasPending}
-      openVerusIdDetailsModal={openVerusIdDetailsModal}
-      verusIdDetailsModalProps={verusIdDetailsModalProps}
-      setVerusIdDetailsModalProps={setVerusIdDetailsModalProps}
-      unlinkIdentity={unlinkIdentity}
+      navigateToVerusIdDetails={navigateToVerusIdDetails}
       identityNetwork={identityNetwork}
       onLayout={onLayout}
     />

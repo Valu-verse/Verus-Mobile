@@ -1,3 +1,8 @@
+/*
+  VerusIdObjectData
+  - 2026-01-24: Fixed accordion title colors to use neutral black instead of blue when expanded.
+    Added titleStyle prop with Colors.quinaryColor to override default theme color.
+*/
 import React, { useEffect, useState } from 'react';
 import { Clipboard, FlatList, TouchableOpacity, Alert, View, Image, ScrollView } from 'react-native';
 import { Text, List, Divider, Paragraph } from 'react-native-paper';
@@ -321,6 +326,7 @@ export default function VerusIdObjectData(props) {
               expanded={expandedAccordions[idx]}
               onPress={() => setExpandedAccordions({ ...expandedAccordions, [idx]: !expandedAccordions[idx] })}
               style={{ backgroundColor: Colors.secondaryBackground }}
+              titleStyle={{ color: Colors.quinaryColor }}
             >
               {group.items.map((item, index) => {
                 return (
@@ -375,6 +381,7 @@ export default function VerusIdObjectData(props) {
                 expanded={expandedAccordions[idx]}
                 onPress={() => setExpandedAccordions({ ...expandedAccordions, [idx]: !expandedAccordions[idx] })}
                 style={{ backgroundColor: Colors.secondaryBackground }}
+                titleStyle={{ color: Colors.quinaryColor }}
               >
                 {group.items.map((item, index) => (
                   <React.Fragment key={index}>

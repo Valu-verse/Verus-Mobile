@@ -15,6 +15,8 @@
   - Updated 2026-01-22: Redesigned quick access UI - moved Paste/QR utilities inside
     input field, converted quick access cards to white with subtle borders for better
     visual hierarchy and cleaner design.
+  - Updated 2026-01-22: Removed shadow from quick access cards to match overall UI design,
+    adjusted address input padding for better vertical alignment of placeholder text.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect } from 'react';
@@ -475,7 +477,7 @@ const SendWizardRecipient = () => {
               onPress={handleOpenSaveAddress}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="book-plus-outline" size={18} color={Colors.primaryColor} />
+              <MaterialCommunityIcons name="account-plus" size={18} color={Colors.primaryColor} />
               <Text style={styles.saveAddressButtonText}>Save to address book</Text>
             </TouchableOpacity>
           )}
@@ -644,7 +646,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingHorizontal: 16,
     paddingRight: 90,
-    paddingTop: 16,
+    paddingTop: 19,
     paddingBottom: 16,
     fontSize: 16,
     color: '#000',
@@ -715,11 +717,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 70,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
   },
   quickAccessCardFull: {
     flex: 1,

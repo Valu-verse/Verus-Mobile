@@ -8,6 +8,9 @@
   - Relative timestamps
   - Fiat value display
   - Improved visual hierarchy
+  
+  2026-01-22: Added "Add to Address Book" functionality from transaction details.
+  AddressBookEditSheet is managed at this level to avoid nested modal stacking issues.
 */
 
 import React, { Component } from "react";
@@ -18,7 +21,7 @@ import {
 import { connect } from 'react-redux';
 import { expireCoinData, expireServiceData, setActiveOverviewFilter } from '../../../actions/actionCreators';
 import Styles from '../../../styles/index'
-import { conditionallyUpdateService, conditionallyUpdateWallet } from "../../../actions/actionDispatchers";
+import { conditionallyUpdateService, conditionallyUpdateWallet, saveAddressToBook } from "../../../actions/actionDispatchers";
 import store from "../../../store";
 import TxDetailsModal from '../../../components/TxDetailsModal/TxDetailsModal'
 import TransactionRow from '../../../components/TransactionRow';
@@ -47,6 +50,7 @@ import { TransactionLogos } from '../../../images/customIcons/index'
 import Colors from "../../../globals/colors";
 import { CoinDirectory } from "../../../utils/CoinData/CoinDirectory";
 import { USD } from "../../../utils/constants/currencies";
+import AddressBookEditSheet from '../../AddressBook/components/AddressBookEditSheet';
 
 const TX_LOGOS = {
   self: TransactionLogos.SelfArrow,
@@ -75,7 +79,10 @@ class Overview extends Component {
         activeCoinExplorerId: null,
         activeCoinDisplayTicker: null,
         TxLogo: TX_LOGOS.unknown
-      }
+      },
+      // Address book sheet state
+      addAddressSheetOpen: false,
+      addressToAdd: '',
     };
     //this.updateProps = this.updateProps.bind(this);
     this.refresh = this.refresh.bind(this);
@@ -156,6 +163,27 @@ class Overview extends Component {
     navigation.navigate("TxDetails", {
       data: item
     });
+  };
+
+  handleAddToAddressBook = (address) => {
+    this.setState({
+      addressToAdd: address,
+      addAddressSheetOpen: true,
+    });
+  };
+
+  handleCloseAddAddressSheet = () => {
+    this.setState({
+      addAddressSheetOpen: false,
+      addressToAdd: '',
+    });
+  };
+
+  handleSaveAddress = async (addressData) => {
+    const accountHash = this.props.activeAccount?.accountHash;
+    if (accountHash) {
+      await saveAddressToBook(addressData, accountHash);
+    }
   };
 
   renderTransactionItem = ({ item, index }) => {
@@ -305,6 +333,8 @@ class Overview extends Component {
               activeCoinExplorerId: explorerId,
               TxLogo: TX_LOGOS[txType] || TX_LOGOS.unknown,
               decimals: decimals,
+              savedAddresses: this.props.savedAddresses,
+              accountHash: this.props.activeAccount?.accountHash,
             },
             txDetailsModalOpen: true,
           })
@@ -406,10 +436,20 @@ class Overview extends Component {
               jumpTo={this.props.jumpTo}
               visible={this.state.txDetailsModalOpen}
               animationType="slide"
+              onAddToAddressBook={this.handleAddToAddressBook}
             />
           </Portal>
         )}
         {this.renderTransactionList()}
+
+        {/* Address Book Edit Sheet - rendered at Overview level to avoid nested modals */}
+        <AddressBookEditSheet
+          visible={this.state.addAddressSheetOpen}
+          onClose={this.handleCloseAddAddressSheet}
+          onSave={this.handleSaveAddress}
+          initialAddress={this.state.addressToAdd}
+          editMode={false}
+        />
       </View>
     );
   }
@@ -424,6 +464,7 @@ const mapStateToProps = (state) => {
     generalWalletSettings: state.settings.generalWalletSettings,
     rates: state.ledger.rates,
     displayCurrency: state.settings.generalWalletSettings.displayCurrency || USD,
+    savedAddresses: state.addressBook.addresses,
   }
 };
 
