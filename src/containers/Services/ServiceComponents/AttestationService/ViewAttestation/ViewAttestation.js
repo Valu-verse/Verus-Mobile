@@ -11,6 +11,7 @@ import { Divider, List, Button, Text, Card, Avatar } from 'react-native-paper';
 import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { Valu } from '../../../../../images/customIcons';
+import { tryGetClaim, flattenClaimData, formatClaimKey } from '../../../../../utils/attestation/claimParser';
 
 // Claim type constants
 const CLAIM_EMPLOYMENT = {
@@ -83,6 +84,14 @@ const ClaimTypeMap = {
   [CLAIM_EXPERIENCE.vdxfid]: "Professional Experience"
 };
 
+// Custom VDXF label map for labels not in IdentityVdxfidMap
+// Fallback lookup when IdentityVdxfidMap[label]?.EN is undefined
+const CustomVdxfLabelMap = {
+  "i4d7U1aZhmoxZbWx8AVezh6z1YewAnuw3V": "Valu Claim",
+  "iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn": "Attestation Recipient",
+  "i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ": "Claim ID"
+};
+
 class ViewAttestation extends Component {
     constructor(props) {
         super(props);
@@ -111,10 +120,25 @@ class ViewAttestation extends Component {
       return { data, attestationName };
     }
 
+    // First pass: check if receiving_identity is present
+    const hasReceivingIdentity = dataDescriptors.some((dd) => {
+      try {
+        return dd[DataDescriptorKey.vdxfid]?.label === 'receiving_identity';
+      } catch {
+        return false;
+      }
+    });
+
     dataDescriptors.forEach((dataDescriptor) => {
       try {
         const label = dataDescriptor[DataDescriptorKey.vdxfid]?.label;
         if (!label) return;
+
+        // Skip ATTESTATION_RECIPIENT_VDXFID if receiving_identity is present
+        // (iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn is the wrong/override recipient)
+        if (hasReceivingIdentity && label === 'iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn') {
+          return;
+        }
 
         let key = "";
 
@@ -126,7 +150,8 @@ class ViewAttestation extends Component {
             attestationName = objectdata.message;
           }
         } else {
-          key = IdentityVdxfidMap[label]?.EN || label;
+          // Try IdentityVdxfidMap first, then CustomVdxfLabelMap, then fall back to raw label
+          key = IdentityVdxfidMap[label]?.EN || CustomVdxfLabelMap[label] || label;
         }
 
         const mime = dataDescriptor[DataDescriptorKey.vdxfid]?.mimetype || "";
@@ -147,9 +172,27 @@ class ViewAttestation extends Component {
         } else if (mime == ""){
             // Check if this is a known claim type using the label as vdxfid
             const claimDescription = ClaimTypeMap[label];
-            data[key] = { 
-              "message": claimDescription || objectdata.message || "No description available" 
-            };
+            if (claimDescription) {
+              data[key] = { 
+                "message": claimDescription
+              };
+            } else {
+              // Try to parse as a claim object
+              const claim = tryGetClaim(objectdata);
+              if (claim && claim.data) {
+                // Successfully parsed as a claim - flatten and store the data
+                const claimFields = flattenClaimData(claim.data);
+                data[key] = { 
+                  "claim": claim,
+                  "claimFields": claimFields
+                };
+              } else {
+                // Not a claim, display as message
+                data[key] = { 
+                  "message": objectdata.message || (typeof objectdata === 'string' && objectdata.length > 20 ? objectdata.slice(0,20)+"..." : objectdata.message || "-")
+                };
+              }
+            }
         }
       } catch (error) {
         console.error('Error processing data descriptor:', error);
@@ -435,14 +478,56 @@ class ViewAttestation extends Component {
                                                             }}>
                                                                 {request}
                                                             </Text>
-                                                            <Text style={{ 
-                                                                fontSize: 16, 
-                                                                color: '#1d1d1f',
-                                                                fontWeight: '500',
-                                                                lineHeight: 22
-                                                            }}>
-                                                                {item?.message || 'No description available'}
-                                                            </Text>
+                                                            {item?.claim && item?.claimFields ? (
+                                                                // Render claim data as nested key-value list
+                                                                <View style={{ marginTop: 4 }}>
+                                                                    <Text style={{ 
+                                                                        fontSize: 13, 
+                                                                        color: Colors.primaryColor,
+                                                                        fontWeight: '600',
+                                                                        marginBottom: 8
+                                                                    }}>
+                                                                        {item.claim.typeName}
+                                                                    </Text>
+                                                                    {item.claimFields.map((field, fieldIndex) => (
+                                                                        <View key={fieldIndex} style={{
+                                                                            flexDirection: 'row',
+                                                                            paddingVertical: 4,
+                                                                            paddingLeft: 8,
+                                                                            borderLeftWidth: 2,
+                                                                            borderLeftColor: Colors.primaryColor + '30',
+                                                                            marginBottom: 4
+                                                                        }}>
+                                                                            <Text style={{ 
+                                                                                fontSize: 12, 
+                                                                                color: '#6b7280',
+                                                                                fontWeight: '500',
+                                                                                minWidth: 80
+                                                                            }}>
+                                                                                {formatClaimKey(field.key)}:
+                                                                            </Text>
+                                                                            <Text style={{ 
+                                                                                fontSize: 12, 
+                                                                                color: '#1d1d1f',
+                                                                                fontWeight: '500',
+                                                                                flex: 1,
+                                                                                marginLeft: 8
+                                                                            }}>
+                                                                                {field.value}
+                                                                            </Text>
+                                                                        </View>
+                                                                    ))}
+                                                                </View>
+                                                            ) : (
+                                                                <Text style={{ 
+                                                                    fontSize: 16, 
+                                                                    color: '#1d1d1f',
+                                                                    fontWeight: '500',
+                                                                    lineHeight: 22
+                                                                }}>
+                                                                    {item?.message || ''}
+                                                                </Text>
+                                                            )}
                                                         </View>
                                                         <View style={{
                                                             width: 6,

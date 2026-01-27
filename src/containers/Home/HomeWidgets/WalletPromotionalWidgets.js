@@ -15,6 +15,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useSelector } from 'react-redux';
 import { VALU_SERVICE_ID } from '../../../utils/constants/services';
 import ValuSocialModal from '../../../components/ValuSocialModal/ValuSocialModal';
+import { requestAttestationData } from '../../../utils/auth/authBox';
+import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
 
 // Enable LayoutAnimation on Android
 if (
@@ -86,6 +88,7 @@ const isWithinDismissalPeriod = (timestamp) => {
 const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange }) => {
   const navigation = useNavigation();
   const activeAccount = useSelector((state) => state.authentication.activeAccount);
+  const attestation = useSelector((state) => state.attestation);
   const accountHash = activeAccount?.accountHash ?? null;
   
   const [dismissedWidgets, setDismissedWidgets] = useState({
@@ -95,6 +98,29 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
   });
   const [loaded, setLoaded] = useState(false);
   const [valuSocialModalVisible, setValuSocialModalVisible] = useState(false);
+  const [valuProofOfPersonhoodAttestation, setValuProofOfPersonhoodAttestation] = useState(null);
+
+  // Load the Proof of Personhood attestation when available
+  useEffect(() => {
+    const loadProofOfPersonhood = async () => {
+      if (hasValuProofOfPersonhood && attestation?.attestations_provisioned) {
+        try {
+          const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
+          if (attestationData) {
+            const valuAttestation = Object.values(attestationData).find(item => 
+              item && typeof item === 'object' && item.name === "Valu Proof of Personhood"
+            );
+            setValuProofOfPersonhoodAttestation(valuAttestation || null);
+          }
+        } catch (e) {
+          console.warn('Could not load attestation:', e.message);
+        }
+      } else {
+        setValuProofOfPersonhoodAttestation(null);
+      }
+    };
+    loadProofOfPersonhood();
+  }, [hasValuProofOfPersonhood, attestation]);
 
   useEffect(() => {
     const loadDismissalStates = async () => {
@@ -211,10 +237,17 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     {
       id: WIDGET_ATTESTATION,
       text: attestationText,
-      action: () => navigation.navigate('Service', {
-        service: VALU_SERVICE_ID,
-        subScreen: 'attestation'
-      }),
+      action: () => {
+        // If user has Proof of Personhood, navigate directly to view it
+        if (hasValuProofOfPersonhood && valuProofOfPersonhoodAttestation) {
+          navigation.navigate('ViewAttestation', { attestation: valuProofOfPersonhoodAttestation });
+        } else {
+          navigation.navigate('Service', {
+            service: VALU_SERVICE_ID,
+            subScreen: 'attestation'
+          });
+        }
+      },
       background: (
         <Svg width="100%" height="100%">
           <Defs>
