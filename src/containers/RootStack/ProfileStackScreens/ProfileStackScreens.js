@@ -2,6 +2,7 @@ import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import Personal from '../../Personal/Personal';
+import NotificationScreen from '../../Notifications/NotificationScreen';
 import PersonalAttributes from '../../Personal/PersonalAttributes/PersonalAttributes';
 import PersonalAttributesEditName from '../../Personal/PersonalAttributes/PersonalAttributesEditName/PersonalAttributesEditName';
 import PersonalContact from '../../Personal/PersonalContact/PersonalContact';
@@ -102,7 +103,16 @@ const ProfileStackScreens = props => {
         name="PersonalPaymentMethodsEditBankAccountAddress"
         component={PersonalPaymentMethodsEditBankAccountAddress}
         options={{
-          title: "Account Address"
+          title: "Address"
+        }}
+      />
+      <ProfileStack.Screen
+        name="Notifications"
+        component={NotificationScreen}
+        options={{
+          title: "Notifications",
+          headerBackTitleVisible: false,
+          headerBackTitle: '',
         }}
       />
     </ProfileStack.Navigator>

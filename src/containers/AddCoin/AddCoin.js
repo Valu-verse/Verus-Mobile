@@ -44,7 +44,7 @@ const AddCoin = props => {
 
   useEffect(() => {
     return () => {
-      if (props.route.params && props.route.params.refresh) {
+      if (props.route.params && props.route.params.refresh && typeof props.route.params.refresh === 'function') {
         props.route.params.refresh();
       }
     };

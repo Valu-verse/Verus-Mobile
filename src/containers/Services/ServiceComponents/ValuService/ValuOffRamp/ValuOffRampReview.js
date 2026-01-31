@@ -74,7 +74,6 @@ class ValuOffRampReview extends Component {
         try {
             const { offRampRequest } = this.state;
             const url = offRampRequest.url;
-            console.log("url", url);
             completeOfframpRequest();
             if (await InAppBrowser.isAvailable()) {
                 InAppBrowser.open(url, {

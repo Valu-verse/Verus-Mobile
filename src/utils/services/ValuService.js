@@ -398,6 +398,22 @@ class ValuService {
       return this.service.post(`${this.url}/start-sumsub-session`, payload);
     });
   }
+
+  // Check if user is eligible for Proof of Personhood after completing KYC
+  // Uses x-api-key header to identify user and check Paybis KYC status
+  checkPopEligibility = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/check-pop-eligibility`, payload);
+    });
+  }
+
+  // Claim sponsored Proof of Personhood attestation for a specific identity
+  // Sends the selected identity address to backend to issue the attestation
+  claimSponsoredAttestation = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/claim-sponsored-attestation`, payload);
+    });
+  }
 }
 
 export default ValuService;

@@ -123,6 +123,7 @@ class LoginReceiveAttestation extends Component {
         const attestationName = isValid ? this.extractAttestationName(recreatedPair.mmrDescriptor) : null;
         const mmrHash = this.extractMmrHash(recreatedPair.mmrDescriptor);
         const extractedId = this.extractAttestationId(recreatedPair.mmrDescriptor);
+        const recipientId = this.extractRecipientId(recreatedPair.mmrDescriptor);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -153,7 +154,8 @@ class LoginReceiveAttestation extends Component {
             type: 'individual',
             validated: isValid,
             issuer: this.state.signerFqn,
-            attestationIndex: index
+            attestationIndex: index,
+            recipientId: recipientId
           };
         }
       }
@@ -287,6 +289,39 @@ class LoginReceiveAttestation extends Component {
     return null;
   }
 
+  // Extract the recipient identity address from the attestation
+  // Prioritizes 'receiving_identity' label over IDENTITY_ATTESTATION_RECIPIENT vdxfid
+  extractRecipientId = (mmrDescriptor) => {
+    try {
+      let receivingIdentity = null;
+      let attestationRecipient = null;
+      
+      for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
+        try {
+          const objectdata = dataDescriptor.toJson().objectdata;
+          const vdxfData = objectdata?.[DataDescriptorKey.vdxfid];
+          
+          // Check for receiving_identity label (priority)
+          if (vdxfData?.label === 'receiving_identity') {
+            receivingIdentity = vdxfData?.objectdata?.message;
+          }
+          // Check for IDENTITY_ATTESTATION_RECIPIENT (fallback)
+          else if (vdxfData?.label === 'iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn') {
+            attestationRecipient = vdxfData?.objectdata?.message;
+          }
+        } catch (innerError) {
+          continue;
+        }
+      }
+      
+      // Prioritize receiving_identity over ATTESTATION_RECIPIENT
+      return receivingIdentity || attestationRecipient || null;
+    } catch (error) {
+      console.warn('Error extracting recipient id:', error);
+      return null;
+    }
+  }
+
   validateAttestation = async (signatureData, mmrData) => {
 
     const sigInfo = await getSignatureInfo(
@@ -384,6 +419,7 @@ class LoginReceiveAttestation extends Component {
         }
 
         const extractedId = this.extractAttestationId(mmrData);
+        const recipientId = this.extractRecipientId(mmrData);
 
         // Generate MMR hash using helper method
         const mmrHash = this.extractMmrHash(mmrData);
@@ -413,7 +449,8 @@ class LoginReceiveAttestation extends Component {
           timestamp: attestationDetails.timestamp ? attestationDetails.timestamp.toNumber() : Date.now(),
           id: attestationDetails.id || undefined,
           validated: true,
-          internal_id: extractedId
+          internal_id: extractedId,
+          recipientId: recipientId
         };
       }
 

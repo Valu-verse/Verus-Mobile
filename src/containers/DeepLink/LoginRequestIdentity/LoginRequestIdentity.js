@@ -63,7 +63,7 @@ const LoginRequestIdentity = props => {
       for (const chainId of Object.keys(linkedIds)) {
         if (linkedIds[chainId] &&
           Object.keys(linkedIds[chainId])
-            .includes(req.challenge.subject.find(item => item.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid)?.data)) {
+            .includes(req.challenge.subject?.find(item => item.vdxfkey === primitives.ID_ADDRESS_VDXF_KEY.vdxfid)?.data)) {
           canProvision = false;
         }
       }

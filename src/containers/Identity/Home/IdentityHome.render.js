@@ -21,7 +21,7 @@
     the tab bar area (matches HomeFAB gradient fade behavior).
 */
 import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, SectionList } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image, SectionList, Platform, StatusBar } from 'react-native';
 import { Portal, Button } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -82,7 +82,7 @@ const IdentityHomeRender = ({
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}> 
       <Portal.Host>
         {renderModals()}
         

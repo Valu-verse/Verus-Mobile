@@ -118,7 +118,6 @@ class LoginShareAttestation extends Component {
     const infoReq = new RequestInformation({ version: RequestInformation.DEFAULT_VERSION, items: [] });
 
     infoReq.fromBuffer(Buffer.from(readReqSubject.data, 'base64'));
-    console.log("Parsed RequestInformation:", JSON.stringify(infoReq, null, 2));
     
     // Extract challenge_id from the login consent challenge
     const challengeId = loginConsent.challenge.challenge_id;

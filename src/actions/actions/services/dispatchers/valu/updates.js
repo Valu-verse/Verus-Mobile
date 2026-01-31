@@ -87,7 +87,6 @@ export const updateValuAccount = async channelStore => {
       const seed = (await requestSeeds())[VALU_SERVICE];
       if (seed == null) throw new Error('No Valu seed present');
       accountId = (await ValuInterface.authenticate(seed)).authenticatedAs;
-      console.log("updateValuAccount",1)
     }
 
     if (accountId == null) return {channel: VALU_SERVICE, body: null};

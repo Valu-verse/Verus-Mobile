@@ -14,24 +14,36 @@ import { useObjectSelector } from "../../../../hooks/useObjectSelector";
 import { VerusPayInvoice } from "verus-typescript-primitives"
 import { ValuOffRampCheck } from "../../../../containers/Services/ServiceComponents/ValuService/ValuOffRamp/ValuOffRampCheck";
 import store from "../../../../store";
+import { checkAndNotifyPopEligibility, createGetSponsoredAttestationNavigationCallback } from '../../../../utils/pop/popNotificationHelper';
 
 const ConvertOrCrossChainSendResult = (props) => {
   const coinObj = useObjectSelector(state => state.sendModal.coinObj);
   const deeplinkData = useObjectSelector((state) => state.deeplink.data);
   const offRampRequest = useObjectSelector((state) => state.channelStore_valu_service.offRampRequest);
-  const invoice = VerusPayInvoice.fromJson(deeplinkData);
+  const invoice = deeplinkData != null && Object.keys(deeplinkData).length > 0 ? VerusPayInvoice.fromJson(deeplinkData) : null;
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params);
   const { updateSendFormData } = props;
 
   const finishSend = async () => {
     closeSendModal();
 
-    if (invoice.isSigned() && (invoice.signing_id === 'iBAkjbAzw9ruR4nRbud9UGzrPftmkpU4GQ' || invoice.signing_id === 'i8mq7inkLvNRwYQNTtt3uaaJCs5YkKxjGg') && offRampRequest != {}) {
-      console.log("checking for active offramp process");
+    if (invoice != null && invoice.isSigned() && (invoice.signing_id === 'iBAkjbAzw9ruR4nRbud9UGzrPftmkpU4GQ' || invoice.signing_id === 'i8mq7inkLvNRwYQNTtt3uaaJCs5YkKxjGg') && offRampRequest != {}) {
+
       const proceedToValu = ValuOffRampCheck();
-      console.log("proceedToValu", proceedToValu);
+
       if (proceedToValu) {
         openOffRamp();
+      }
+      
+      // Check PoP eligibility after off-ramp payment completes
+      try {
+        const navigationCallback = createGetSponsoredAttestationNavigationCallback(props.navigation);
+        const result = await checkAndNotifyPopEligibility(offRampRequest.requestId, navigationCallback);
+        if (result.notificationCreated) {
+          console.log('PoP notification created for user after off-ramp payment completion');
+        }
+      } catch (error) {
+        console.error('Error checking PoP eligibility after off-ramp:', error);
       }
     }
   }

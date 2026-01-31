@@ -390,6 +390,7 @@ class ValuOnRampChooseSource extends Component {
             }
           });
           this.resetToScreen();
+          // PoP eligibility check happens naturally when user completes purchase
         } else {
           Linking.openURL(reply.url);
         }
@@ -604,6 +605,7 @@ class ValuOnRampChooseSource extends Component {
               <Text style={[styles.extraLargeCurrencyInline, isSmall ? styles.extraLargeCurrencyInlineSmall : null]}>{`\u2009${this.state.currency}`}</Text>
             </Text>
           </View>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 8, textAlign: 'left' }}>{`To: ${this.state.chosenAddress.name || ''}`}</Text>
         </View>
       </View>
     );

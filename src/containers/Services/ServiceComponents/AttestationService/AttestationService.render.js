@@ -31,7 +31,7 @@ export const VerusAttestationRender = function () {
           showsVerticalScrollIndicator={true}
         >
         {Object.values(this.state.attestations || {}).length === 0 && (
-          <Text style={{fontSize: 20, textAlign: 'center', padding: 20}}>No attestations present</Text>
+          <Text style={{fontSize: 20, textAlign: 'center', padding: 20, color: 'black'}}>No attestations present</Text>
         )}
         {Object.values(this.state.attestations || {}).map((attestation, index) => {
           // Helper function to format date strings

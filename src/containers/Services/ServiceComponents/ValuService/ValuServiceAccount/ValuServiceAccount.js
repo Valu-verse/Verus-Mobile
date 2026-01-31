@@ -71,7 +71,7 @@ class ValuServiceAccount extends Component {
       KYCState: null,
       email: null,
       subScreen: this.props.subScreen || null,
-      subScreenData: null,
+      subScreenData: this.props.subScreenData || null,
       attestationData: {},
       signer: "",
       taxCountry: null,
@@ -106,6 +106,17 @@ class ValuServiceAccount extends Component {
     }
     this.setTabBarHidden(false);
   }
+
+  handleBuySellComplete = ({ action, address }) => {
+    this.setState({ 
+      subScreenData: { initialAddress: address },
+      subScreen: action === 'sell' ? 'offRamp' : 'onRamp'
+    });
+  };
+
+  handleBuySellClose = () => {
+    this.props.navigation.goBack();
+  };
 
   getTabNavigator = () => {
     if (this.tabNavigatorRef && typeof this.tabNavigatorRef.setOptions === 'function') {
@@ -165,7 +176,6 @@ class ValuServiceAccount extends Component {
     this.props.dispatch(setServiceLoading(true, VALU_SERVICE_ID))
 
     try {
-      console.log("Checking Valu account creation status");
       await this.checkAccountCreationStatus();
       this.props.dispatch(setServiceLoading(false, VALU_SERVICE_ID))
     } catch (e) {
@@ -242,7 +252,7 @@ updateTaxCountry() {
 
   async checkAccountCreationStatus() {
     if (!this.props.valuAuthenticated) {
-      console.log("Authenticating Valu service account");
+
       const seed = (await requestSeeds())[VALU_SERVICE];
       if (seed == null) throw new Error("No Valu seed present");
       await ValuProvider.authenticate(seed);
@@ -259,7 +269,6 @@ updateTaxCountry() {
   render() {
 
     if(!this.props.valuAuthenticated) {
-      console.log("Valu service account is not authenticated");
       return null;
     }
 
@@ -277,13 +286,8 @@ updateTaxCountry() {
                     { /* Render a bottom-sheet stepper instead of inline controls */ }
                     <BuySellSheet
                       visible={true}
-                      onClose={() => this.props.navigation.goBack()}
-                      onComplete={({ action, address }) => {
-                        // Persist chosen address and transition
-                        this.setState({ subScreenData: { initialAddress: address } }, () => {
-                          this.setSubScreen(action === 'sell' ? 'offRamp' : 'onRamp');
-                        });
-                      }}
+                      onClose={this.handleBuySellClose}
+                      onComplete={this.handleBuySellComplete}
                     />
                 </Portal>
                 <View style={{ alignContent: 'center', alignItems: 'center', width: 380 }} />

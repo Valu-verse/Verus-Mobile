@@ -132,9 +132,7 @@ class ValuAttestationAccept extends Component {
         
         try {
             // TODO: Implement the actual attestation acceptance logic
-            // This might involve storing the attestation locally or sending it to a service
-            console.log("Accepting private identity attestation from:", this.state.signer);
-            console.log("Attestation data:", this.state.attestationData);
+            // This might involve storing the attestation locally or sending it to a servic
             
             // Simulate processing time
             await new Promise(resolve => setTimeout(resolve, 1500));

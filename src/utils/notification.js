@@ -48,19 +48,30 @@ export class BasicNotification extends Notification {
 }
 
 export class NavigationNotification extends Notification {
-  constructor(body, title, navigate = () => {}, uid, acchash) {
+  constructor(body, title, navigate = () => {}, uid, acchash, navigationData = null) {
     super(body, title, NOTIFICATION_TYPE_NAVIGATION, uid, acchash)
 
     this.navigate = navigate
+    this.navigationData = navigationData // Store navigation metadata for persistence
   }
 
   static fromJson(json, navigate) {
-    const {body, title, uid} = json;
-    return new NavigationNotification(body, title, navigate, uid);
+    const {body, title, uid, navigationData} = json;
+    return new NavigationNotification(body, title, navigate, uid, null, navigationData);
   }
 
   onAction() {
     return this.navigate()
+  }
+
+  toJson() {
+    return {
+      body: this.body,
+      title: this.title,
+      type: this.type,
+      uid: this.uid,
+      navigationData: this.navigationData // Include navigation metadata
+    };
   }
 }
 

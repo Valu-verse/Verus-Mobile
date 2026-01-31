@@ -131,7 +131,8 @@ class ListSelectionModal extends Component {
               }}
               data={filteredData}
               keyExtractor={(item) => item.key}
-            />
+              keyExtractor={(item, index) => item.key || `item-${index}`}
+          />
           </View>
         </KeyboardAvoidingView>
       </SemiModal>

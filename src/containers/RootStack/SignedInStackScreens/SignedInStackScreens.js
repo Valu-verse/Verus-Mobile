@@ -19,12 +19,12 @@ const SignedInStackScreens = props => {
   const dispatch = useDispatch()
 
   useEffect(() => {
-    if (deeplinkId != null && deeplinkUrl != null) {    
-      dispatch(setDeeplinkUrl(null))  
+    if (deeplinkId != null && deeplinkUrl != null) {
+      dispatch(setDeeplinkUrl(null))
       props.navigation.navigate('DeepLink');
     }
   }, [deeplinkId, deeplinkUrl]);
-  
+
   useEffect(() => {
     if (!!offRampRequest && openOffRamp) {
       closeOffRamp();

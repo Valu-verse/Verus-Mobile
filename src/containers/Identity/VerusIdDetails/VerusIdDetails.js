@@ -50,6 +50,66 @@ import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { openUrl } from '../../../utils/linking';
 import { requestAttestationData } from '../../../utils/auth/authBox';
 import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
+import { primitives } from 'verusid-ts-client';
+
+const { DataDescriptorKey } = primitives;
+// IDENTITY_ATTESTATION_RECIPIENT vdxfid
+const ATTESTATION_RECIPIENT_VDXFID = 'iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn';
+// Server-provided receiving_identity label (takes priority over ATTESTATION_RECIPIENT_VDXFID)
+const RECEIVING_IDENTITY_LABEL = 'receiving_identity';
+
+// Helper function to extract recipientId from stored attestation data
+// Used as fallback for attestations stored before recipientId was added
+// Prioritizes 'receiving_identity' label over ATTESTATION_RECIPIENT_VDXFID
+const extractRecipientIdFromData = (attestationData) => {
+  try {
+    if (!attestationData) return null;
+    
+    const attestationPairBuffer = Buffer.from(attestationData, 'hex');
+    const { AttestationPair } = require('verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails');
+    
+    const attestationPair = new AttestationPair();
+    attestationPair.fromBuffer(attestationPairBuffer);
+    
+    if (!attestationPair || !attestationPair.mmrDescriptor) return null;
+    
+    let receivingIdentity = null;
+    let attestationRecipient = null;
+    
+    // Iterate through data descriptors to find the recipient
+    // Structure: dataDescriptor.toJson().objectdata[DataDescriptorKey.vdxfid] = { label, objectdata: { message } }
+    for (const dataDescriptor of attestationPair.mmrDescriptor.dataDescriptors) {
+      try {
+        const objectdata = dataDescriptor.toJson().objectdata;
+        const vdxfData = objectdata?.[DataDescriptorKey.vdxfid];
+        
+        // Check for receiving_identity label (priority)
+        if (vdxfData?.label === RECEIVING_IDENTITY_LABEL) {
+          receivingIdentity = vdxfData?.objectdata?.message;
+          console.log('Found receiving_identity in attestation data:', receivingIdentity);
+        }
+        // Check for ATTESTATION_RECIPIENT_VDXFID (fallback)
+        else if (vdxfData?.label === ATTESTATION_RECIPIENT_VDXFID) {
+          attestationRecipient = vdxfData?.objectdata?.message;
+          console.log('Found ATTESTATION_RECIPIENT in attestation data:', attestationRecipient);
+        }
+      } catch (innerError) {
+        // Skip this descriptor if it can't be parsed
+        continue;
+      }
+    }
+    
+    // Prioritize receiving_identity over ATTESTATION_RECIPIENT_VDXFID
+    const recipientId = receivingIdentity || attestationRecipient;
+    if (recipientId) {
+      console.log('Using recipientId:', recipientId);
+    }
+    return recipientId || null;
+  } catch (error) {
+    console.warn('Error extracting recipientId from attestation data:', error.message);
+  }
+  return null;
+};
 
 const VerusIdDetails = () => {
   const navigation = useNavigation();
@@ -186,17 +246,39 @@ const VerusIdDetails = () => {
   }, [chain, iAddress]);
 
   // Load attestations linked to this VerusID
+  // Filters by recipientId matching the identity's i-address or friendly name
+  // Falls back to extracting recipientId from attestation data for older stored attestations
   const loadAttestations = useCallback(async () => {
     try {
       const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
       
       if (attestationData && typeof attestationData === 'object') {
-        // Filter attestations by identityId matching iAddress
+        // Filter attestations by recipientId matching iAddress or displayName
         const linkedAttestations = Object.entries(attestationData)
           .filter(([key, att]) => {
             if (!att || typeof att !== 'object') return false;
-            // Match by identityId (i-Address) if present
-            if (att.identityId && att.identityId === iAddress) return true;
+         
+            // Helper to check if recipientId matches this identity
+            const matchesIdentity = (recipientId) => {
+              if (!recipientId) return false;
+              // Match against i-address or friendly name (displayName from route params)
+              return recipientId === iAddress || recipientId === displayName;
+            };
+
+            // First check if recipientId is already stored at top level
+            if (att.recipientId) {
+              return matchesIdentity(att.recipientId);
+            }
+          
+            // Fallback: try to extract recipientId from the attestation data
+            // This handles older attestations stored before recipientId was added
+            if (att.data) {
+              const extractedRecipientId = extractRecipientIdFromData(att.data);
+              if (extractedRecipientId) {
+                return matchesIdentity(extractedRecipientId);
+              }
+            }
+            
             return false;
           })
           .map(([key, att]) => ({ ...att, _key: key }));
@@ -209,7 +291,7 @@ const VerusIdDetails = () => {
       console.warn('Failed to load attestations:', e.message);
       setAttestations([]);
     }
-  }, [iAddress]);
+  }, [iAddress, displayName]);
 
   // Initial load
   useEffect(() => {

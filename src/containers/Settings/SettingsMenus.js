@@ -11,7 +11,7 @@
 */
 
 import React, { Component } from "react";
-import { View, StyleSheet, ScrollView, Text, SafeAreaView } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { connect } from 'react-redux';
 import { List, Button } from "react-native-paper"
@@ -125,7 +125,7 @@ class SettingsMenus extends Component {
 
   render() {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }]}> 
         <ScrollView style={styles.container}>
           <View style={styles.headerContainer}>
             <Text style={styles.mainTitle}>Settings</Text>

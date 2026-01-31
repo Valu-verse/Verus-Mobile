@@ -23,6 +23,7 @@ const ServicesOverview = ({ navigation }) => {
   const addressBookAddresses = useSelector((state) => state.addressBook?.addresses || []);
 
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
+  const [valuProofOfPersonhoodAttestation, setValuProofOfPersonhoodAttestation] = useState(null);
   const [valuSocialModalVisible, setValuSocialModalVisible] = useState(false);
 
   useLayoutEffect(() => {
@@ -45,22 +46,31 @@ const ServicesOverview = ({ navigation }) => {
         try {
           const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
           if (attestationData) {
-            // Check if any attestation has the name "Valu Proof of Personhood"
-            const hasValuAttestation = Object.values(attestationData).some(attestationItem => 
+            // Find the attestation with the name "Valu Proof of Personhood"
+            const valuAttestation = Object.values(attestationData).find(attestationItem => 
               attestationItem && 
               typeof attestationItem === 'object' && 
               attestationItem.name === "Valu Proof of Personhood"
             );
-            setHasValuProofOfPersonhood(hasValuAttestation);
+            if (valuAttestation) {
+              setHasValuProofOfPersonhood(true);
+              setValuProofOfPersonhoodAttestation(valuAttestation);
+            } else {
+              setHasValuProofOfPersonhood(false);
+              setValuProofOfPersonhoodAttestation(null);
+            }
           } else {
             setHasValuProofOfPersonhood(false);
+            setValuProofOfPersonhoodAttestation(null);
           }
         } catch (e) {
           console.warn('Could not check attestations:', e.message);
           setHasValuProofOfPersonhood(false);
+          setValuProofOfPersonhoodAttestation(null);
         }
       } else {
         setHasValuProofOfPersonhood(false);
+        setValuProofOfPersonhoodAttestation(null);
       }
     };
 
@@ -75,14 +85,19 @@ const ServicesOverview = ({ navigation }) => {
     if (widgetType === VALU_SOCIAL_WIDGET_TYPE) {
       setValuSocialModalVisible(true);
     } else if (widgetType === ATTESTATION_WIDGET_TYPE) {
-      navigation.navigate('Service', {
-        service: VALU_SERVICE_ID,
-        subScreen: 'attestation'
-      });
+      // If user has Proof of Personhood, navigate directly to view it
+      if (hasValuProofOfPersonhood && valuProofOfPersonhoodAttestation) {
+        navigation.navigate('ViewAttestation', { attestation: valuProofOfPersonhoodAttestation });
+      } else {
+        navigation.navigate('Service', {
+          service: VALU_SERVICE_ID,
+          subScreen: 'attestation'
+        });
+      }
     } else if (widgetType === ADDRESS_BOOK_WIDGET_TYPE) {
       navigation.navigate('AddressBook');
     }
-  }, [navigation]);
+  }, [navigation, hasValuProofOfPersonhood, valuProofOfPersonhoodAttestation]);
 
   return (
     <ServicesOverviewRender 
