@@ -19,6 +19,8 @@
   - 2026-01-13: Remove the native "Authentication Error" popup for incorrect password on this screen, replacing it
     with inline error messaging + shake/error outline for better UX.
   - 2026-01-13: Update the "Lost access?" sheet to use `SemiModal`'s standardized header (title + X close button).
+  - 2026-01-31: Surface biometric storage errors (missing vault, credential issues) with clear inline feedback
+    guiding users to re-enable biometrics in Settings instead of silently failing.
 */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
@@ -66,6 +68,43 @@ function isIncorrectPasswordError(error) {
   if (/failed to validate and initialize account/i.test(message)) return true;
 
   return false;
+}
+
+/**
+ * Classify biometric errors to distinguish storage/credential issues from user cancellations.
+ * Returns an object with `isBiometricStorageError` (true if vault/credential missing/corrupt)
+ * and `isUserCancel` (true if user dismissed the biometric prompt).
+ */
+function classifyBiometricError(error) {
+  const message = String(error?.message ?? error ?? '').toLowerCase();
+
+  // Storage/credential errors that indicate biometrics need to be re-enabled
+  const storageErrorPatterns = [
+    'no biometric credential found',
+    'no password found stored for account',
+    'no biometric vault found',
+    'failed to decrypt biometric vault',
+    'critical biometric vault error',
+  ];
+
+  const isBiometricStorageError = storageErrorPatterns.some(pattern =>
+    message.includes(pattern),
+  );
+
+  // User cancellation patterns (varies by platform/library)
+  const cancelPatterns = [
+    'user cancel',
+    'cancelled',
+    'canceled',
+    'authentication failed',
+    'too many attempts',
+  ];
+
+  const isUserCancel = cancelPatterns.some(pattern =>
+    message.includes(pattern),
+  );
+
+  return {isBiometricStorageError, isUserCancel};
 }
 
 function sortAccountsAlphabetically(accounts) {
@@ -249,7 +288,20 @@ const Unlock = props => {
         await tryUnlockAccount(key);
       }
     } catch (e) {
-      // Treat biometric cancel/fail as non-fatal; user can fall back to password.
+      const {isBiometricStorageError, isUserCancel} = classifyBiometricError(e);
+
+      if (isBiometricStorageError) {
+        // Surface a clear error message guiding user to re-enable biometrics
+        console.warn('Biometric storage error:', e?.message ?? e);
+        setErrorText(
+          'Biometric unlock unavailable. Please re-enable in Settings after logging in.',
+        );
+      } else if (isUserCancel) {
+        // User cancelled; stay silent and let them use password
+      } else {
+        // Unknown error; log for diagnostics but don't alarm user
+        if (__DEV__) console.warn('Biometric unlock failed (unknown):', e);
+      }
     }
   }, [selectedAccount, tryUnlockAccount]);
 

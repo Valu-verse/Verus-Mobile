@@ -1,3 +1,10 @@
+/*
+  Biometrics - Platform-specific biometric password storage.
+  - 2026-01-31: Added defensive check in storeBiometricPassword() to prevent vault overwrite
+    when the in-memory flag is stale but a vault already exists in storage. This fixes the issue
+    where enabling biometrics for multiple profiles in the same session could overwrite the vault
+    and invalidate earlier profiles.
+*/
 import { Platform } from "react-native";
 import { generateBiometricCredential, getLegacyBiometricData, getLegacyBiometricPassword, removeAllLegacyBiometricPasswords, removeLegacyBiometricPassword, storeLegacyBiometricPassword } from "./keychain"
 import { SecureStorage } from "./secureStore"
@@ -9,6 +16,9 @@ import { SecureStorage } from "./secureStore"
 
 export const getBiometricPassword = async (accountHash, title) => {
   if (Platform.OS === "ios") return getLegacyBiometricPassword(accountHash, title);
+
+  // Sync flag from storage in case it's stale (e.g., vault was created earlier in this session)
+  await SecureStorage.syncBiometryFlagFromStorage();
 
   if (SecureStorage.biometryFlagSet()) {
     return SecureStorage.getPasswordFromBiometricVault(accountHash);
@@ -34,14 +44,25 @@ export const getBiometricPassword = async (accountHash, title) => {
 export const storeBiometricPassword = async (accountHash, password) => {
   if (Platform.OS === "ios") return storeLegacyBiometricPassword(accountHash, password);
 
+  // Defensive check: sync flag from storage in case a vault already exists but the in-memory
+  // flag is stale. This prevents generating a new credential and overwriting the vault.
+  await SecureStorage.syncBiometryFlagFromStorage();
+
   if (!SecureStorage.biometryFlagSet()) {
+    // No vault exists; create new credential and vault
     await generateBiometricCredential();
-    await SecureStorage.setBiometricVaultData({ [accountHash]: password })
-  } else return SecureStorage.setPasswordInBiometricVault(accountHash, password);
+    await SecureStorage.setBiometricVaultData({ [accountHash]: password });
+  } else {
+    // Vault exists; add/update this account's password in the existing vault
+    return SecureStorage.setPasswordInBiometricVault(accountHash, password);
+  }
 }
 
 export const removeBiometricPassword = async (accountHash) => {
   if (Platform.OS === "ios") return removeLegacyBiometricPassword(accountHash);
+
+  // Sync flag from storage in case it's stale
+  await SecureStorage.syncBiometryFlagFromStorage();
 
   if (SecureStorage.biometryFlagSet()) {
     return SecureStorage.removePasswordFromBiometricVault(accountHash);

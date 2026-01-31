@@ -1,3 +1,10 @@
+/*
+  SecureStore - Encrypted storage manager with biometric vault support.
+  - 2026-01-31: Fixed biometric vault flag sync issue on Android. setBiometricVaultData() now
+    updates the in-memory flag immediately after write, preventing stale flag state that could
+    cause vault overwrites when enabling biometrics for multiple profiles in the same session.
+    Added hasBiometricVaultInStorage() and syncBiometryFlagFromStorage() helpers for defensive checks.
+*/
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BigNumber } from 'verus-typescript-primitives';
 import { 
@@ -262,6 +269,26 @@ class SecureStore {
     }
   }
 
+  /**
+   * Check if a biometric vault exists in AsyncStorage (independent of in-memory flag).
+   * Useful for detecting stale flag state and preventing vault overwrites.
+   */
+  async hasBiometricVaultInStorage() {
+    const vault = await AsyncStorage.getItem(SecureStore.SECURE_STORE_BIOMETRIC_VAULT_KEY);
+    return vault != null;
+  }
+
+  /**
+   * Sync the in-memory biometry flag with storage state.
+   * Call this before operations that depend on biometryFlagSet() being accurate.
+   */
+  async syncBiometryFlagFromStorage() {
+    const hasVault = await this.hasBiometricVaultInStorage();
+    if (hasVault && !this.biometryFlagSet()) {
+      this.setBiometryFlag(true);
+    }
+  }
+
   async getPasswordFromBiometricVault(accountHash) {
     const bioCred = await getBiometricCredential();
 
@@ -295,10 +322,13 @@ class SecureStore {
 
     const encryptedVault = await saltedEncryptMGK(bioCred, JSON.stringify(vaultData));
 
-    changesMap.set(SecureStore.SECURE_STORE_BIOMETRIC_VAULT_KEY, encryptedVault);
-    changesMap.set(SecureStore.SECURE_STORE_FLAG_KEY, (this.flags.or(SecureStore.FLAG_STORE_HAS_BIOMETRIC_VAULT)).toString())
+    // Update in-memory flag BEFORE persisting so biometryFlagSet() is accurate within the same session
+    this.setBiometryFlag(true);
 
-    return AsyncStorage.multiSet(Array.from(changesMap))
+    changesMap.set(SecureStore.SECURE_STORE_BIOMETRIC_VAULT_KEY, encryptedVault);
+    changesMap.set(SecureStore.SECURE_STORE_FLAG_KEY, this.flags.toString());
+
+    return AsyncStorage.multiSet(Array.from(changesMap));
   }
 
   async setPasswordInBiometricVault(accountHash, password) {
