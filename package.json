@@ -14,7 +14,7 @@
     "dist-android": "yarn clean-android-res && cd android && ./gradlew clean && ./gradlew assembleRelease && cd ..",
     "test": "jest",
     "lint": "eslint .",
-    "update-verus-libs": "yarn remove verus-typescript-primitives && yarn add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && yarn remove @bitgo/utxo-lib && yarn add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && yarn remove verusd-rpc-ts-client && yarn add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client.git' && yarn remove verusid-ts-client && yarn add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
+    "update-verus-libs": "yarn remove verus-typescript-primitives && yarn add 'git+https://github.com/michaeltout/verus-typescript-primitives.git#generic-signed-request' && yarn remove @bitgo/utxo-lib && yarn add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && yarn remove verusd-rpc-ts-client && yarn add 'git+https://github.com/michaeltout/verusd-rpc-ts-client#generic-request-changes' && yarn remove verusid-ts-client && yarn add 'git+https://github.com/michaeltout/verusid-ts-client.git#generic-request-changes'"
   },
   "dependencies": {
     "@bitgo/utxo-lib": "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus",
@@ -118,9 +118,10 @@
     "varuint-bitcoin": "1.0.4",
     "version_compare": "0.0.3",
     "verus-pay-utils": "git+https://github.com/VerusCoin/verus-pay-utils.git",
+    "verus-typescript-primitives": "git+https://github.com/michaeltout/verus-typescript-primitives.git#generic-signed-request",
     "verus-zkedid-utils": "git+https://github.com/VerusCoin/verus-zkedid-utils.git",
-    "verusd-rpc-ts-client": "git+https://github.com/VerusCoin/verusd-rpc-ts-client",
-    "verusid-ts-client": "git+https://github.com/VerusCoin/verusid-ts-client.git",
+    "verusd-rpc-ts-client": "git+https://github.com/michaeltout/verusd-rpc-ts-client#generic-request-changes",
+    "verusid-ts-client": "git+https://github.com/michaeltout/verusid-ts-client.git#generic-request-changes",
     "vm-browserify": "0.0.4",
     "wif": "2.0.6"
   },
@@ -224,7 +225,6 @@
     "@babel/core": "7.25.7",
     "blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
     "@bitgo/blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
-    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#560209014e1b9a3496453484faf88c91a19715f7",
     "browserify-sign": "4.2.2",
     "secp256k1": "3.8.1",
     "form-data": "4.0.4",
