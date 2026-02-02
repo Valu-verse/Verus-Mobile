@@ -1,3 +1,4 @@
+# Changes: add ReactCommon header search path to fix react/bridging includes.
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 require_relative '../node_modules/react-native-permissions/scripts/setup'
@@ -194,6 +195,18 @@ target 'verusmobile' do
         # Disable new C++ features that require newer runtime
         config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) _LIBCPP_DISABLE_AVAILABILITY=1'
         
+        # Ensure React bridging headers resolve under modular headers/frameworks
+        if target.name.start_with?('React')
+          header_search_paths = config.build_settings['HEADER_SEARCH_PATHS']
+          header_search_paths = '$(inherited)' if header_search_paths.nil?
+          header_search_paths = header_search_paths.join(' ') if header_search_paths.is_a?(Array)
+          react_common_headers = '$(PODS_ROOT)/../node_modules/react-native/ReactCommon'
+          unless header_search_paths.include?(react_common_headers)
+            header_search_paths += " \"#{react_common_headers}\""
+          end
+          config.build_settings['HEADER_SEARCH_PATHS'] = header_search_paths
+        end
+
         # Special handling for Swift/C++ interop libraries that might cause ABI issues
         if target.name.include?('Swift') || target.name.include?('gRPC') || target.name.include?('NIO')
           puts "Applying extra C++ ABI fixes to #{target.name}"

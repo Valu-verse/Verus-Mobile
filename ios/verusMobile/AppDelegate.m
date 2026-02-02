@@ -1,15 +1,16 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * AppDelegate.m
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * 2026-02-02: Added RCTLinkingManager integration to forward warm-start deeplinks
+ * (custom scheme URLs and universal links) to React Native. Previously only cold-start
+ * deeplinks via launchOptions were delivered to JS; now openURL and continueUserActivity
+ * events are also forwarded so verus:// flows work when the app is already running.
  */
 
 #import "AppDelegate.h"
 
 #import <React/RCTBundleURLProvider.h>
+#import <React/RCTLinkingManager.h>
 
 @implementation AppDelegate
 
@@ -40,6 +41,26 @@
 - (BOOL)concurrentRootEnabled
 {
   return true;
+}
+
+#pragma mark - Deep Linking
+
+/// Forward custom scheme URLs (e.g. verus://) to React Native when app is already running
+- (BOOL)application:(UIApplication *)application
+            openURL:(NSURL *)url
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options
+{
+  return [RCTLinkingManager application:application openURL:url options:options];
+}
+
+/// Forward universal links to React Native when app is already running
+- (BOOL)application:(UIApplication *)application
+continueUserActivity:(NSUserActivity *)userActivity
+ restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> * _Nullable))restorationHandler
+{
+  return [RCTLinkingManager application:application
+                   continueUserActivity:userActivity
+                     restorationHandler:restorationHandler];
 }
 
 @end
