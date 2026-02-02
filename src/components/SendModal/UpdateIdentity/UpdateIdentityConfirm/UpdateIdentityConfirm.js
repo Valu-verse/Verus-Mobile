@@ -10,14 +10,6 @@ import { API_SEND } from '../../../../utils/constants/intervalConstants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import { closeSendModal } from '../../../../actions/actions/sendModal/dispatchers/sendModal';
 import { requestPrivKey } from '../../../../utils/auth/authBox';
-import { IdentityUpdateRequest, IdentityUpdateResponse } from 'verus-typescript-primitives';
-import axios from 'axios';
-import { ResponseURI } from 'verus-typescript-primitives/dist/vdxf/classes/ResponseURI';
-import base64url from 'base64url';
-import { primitives } from 'verusid-ts-client';
-import AlertAsync from 'react-native-alert-async';
-import { openUrl } from '../../../../utils/linking';
-import { URL } from 'react-native-url-polyfill';
 
 const UpdateIdentityConfirm = props => {
   const sendModal = useObjectSelector(state => state.sendModal);
@@ -59,58 +51,6 @@ const UpdateIdentityConfirm = props => {
       }
 
       const txid = result.result;
-
-      const reqHex = data[SEND_MODAL_IDENTITY_UPDATE_REQUEST_HEX];
-
-      const req = new IdentityUpdateRequest();
-      req.fromBuffer(Buffer.from(reqHex, 'hex'));
-
-      const sendResponse = async () => {
-        const res = await createUpdateIdentityResponse(
-          systemId,
-          req.details.getIdentityAddress(),
-          req.details.requestid.toString(),
-          txid,
-          spendingKey
-        );
-
-        const primaryResponseUri = req.details.responseuris[0];
-        const uriString = primaryResponseUri.getUriString();
-
-        if (primaryResponseUri.type.eq(ResponseURI.TYPE_POST)) {
-          await axios.post(
-            uriString,
-            res.toJson()
-          );
-        } else if (primaryResponseUri.type.eq(ResponseURI.TYPE_REDIRECT)) {
-          const url = new URL(uriString);
-
-          url.searchParams.set(
-            primitives.IDENTITY_UPDATE_RESPONSE_VDXF_KEY.vdxfid,
-            base64url(res.toBuffer())
-          );
-
-          if (await canRedirect(uriString)) {
-            openUrl(url.toString());
-          }
-        } else Alert.alert("Unknown response URI type");
-      }
-
-      const sendResponseRec = async () => {
-        try {
-          await sendResponse();
-        } catch(e) {
-          console.warn(e);
-  
-          if (await canRetry()) {
-            await sendResponseRec();
-          }
-        }
-      }
-
-      if (req.details.containsResponseUris()) {
-        await sendResponseRec();
-      }
 
       props.navigation.navigate(SEND_MODAL_FORM_STEP_RESULT, {
         identity,
