@@ -1,6 +1,8 @@
 /*
   2025-11-22: Added SettingsStackScreens to host Settings routes for the
   dedicated bottom tab without relying on the deprecated side drawer.
+  2026-01-26: Removed notification bell icon from Settings header by using
+  custom screenOptions that sets headerRight to null.
 */
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -22,9 +24,15 @@ import DisplaySeed from '../../DisplaySeed/DisplaySeed';
 
 const SettingsStack = createStackNavigator();
 
+// Custom screenOptions for Settings stack - removes bell icon from header
+const settingsHeaderOptions = (props) => ({
+  ...defaultHeaderOptions(props),
+  headerRight: () => null,
+});
+
 const SettingsStackScreens = () => {
   return (
-    <SettingsStack.Navigator screenOptions={defaultHeaderOptions}>
+    <SettingsStack.Navigator screenOptions={settingsHeaderOptions}>
       <SettingsStack.Screen
         name="SettingsMenus"
         component={SettingsMenus}
