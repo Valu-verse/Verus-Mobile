@@ -120,7 +120,8 @@ android {
         applicationId "com.valumobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        multiDexEnabled true        missingDimensionStrategy 'react-native-camera', 'general'
+        multiDexEnabled true
+        missingDimensionStrategy 'react-native-camera', 'general'
 
         versionCode versionMajor * 10000 + versionMinor * 1000 + versionRevision * 100 + versionBuild
         if (versionBuild > 0) {

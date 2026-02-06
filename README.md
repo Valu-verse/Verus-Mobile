@@ -108,6 +108,96 @@ REACT_NATIVE_MAVEN_LOCAL_REPO=/home/<yourUserName>/.m2/repository/
 
 9. Build and install by running `yarn android`
 
+## Android (on Windows)
+
+### Prerequisites
+
+0. Clone GitHub repository, and `cd` into it
+
+1. Install Android Studio
+   - Required SDK Components:
+     - Android SDK 35
+     - Android NDK 27.0.12077973 (install via SDK Manager → SDK Tools → NDK)
+     - System Image for Emulator
+
+2. Set environment variables (add to System Environment Variables):
+   - `ANDROID_HOME` = `C:\Users\<yourUserName>\AppData\Local\Android\Sdk`
+   - Add to `PATH`: `%ANDROID_HOME%\platform-tools`, `%ANDROID_HOME%\emulator`
+
+3. Install OpenJDK 17+ (Android Studio includes a compatible JDK)
+
+4. Install Node.js v18.14 using [Node Version Manager for Windows](https://github.com/coreybutler/nvm-windows):
+```powershell
+# Install nvm-windows from https://github.com/coreybutler/nvm-windows/releases
+nvm install 18.14
+nvm use 18.14
+```
+
+5. Enable corepack for yarn: `corepack enable`
+
+6. Install Python 3 from https://www.python.org/downloads/ or Windows Store
+   - Ensure `python3` command is available in PATH
+
+7. Install Rust toolchain 1.81.0:
+```powershell
+# Download and run rustup-init.exe from https://rustup.rs
+rustup toolchain install 1.81.0
+rustup default 1.81.0
+rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+```
+
+### Build verus-android-wallet-sdk locally
+
+The verus-android-wallet-sdk must be built and published to your local Maven repository:
+
+```powershell
+cd %USERPROFILE%
+git clone https://github.com/VerusCoin/verus-android-wallet-sdk.git
+cd verus-android-wallet-sdk
+
+# Create local.properties with Python 3 path for Rust build
+echo rust.pythonCommand=python3 > local.properties
+
+# Build and publish to local Maven repository
+.\gradlew publishToMavenLocal
+```
+
+This will install artifacts to `C:\Users\<yourUserName>\.m2\repository\com\github\VerusCoin\`.
+
+### Configure Verus-Mobile
+
+8. Add the Maven local repository path to `android/gradle.properties`:
+```properties
+# Replace with your full path using forward slashes
+REACT_NATIVE_MAVEN_LOCAL_REPO=C:/Users/<yourUserName>/.m2/repository
+```
+
+9. Run `yarn install`
+
+10. Start Metro bundler in a separate terminal: `yarn start`
+
+11. Build and install: `yarn android`
+
+### Troubleshooting (Windows)
+
+#### SDK build fails with Python error
+If the SDK build fails with `'"py -3"' is not recognized`, ensure `python3` command works in your terminal. Use the full path in `local.properties` if needed:
+```properties
+rust.pythonCommand=C:/Python310/python.exe
+```
+
+#### Dexing errors with media3
+If you see `D8: java.lang.NullPointerException` errors related to `media3-*.aar`, add a resolution strategy in `android/build.gradle` under `subprojects` to force a compatible version:
+```groovy
+if (details.requested.group == 'androidx.media3') {
+    details.useVersion '1.5.0'
+    details.because 'media3 1.8.0 has dexing compatibility issues'
+}
+```
+
+#### Rust compilation errors in librustzcash
+If you encounter `self.sapling_tree` errors in librustzcash, the proto.rs file may need patching. Check the upstream VerusCoin/librustzcash repository for fixes.
+
 ## iOS (on macOS)
 
 0. Clone the GitHub repository and cd into it with a terminal window
