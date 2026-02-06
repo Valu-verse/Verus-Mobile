@@ -21,7 +21,7 @@ import { closeSendModal } from '../../../../actions/actions/sendModal/dispatcher
 import { requestPrivKey } from '../../../../utils/auth/authBox';
 import { IdentityUpdateRequest, IdentityUpdateResponse } from 'verus-typescript-primitives';
 import axios from 'axios';
-import { ResponseUri } from 'verus-typescript-primitives/dist/vdxf/classes/ResponseUri';
+import { ResponseURI } from 'verus-typescript-primitives/dist/vdxf/classes/ResponseURI';
 import base64url from 'base64url';
 import { primitives } from 'verusid-ts-client';
 import AlertAsync from 'react-native-alert-async';
@@ -122,12 +122,12 @@ const UpdateIdentityConfirm = props => {
         const primaryResponseUri = req.details.responseuris[0];
         const uriString = primaryResponseUri.getUriString();
 
-        if (primaryResponseUri.type.eq(ResponseUri.TYPE_POST)) {
+        if (primaryResponseUri.type.eq(ResponseURI.TYPE_POST)) {
           await axios.post(
             uriString,
             res.toJson()
           );
-        } else if (primaryResponseUri.type.eq(ResponseUri.TYPE_REDIRECT)) {
+        } else if (primaryResponseUri.type.eq(ResponseURI.TYPE_REDIRECT)) {
           const url = new URL(uriString);
 
           url.searchParams.set(

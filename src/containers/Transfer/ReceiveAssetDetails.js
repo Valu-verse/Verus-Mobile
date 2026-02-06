@@ -1,5 +1,12 @@
 /*
   ReceiveAssetDetails
+  2026-01-26:
+  - Fixed balance display in address change sheet: added balances selector and balanceMap prop
+    to ReceiveSubwalletSheet so wallet balances show correctly instead of always showing 0.
+  - Added Ethereum icon to header for ERC20-mapped assets (like CoinMenus.js) that opens
+    the Etherscan explorer sheet.
+  - Removed redundant mapped currency pill from ticker row (now handled by header Ethereum icon).
+  - Updated Etherscan sheet content to match CoinMenus.js (shows token name, contract address, and URL).
   2024-12-15:
   - Fixed crash when changing address: removed reference to non-existent setShowingInvoice state.
   - For VerusID addresses: display VerusID name as main field with i-address shown separately below.
@@ -51,14 +58,11 @@ import NumericKeypad from '../../components/Keypad/NumericKeypad';
 import GradientButton from '../../components/GradientButton';
 import { CoinDirectory } from '../../utils/CoinData/CoinDirectory';
 import { coinsList } from '../../utils/CoinData/CoinsList';
-import {
-  VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT,
-  VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT,
-} from '../../utils/constants/web3Constants';
 import { openUrl } from '../../utils/linking';
 import { createAlert } from '../../actions/actions/alert/dispatchers/alert';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { extractDisplaySubWallets } from '../../utils/subwallet/extractSubWallets';
+import { extractLedgerData } from '../../utils/ledger/extractLedgerData';
 import selectAddresses from '../../selectors/address';
 import selectRates from '../../selectors/rates';
 import {
@@ -113,10 +117,24 @@ const ReceiveAssetDetails = () => {
 
   const coinObj = useMemo(() => (coinId ? CoinDirectory.findCoinObj(coinId) : null), [coinId]);
   const allSubWallets = useObjectSelector((state) => extractDisplaySubWallets(state));
+  const balances = useObjectSelector((state) => extractLedgerData(state, 'balances', API_GET_BALANCES));
   const availableSubWallets = useMemo(() => {
     if (!coinObj) return [];
     return allSubWallets[coinObj.id] || [];
   }, [allSubWallets, coinObj]);
+
+  // Build balance map for subwallet sheet
+  const subwalletBalanceMap = useMemo(() => {
+    if (!coinObj) return {};
+    const coinBalances = balances[coinObj.id] || {};
+    const map = {};
+    availableSubWallets.forEach((wallet) => {
+      const totalObj = coinBalances[wallet.id];
+      const total = totalObj && totalObj.total != null ? Number(totalObj.total) : 0;
+      map[wallet.id] = total;
+    });
+    return map;
+  }, [coinObj, balances, availableSubWallets]);
 
   const [selectedSubWalletId, setSelectedSubWalletId] = useState(subWalletId || (availableSubWallets[0]?.id ?? null));
   const [subwalletSheetVisible, setSubwalletSheetVisible] = useState(false);
@@ -164,32 +182,6 @@ const ReceiveAssetDetails = () => {
     }
   }, [coinObj]);
 
-  // Check if mapped to Ethereum itself (not an ERC20 token)
-  const mappedToEth = useMemo(() => {
-    if (!coinObj || coinObj.mapped_to == null || !mappedCoinObj) return false;
-    const currencyId = mappedCoinObj.currency_id?.toLowerCase();
-    return (
-      currencyId === VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT?.toLowerCase() ||
-      currencyId === VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT?.toLowerCase()
-    );
-  }, [coinObj, mappedCoinObj]);
-
-  // Format the mapped currency display text
-  const mappedDisplayText = useMemo(() => {
-    if (!mappedCoinObj) return null;
-    if (mappedToEth) return 'Ethereum';
-    
-    const ticker = mappedCoinObj.display_ticker;
-    const truncatedTicker = ticker.length > 12 ? ticker.substring(0, 12) + '…' : ticker;
-    
-    if (mappedCoinObj.proto === 'erc20') {
-      const addr = mappedCoinObj.currency_id;
-      const shortAddr = addr ? `${addr.substring(0, 6)}…${addr.substring(addr.length - 4)}` : '';
-      return `${truncatedTicker} (${shortAddr})`;
-    }
-    return truncatedTicker;
-  }, [mappedCoinObj, mappedToEth]);
-
   const supportedNetworks = useMemo(() => getSupportedNetworks(coinObj), [coinObj]);
 
   const getExplorerUrl = useCallback(() => {
@@ -207,19 +199,43 @@ const ReceiveAssetDetails = () => {
   }, [mappedCoinObj]);
 
   useLayoutEffect(() => {
+    const showErc20Explorer = mappedCoinObj?.proto === 'erc20';
+    const showAddressSelector = availableSubWallets.length > 1;
+
     navigation.setOptions({
       title: '',
-      headerRight: () =>
-        availableSubWallets.length > 1 ? (
-          <TouchableOpacity
-            onPress={() => setSubwalletSheetVisible(true)}
-            style={styles.headerIconButton}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MaterialCommunityIcons name="tune-vertical" size={24} color={Colors.verusDarkGray} />
-          </TouchableOpacity>
-        ) : null,
+      headerRight: (showErc20Explorer || showAddressSelector)
+        ? () => (
+            <View style={styles.headerRightContainer}>
+              {showErc20Explorer && (
+                <TouchableOpacity
+                  onPress={openTokenAddressExplorer}
+                  style={styles.headerRightButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="View token contract on Etherscan"
+                >
+                  <MaterialCommunityIcons
+                    name="ethereum"
+                    size={22}
+                    color={Colors.verusDarkGray}
+                  />
+                </TouchableOpacity>
+              )}
+              {showAddressSelector && (
+                <TouchableOpacity
+                  onPress={() => setSubwalletSheetVisible(true)}
+                  style={styles.headerRightButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel="Change address"
+                >
+                  <MaterialCommunityIcons name="tune-vertical" size={24} color={Colors.verusDarkGray} />
+                </TouchableOpacity>
+              )}
+            </View>
+          )
+        : null,
       headerBackTitle: 'Back',
       headerShadowVisible: false,
       headerStyle: {
@@ -228,7 +244,7 @@ const ReceiveAssetDetails = () => {
         shadowOpacity: 0,
       },
     });
-  }, [navigation, availableSubWallets.length]);
+  }, [navigation, availableSubWallets.length, mappedCoinObj, openTokenAddressExplorer]);
 
   useEffect(() => {
     if (coinObj && selectedSubWallet) {
@@ -542,36 +558,6 @@ const ReceiveAssetDetails = () => {
             <Text style={styles.headerTicker}>
               {coinObj.display_ticker}
             </Text>
-            {mappedCoinObj && mappedDisplayText && (
-              <TouchableOpacity
-                onPress={openTokenAddressExplorer}
-                disabled={mappedCoinObj.proto !== 'erc20'}
-                style={styles.mappedPill}
-                activeOpacity={0.7}
-              >
-                {mappedCoinObj.proto === 'erc20' ? (
-                   <MaterialCommunityIcons 
-                     name="swap-horizontal" 
-                     size={16} 
-                     color="#627EEA" 
-                     style={{ marginRight: 4 }}
-                   />
-                ) : (
-                  <Text style={[styles.mappedPillText, { marginRight: 4 }]}>{'↔'}</Text>
-                )}
-                <Text style={styles.mappedPillText}>
-                  {mappedDisplayText}
-                </Text>
-                {mappedCoinObj.proto === 'erc20' && (
-                  <MaterialCommunityIcons 
-                    name="open-in-new" 
-                    size={12} 
-                    color="#627EEA" 
-                    style={styles.mappedPillIcon}
-                  />
-                )}
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -1004,6 +990,7 @@ const ReceiveAssetDetails = () => {
             visible={subwalletSheetVisible}
             coinObj={coinObj}
             subWallets={availableSubWallets}
+            balanceMap={subwalletBalanceMap}
             onClose={() => setSubwalletSheetVisible(false)}
             onSelect={(wallet) => {
               setSubwalletSheetVisible(false);
@@ -1031,11 +1018,22 @@ const ReceiveAssetDetails = () => {
           >
             <View>
               <View style={styles.sheetBody}>
-                 <Text style={styles.infoParagraph}>
-                  {'You are about to visit the following URL:'}
+                <Text style={styles.infoParagraph}>
+                  {'This asset is linked to an Ethereum token contract:'}
                 </Text>
                 <View style={styles.urlBox}>
-                    <Text style={styles.urlText}>{getExplorerUrl()}</Text>
+                  <Text style={styles.urlText}>
+                    {mappedCoinObj.display_ticker || mappedCoinObj.display_name || 'Token'}
+                  </Text>
+                  <Text style={[styles.urlText, { marginTop: 10 }]}>
+                    {mappedCoinObj.currency_id}
+                  </Text>
+                </View>
+                <Text style={styles.infoParagraph}>
+                  {'Visit the token contract on Etherscan:'}
+                </Text>
+                <View style={styles.urlBox}>
+                  <Text style={styles.urlText}>{getExplorerUrl()}</Text>
                 </View>
                 <GradientButton
                   onPress={() => {
@@ -1132,26 +1130,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#666666',
   },
-  mappedPill: {
+  headerRightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0FF', // Ethereum light purple background
+    paddingRight: 8,
+  },
+  headerRightButton: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
-  },
-  mappedPillText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#627EEA', // Ethereum logo purple-blue
-  },
-  mappedPillIcon: {
-    marginLeft: 4,
-  },
-  headerIconButton: {
-    padding: 8,
-    marginRight: 4,
+    paddingVertical: 8,
   },
   qrContainer: {
     alignItems: 'center',

@@ -1,3 +1,8 @@
+/*
+  ServicesStackScreens
+  2026-01-26: Removed notification bell icon from Services header by using
+  custom screenOptions that sets headerRight to null.
+*/
 import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
@@ -17,10 +22,16 @@ import GetSponsoredAttestation from '../../Services/ServiceComponents/ValuServic
 
 const ServicesStack = createStackNavigator();
 
+// Custom screenOptions for Services stack - removes bell icon from header
+const servicesHeaderOptions = (props) => ({
+  ...defaultHeaderOptions(props),
+  headerRight: () => null,
+});
+
 const ServicesStackScreens = props => {
   return (
     <ServicesStack.Navigator
-      screenOptions={defaultHeaderOptions}
+      screenOptions={servicesHeaderOptions}
     >
       <ServicesStack.Screen
         name="Services"
