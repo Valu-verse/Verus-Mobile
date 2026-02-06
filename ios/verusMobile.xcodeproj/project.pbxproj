@@ -26,10 +26,11 @@
 		4E80A310241028FC00F037A9 /* bridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E80A30F241028FC00F037A9 /* bridge.swift */; };
 		4E9EA99B23BB63A800B9FA10 /* main.jsbundle in Resources */ = {isa = PBXBuildFile; fileRef = 008F07F21AC5B25A0029DE68 /* main.jsbundle */; };
 		4E9EA99D23BB985300B9FA10 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 4E9EA99C23BB985200B9FA10 /* assets */; };
-		4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		4EAC77502411690900A7D427 /* (null) in Embed Frameworks */ = {isa = PBXBuildFile; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		5E192C160435467282AA50EC /* SourceSansPro-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3D75763453624C50830E810F /* SourceSansPro-LightItalic.ttf */; };
 		7575623222F346C1998DBA73 /* SourceSansPro-BoldItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */; };
 		81602464E283406280F9ADAE /* SourceSansPro-BlackItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CC50E27923FC4379A9C3F9AD /* SourceSansPro-BlackItalic.ttf */; };
+		836BDD9E2F33DE7B0048B1FC /* storekit.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 836BDD9D2F33DE7B0048B1FC /* storekit.storekit */; };
 		9AE9535D72AD468595BE61AF /* SourceSansPro-Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4C1B7B5EBF81438E92B482C1 /* SourceSansPro-Italic.ttf */; };
 		A0E779FFA9884610B8FC5A93 /* SourceSansPro-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = DC363AC392FE4516AE9F7301 /* SourceSansPro-Light.ttf */; };
 		B46C523B6F814306BB98FE97 /* SourceSansPro-ExtraLight.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 25892E8D04D14F4D9D56BB7A /* SourceSansPro-ExtraLight.ttf */; };
@@ -61,7 +62,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 10;
 			files = (
-				4EAC77502411690900A7D427 /* BuildFile in Embed Frameworks */,
+				4EAC77502411690900A7D427 /* (null) in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -127,6 +128,7 @@
 		4E9EA98923BA7F7E00B9FA10 /* RNPermissionHandlerReminders.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RNPermissionHandlerReminders.h; path = "../node_modules/react-native-permissions/ios/Reminders/RNPermissionHandlerReminders.h"; sourceTree = "<group>"; };
 		4E9EA98A23BA7F7E00B9FA10 /* RNPermissionHandlerReminders.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RNPermissionHandlerReminders.m; path = "../node_modules/react-native-permissions/ios/Reminders/RNPermissionHandlerReminders.m"; sourceTree = "<group>"; };
 		4E9EA99C23BB985200B9FA10 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = "<group>"; };
+		836BDD9D2F33DE7B0048B1FC /* storekit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = storekit.storekit; sourceTree = "<group>"; };
 		9374710AAE003F14FFD4788E /* libPods-verusmobile.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-verusmobile.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		946BFA807259E7040466275E /* Pods-verusmobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-verusmobile.release.xcconfig"; path = "Target Support Files/Pods-verusmobile/Pods-verusmobile.release.xcconfig"; sourceTree = "<group>"; };
 		AE7959201E5F412EAC047D5C /* SourceSansPro-BoldItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "SourceSansPro-BoldItalic.ttf"; path = "../assets/fonts/SourceSansPro-BoldItalic.ttf"; sourceTree = "<group>"; };
@@ -279,6 +281,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				836BDD9D2F33DE7B0048B1FC /* storekit.storekit */,
 				4E4D0A6324152FDF0069A5A7 /* SaplingParams */,
 				4E9EA99C23BB985200B9FA10 /* assets */,
 				4E9EA94F23BA790200B9FA10 /* Permissions */,
@@ -482,6 +485,7 @@
 				7575623222F346C1998DBA73 /* SourceSansPro-BoldItalic.ttf in Resources */,
 				B46C523B6F814306BB98FE97 /* SourceSansPro-ExtraLight.ttf in Resources */,
 				14120DFC78524B278EF25500 /* SourceSansPro-ExtraLightItalic.ttf in Resources */,
+				836BDD9E2F33DE7B0048B1FC /* storekit.storekit in Resources */,
 				9AE9535D72AD468595BE61AF /* SourceSansPro-Italic.ttf in Resources */,
 				A0E779FFA9884610B8FC5A93 /* SourceSansPro-Light.ttf in Resources */,
 				5E192C160435467282AA50EC /* SourceSansPro-LightItalic.ttf in Resources */,
@@ -989,10 +993,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 			};
@@ -1045,10 +1046,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;

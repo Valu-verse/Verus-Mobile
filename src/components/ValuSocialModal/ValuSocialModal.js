@@ -26,7 +26,7 @@ import SemiModal from '../SemiModal';
 import GradientButton from '../GradientButton';
 import { openUrl } from '../../utils/linking';
 
-const VALUVERSE_AUTH_URL = 'https://live.valuverse.io/auth';
+const VALUVERSE_AUTH_URL = 'valu-verse://';
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IMAGE_HEIGHT = 280;
 const MODAL_HEIGHT = Math.round(SCREEN_HEIGHT * 0.8);

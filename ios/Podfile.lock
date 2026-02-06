@@ -389,6 +389,8 @@ PODS:
     - React
   - RNGestureHandler (2.9.0):
     - React-Core
+  - RNIap (12.15.5):
+    - React-Core
   - RNInAppBrowser (3.7.0):
     - React-Core
   - RNKeychain (8.1.3):
@@ -522,6 +524,7 @@ DEPENDENCIES:
   - "RNDateTimePicker (from `../node_modules/@react-native-community/datetimepicker`)"
   - RNFS (from `../node_modules/react-native-fs`)
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNIap (from `../node_modules/react-native-iap`)
   - RNInAppBrowser (from `../node_modules/react-native-inappbrowser-reborn`)
   - RNKeychain (from `../node_modules/react-native-keychain`)
   - RNOS (from `../node_modules/react-native-os`)
@@ -645,6 +648,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-fs"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNIap:
+    :path: "../node_modules/react-native-iap"
   RNInAppBrowser:
     :path: "../node_modules/react-native-inappbrowser-reborn"
   RNKeychain:
@@ -726,6 +731,7 @@ SPEC CHECKSUMS:
   RNDateTimePicker: e073697ac3e8a378968d68ab0581fef542b8af8a
   RNFS: 3ab21fa6c56d65566d1fb26c2228e2b6132e5e32
   RNGestureHandler: 071d7a9ad81e8b83fe7663b303d132406a7d8f39
+  RNIap: 782dfc372068823e73d0c3d70e95a08f6b652971
   RNInAppBrowser: e36d6935517101ccba0e875bac8ad7b0cb655364
   RNKeychain: f1b48665a4646f61191eb048c4c05c58d9a7596f
   RNOS: 728cdea6d232de48cfede274443dbe3f669b86e9
@@ -744,6 +750,6 @@ SPEC CHECKSUMS:
   VisionCamera: 58d2120e6e23c155b25f4702b7912dc2b1e5e8c2
   Yoga: d4f5b037672e6b68ba484c7cf7fe6790122df792
 
-PODFILE CHECKSUM: fc568179b12edd639693fbf1ff0989069e753240
+PODFILE CHECKSUM: 809ba3d3e56160685ecaa44fac9def2549805c86
 
 COCOAPODS: 1.16.2
