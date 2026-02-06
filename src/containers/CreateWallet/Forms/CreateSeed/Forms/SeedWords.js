@@ -30,7 +30,7 @@ import {
   SMALL_DEVICE_HEGHT,
 } from '../../../../../utils/constants/constants';
 
-export default function SeedWords({navigation, newSeed, onComplete}) {
+export default function SeedWords({navigation, newSeed, onComplete, testProfile}) {
   const {height} = Dimensions.get('window');
 
   const [formStep, setFormStep] = useState(0);
@@ -46,11 +46,13 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
 
   const [wordGuesses, setWordGuesses] = useState(['', '', '']);
   const [wordErrors, setWordErrors] = useState([false, false, false]);
+  const [useSeedAsZ, setUseSeedAsZ] = useState(!testProfile);
   const [focusedInput, setFocusedInput] = useState(-1);
 
   const resetForm = () => {
     setFormStep(0);
     setSeedWords(newSeed.split(' '));
+    setUseSeedAsZ(!testProfile);
   };
 
   const getRandIndex = (exclusions = []) => {
@@ -83,7 +85,7 @@ export default function SeedWords({navigation, newSeed, onComplete}) {
     setWordErrors(guessErrors);
 
     if (!errors) {
-      onComplete();
+      onComplete(useSeedAsZ);
     }
   };
 
