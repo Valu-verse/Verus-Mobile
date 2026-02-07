@@ -38,7 +38,7 @@
     "@babel/highlight" "^7.23.4"
     chalk "^2.4.2"
 
-"@babel/code-frame@^7.25.7", "@babel/code-frame@^7.25.9", "@babel/code-frame@^7.26.2":
+"@babel/code-frame@^7.25.7", "@babel/code-frame@^7.25.9":
   version "7.26.2"
   resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.26.2.tgz#4b5fab97d33338eff916235055f0ebc21e573a85"
   integrity sha512-RJlIHRueQgwWitWgF8OdFYGZX328Ax5BCemNGlqHfplnRT9ESi8JkFlvaVYbS+UubVY6dpv87Fs2u5M29iNFVQ==
@@ -107,7 +107,7 @@
     "@jridgewell/trace-mapping" "^0.3.17"
     jsesc "^2.5.1"
 
-"@babel/generator@^7.25.7":
+"@babel/generator@^7.25.7", "@babel/generator@^7.25.9":
   version "7.26.2"
   resolved "https://registry.yarnpkg.com/@babel/generator/-/generator-7.26.2.tgz#87b75813bec87916210e5e01939a4c823d6bb74f"
   integrity sha512-zevQbhbau95nkoxSq3f/DC/SC+EEOUZd3DYqfSkMhY2/wfSeaHV1Ew4vk8e+x8lja31IbyuUa2uQ3JONqKbysw==
@@ -116,17 +116,6 @@
     "@babel/types" "^7.26.0"
     "@jridgewell/gen-mapping" "^0.3.5"
     "@jridgewell/trace-mapping" "^0.3.25"
-    jsesc "^3.0.2"
-
-"@babel/generator@^7.26.3":
-  version "7.28.3"
-  resolved "https://registry.yarnpkg.com/@babel/generator/-/generator-7.28.3.tgz#9626c1741c650cbac39121694a0f2d7451b8ef3e"
-  integrity sha512-3lSpxGgvnmZznmBkCRnVREPUFJv2wrv9iAoFDvADJc0ypmdOxdUtcLeBgBJ6zE0PMeTKnxeQzyk0xTBq4Ep7zw==
-  dependencies:
-    "@babel/parser" "^7.28.3"
-    "@babel/types" "^7.28.2"
-    "@jridgewell/gen-mapping" "^0.3.12"
-    "@jridgewell/trace-mapping" "^0.3.28"
     jsesc "^3.0.2"
 
 "@babel/generator@^7.28.0":
@@ -574,13 +563,6 @@
   integrity sha512-DWMCZH9WA4Maitz2q21SRKHo9QXZxkDsbNZoVD62gusNtNBBqDg9i7uOhASfTfIGNzW+O+r7+jAlM8dwphcJKQ==
   dependencies:
     "@babel/types" "^7.26.0"
-
-"@babel/parser@^7.26.3", "@babel/parser@^7.28.3":
-  version "7.28.4"
-  resolved "https://registry.yarnpkg.com/@babel/parser/-/parser-7.28.4.tgz#da25d4643532890932cc03f7705fe19637e03fa8"
-  integrity sha512-yZbBqeM6TkpP9du/I2pUZnJsRMGGvOuIrhjzC1AwHwW+6he4mni6Bp/m8ijn0iOuZuPI2BfkCoSRunpyjnrQKg==
-  dependencies:
-    "@babel/types" "^7.28.4"
 
 "@babel/parser@^7.27.2", "@babel/parser@^7.28.0":
   version "7.28.0"
@@ -1164,15 +1146,15 @@
     globals "^11.1.0"
 
 "@babel/traverse@^7.25.7", "@babel/traverse@^7.25.9":
-  version "7.26.4"
-  resolved "https://registry.yarnpkg.com/@babel/traverse/-/traverse-7.26.4.tgz#ac3a2a84b908dde6d463c3bfa2c5fdc1653574bd"
-  integrity sha512-fH+b7Y4p3yqvApJALCPJcwb0/XaOSgtK4pzV6WVjPR5GLFQBRI7pfoX2V2iM48NXvX07NUxxm1Vw98YjqTcU5w==
+  version "7.25.9"
+  resolved "https://registry.yarnpkg.com/@babel/traverse/-/traverse-7.25.9.tgz#a50f8fe49e7f69f53de5bea7e413cd35c5e13c84"
+  integrity sha512-ZCuvfwOwlz/bawvAuvcj8rrithP2/N55Tzz342AkTvq4qaWbGfmCk/tKhNaV2cthijKrPAA8SRJV5WWe7IBMJw==
   dependencies:
-    "@babel/code-frame" "^7.26.2"
-    "@babel/generator" "^7.26.3"
-    "@babel/parser" "^7.26.3"
+    "@babel/code-frame" "^7.25.9"
+    "@babel/generator" "^7.25.9"
+    "@babel/parser" "^7.25.9"
     "@babel/template" "^7.25.9"
-    "@babel/types" "^7.26.3"
+    "@babel/types" "^7.25.9"
     debug "^4.3.1"
     globals "^11.1.0"
 
@@ -1233,14 +1215,6 @@
     "@babel/helper-string-parser" "^7.25.9"
     "@babel/helper-validator-identifier" "^7.25.9"
 
-"@babel/types@^7.26.3", "@babel/types@^7.28.2", "@babel/types@^7.28.4":
-  version "7.28.4"
-  resolved "https://registry.yarnpkg.com/@babel/types/-/types-7.28.4.tgz#0a4e618f4c60a7cd6c11cb2d48060e4dbe38ac3a"
-  integrity sha512-bkFqkLhh3pMBUQQkpVgWDWq/lqzc2678eUyDlTBhRqhCHFguYYGM0Efga7tYk4TogG/3x0EEl66/OQ+WGbWB/Q==
-  dependencies:
-    "@babel/helper-string-parser" "^7.27.1"
-    "@babel/helper-validator-identifier" "^7.27.1"
-
 "@babel/types@^7.27.1", "@babel/types@^7.27.3", "@babel/types@^7.28.0":
   version "7.28.2"
   resolved "https://registry.yarnpkg.com/@babel/types/-/types-7.28.2.tgz#da9db0856a9a88e0a13b019881d7513588cf712b"
@@ -1270,7 +1244,7 @@
 
 "@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus":
   version "1.9.6"
-  resolved "git+https://github.com/VerusCoin/BitGoJS.git#3004befaed8ab8bc37bc2704cbd8d2c9742ac329"
+  resolved "git+https://github.com/VerusCoin/BitGoJS.git#6f988355143201fc24391f9656580b17bd72385e"
   dependencies:
     "@bitgo/blake2b" "3.0.1"
     "@noble/curves" "1.9.7"
@@ -2128,15 +2102,6 @@
   resolved "https://registry.yarnpkg.com/@react-native/polyfills/-/polyfills-2.0.0.tgz#4c40b74655c83982c8cf47530ee7dc13d957b6aa"
   integrity sha512-K0aGNn1TjalKj+65D7ycc1//H9roAQ51GJVk5ZJQFb2teECGmzd86bYDC0aYdbRf7gtovescq4Zt6FR0tgXiHQ==
 
-"@react-navigation/bottom-tabs@^6.6.1":
-  version "6.6.1"
-  resolved "https://registry.yarnpkg.com/@react-navigation/bottom-tabs/-/bottom-tabs-6.6.1.tgz#589edc9c8fbf652c485b3c37d344faafe3cd4cc4"
-  integrity sha512-9oD4cypEBjPuaMiu9tevWGiQ4w/d6l3HNhcJ1IjXZ24xvYDSs0mqjUcdt8SWUolCvRrYc/DmNBLlT83bk0bHTw==
-  dependencies:
-    "@react-navigation/elements" "^1.3.31"
-    color "^4.2.3"
-    warn-once "^0.1.0"
-
 "@react-navigation/compat@5.3.20":
   version "5.3.20"
   resolved "https://registry.yarnpkg.com/@react-navigation/compat/-/compat-5.3.20.tgz#96cc6995f4bd40f70958b420735a189a87b22a0e"
@@ -2162,11 +2127,6 @@
     "@react-navigation/elements" "^1.3.6"
     color "^4.2.3"
     warn-once "^0.1.0"
-
-"@react-navigation/elements@^1.3.31":
-  version "1.3.31"
-  resolved "https://registry.yarnpkg.com/@react-navigation/elements/-/elements-1.3.31.tgz#28dd802a0787bb03fc0e5be296daf1804dbebbcf"
-  integrity sha512-bUzP4Awlljx5RKEExw8WYtif8EuQni2glDaieYROKTnaxsu9kEIA515sXQgUDZU4Ob12VoL7+z70uO3qrlfXcQ==
 
 "@react-navigation/elements@^1.3.6":
   version "1.3.17"
@@ -3094,7 +3054,7 @@ aws4@^1.8.0:
   resolved "https://registry.yarnpkg.com/aws4/-/aws4-1.12.0.tgz#ce1c9d143389679e253b314241ea9aa5cec980d3"
   integrity sha512-NmWvPnx0F1SfrQbYwOi7OeaNGokp9XhzNioJ/CSBs8Qa4vxug81mhJEAVZwxXuBmYB5KDRfMq/F3RR0BIU7sWg==
 
-axios@1.11.0, axios@1.7.4, axios@1.8.2:
+axios@1.11.0, axios@1.8.2:
   version "1.8.2"
   resolved "https://registry.yarnpkg.com/axios/-/axios-1.8.2.tgz#fabe06e241dfe83071d4edfbcaa7b1c3a40f7979"
   integrity sha512-ls4GYBm5aig9vWx8AWDSGLpnpDQRtWAfrjU+EuytuODrFBkqesN2RkOQCBzrA1RQNHw1SmRMSDDDSwzNAYQ6Rg==
@@ -6084,6 +6044,11 @@ hasown@^2.0.2:
   integrity sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==
   dependencies:
     function-bind "^1.1.2"
+
+hermes-engine@0.10.0:
+  version "0.10.0"
+  resolved "https://registry.yarnpkg.com/hermes-engine/-/hermes-engine-0.10.0.tgz#3a8eca6bbde31e0a2881f265f7c3216ae44c4015"
+  integrity sha512-SiBo9rvuWetTIQGPPYwRHP0Omo/Iw/yd0sujWR0bW08+syIO0qDpo/fgx7GrY5PEy8wLcVz8v7adET2i5DOmJg==
 
 hermes-estree@0.6.0:
   version "0.6.0"
@@ -9115,7 +9080,7 @@ open@^6.2.0:
   dependencies:
     is-wsl "^1.1.0"
 
-opencollective-postinstall@^2.0.0, opencollective-postinstall@^2.0.3:
+opencollective-postinstall@^2.0.0:
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/opencollective-postinstall/-/opencollective-postinstall-2.0.3.tgz#7a0fff978f6dbfa4d006238fbac98ed4198c3259"
   integrity sha512-8AV/sCtuzUeTo8gQK5qDZzARrulB3egtLzFgteqB2tcT4Mw7B8Kt7JcDHmltjz6FOAHsvTevk70gZEbhM4ZS9Q==
@@ -9916,14 +9881,6 @@ react-native-image-picker@5.7.0:
   resolved "https://registry.yarnpkg.com/react-native-image-picker/-/react-native-image-picker-5.7.0.tgz#3c146550bc89daddfca2fe123aaa0c753b58a5e2"
   integrity sha512-LGBrFQzKEAt/u4z+IcY7COZA7N6lCeLQ2dMu1PubK10+d9YBRS8n/ABNj48CJhEpUhcRPt7H3iWbwIuOlcZrDA==
 
-react-native-inappbrowser-reborn@^3.7.0:
-  version "3.7.0"
-  resolved "https://registry.yarnpkg.com/react-native-inappbrowser-reborn/-/react-native-inappbrowser-reborn-3.7.0.tgz#849a43c3c7da22b65147649fe596836bcb494083"
-  integrity sha512-Ia53jYNtFcbNaX5W3QfOmN25I7bcvuDiQmSY5zABXjy4+WI20bPc9ua09li55F8yDCjv3C99jX6vKms68mBV7g==
-  dependencies:
-    invariant "^2.2.4"
-    opencollective-postinstall "^2.0.3"
-
 react-native-iphone-x-helper@^1.0.3:
   version "1.3.1"
   resolved "https://registry.yarnpkg.com/react-native-iphone-x-helper/-/react-native-iphone-x-helper-1.3.1.tgz#20c603e9a0e765fd6f97396638bdeb0e5a60b010"
@@ -10112,11 +10069,6 @@ react-native-url-polyfill@1.3.0:
   dependencies:
     biggystring "^4.1.3"
     rfc4648 "^1.3.0"
-
-react-native-video@^6.17.0:
-  version "6.19.0"
-  resolved "https://registry.yarnpkg.com/react-native-video/-/react-native-video-6.19.0.tgz#828887010291259fef1367fb53a2de01886876fc"
-  integrity sha512-JVojWIxwuH5C3RjVrF4UyuweuOH/Guq/W2xeN9zugePXZI8Xn/j6/oU94gCWHaFzkR/HGeJpqMq+l9aEHSnpIQ==
 
 react-native-vision-camera@4.3.1:
   version "4.3.1"
@@ -12018,9 +11970,9 @@ version_compare@0.0.3:
     bignumber.js "^9.0.0"
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/michaeltout/verus-typescript-primitives.git#generic-signed-request", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#19b7b4d4cbda853319475d2c10be439dc3871e85":
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git":
   version "1.0.0"
-  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#19b7b4d4cbda853319475d2c10be439dc3871e85"
+  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#0ba0af7f83a781269a475ab09fe2c989326d815c"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
@@ -12037,16 +11989,16 @@ version_compare@0.0.3:
   version "1.0.0"
   resolved "https://github.com/michaeltout/verus-zkedid-utils#f9a97d448a0b460794132bea9789e278a0084a62"
 
-"verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client", "verusd-rpc-ts-client@git+https://github.com/michaeltout/verusd-rpc-ts-client#generic-request-changes":
+"verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client":
   version "0.1.0"
-  resolved "git+https://github.com/michaeltout/verusd-rpc-ts-client#c6b1b7097ddd6aad83b2edfe497e41275de04f87"
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client#ba996adad12b4059a6f9b36ec678f4359a3a578a"
   dependencies:
-    axios "1.7.4"
-    verus-typescript-primitives "git+https://github.com/michaeltout/verus-typescript-primitives.git#generic-signed-request"
+    axios "1.11.0"
+    verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
 
-"verusid-ts-client@git+https://github.com/michaeltout/verusid-ts-client.git#generic-request-changes":
+"verusid-ts-client@git+https://github.com/VerusCoin/verusid-ts-client.git":
   version "0.1.0"
-  resolved "git+https://github.com/michaeltout/verusid-ts-client.git#8d7021a3819139a54079cd5ab7366685b73ec820"
+  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#229b72da4da577a914ceecd400dd74cafece6eb8"
   dependencies:
     "@bitgo/utxo-lib" "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus"
     axios "1.11.0"
