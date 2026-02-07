@@ -6,12 +6,17 @@
   - 2026-02-06: Lean redesign — outcome-first card with compact change summary.
     Addresses and verbose warnings hidden behind "View details" to reduce
     cognitive load for regular users while keeping info accessible for power users.
+  - 2026-02-07: Fixed misleading outcome card. Primary address ownership info
+    is now only shown when primary addresses are actually changing. Authority-only
+    changes (revocation/recovery) show the target ID name instead of generic
+    "You will share control" messaging.
 */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, TouchableOpacity, View, StyleSheet, Platform } from 'react-native';
 import { Checkbox, Text } from 'react-native-paper';
 import Colors from '../../../../globals/colors';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { VERUSID_REVOCATION_AUTH, VERUSID_RECOVERY_AUTH } from '../../../../utils/constants/verusidObjectData';
 
 const HighRiskStep = ({
   highRiskChanges,
@@ -33,6 +38,37 @@ const HighRiskStep = ({
 
   const outcome = useMemo(() => {
     if (!hasPrimaryInfo) {
+      // No primary address changes — build specific messaging for authority changes
+      const revocationChange = (highRiskChanges || []).find(c => c.key === VERUSID_REVOCATION_AUTH.key);
+      const recoveryChange = (highRiskChanges || []).find(c => c.key === VERUSID_RECOVERY_AUTH.key);
+
+      if (revocationChange && recoveryChange) {
+        return {
+          icon: 'shield-alert-outline',
+          color: Colors.infoButtonColor,
+          title: 'Authority changes',
+          description: `Revocation authority will change to ${revocationChange.data}. Recovery authority will change to ${recoveryChange.data}.`,
+        };
+      }
+
+      if (revocationChange) {
+        return {
+          icon: 'shield-alert-outline',
+          color: Colors.infoButtonColor,
+          title: 'Revocation authority change',
+          description: `The revocation authority will change to ${revocationChange.data}.`,
+        };
+      }
+
+      if (recoveryChange) {
+        return {
+          icon: 'shield-alert-outline',
+          color: Colors.infoButtonColor,
+          title: 'Recovery authority change',
+          description: `The recovery authority will change to ${recoveryChange.data}.`,
+        };
+      }
+
       return {
         icon: 'shield-alert-outline',
         color: Colors.infoButtonColor,
@@ -65,7 +101,7 @@ const HighRiskStep = ({
       title: 'You will still control this ID',
       description: 'All primary addresses are in your wallet.',
     };
-  }, [hasPrimaryInfo, walletCount, externalCount]);
+  }, [hasPrimaryInfo, walletCount, externalCount, highRiskChanges]);
 
   /* Build a compact, plain-language summary of what's changing */
   const changeSummaryLines = useMemo(() => {

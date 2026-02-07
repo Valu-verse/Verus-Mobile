@@ -16,6 +16,9 @@
     so users can clearly see whether they retain control when adding external addresses.
   - 2026-02-06: Fixed wallet address derivation ordering so "in wallet" matching
     is reliable during the High-risk step.
+  - 2026-02-07: Fixed misleading HighRiskStep display. primaryAddressAfterUpdateInfo
+    is now only passed when primary addresses are actually changing, preventing the
+    "You will share control" message from appearing for authority-only changes.
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
 import {SafeAreaView, View, StyleSheet} from 'react-native';
@@ -604,7 +607,7 @@ const IdentityUpdateRequestInfo = props => {
       {currentStepId === STEP_HIGH_RISK && (
         <HighRiskStep
           highRiskChanges={highRiskChanges}
-          primaryAddressAfterUpdateInfo={primaryAddressAfterUpdateInfo}
+          primaryAddressAfterUpdateInfo={primaryAddressChanges.length > 0 ? primaryAddressAfterUpdateInfo : null}
           acknowledged={acknowledged}
           onToggle={toggleAcknowledgment}
           hasUnownedPrimaryAddress={hasUnownedPrimaryAddress}
