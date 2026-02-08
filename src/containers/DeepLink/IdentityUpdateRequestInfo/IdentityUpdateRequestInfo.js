@@ -19,6 +19,8 @@
   - 2026-02-07: Fixed misleading HighRiskStep display. primaryAddressAfterUpdateInfo
     is now only passed when primary addresses are actually changing, preventing the
     "You will share control" message from appearing for authority-only changes.
+  - 2026-02-07: Authority-only changes now show a dedicated card with prominent ID
+    name and info icon (AuthorityInfoSheet) instead of generic outcome messaging.
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
 import {SafeAreaView, View, StyleSheet} from 'react-native';
@@ -611,6 +613,10 @@ const IdentityUpdateRequestInfo = props => {
           acknowledged={acknowledged}
           onToggle={toggleAcknowledgment}
           hasUnownedPrimaryAddress={hasUnownedPrimaryAddress}
+          currentAuthorities={{
+            revocation: identity.revocationauthority ? displayIdentityAddress(identity.revocationauthority) : null,
+            recovery: identity.recoveryauthority ? displayIdentityAddress(identity.recoveryauthority) : null,
+          }}
           styles={styles}
         />
       )}

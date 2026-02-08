@@ -5,6 +5,7 @@
   their user account. This includes changing passwords, 
   deleting accounts etc.
   2025-11-22: Guarded legacy drawer closing for Settings tab usage.
+  2026-02-07: Show Z seed setup for testnet profiles.
 */
 
 import React, { Component } from "react";
@@ -556,7 +557,7 @@ class ProfileSettings extends Component {
           allowBiometry={true}
         />
         <List.Subheader>{"Profile Actions"}</List.Subheader>
-        {ENABLE_DLIGHT && !this.props.testAccount && (
+        {ENABLE_DLIGHT && (
           <TouchableOpacity
             onPress={this.handleZSeedSetup}
             disabled={zSetupComplete}

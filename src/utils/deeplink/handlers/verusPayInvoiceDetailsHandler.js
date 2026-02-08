@@ -1,6 +1,7 @@
-import { VerusPayInvoiceDetails, CurrencyDefinition, GenericRequest, VerusPayInvoiceOrdinalVDXFObject, GenericResponse } from "verus-typescript-primitives"
+// Updated invoice detail type checks and signer identity metadata.
+import { VerusPayInvoiceDetails, CurrencyDefinition, GenericRequest, VerusPayInvoiceDetailsOrdinalVDXFObject, GenericResponse } from "verus-typescript-primitives"
 import VrpcProvider from '../../vrpc/vrpcInterface';
-import { extractVerusPayInvoiceFromSigAndSigner, getInfo } from "../../api/channels/vrpc/callCreators";
+import { extractVerusPayInvoiceFromSigAndSigner, getBlock, getInfo } from "../../api/channels/vrpc/callCreators";
 import { getCurrency, getIdentity } from "../../api/channels/verusid/callCreators";
 import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { VERUSPAY_INVOICE_INFO } from "../../constants/deeplink";
@@ -19,6 +20,7 @@ import BigNumber from "bignumber.js";
  *    sigtime?: number;
  *    signerFqn?: string;
  *    signerSystemID?: string;
+ *    signerIdentityID?: string;
  *    currencyDefinition: CurrencyDefinition;
  *    amountDisplay?: string,
  *    destinationDisplay: string,
@@ -35,19 +37,20 @@ import BigNumber from "bignumber.js";
  */
 export const handleVerusPayInvoiceDetailsVDXFObject = async (request, response, invoiceIndex) => {
   /**
-   * @type {VerusPayInvoiceOrdinalVDXFObject}
+   * @type {VerusPayInvoiceDetailsOrdinalVDXFObject}
    */
   const details = request.getDetails(invoiceIndex);
 
   if (details == null) throw new Error("Invalid index for request details");
-  if (!(details instanceof VerusPayInvoiceOrdinalVDXFObject)) throw new Error("Invoice details not found at specified index");
+  if (!(details instanceof VerusPayInvoiceDetailsOrdinalVDXFObject)) throw new Error("Invoice details not found at specified index");
 
   let displayProps = {};
 
   if (request.isSigned()) {
     displayProps = await getDisplayDataFromVerusPayInvoiceDetails(
-      details.data, 
-      request.signature.identityID.toIAddress(), 
+      details.data,
+      request.signature.identityID.toIAddress(),
+      request.signature.systemID.toIAddress(),
       request.signature.signatureAsVch.toString('base64')
     );
   } else {
@@ -73,6 +76,7 @@ export const handleVerusPayInvoiceDetailsVDXFObject = async (request, response, 
  *    sigtime?: number;
  *    signerFqn?: string;
  *    signerSystemID?: string;
+ *    signerIdentityID?: string;
  *    currencyDefinition: CurrencyDefinition;
  *    amountDisplay?: string,
  *    destinationDisplay: string,
@@ -165,6 +169,7 @@ export const getDisplayDataFromVerusPayInvoiceDetails = async (details, signingI
     sigtime,
     signerFqn,
     signerSystemID,
+    signerIdentityID: signingID,
     currencyDefinition: requestedCurrency.result,
     amountDisplay: details.acceptsAnyAmount() ? null : satsToCoins(BigNumber(details.amount)).toString(),
     destinationDisplay: await getDestinationDisplay(),

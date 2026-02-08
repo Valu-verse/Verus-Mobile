@@ -1,9 +1,14 @@
 /*
   AuthenticationRequestInfo
-  - 2026-02-06: Modernized auth request layout to match LoginRequestInfo cards.
-    - Replaced legacy List.Item/Divider layout and large VerusIdLogo header
-    - Added requester, intent, and identity cards with connector + details section
-    - Updated footer to use GradientButton and modern secondary CTA styling
+  - 2026-02-07: Inline identity selection via bottom sheet.
+    - Added identity loading, constraint filtering, and IdentityPickerSheet
+    - Choose-identity card opens sheet; selection shown on card
+    - Continue builds response in-place instead of navigating to separate screen
+    - Fixed connector arrow to attach flush to top card
+    - Changed selection accent from blue to verusGreenColor
+    - Truncated i-address display to first 6 + last 6 chars
+    - Disabled Continue until identity is selected
+    - Resolved constraint i-addresses to friendly names via getIdentity
 */
 import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -16,14 +21,30 @@ import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/di
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { unixToDate } from '../../../utils/math';
-import { AuthenticationRequestDetails } from 'verus-typescript-primitives';
+import {
+  AuthenticationRequestDetails,
+  AuthenticationResponseDetails,
+  AuthenticationResponseOrdinalVDXFObject,
+  CompactAddressObject,
+  GenericResponse,
+  VerifiableSignatureData,
+} from 'verus-typescript-primitives';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
+import { requestServiceStoredData } from '../../../utils/auth/authBox';
+import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
+import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
 import GradientButton from '../../../components/GradientButton';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
+import IdentityPickerSheet from './components/IdentityPickerSheet';
+
+const truncateAddress = (addr) => {
+  if (!addr || addr.length <= 14) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+};
 
 const Connector = () => {
   return (
@@ -56,20 +77,67 @@ const AuthenticationRequestInfo = props => {
   const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
 
+  // Identity picker state
+  const [linkedIds, setLinkedIds] = useState({});
+  const [sortedIds, setSortedIds] = useState({});
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  const [selectedIdentity, setSelectedIdentity] = useState(null); // { chainId, iAddress, friendlyName }
+  const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({}); // { iAddress: friendlyName }
+
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const isTestAccount = activeAccount && Object.keys(activeAccount.testnetOverrides).length > 0;
+  const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
+  const testnetOverrides = useObjectSelector(state => state.authentication.activeAccount?.testnetOverrides || {});
+  const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    ? testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    : VERUSID_NETWORK_DEFAULT;
 
   const requestIsTestnet = request != null && request.isTestnet();
   const canOpenSignerModal = signerSystemName && signerIdentityID;
   const requesterLabel = signerFqn || 'An app';
   const systemLabel =
     signerSystemName || getSystemNameFromSystemId(signerSystemID) || signerSystemID;
-  const headerSubtitle = `${requesterLabel} is requesting login with VerusID`;
-  const intentTitle = 'Login request';
-  const intentSubtitle = `${requesterLabel} wants to verify your identity`;
+
+  // Identity constraint filtering (mirrored from AuthenticationRequestIdentity)
+  const recipientConstraints = details && details.recipientConstraints ? details.recipientConstraints : [];
+
+  const allowedSystems = useMemo(() => {
+    const systems = recipientConstraints
+      .filter(x => x.type === AuthenticationRequestDetails.REQUIRED_SYSTEM)
+      .map(x => {
+        try {
+          return getSystemNameFromSystemId(x.identity.toIAddress());
+        } catch (e) {
+          return null;
+        }
+      })
+      .filter(x => x != null);
+    return new Set(systems);
+  }, [recipientConstraints]);
+
+  const requiredIds = useMemo(() => {
+    return new Set(
+      recipientConstraints
+        .filter(x => x.type === AuthenticationRequestDetails.REQUIRED_ID)
+        .map(x => {
+          try {
+            return x.identity.toIAddress();
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(x => x != null),
+    );
+  }, [recipientConstraints]);
+
+  const isIdentityAllowed = (chainId, iAddr) => {
+    if (requiredIds.size > 0 && !requiredIds.has(iAddr)) return false;
+    if (allowedSystems.size > 0 && !allowedSystems.has(chainId)) return false;
+    return true;
+  };
 
   const getConstraintLabel = (constraint) => {
     let identityLabel = constraint.identity.address;
@@ -86,15 +154,21 @@ const AuthenticationRequestInfo = props => {
       if (systemName) constraintLabel = systemName;
     }
 
+    // Use resolved friendly name if available
+    const friendlyName = constraintFriendlyNames[constraintLabel];
+    if (friendlyName && constraint.type !== AuthenticationRequestDetails.REQUIRED_SYSTEM) {
+      constraintLabel = friendlyName;
+    }
+
     switch (constraint.type) {
       case AuthenticationRequestDetails.REQUIRED_ID:
-        return `Required identity: ${constraintLabel}`;
+        return `Required identity:\n${constraintLabel}`;
       case AuthenticationRequestDetails.REQUIRED_SYSTEM:
-        return `Required system: ${constraintLabel}`;
+        return `Required system:\n${constraintLabel}`;
       case AuthenticationRequestDetails.REQUIRED_PARENT:
-        return `Required parent: ${constraintLabel}`;
+        return `Required parent:\n${constraintLabel}`;
       default:
-        return `Constraint: ${constraintLabel}`;
+        return `Constraint:\n${constraintLabel}`;
     }
   };
 
@@ -140,20 +214,36 @@ const AuthenticationRequestInfo = props => {
     return accounts.filter(x => !x.testnetOverrides || Object.keys(x.testnetOverrides).length === 0);
   };
 
+  // Build response using selected identity and call next()
+  const buildResponseAndContinue = () => {
+    const { chainId, iAddress } = selectedIdentity;
+
+    const responseDetail = new AuthenticationResponseOrdinalVDXFObject({
+      data: new AuthenticationResponseDetails({
+        requestID: details.requestID,
+      }),
+    });
+
+    const baseResponse = response || new GenericResponse();
+    if (baseResponse.details == null) baseResponse.details = [];
+    baseResponse.details = [...baseResponse.details, responseDetail];
+
+    if (baseResponse.signature == null) {
+      const coinObj = CoinDirectory.findCoinObj(chainId);
+      baseResponse.signature = new VerifiableSignatureData({
+        systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
+        identityID: CompactAddressObject.fromIAddress(iAddress),
+      });
+      baseResponse.setSigned();
+    }
+
+    next(baseResponse, [detailIndex]);
+  };
+
   const handleContinue = () => {
     if (signedIn) {
-      const requestBufferString = request.toBuffer().toString('hex');
-      const responseBufferString = response.details && response.details.length > 0
-        ? response.toBuffer().toString('hex')
-        : '';
-
-      navigation.navigate('AuthenticationRequestIdentity', {
-        detailsBufferString,
-        requestBufferString,
-        responseBufferString,
-        detailIndex,
-        next
-      });
+      if (!selectedIdentity) return;
+      buildResponseAndContinue();
     } else {
       setWaitingForSignin(true);
       const allowList = getAllowList();
@@ -253,7 +343,7 @@ const AuthenticationRequestInfo = props => {
     }
 
     return rows;
-  }, [constraints, responseUris, expiryLabel]);
+  }, [constraints, responseUris, expiryLabel, constraintFriendlyNames]);
 
   useEffect(() => {
     if (detailsBufferString) {
@@ -263,6 +353,41 @@ const AuthenticationRequestInfo = props => {
     }
   }, [detailsBufferString]);
 
+  // Resolve friendly names for constraint i-addresses
+  useEffect(() => {
+    const resolveConstraintNames = async () => {
+      const constraintsToResolve = recipientConstraints.filter(
+        c => c.type === AuthenticationRequestDetails.REQUIRED_PARENT ||
+             c.type === AuthenticationRequestDetails.REQUIRED_ID
+      );
+
+      if (constraintsToResolve.length === 0) return;
+
+      const names = {};
+      const systemId = signerSystemID || (requestIsTestnet ? 'iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq' : 'i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV');
+
+      for (const constraint of constraintsToResolve) {
+        try {
+          const iAddr = constraint.identity.toIAddress();
+          const result = await getIdentity(systemId, iAddr);
+          if (!result.error && result.result && result.result.fullyqualifiedname) {
+            names[iAddr] = result.result.fullyqualifiedname;
+          }
+        } catch (e) {
+          // Keep i-address as fallback
+        }
+      }
+
+      if (Object.keys(names).length > 0) {
+        setConstraintFriendlyNames(prev => ({ ...prev, ...names }));
+      }
+    };
+
+    if (recipientConstraints.length > 0) {
+      resolveConstraintNames();
+    }
+  }, [recipientConstraints, signerSystemID]);
+
   useEffect(() => {
     if (sigtime != null) {
       setSigDateString(unixToDate(sigtime));
@@ -270,6 +395,52 @@ const AuthenticationRequestInfo = props => {
       setSigDateString(null);
     }
   }, [sigtime]);
+
+  // Load linked identities when encrypted IDs change (user signs in / links ID)
+  useEffect(() => {
+    const loadLinkedIds = async () => {
+      try {
+        const verusIdServiceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+        if (verusIdServiceData.linked_ids) {
+          setLinkedIds(verusIdServiceData.linked_ids);
+        } else {
+          setLinkedIds({});
+        }
+      } catch (e) {
+        // Silently handle — identities will show as empty
+        setLinkedIds({});
+      }
+    };
+
+    if (signedIn) {
+      loadLinkedIds();
+    }
+  }, [encryptedIds, signedIn]);
+
+  // Sort identities alphabetically by friendly name per chain
+  useEffect(() => {
+    const sorted = {};
+    for (const chainId of Object.keys(linkedIds)) {
+      sorted[chainId] = linkedIds[chainId]
+        ? Object.keys(linkedIds[chainId]).sort((a, b) => {
+            const nameA = linkedIds[chainId][a] || '';
+            const nameB = linkedIds[chainId][b] || '';
+            return nameA.localeCompare(nameB);
+          })
+        : [];
+    }
+    setSortedIds(sorted);
+  }, [linkedIds]);
+
+  // Identity sheet handlers
+  const handleOpenIdentitySheet = () => {
+    setIdentitySheetVisible(true);
+  };
+
+  const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    setSelectedIdentity({ chainId, iAddress, friendlyName });
+    setIdentitySheetVisible(false);
+  };
 
   return loading ? (
     <AnimatedActivityIndicatorBox />
@@ -287,7 +458,6 @@ const AuthenticationRequestInfo = props => {
       >
         <View style={styles.header}>
           <Text style={styles.mainTitle}>Authentication request</Text>
-          <Text style={styles.subtitle}>{headerSubtitle}</Text>
         </View>
 
         <TouchableOpacity
@@ -321,31 +491,48 @@ const AuthenticationRequestInfo = props => {
           </View>
         </TouchableOpacity>
 
-        <View style={styles.intentCard}>
-          <View style={styles.intentRow}>
-            <View style={styles.intentIconContainer}>
-              <MaterialCommunityIcons name="account-key" size={20} color={Colors.verusGreenColor} />
-            </View>
-            <View style={styles.intentTextContainer}>
-              <Text style={styles.intentTitle}>{intentTitle}</Text>
-              <Text style={styles.intentSubtitle}>{intentSubtitle}</Text>
-            </View>
-          </View>
-        </View>
-
         <Connector />
 
-        <View style={styles.targetCard}>
+        <TouchableOpacity
+          style={[
+            styles.targetCard,
+            selectedIdentity && styles.targetCardSelected,
+          ]}
+          onPress={handleOpenIdentitySheet}
+          activeOpacity={0.7}
+        >
           <View style={styles.targetRow}>
             <View style={styles.targetIconContainer}>
               <VerusIdAtIcon width={24} height={24} fill="#3165D4" />
             </View>
             <View style={styles.targetInfo}>
               <Text style={styles.targetLabel}>Identity</Text>
-              <Text style={styles.targetName}>Choose identity</Text>
+              <Text style={styles.targetName}>
+                {selectedIdentity ? selectedIdentity.friendlyName : 'Choose identity'}
+              </Text>
+              {selectedIdentity && (
+                <Text style={styles.targetAddress} numberOfLines={1}>
+                  {truncateAddress(selectedIdentity.iAddress)}
+                </Text>
+              )}
             </View>
+            <MaterialCommunityIcons
+              name={selectedIdentity ? 'swap-horizontal' : 'chevron-right'}
+              size={20}
+              color={selectedIdentity ? Colors.verusGreenColor : '#CCC'}
+            />
           </View>
-        </View>
+        </TouchableOpacity>
+
+        <IdentityPickerSheet
+          visible={identitySheetVisible}
+          linkedIds={linkedIds}
+          sortedIds={sortedIds}
+          isIdentityAllowed={isIdentityAllowed}
+          selectedIdentity={selectedIdentity}
+          onClose={() => setIdentitySheetVisible(false)}
+          onSelect={handleSelectIdentity}
+        />
 
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
@@ -401,7 +588,11 @@ const AuthenticationRequestInfo = props => {
           </Button>
         </View>
         <View style={styles.ctaCol}>
-          <GradientButton onPress={() => handleContinue()} style={styles.primaryCta}>
+          <GradientButton
+            onPress={() => handleContinue()}
+            style={[styles.primaryCta, !selectedIdentity && styles.primaryCtaDisabled]}
+            disabled={!selectedIdentity}
+          >
             Continue
           </GradientButton>
         </View>
@@ -435,16 +626,11 @@ const styles = StyleSheet.create({
     color: '#1A1A1A',
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
   requesterCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 0,
     borderWidth: 1,
     borderColor: '#E8E8E8',
     zIndex: 2,
@@ -493,48 +679,13 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '600',
   },
-  intentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  intentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  intentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: '#ECFDF3',
-  },
-  intentTextContainer: {
-    flex: 1,
-  },
-  intentTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  intentSubtitle: {
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 18,
-  },
   connectorContainer: {
     alignItems: 'center',
-    height: 40,
+    height: 32,
     justifyContent: 'center',
     zIndex: 1,
-    marginTop: -2,
-    marginBottom: -2,
+    marginTop: 0,
+    marginBottom: 0,
   },
   connectorLine: {
     width: 2,
@@ -566,6 +717,10 @@ const styles = StyleSheet.create({
     borderColor: '#E8E8E8',
     zIndex: 2,
   },
+  targetCardSelected: {
+    borderColor: Colors.verusGreenColor,
+    backgroundColor: '#F5FBF6',
+  },
   targetRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -592,6 +747,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#1A1A1A',
+  },
+  targetAddress: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
   },
   sectionCard: {
     backgroundColor: '#FFFFFF',
@@ -708,5 +868,8 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: 44,
     borderRadius: 22,
+  },
+  primaryCtaDisabled: {
+    opacity: 0.4,
   },
 });

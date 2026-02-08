@@ -1,8 +1,9 @@
+// Updated invoice detail validation to fix expiry errors.
 import { CoinDirectory } from "../../CoinData/CoinDirectory"
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getInfo } from "../../api/channels/vrpc/callCreators";
 import { blocksToTime } from "../../math";
-import { GenericRequest, VerusPayInvoiceDetails, VerusPayInvoiceOrdinalVDXFObject } from "verus-typescript-primitives/dist/vdxf/classes";
+import { GenericRequest, VerusPayInvoiceDetails, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives/dist/vdxf/classes";
 import { getCurrency } from "../../api/channels/verusid/callCreators";
 
 /**
@@ -42,7 +43,7 @@ export const validateVerusPayInvoiceDetails = async (details) => {
   }
 
   if (details.expires() && details.expiryheight.toNumber() - chainInfo.result.longestchain < 0) {
-    const age = (invoice.details.expiryheight.toNumber() - chainInfo.result.longestchain) * -1
+    const age = (details.expiryheight.toNumber() - chainInfo.result.longestchain) * -1
     
     throw new Error(`This invoice is expired (expired for approx. ${blocksToTime(age)}).`,)
   }

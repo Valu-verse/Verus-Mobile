@@ -2,6 +2,7 @@
  * CoinsList.js
  * 
  * Changes:
+ * - 2026-02-07: Enabled DLight for Verus testnet (VRSCTEST) with testnet endpoints.
  * - 2026-01-22: Added scrvUSD.vETH (i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj) with CoinPaprika pricing support
  *   to enable fiat value calculations for Savings crvUSD bridged to Verus
  * - 2026-01-22: Added vUSDT.vETH (i9oCSqKALwJtcv49xUKS2U2i79h1kX6NEY) with CoinPaprika pricing support
@@ -112,9 +113,10 @@ export const coinsList = {
     theme_color: '#232323',
     website: 'https://verus.io',
     fee: 10000,
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [DLIGHT_PRIVATE, VERUSID, VRPC],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT],
     proto: 'vrsc',
+    dlight_endpoints: dlightServers.vrsctest,
     vrpc_endpoints: ['https://api.verustest.net'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
