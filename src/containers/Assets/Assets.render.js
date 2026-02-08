@@ -1,12 +1,12 @@
 /*
   Updated: Assets.render
-  - Compact asset rows with balanced spacing and chip-style Manage Assets CTAs
-  - Match icon styling to Add assets selection (square cards) with refined sizing
-  - Align coin name with fiat balance, widen spacing before crypto amount, and show 4 decimal places
-  - Round fiat balances to two decimals before formatting to match coin overview screens
+  - Align per-asset price with the balance row on the right
+  - Hide per-asset price when total fiat is unavailable (N/A)
+  - Remove ticker suffix from per-asset price
+  - Preserve existing balance masking and formatting behavior
   - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
   - 2026-01-09: Allow passing onScroll through to FlatList (used for Wallet sticky-header divider).
-  - 2026-01-23: Display "Price unavailable" for assets without fiat pricing data instead 
+  - 2026-01-23: Display "Price unavailable" for assets without fiat pricing data instead
     of showing €0,00.
 */
 import React from 'react';
@@ -17,7 +17,7 @@ import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import BigNumber from 'bignumber.js';
 
 const Row = ({ item, displayCurrency, showBalance, onPress }) => {
-  const { coinObj, fiat, crypto } = item;
+  const { coinObj, fiat, crypto, rate } = item;
   const cryptoAmount = BigNumber(crypto || 0);
   const hasBalance = cryptoAmount.isGreaterThan(0);
   
@@ -40,6 +40,16 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
     ? cryptoAmount.decimalPlaces(4, BigNumber.ROUND_DOWN).toFixed(4)
     : '0.0000';
 
+  const rateFormatted = rate != null
+    ? (() => {
+        const rateRounded = BigNumber(rate).decimalPlaces(2, BigNumber.ROUND_HALF_UP);
+        const [formatted] = formatCurrency({ amount: rateRounded.toFixed(2), code: displayCurrency });
+        return formatted;
+      })()
+    : null;
+
+  const showRate = showBalance && rateFormatted != null && fiatFormatted != null;
+
   return (
     <List.Item
       onPress={onPress}
@@ -59,9 +69,12 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
         </View>
       )}
       description={() => (
-        <Text style={styles.cryptoValue}>
-          {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : `*** ${coinObj.display_ticker}`}
-        </Text>
+        <View style={styles.descriptionRow}>
+          <Text style={styles.cryptoValue}>
+            {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : `*** ${coinObj.display_ticker}`}
+          </Text>
+          {showRate ? <Text style={styles.fiatRate}>{rateFormatted}</Text> : null}
+        </View>
       )}
       left={() => (
         <View style={styles.leftContainer}>{RenderSquareCoinLogo(coinObj.id, {}, 38, 38)}</View>
@@ -182,19 +195,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#000000',
-    marginLeft: 12,
+    textAlign: 'right',
   },
   fiatNA: {
     fontSize: 13,
     fontWeight: '400',
     color: '#999999',
-    marginLeft: 12,
+    textAlign: 'right',
+  },
+  fiatRate: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#999999',
+    textAlign: 'right',
+  },
+  descriptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
   },
   cryptoValue: {
     fontSize: 16,
     fontWeight: '500',
     color: '#666666',
-    marginTop: 6,
   },
   manageAssetsContainer: {
     flexDirection: 'row',

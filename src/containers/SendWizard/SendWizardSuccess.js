@@ -17,6 +17,8 @@
     now show algorithmically generated mosaic icons.
   - Updated 2026-01-22: Fixed "Expected arrival" time text wrapping issue by removing
     maxWidth constraint on time value text (detailValueNoWrap style).
+  - Updated 2026-02-08: Success screen now uses adjusted preflight amount and
+    recalculates receive estimate when fees reduce the send amount.
 */
 
 import React, { useCallback, useLayoutEffect, useEffect, useState, useRef, useMemo } from 'react';
@@ -35,6 +37,7 @@ import GradientButton from '../../components/GradientButton';
 import AnimatedSuccessCheckmark from '../../components/AnimatedSuccessCheckmark';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { satsToCoins } from '../../utils/math';
 import { GENERAL, WYRE_SERVICE, USD, ETH, ERC20 } from '../../utils/constants/intervalConstants';
 
 const SendWizardSuccess = () => {
@@ -49,6 +52,8 @@ const SendWizardSuccess = () => {
     targetDisplayName,
     targetDisplayTicker,
     amount,
+    via,
+    viaOptions,
     estimate,
     preflightResult,
     recipientAddress,
@@ -79,13 +84,70 @@ const SendWizardSuccess = () => {
     [rates, displayCurrency],
   );
 
+  // Prefer preflight estimate for more accurate receive amounts
+  // If the amount was adjusted during preflight, recalculate the estimate using the adjusted amount.
+  const displayEstimate = useMemo(() => {
+    let baseEstimate = preflightResult?.estimate || estimate || null;
+    
+    // Check if amount was adjusted (fees deducted from send amount)
+    if (preflightResult?.output?.satoshis && 
+        preflightResult?.submittedsats && 
+        baseEstimate?.estimatedcurrencyout &&
+        viaOptions?.length > 0) {
+      
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      // Only recalculate if amount was actually adjusted
+      if (!submitted.isEqualTo(actual)) {
+        // Find the selected via option (or direct option if no via)
+        const selectedViaOption = viaOptions.find(opt => 
+          via ? opt.id === via : (opt.isDirect || opt.id === 'direct')
+        );
+        
+        // If we have a price, recalculate the estimate using the adjusted amount
+        if (selectedViaOption?.price) {
+          const adjustedAmountBn = satsToCoins(actual);
+          const priceBn = BigNumber(selectedViaOption.price);
+          
+          if (priceBn.isFinite() && !priceBn.isNaN() && priceBn.isGreaterThan(0)) {
+            const recalculatedOutput = adjustedAmountBn.multipliedBy(priceBn);
+            
+            return {
+              ...baseEstimate,
+              estimatedcurrencyout: recalculatedOutput.toString(),
+              precomputed: true,
+              recalculated: true, // Flag to indicate this was recalculated
+            };
+          }
+        }
+      }
+    }
+    
+    return baseEstimate;
+  }, [preflightResult, estimate, viaOptions, via]);
+
+  // Use adjusted amount from preflight when fees are deducted from the send amount
+  const displayAmount = useMemo(() => {
+    if (preflightResult?.output?.satoshis && preflightResult?.submittedsats) {
+      const submitted = BigNumber(preflightResult.submittedsats);
+      const actual = BigNumber(preflightResult.output.satoshis);
+      
+      if (!submitted.isEqualTo(actual)) {
+        // Amount was adjusted - show the actual amount that will be sent
+        return satsToCoins(actual).toString();
+      }
+    }
+    return amount;
+  }, [preflightResult, amount]);
+
   // Calculate fiat display for amount
   const amountFiatDisplay = useMemo(() => {
-    if (!amount || !sourceCoin?.id) return null;
+    if (!displayAmount || !sourceCoin?.id) return null;
     const rate = getRate(sourceCoin.id);
     if (!rate) return null;
     try {
-      const fiatValue = BigNumber(amount).multipliedBy(BigNumber(rate));
+      const fiatValue = BigNumber(displayAmount).multipliedBy(BigNumber(rate));
       if (fiatValue.isNaN() || !fiatValue.isFinite()) return null;
       const [formatted] = formatCurrency({
         amount: fiatValue.decimalPlaces(2, BigNumber.ROUND_HALF_UP).toNumber(),
@@ -95,7 +157,7 @@ const SendWizardSuccess = () => {
     } catch (e) {
       return null;
     }
-  }, [amount, sourceCoin, getRate, displayCurrency]);
+  }, [displayAmount, sourceCoin, getRate, displayCurrency]);
 
   // Get channel type for transaction type detection
   const channelType = useMemo(() => {
@@ -143,11 +205,6 @@ const SendWizardSuccess = () => {
   const isPbaasConversion = useMemo(() => {
     return estimatedTime === '2-10 minutes';
   }, [estimatedTime]);
-
-  // Prefer preflight estimate for more accurate receive amounts
-  const displayEstimate = useMemo(() => {
-    return preflightResult?.estimate || estimate || null;
-  }, [preflightResult, estimate]);
 
   // Get destination network display name for cross-chain transactions
   const destinationNetworkName = useMemo(() => {
@@ -314,7 +371,7 @@ const SendWizardSuccess = () => {
             <View style={{ flex: 1 }}>
               <Text style={styles.amountLabel}>{sentLabel}</Text>
               <Text style={styles.amountValue}>
-                {amount} {sourceCoin?.display_ticker}
+                {displayAmount} {sourceCoin?.display_ticker}
               </Text>
               {amountFiatDisplay && (
                 <Text style={styles.amountFiat}>{amountFiatDisplay}</Text>
