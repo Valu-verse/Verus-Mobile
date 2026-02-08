@@ -310,7 +310,7 @@ class _CoinDirectory {
       display_name: currencyDefinition.fullyqualifiedname,
       alt_names: [],
       theme_color: '#232323',
-      compatible_channels: [VERUSID, VRPC],
+      compatible_channels: [VERUSID, VRPC, GENERAL],
       tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
       proto: 'vrsc',
       vrpc_endpoints: endpoints,

@@ -40,6 +40,7 @@
   - Updated 2026-01-09: Removed redundant over-balance helper text and kept the MAX button
     styling consistent (no error color) when amount exceeds balance.
   - Updated 2026-01-15: Added a header close X to exit the send flow.
+  - Updated 2026-02-08: Use target FQN for receive/rate labels on amount screen.
 */
 
 import React, { useCallback, useLayoutEffect, useMemo, useState, useEffect, useRef } from 'react';
@@ -684,6 +685,11 @@ const SendWizardAmount = () => {
     return { name, ticker, coinId };
   }, [targetCurrency, isBounceback, ethDisplayInfo, targetDisplayName, targetDisplayTicker]);
 
+  const targetReceiveLabel = useMemo(() => {
+    if (convertToFqn && String(convertToFqn).trim() !== '') return convertToFqn;
+    return targetCurrencyInfo?.ticker || '';
+  }, [convertToFqn, targetCurrencyInfo]);
+
   // Get source and destination chain names for subtitle
   // Handles native ETH/ERC20 coins and Verus-based chains separately
   const chainInfo = useMemo(() => {
@@ -946,7 +952,7 @@ const SendWizardAmount = () => {
                           ≈ {estimateDisplay}
                         </Text>
                         <Text style={styles.estimateTickerCompact}>
-                          {targetCurrencyInfo.ticker}
+                          {targetReceiveLabel}
                         </Text>
                       </View>
                       {outputFiatDisplay && (
@@ -984,7 +990,7 @@ const SendWizardAmount = () => {
                     <View style={styles.viaSingleRow}>
                       <Text style={styles.viaSingleLabel}>Rate</Text>
                       <Text style={styles.viaSingleValue}>
-                        1 {sourceCoin.display_ticker} = {rateDisplay} {targetCurrencyInfo.ticker}
+                        1 {sourceCoin.display_ticker} = {rateDisplay} {targetReceiveLabel}
                       </Text>
                     </View>
                   ) : null}

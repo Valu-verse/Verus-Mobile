@@ -2,6 +2,8 @@
  * CoinsList.js
  * 
  * Changes:
+ * - 2026-02-08: Added GENERAL to compatible_channels for all PBaaS currencies so
+ *   the General fiat-price channel is opened and derived pricing can run.
  * - 2026-02-07: Enabled DLight for Verus testnet (VRSCTEST) with testnet endpoints.
  * - 2026-01-22: Added scrvUSD.vETH (i9nLSK4S1U5sVMq4eJUHR1gbFALz56J9Lj) with CoinPaprika pricing support
  *   to enable fiat value calculations for Savings crvUSD bridged to Verus
@@ -326,7 +328,7 @@ export const coinsList = {
     display_name: "Bridge.vETH",
     alt_names: [],
     theme_color: "#081C45",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: "vrsc",
     decimals: 8,
@@ -346,7 +348,7 @@ export const coinsList = {
     display_name: "Pure",
     alt_names: [],
     theme_color: "#484C52",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -364,7 +366,7 @@ export const coinsList = {
     display_name: "Kaiju",
     alt_names: [],
     theme_color: "#030a17",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -382,7 +384,7 @@ export const coinsList = {
     display_name: "Switch",
     alt_names: [],
     theme_color: "#132618",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
@@ -401,7 +403,7 @@ export const coinsList = {
     display_name: "Pirate Chain (PBaaS)",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://vapi.piratechain.com/"],
@@ -423,7 +425,7 @@ export const coinsList = {
     display_name: "CHIPS",
     alt_names: [],
     theme_color: "#1f095e",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://api.chips.cash/"],
@@ -445,7 +447,7 @@ export const coinsList = {
     display_name: "vDEX",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     vrpc_endpoints: ["https://api.vdex.to/"],
@@ -465,7 +467,7 @@ export const coinsList = {
     display_name: "Bridge.vARRR",
     alt_names: [],
     theme_color: "#1d1d2c",
-    compatible_channels: [VERUSID, VRPC],
+    compatible_channels: [VERUSID, VRPC, GENERAL],
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS],
     proto: "vrsc",
     decimals: 8,
