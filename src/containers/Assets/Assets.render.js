@@ -1,7 +1,9 @@
 /*
   Updated: Assets.render
   - Align per-asset price with the balance row on the right
-  - Hide per-asset price when total fiat is unavailable (N/A)
+  - Hide per-asset price when total fiat is unavailable (N/A) and balance is visible
+  - 2026-02-09: Show per-coin fiat rate (unit price) even when amounts are hidden; it does
+    not reveal balance and lets users see coin price in privacy mode.
   - Remove ticker suffix from per-asset price
   - Preserve existing balance masking and formatting behavior
   - Updated 2025-11-29: Ensure coin ticker remains visible when balance is hidden
@@ -48,7 +50,8 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
       })()
     : null;
 
-  const showRate = showBalance && rateFormatted != null && fiatFormatted != null;
+  // Per-coin rate is safe to show when amounts hidden (no balance revealed)
+  const showRate = rateFormatted != null && (!showBalance || fiatFormatted != null);
 
   return (
     <List.Item

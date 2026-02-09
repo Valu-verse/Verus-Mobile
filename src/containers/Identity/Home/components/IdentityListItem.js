@@ -1,5 +1,7 @@
 /*
   IdentityListItem
+  - 2026-02-09: Chain badge styling: VRSC/VRSCTEST use VRSC brand color (#3165D4) text and
+    light blue background; all other chains use grey pill and text.
   - 2026-01-14: Make list rows identity-first by removing the i-address from the row and
     focusing the row on the VerusID name + network.
   - 2026-01-14: Removed DeterministicAvatar per updated UX direction (text-only rows).
@@ -8,13 +10,17 @@ import React from 'react';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import Colors from '../../../../globals/colors';
 
-const IdentityListItem = ({ 
-  name, 
-  network, 
-  isPreferred, 
+const VRSC_NETWORKS = ['VRSC', 'VRSCTEST'];
+
+const IdentityListItem = ({
+  name,
+  network,
+  isPreferred,
   onPress,
   subtitle,
 }) => {
+  const isVrsc = network && VRSC_NETWORKS.includes(network);
+
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -27,8 +33,8 @@ const IdentityListItem = ({
           {!!subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
         </View>
         {network && (
-          <View style={[styles.networkPill, isPreferred && styles.networkPillPreferred]}>
-            <Text style={[styles.networkText, isPreferred && styles.networkTextPreferred]}>
+          <View style={[styles.networkPill, isVrsc ? styles.networkPillVrsc : styles.networkPillOther]}>
+            <Text style={[styles.networkText, isVrsc ? styles.networkTextVrsc : styles.networkTextOther]}>
               {network}
             </Text>
           </View>
@@ -79,21 +85,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: '#F5F5F5',
     marginLeft: 8,
-    alignSelf: 'flex-start', // Top align if multi-line, but centered here
+    alignSelf: 'flex-start',
   },
-  networkPillPreferred: {
-    backgroundColor: '#E8F5E8', // Light green
+  networkPillVrsc: {
+    backgroundColor: '#E8EEFC', // Light blue tint for VRSC
+  },
+  networkPillOther: {
+    backgroundColor: '#F0F0F0', // Grey for other chains
   },
   networkText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#888',
     textTransform: 'uppercase',
   },
-  networkTextPreferred: {
-    color: Colors.verusGreenColor,
+  networkTextVrsc: {
+    color: '#3165D4', // VRSC brand color
+  },
+  networkTextOther: {
+    color: '#888',
   },
 });
 

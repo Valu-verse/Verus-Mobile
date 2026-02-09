@@ -1,5 +1,11 @@
+/*
+  LightWalletReduxManager: init/close dlight wallet and Redux state.
+  Changes: subscribe to synchronizer (BalanceEvent, UpdateEvent, StatusEvent, TransactionEvent)
+  after successful init; unsubscribe before close to fix "no listeners registered" warnings.
+*/
+
 import Store from '../../../../../store/index'
-import { Tools } from 'react-native-verus'
+import { Tools, getSynchronizerInstance } from 'react-native-verus'
 import {
   initializeWallet,
   eraseWallet,
@@ -14,12 +20,15 @@ import {
   ERROR_DLIGHT_INIT,
   STOP_DLIGHT_SYNC,
   SET_ADDRESSES,
+  SET_BALANCES,
   CLOSE_DLIGHT_SOCKET,
   INIT_DLIGHT_CHANNEL_START,
   CLOSE_DLIGHT_CHANNEL,
 } from "../../../../../utils/constants/storeType";
 import { requestSeeds } from '../../../../../utils/auth/authBox'
 import { DLIGHT_PRIVATE } from '../../../../../utils/constants/intervalConstants'
+import BigNumber from 'bignumber.js'
+import { satsToCoins } from '../../../../../utils/math'
 
 // Initializes dlight wallet by either creating a backend native wallet and opening it or just opening it
 export const initDlightWallet = async (coinObj) => {
@@ -118,6 +127,26 @@ export const initDlightWallet = async (coinObj) => {
         payload: { chainTicker: id, channel: DLIGHT_PRIVATE, addresses: [ res.pop().result ]  }
       });
 
+      const synchronizer = getSynchronizerInstance(accountHash, id)
+      synchronizer.subscribe({
+        onBalanceChanged (event) {
+          const confirmed = satsToCoins(BigNumber(event.availableZatoshi || 0))
+          const total = satsToCoins(BigNumber(event.totalZatoshi || 0))
+          dispatch({
+            type: SET_BALANCES,
+            payload: {
+              chainTicker: id,
+              channel: DLIGHT_PRIVATE,
+              header: {},
+              body: { confirmed, total, pending: satsToCoins(BigNumber(0)) }
+            }
+          })
+        },
+        onUpdate () {},
+        onStatusChanged () {},
+        onTransactionsChanged () {}
+      })
+
       resolve()
     })
     .catch(err => {
@@ -160,6 +189,13 @@ export const closeDlightWallet = async (coinObj, clearDb) => {
   const { id, proto } = coinObj
 
   if (activeAccount.seeds.dlight_private == null) return Promise.resolve()
+
+  try {
+    const synchronizer = getSynchronizerInstance(accountHash, id)
+    synchronizer.unsubscribe()
+  } catch (e) {
+    // Ignore if no synchronizer or already unsubscribed
+  }
 
   let closePromises = []
   try {

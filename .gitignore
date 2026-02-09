@@ -131,3 +131,4 @@ android/app/src/main/res/drawable-xxxhdpi/node_modules_reactnavigation_elements_
 
 # instructions
 .cursor/
+.claude/

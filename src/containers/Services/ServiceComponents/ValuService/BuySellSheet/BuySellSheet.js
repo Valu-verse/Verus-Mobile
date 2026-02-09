@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, TouchableOpacity, Platform, FlatList, Keyboard, StyleSheet } from 'react-native';
 import { Portal, List, Button, Text, TextInput } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useObjectSelector } from '../../../../../hooks/useObjectSelector';
 import { ISO_3166_COUNTRIES } from '../../../../../utils/constants/iso3166';
 // Removed ListSelectionModal to avoid nested modal issues
@@ -21,15 +22,11 @@ import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData
 // No drag handle – we follow other modals with a Close button in header
 
 /*
-  Updated file: BuySellSheet
+  BuySellSheet
   - Bottom-sheet stepper: Prerequisites -> Buy/Sell selection -> Address selection
-  - Modern UI with clear action buttons and visual feedback for disabled states
-  - Automatic vUSDC.vETH enabling without modal navigation
-  - Updated "About vUSDC" intro copy with two small headers and body text
-  - Replaced circular backgrounds on Buy/Sell icons with standalone plus/minus icons
-  - Icons set to black, added more spacing between title/subtitle, added extra bottom padding
-  - Replaced ActivityIndicator spinner with skeleton loading that matches content structure and prevents height changes during initialization
-  - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
+  - 2026-02-09: Filter out Private subwallet from address list (vUSDC cannot be on private addresses).
+  - 2026-02-09: Address step redesign: remove wallet icon, use grey card style (#F8F8F8) matching SendSourceSubwalletSheet.
+  - 2026-02-09: Removed "My wallet" badge from Buy address step.
 */
 
 const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id
@@ -75,6 +72,36 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     width: '50%',
   },
+  // Address step: grey card style matching SendSourceSubwalletSheet
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  addressCardLeft: {
+    flex: 1,
+  },
+  addressCardRight: {
+    alignItems: 'flex-end',
+    marginRight: 8,
+  },
+  addressPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1A1A1A',
+  },
+  addressSecondaryText: {
+    fontSize: 13,
+    color: '#888',
+    marginTop: 4,
+  },
+  addressChevron: {
+    marginLeft: 4,
+  },
 });
 
 const BuySellSheet = ({ visible, onClose, onComplete }) => {
@@ -100,6 +127,11 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
   const { map: addrBalanceMap, total: totalVusdcVeth } = useMemo(() => computeVusdcVethBalances(balances, allSubWallets, ticker), [balances, allSubWallets, ticker]);
 
   const addresses = allSubWallets[ticker] || [];
+  // vUSDC cannot be on private (dlight) addresses; exclude PRIVATE_WALLET from source/destination list
+  const vusdcEligibleAddresses = useMemo(
+    () => addresses.filter((addr) => addr.id !== 'PRIVATE_WALLET'),
+    [addresses]
+  );
   const canSell = true;
 
   useEffect(() => {
@@ -350,7 +382,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                   left={(props) => (
                     <List.Icon {...props} icon="plus" color={'black'} />
                   )}
-                  right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" color="#888" />}
                   titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
                   descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 6 }}
                   style={{ 
@@ -370,7 +402,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                   left={(props) => (
                     <List.Icon {...props} icon="minus" color={'black'} />
                   )}
-                  right={(props) => <List.Icon {...props} icon="chevron-right" color={canSell ? 'black' : '#C0C0C0'} />}
+                  right={(props) => <List.Icon {...props} icon="chevron-right" color={canSell ? '#888' : '#C0C0C0'} />}
                   titleStyle={{ 
                     fontSize: 18, 
                     fontWeight: '600', 
@@ -454,68 +486,43 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                     : 'Select the address where you want to receive your vUSDC.'}
                 </Text>
                 <View>
-                  {(action === 'sell' ? addresses : addresses).map((addr) => {
+                  {vusdcEligibleAddresses.map((addr) => {
                     const amountNum = (addrBalanceMap[addr.id] || 0).toFixed(2);
+                    const amountFormatted = (Math.floor(Number(amountNum) * 100) / 100).toFixed(2);
                     return (
-                      <List.Item
+                      <TouchableOpacity
                         key={addr.id || addr.address}
+                        style={styles.addressCard}
                         onPress={() => { setSelectedAddress(addr); onComplete({ action, address: addr }); }}
-                        left={(props) => (
-                          <List.Icon {...props} icon="wallet" color={'black'} />
-                        )}
-                        right={(props) => <List.Icon {...props} icon="chevron-right" />}
-                        title={() => (
-                          action === 'sell' ? (
-                            <Text style={{ fontSize: 16, fontWeight: '600', color: 'black' }}>
-                              {(Math.floor(amountNum * 100) / 100).toFixed(2) + ' vUSDC'}
-                              <Text style={{ fontSize: 14, color: '#777', fontWeight: '500' }}>
-                                {'.vETH'}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.addressCardLeft}>
+                          {action === 'sell' ? (
+                            <>
+                              <Text style={styles.addressPrimaryText}>
+                                {amountFormatted + ' vUSDC'}
+                                <Text style={[styles.addressSecondaryText, { marginTop: 0, fontWeight: '500', color: '#777' }]}>.vETH</Text>
                               </Text>
-                            </Text>
-                          ) : (
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                              <Text style={{ fontSize: 16, fontWeight: '500', color: 'black' }}>
+                              <Text style={styles.addressSecondaryText} numberOfLines={1}>
                                 {addr.name || addr.address}
                               </Text>
-                              {action === 'buy' && (
-                                <View
-                                  style={{
-                                    marginLeft: 8,
-                                    paddingHorizontal: 8,
-                                    paddingVertical: 2,
-                                    borderRadius: 10,
-                                    backgroundColor: '#E8F5E9',
-                                    borderWidth: 1,
-                                    borderColor: '#D6E9DB',
-                                  }}
-                                >
-                                  <Text style={{ fontSize: 10, color: Colors.verusGreenColor, fontWeight: '600' }}>
-                                    My wallet
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          )
-                        )}
-                        description={() => (
-                          action === 'sell' ? (
-                            <Text style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
-                              {addr.name || addr.address}
-                            </Text>
+                            </>
                           ) : (
-                            <Text style={{ fontSize: 13, color: '#888', marginTop: 6 }}>
-                              {'Current: ' + (Math.floor(amountNum * 100) / 100).toFixed(2) + ' vUSDC'}
-                              <Text style={{ fontSize: 12, color: '#999' }}>{'.vETH'}</Text>
-                            </Text>
-                          )
-                        )}
-                        style={{ 
-                          backgroundColor: 'white',
-                          borderRadius: 12,
-                          marginBottom: 12,
-                          paddingVertical: 8
-                        }}
-                      />
+                            <>
+                              <Text style={styles.addressPrimaryText} numberOfLines={1}>
+                                {addr.name || addr.address}
+                              </Text>
+                              <Text style={styles.addressSecondaryText}>
+                                {'Current: ' + amountFormatted + ' vUSDC'}
+                                <Text style={{ fontSize: 12, color: '#999' }}>.vETH</Text>
+                              </Text>
+                            </>
+                          )}
+                        </View>
+                        <View style={styles.addressCardRight}>
+                          <MaterialCommunityIcons name="chevron-right" size={20} color="#CCC" style={styles.addressChevron} />
+                        </View>
+                      </TouchableOpacity>
                     );
                   })}
                 </View>
