@@ -1,10 +1,14 @@
 // Updated invoice detail type checks to use VerusPayInvoiceDetailsOrdinalVDXFObject.
-import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives"
+import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives"
 import { getInfo, verifyGenericRequest } from "../../api/channels/vrpc/callCreators"
 import { getIdentity } from "../../api/channels/verusid/callCreators";
 import { validateAuthenticationRequestVDXFObject } from "./authenticationRequestValidator";
 import { validateIdentityUpdateRequestVDXFObject } from "./identityUpdateRequestValidator";
 import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValidator";
+import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
+import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
+import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
+import { validateGenericRequestGroupings } from "./allowedGenericRequestGroupings";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 
@@ -26,7 +30,10 @@ export const getValidatorForDetail = (detailKey) => {
   const detailValidators = {
     [AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid]: validateAuthenticationRequestVDXFObject,
     [IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid]: validateIdentityUpdateRequestVDXFObject,
-    [VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid]: validateVerusPayInvoiceVDXFObject
+    [VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid]: validateVerusPayInvoiceVDXFObject,
+    [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: validateAppEncryptionRequestVDXFObject,
+    [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: validateDataPacketRequestVDXFObject,
+    [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: validateUserDataRequestVDXFObject
   }
 
   if (Object.keys(detailValidators).includes(detailKey)) {
@@ -61,10 +68,9 @@ export const validateGenericRequest = async (request) => {
     throw new Error("This type of request requires a signature")
   }
 
-  if (request.hasEncryptResponseToAddress()) {
-    throw new Error("Encrypt response to address not yet supported.")
-  }
-
+  // Validate that the combination of request types is allowed
+  validateGenericRequestGroupings(request.details);
+  
   for (let i = 0; i < request.details.length; i++) {
     const detail = request.getDetails(i);
     const detailKey = detail.getIAddressKey();
