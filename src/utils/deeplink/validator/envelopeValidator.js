@@ -8,7 +8,6 @@ import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValid
 import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
-import { validateGenericRequestGroupings } from "./allowedGenericRequestGroupings";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 
@@ -68,8 +67,6 @@ export const validateGenericRequest = async (request) => {
     throw new Error("This type of request requires a signature")
   }
 
-  // Validate that the combination of request types is allowed
-  validateGenericRequestGroupings(request.details);
   
   for (let i = 0; i < request.details.length; i++) {
     const detail = request.getDetails(i);
