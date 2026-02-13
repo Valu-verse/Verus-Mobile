@@ -109,7 +109,6 @@ export const validateGenericRequestGroupings = (details) => {
 export { 
   requestTypeConstraints, 
   mutuallyExclusiveGroups, 
-  requiredCompanions,
   // Export shorthands for use in tests or external configuration
   AUTH,
   IDENTITY_UPDATE,

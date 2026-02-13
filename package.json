@@ -227,7 +227,7 @@
     "@babel/core": "7.25.7",
     "blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
     "@bitgo/blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
-    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#4fa59891c0be96e27054226e05417d363eea43a7",
+    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#a7e17483186c189a31ca647cd246ead0ff9b979e",
     "browserify-sign": "4.2.2",
     "secp256k1": "3.8.1",
     "form-data": "4.0.4",
