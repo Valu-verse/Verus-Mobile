@@ -87,7 +87,7 @@ const AuthenticationRequestInfo = props => {
   const [sortedIds, setSortedIds] = useState({});
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
   const [selectedIdentity, setSelectedIdentity] = useState(null); // { chainId, iAddress, friendlyName }
-  const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({}); // { iAddress: friendlyName }
+
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
@@ -662,10 +662,10 @@ const AuthenticationRequestInfo = props => {
               </React.Fragment>
             )}
           </View>
-        </View>
 
-        <View style={{ height: 24 }} />
-      </ScrollView>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      </View>
 
       <View style={styles.footer}>
         <View style={styles.ctaCol}>
