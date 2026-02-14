@@ -22,7 +22,7 @@ import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../.
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { unixToDate } from '../../../utils/math';
 import {
-  AuthenticationRequestDetails,
+  AuthenticationRequestDetails, RecipientConstraint,
   AuthenticationResponseDetails,
   AuthenticationResponseOrdinalVDXFObject,
   CompactAddressObject,
@@ -33,6 +33,7 @@ import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
+import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
 import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
@@ -63,6 +64,8 @@ const AuthenticationRequestInfo = props => {
     signerSystemID,
     signerSystemName,
     signerIdentityID,
+    provisioningDetailsBufferString,
+    provisioningDetailIndex,
     cancel,
     navigation,
     next,
@@ -76,6 +79,8 @@ const AuthenticationRequestInfo = props => {
   const [sigDateString, setSigDateString] = useState(null);
   const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
+  const [constraintFriendlyNames, setConstraintFriendlyNames] = useState({});
+  const [constraintNamesLoading, setConstraintNamesLoading] = useState(false);
 
   // Identity picker state
   const [linkedIds, setLinkedIds] = useState({});
@@ -86,6 +91,7 @@ const AuthenticationRequestInfo = props => {
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
+  const passthrough = useSelector(state => state.deeplink.passthrough);
   const sendModalType = useSelector(state => state.sendModal.type);
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const isTestAccount = activeAccount && Object.keys(activeAccount.testnetOverrides).length > 0;
@@ -97,6 +103,8 @@ const AuthenticationRequestInfo = props => {
 
   const requestIsTestnet = request != null && request.isTestnet();
   const canOpenSignerModal = signerSystemName && signerIdentityID;
+  const defaultConstraintChain = requestIsTestnet ? 'VRSCTEST' : 'VRSC';
+  const constraintChain = signerSystemName || defaultConstraintChain;
   const requesterLabel = signerFqn || 'An app';
   const systemLabel =
     signerSystemName || getSystemNameFromSystemId(signerSystemID) || signerSystemID;
@@ -139,20 +147,41 @@ const AuthenticationRequestInfo = props => {
     return true;
   };
 
-  const getConstraintLabel = (constraint) => {
-    let identityLabel = constraint.identity.address;
-    let constraintLabel = identityLabel;
+  const getConstraintAddress = (constraint) => {
+    if (constraint == null || constraint.identity == null) return null;
 
     try {
-      constraintLabel = constraint.identity.toIAddress();
+      return constraint.identity.toIAddress();
     } catch (e) {
-      constraintLabel = identityLabel;
+      try {
+        return constraint.identity.toAddress();
+      } catch (e2) {
+        return constraint.identity.address || null;
+      }
+    }
+  };
+
+  const getConstraintDisplayName = (constraintType, constraintAddress) => {
+    if (constraintAddress && constraintFriendlyNames[constraintAddress]) {
+      return constraintFriendlyNames[constraintAddress];
     }
 
-    if (constraint.type === AuthenticationRequestDetails.REQUIRED_SYSTEM) {
-      const systemName = getSystemNameFromSystemId(constraintLabel);
-      if (systemName) constraintLabel = systemName;
+    if (constraintType === RecipientConstraint.REQUIRED_SYSTEM && constraintAddress) {
+      const systemName = getSystemNameFromSystemId(constraintAddress);
+      if (systemName) return systemName;
+      return 'Unknown system';
     }
+
+    if (constraintAddress && constraintAddress.includes('@')) {
+      return constraintAddress;
+    }
+
+    return 'Unknown identity';
+  };
+
+  const getConstraintLabel = (constraint) => {
+    const constraintAddress = getConstraintAddress(constraint);
+    const constraintLabel = getConstraintDisplayName(constraint.type, constraintAddress);
 
     // Use resolved friendly name if available
     const friendlyName = constraintFriendlyNames[constraintLabel];
@@ -161,11 +190,11 @@ const AuthenticationRequestInfo = props => {
     }
 
     switch (constraint.type) {
-      case AuthenticationRequestDetails.REQUIRED_ID:
+      case RecipientConstraint.REQUIRED_ID:
         return `Required identity:\n${constraintLabel}`;
-      case AuthenticationRequestDetails.REQUIRED_SYSTEM:
-        return `Required system:\n${constraintLabel}`;
-      case AuthenticationRequestDetails.REQUIRED_PARENT:
+      case RecipientConstraint.REQUIRED_SYSTEM:
+        return `Required system:\n${constraintLabel.substring(0, constraintLabel.length - 1)}`;
+      case RecipientConstraint.REQUIRED_PARENT:
         return `Required parent:\n${constraintLabel}`;
       default:
         return `Constraint:\n${constraintLabel}`;
@@ -207,6 +236,21 @@ const AuthenticationRequestInfo = props => {
     })
   };
 
+  const getMainHeading = () => {
+    const requesterLabel = signerFqn ? signerFqn : 'An app';
+    const hasResponseUris = details && details.responseURIs && details.responseURIs.length > 0;
+
+    if (hasResponseUris) {
+      return `${requesterLabel} is requesting login with VerusID`;
+    }
+
+    if (passthrough?.fqnToAutoLink) {
+      return `VerusID from ${requesterLabel} now ready to link`;
+    }
+
+    return `Would you like to request a VerusID from ${requesterLabel}?`;
+  };
+
   const getAllowList = () => {
     if (requestIsTestnet) {
       return accounts.filter(x => x.testnetOverrides && Object.keys(x.testnetOverrides).length > 0);
@@ -242,6 +286,21 @@ const AuthenticationRequestInfo = props => {
 
   const handleContinue = () => {
     if (signedIn) {
+      const requestBufferString = request.toBuffer().toString('hex');
+      const responseBufferString = response.details && response.details.length > 0
+        ? response.toBuffer().toString('hex')
+        : '';
+
+      navigation.navigate('AuthenticationRequestIdentity', {
+        detailsBufferString,
+        requestBufferString,
+        responseBufferString,
+        detailIndex,
+        next,
+        signerIdentityID,
+        provisioningDetailsBufferString,
+        provisioningDetailIndex
+      });
       if (!selectedIdentity) return;
       buildResponseAndContinue();
     } else {
@@ -396,6 +455,82 @@ const AuthenticationRequestInfo = props => {
     }
   }, [sigtime]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadConstraintFriendlyNames = async () => {
+      const recipientConstraints = details && details.recipientConstraints ? details.recipientConstraints : [];
+
+      if (recipientConstraints.length === 0) {
+        setConstraintFriendlyNames(prev => (Object.keys(prev).length > 0 ? {} : prev));
+        setConstraintNamesLoading(false);
+        return;
+      }
+
+      setConstraintNamesLoading(true);
+
+      const constraintAddresses = Array.from(
+        new Set(recipientConstraints.map(getConstraintAddress).filter(addr => addr != null))
+      );
+
+      if (constraintAddresses.length === 0) {
+        setConstraintFriendlyNames(prev => (Object.keys(prev).length > 0 ? {} : prev));
+        setConstraintNamesLoading(false);
+        return;
+      }
+
+      try {
+        const coinObj = CoinDirectory.getBasicCoinObj(constraintChain);
+        let names = {
+          ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
+          ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
+        };
+
+        if (signerIdentityID) {
+          const signerIdentity = await getIdentity(coinObj.system_id, signerIdentityID);
+          if (!signerIdentity.error && signerIdentity.result) {
+            names = await getFriendlyNameMap(coinObj.system_id, signerIdentity.result, [...constraintAddresses]);
+          } else {
+            for (const addr of constraintAddresses) {
+              const identity = await getIdentity(coinObj.system_id, addr);
+              if (!identity.error && identity.result && identity.result.fullyqualifiedname) {
+                names[addr] = convertFqnToDisplayFormat(identity.result.fullyqualifiedname);
+              }
+            }
+          }
+        } else {
+          for (const addr of constraintAddresses) {
+            const identity = await getIdentity(coinObj.system_id, addr);
+            if (!identity.error && identity.result && identity.result.fullyqualifiedname) {
+              names[addr] = convertFqnToDisplayFormat(identity.result.fullyqualifiedname);
+            }
+          }
+        }
+
+        if (!cancelled) {
+          setConstraintFriendlyNames(names);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setConstraintFriendlyNames({
+            ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
+            ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setConstraintNamesLoading(false);
+        }
+      }
+    };
+
+    loadConstraintFriendlyNames();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [details, signerIdentityID, constraintChain]);
+
   // Load linked identities when encrypted IDs change (user signs in / links ID)
   useEffect(() => {
     const loadLinkedIds = async () => {
@@ -451,120 +586,80 @@ const AuthenticationRequestInfo = props => {
           <VerusIdDetailsModal {...verusIdDetailsModalProps} />
         )}
       </Portal>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.mainTitle}>Authentication request</Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.requesterCard}
-          onPress={canOpenSignerModal ? () => openVerusIdDetailsModal(signerSystemName, signerIdentityID) : undefined}
-          activeOpacity={canOpenSignerModal ? 0.7 : 1}
-        >
-          <View style={styles.requesterHeaderRow}>
-            <View style={styles.requesterIconContainer}>
-              <MaterialCommunityIcons name="shield-check" size={28} color={Colors.verusGreenColor} />
-            </View>
-            <View style={styles.requesterTextContainer}>
-              <Text style={styles.requesterLabel}>Request from</Text>
-              <Text style={styles.requesterName}>{requesterLabel}</Text>
-            </View>
-            {canOpenSignerModal && (
-              <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.verusDarkGray} />
-            )}
-          </View>
-          <View style={styles.requesterDetailsRow}>
-            {systemLabel && (
-              <View style={styles.chipContainer}>
-                <Text style={styles.chipText}>{systemLabel}</Text>
-              </View>
-            )}
-            {sigDateString && (
-              <View style={styles.chipContainer}>
-                <Text style={styles.chipText}>{sigDateString}</Text>
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        <Connector />
-
-        <TouchableOpacity
-          style={[
-            styles.targetCard,
-            selectedIdentity && styles.targetCardSelected,
-          ]}
-          onPress={handleOpenIdentitySheet}
-          activeOpacity={0.7}
-        >
-          <View style={styles.targetRow}>
-            <View style={styles.targetIconContainer}>
-              <VerusIdAtIcon width={24} height={24} fill="#3165D4" />
-            </View>
-            <View style={styles.targetInfo}>
-              <Text style={styles.targetLabel}>Identity</Text>
-              <Text style={styles.targetName}>
-                {selectedIdentity ? selectedIdentity.friendlyName : 'Choose identity'}
-              </Text>
-              {selectedIdentity && (
-                <Text style={styles.targetAddress} numberOfLines={1}>
-                  {truncateAddress(selectedIdentity.iAddress)}
-                </Text>
-              )}
-            </View>
-            <MaterialCommunityIcons
-              name={selectedIdentity ? 'swap-horizontal' : 'chevron-right'}
-              size={20}
-              color={selectedIdentity ? Colors.verusGreenColor : '#CCC'}
-            />
-          </View>
-        </TouchableOpacity>
-
-        <IdentityPickerSheet
-          visible={identitySheetVisible}
-          linkedIds={linkedIds}
-          sortedIds={sortedIds}
-          isIdentityAllowed={isIdentityAllowed}
-          selectedIdentity={selectedIdentity}
-          onClose={() => setIdentitySheetVisible(false)}
-          onSelect={handleSelectIdentity}
-        />
-
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <MaterialCommunityIcons name="information-outline" size={20} color="#666" />
-              <Text style={styles.sectionTitle}>Details</Text>
-            </View>
-          </View>
-          <Text style={styles.sectionHelper}>
-            {detailRows.length > 0
-              ? 'Review constraints and response targets for this request.'
-              : 'No additional constraints or response targets.'}
+      <View style={{ flex: 1, width: '100%' }}>
+        <ScrollView
+          style={Styles.fullWidth}
+          contentContainerStyle={Styles.focalCenter}>
+          {height >= SMALL_DEVICE_HEGHT && <VerusIdLogo width={'55%'} height={'10%'} />}
+          <Text style={{ fontSize: 18, textAlign: 'center', paddingBottom: 12, width: "90%" }}>
+            {getMainHeading()}
           </Text>
-          <View style={styles.sectionContent}>
-            {detailRows.length === 0 ? (
-              <View style={styles.emptyRow}>
-                <Text style={styles.emptyText}>Authentication only.</Text>
-              </View>
-            ) : (
-              detailRows.map((row, index) => (
-                <View
-                  key={row.key}
-                  style={[styles.detailRow, index > 0 && styles.detailRowBorder]}
-                >
-                  <View style={styles.detailLeft}>
-                    <Text style={styles.detailTitle}>{row.title}</Text>
-                    {row.subtitle ? (
-                      <Text style={styles.detailSubtitle}>{row.subtitle}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))
+          <View style={Styles.fullWidth}>
+            <Divider />
+            {(signerFqn || sigDateString) && (
+              <React.Fragment>
+                {signerFqn && (
+                  <TouchableOpacity
+                    disabled={!canOpenSignerModal}
+                    onPress={() => openVerusIdDetailsModal(signerSystemName, signerIdentityID)}>
+                    <List.Item
+                      title={signerFqn}
+                      description={'Requested by'}
+                      right={props => (
+                        <List.Icon {...props} icon={'information'} size={20} />
+                      )}
+                    />
+                    <Divider />
+                  </TouchableOpacity>
+                )}
+                {(signerSystemName || signerSystemID) && (
+                  <React.Fragment>
+                    <List.Item title={signerSystemName || signerSystemID} description={'Signature system'} />
+                    <Divider />
+                  </React.Fragment>
+                )}
+                {sigDateString && (
+                  <React.Fragment>
+                    <List.Item title={sigDateString} description={'Signed on'} />
+                    <Divider />
+                  </React.Fragment>
+                )}
+              </React.Fragment>
+            )}
+            {constraints.length > 0 && constraintNamesLoading && (
+              <React.Fragment>
+                <List.Subheader>Your VerusID must have:</List.Subheader>
+                <List.Item title={'Resolving recipient constraints...'} />
+                <Divider />
+              </React.Fragment>
+            )}
+            {constraints.length > 0 && !constraintNamesLoading && (
+              <React.Fragment>
+                <List.Subheader>Your VerusID must have:</List.Subheader>
+                {constraints.map((constraint, index) => (
+                  <React.Fragment key={`${constraint.type}-${index}`}>
+                    <List.Item title={getConstraintLabel(constraint)} />
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
+            )}
+            {responseUris.length > 0 && (
+              <React.Fragment>
+                <List.Subheader>Response URIs</List.Subheader>
+                {responseUris.map((uri, index) => (
+                  <React.Fragment key={`${uri.getUriString()}-${index}`}>
+                    <List.Item title={uri.getUriString()} />
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </React.Fragment>
+            )}
+            {expiryLabel != null && (
+              <React.Fragment>
+                <List.Item title={expiryLabel} description={'Expires at'} />
+                <Divider />
+              </React.Fragment>
             )}
           </View>
         </View>

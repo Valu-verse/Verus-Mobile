@@ -1244,7 +1244,7 @@
 
 "@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus":
   version "1.9.6"
-  resolved "git+https://github.com/VerusCoin/BitGoJS.git#6f988355143201fc24391f9656580b17bd72385e"
+  resolved "git+https://github.com/VerusCoin/BitGoJS.git#9701df63b479984f27680348f9671c2d40025a90"
   dependencies:
     "@bitgo/blake2b" "3.0.1"
     "@noble/curves" "1.9.7"
@@ -12013,21 +12013,22 @@ version_compare@0.0.3:
 
 "verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client":
   version "0.1.0"
-  resolved "git+https://github.com/michaeltout/verusd-rpc-ts-client#d122498dd0a8dd5b9f7ec8ea7d0f0e12f3738467"
+  uid "682795dc5237f4924c126210833e2cf9464f92d6"
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client#682795dc5237f4924c126210833e2cf9464f92d6"
   dependencies:
     axios "1.11.0"
     verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
 
 "verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client.git":
   version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#ba996adad12b4059a6f9b36ec678f4359a3a578a"
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#682795dc5237f4924c126210833e2cf9464f92d6"
   dependencies:
     axios "1.11.0"
     verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
 
 "verusid-ts-client@git+https://github.com/VerusCoin/verusid-ts-client.git":
   version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#229b72da4da577a914ceecd400dd74cafece6eb8"
+  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#bc0e8b1e397b54490413d59977847b7b02f2a086"
   dependencies:
     "@bitgo/utxo-lib" "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus"
     axios "1.11.0"

@@ -1,15 +1,19 @@
 // Updated invoice detail type checks to use VerusPayInvoiceDetailsOrdinalVDXFObject.
-import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives"
+import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives"
 import { getInfo, verifyGenericRequest } from "../../api/channels/vrpc/callCreators"
 import { getIdentity } from "../../api/channels/verusid/callCreators";
 import { validateAuthenticationRequestVDXFObject } from "./authenticationRequestValidator";
 import { validateIdentityUpdateRequestVDXFObject } from "./identityUpdateRequestValidator";
+import { validateProvisionIdentityDetailsVDXFObject } from "./provisionIdentityDetailsValidator";
 import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValidator";
 import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import VrpcProvider from '../../vrpc/vrpcInterface';
+import store from "../../../store";
+import { coinsList } from "../../CoinData/CoinsList";
+import { VRPC } from "../../constants/intervalConstants";
 
 /**
  * Checks if a generic envelope has anything in its details that requires
@@ -29,6 +33,7 @@ export const getValidatorForDetail = (detailKey) => {
   const detailValidators = {
     [AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid]: validateAuthenticationRequestVDXFObject,
     [IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid]: validateIdentityUpdateRequestVDXFObject,
+    [PROVISION_IDENTITY_DETAILS_VDXF_KEY.vdxfid]: validateProvisionIdentityDetailsVDXFObject,
     [VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid]: validateVerusPayInvoiceVDXFObject,
     [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: validateAppEncryptionRequestVDXFObject,
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: validateDataPacketRequestVDXFObject,
@@ -63,7 +68,34 @@ export const validateGenericRequest = async (request) => {
     if (!await verifyGenericRequest(coinObj, request, signedBy.result)) {
       throw new Error("Failed to verify request signature")
     }
-  } else if (isRequestRequiredSignature(request)) {
+
+    if (request.hasAppOrDelegatedID()) {
+      if (request.appOrDelegatedID.toAddress() !== request.signature.identityID.toAddress()) {
+        const state = store.getState();
+        const activeAccount = state.authentication.activeAccount;
+
+        if (activeAccount == null) {
+          throw new Error("Active account required to validate delegated request signer");
+        }
+
+        const vrscSystem = request.isTestnet() ? coinsList.VRSCTEST : coinsList.VRSC;
+        const userVrscAddresses =
+          activeAccount.keys[vrscSystem.id]?.[VRPC]?.addresses || [];
+
+        const signerIdentity = signedBy.result.identity;
+        const signerPrimaryAddresses = signerIdentity.primaryaddresses || [];
+        const signerMinSigs = signerIdentity.minimumsignatures;
+
+        const signerMatchesUser =
+          signerMinSigs === 1 &&
+          signerPrimaryAddresses.some((address) => userVrscAddresses.includes(address));
+
+        if (!signerMatchesUser) {
+          throw new Error("Request not signed by appOrDelegatedID or a user-controlled VerusID.");
+        }
+      }
+    }
+  } else if (isRequestRequiredSignature(request) || request.hasAppOrDelegatedID()) {
     throw new Error("This type of request requires a signature")
   }
 
