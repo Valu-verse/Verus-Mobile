@@ -3,15 +3,17 @@ import {View} from 'react-native';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
-import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, GenericResponse, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY } from 'verus-typescript-primitives';
+import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, GenericResponse, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY } from 'verus-typescript-primitives';
 import InvoiceInfo from '../InvoiceInfo/InvoiceInfo';
 import { handleVerusPayInvoiceDetailsVDXFObject } from '../../../utils/deeplink/handlers/verusPayInvoiceDetailsHandler';
 import { handleAuthenticationRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/authenticationRequestDetailsHandler';
 import { handleIdentityUpdateRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/identityUpdateRequestDetailsHandler';
+import { handleDataPacketRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestDetailsHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { CommonActions } from '@react-navigation/native';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
 import IdentityUpdateRequestInfo from '../IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
+import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
 
 const GenericRequestHome = props => {
   const {
@@ -52,6 +54,7 @@ const GenericRequestHome = props => {
   detailHandlers.set(VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid, handleVerusPayInvoiceDetailsVDXFObject);
   detailHandlers.set(AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid, handleAuthenticationRequestDetailsVDXFObject);
   detailHandlers.set(IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid, handleIdentityUpdateRequestDetailsVDXFObject);
+  detailHandlers.set(DATA_PACKET_REQUEST_VDXF_KEY.vdxfid, handleDataPacketRequestDetailsVDXFObject);
 
   /**
    * Processes a detail in the request at a certain index
@@ -62,12 +65,13 @@ const GenericRequestHome = props => {
 
     if (detail) {
       const iaddr = detail.getIAddressKey();
-
+      console.log("Processing detail with iaddr " + iaddr + " at index " + index);
       if (detailHandlers.has(iaddr)) {
         setDetailIndex(index);
         return await detailHandlers.get(iaddr)(request, response, index);
       }
-    } else throw new Error("Unable to find detail at index " + index);
+    } 
+    throw new Error("Unable to find detail at index " + index);
   }
 
   const processNextDetail = async () => {
@@ -212,6 +216,18 @@ const GenericRequestHome = props => {
         detailIndex={detailIndex}
       />
     ),
+    [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
+      <DataPacketRequestInfo
+        {...displayProps}
+        cancel={props.cancel}
+        setLoading={props.setLoading}
+        navigation={props.navigation}
+        next={next}
+        response={response}
+        request={request}
+        detailIndex={detailIndex}
+      />
+    )
   };
 
   return (
