@@ -18,6 +18,8 @@ import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/ver
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
+import { DataDescriptorList } from '../../../components/DataDescriptorList';
+import { processDataDescriptors } from '../../../utils/dataDescriptor';
 
 const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
@@ -71,8 +73,18 @@ const DataPacketRequestInfo = props => {
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
 
-  const isTestAccount = useSelector(state => {
-    return state.authentication.activeAccount && Object.keys(state.authentication.activeAccount.testnetOverrides).length > 0;
+  // Determine if request is testnet from the request object
+  const requestIsTestnet = request != null ? request.isTestnet() : false;
+
+  const isWrongRequestType = useSelector(state => {
+    const isTestAccount =
+      state.authentication.activeAccount &&
+      Object.keys(state.authentication.activeAccount.testnetOverrides).length > 0;
+    return (
+      state.authentication.signedIn &&
+      ((isTestAccount && !requestIsTestnet) ||
+      (!isTestAccount && requestIsTestnet))
+    );
   });
 
   const chain_id = isSigned ? getSystemNameFromSystemId(signerSystemID) : null;
@@ -113,12 +125,6 @@ const DataPacketRequestInfo = props => {
     openVerusIdDetailsModal(chain_id, signerIdentityID);
   };
 
-  const isTestnet = coinObj?.testnet || false;
-
-  const isWrongRequestType = () => {
-    return signedIn && ((isTestAccount && !isTestnet) || (!isTestAccount && isTestnet));
-  };
-
   const wrongRequestType = (isTestRequest) => {
     createAlert(
       isTestRequest ? 'Testnet Request' : 'Mainnet Request',
@@ -143,7 +149,7 @@ const DataPacketRequestInfo = props => {
   };
 
   const getAllowList = () => {
-    if (isTestnet) {
+    if (requestIsTestnet) {
       return accounts.filter(x => x.testnetOverrides && Object.keys(x.testnetOverrides).length > 0);
     }
     return accounts.filter(x => !x.testnetOverrides || Object.keys(x.testnetOverrides).length === 0);
@@ -166,7 +172,7 @@ const DataPacketRequestInfo = props => {
       } else {
         createAlert(
           "Cannot continue",
-          `No ${isTestnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to data packet request.`,
+          `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to data packet request.`,
         );
       }
     }
@@ -179,14 +185,14 @@ const DataPacketRequestInfo = props => {
   }, [signedIn, waitingForSignin]);
 
   useEffect(() => {
+    if (isWrongRequestType) wrongRequestType(requestIsTestnet);
+  }, []);
+
+  useEffect(() => {
     if (detailsBufferString) {
       const det = new DataPacketRequestDetails();
       det.fromBuffer(Buffer.from(detailsBufferString, 'hex'));
       setDetails(det);
-
-      if (isWrongRequestType()) {
-        wrongRequestType(isTestnet);
-      }
     }
   }, [detailsBufferString]);
 
@@ -255,12 +261,13 @@ const DataPacketRequestInfo = props => {
       });
     }
 
-    // Signable objects count
+    // Note: Signable objects are now displayed in a separate section below
+    // We still add a summary row here for quick reference
     if (details.signableObjects && details.signableObjects.length > 0) {
       rows.push({
-        key: 'signable-objects',
+        key: 'signable-objects-summary',
         title: `${details.signableObjects.length} data object${details.signableObjects.length > 1 ? 's' : ''}`,
-        subtitle: 'Data descriptors included in this request',
+        subtitle: 'See detailed view below',
       });
     }
 
@@ -415,6 +422,36 @@ const DataPacketRequestInfo = props => {
             )}
           </View>
         </View>
+
+        {/* Data Objects Section */}
+        {details.signableObjects && details.signableObjects.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons name="file-document-multiple-outline" size={20} color="#666" />
+                <Text style={styles.sectionTitle}>Data objects</Text>
+              </View>
+              <View style={styles.objectCountBadge}>
+                <Text style={styles.objectCountText}>{details.signableObjects.length}</Text>
+              </View>
+            </View>
+            <View style={styles.sectionContent}>
+              <DataDescriptorList
+                descriptors={details.signableObjects}
+                onItemPress={(descriptor, index) => {
+                  // Copy content to clipboard when pressed
+                  if (descriptor.content && !descriptor.isEncrypted) {
+                    copyToClipboard(descriptor.content, {
+                      title: 'Content copied',
+                      message: `${descriptor.title} copied to clipboard.`,
+                    });
+                  }
+                }}
+                emptyMessage="No data objects in this request"
+              />
+            </View>
+          </View>
+        )}
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -592,6 +629,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#1A1A1A',
+  },
+  objectCountBadge: {
+    backgroundColor: Colors.primaryColor + '15',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  objectCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primaryColor,
   },
   sectionContent: {
     padding: 0,
