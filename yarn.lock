@@ -11992,9 +11992,9 @@ version_compare@0.0.3:
     bignumber.js "^9.0.0"
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#a7e17483186c189a31ca647cd246ead0ff9b979e":
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git":
   version "1.0.0"
-  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#a7e17483186c189a31ca647cd246ead0ff9b979e"
+  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#b109c77139f77b3849245299986157b8e24babc0"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
@@ -12013,22 +12013,14 @@ version_compare@0.0.3:
 
 "verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client":
   version "0.1.0"
-  uid "682795dc5237f4924c126210833e2cf9464f92d6"
-  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client#682795dc5237f4924c126210833e2cf9464f92d6"
-  dependencies:
-    axios "1.11.0"
-    verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
-
-"verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client.git":
-  version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#682795dc5237f4924c126210833e2cf9464f92d6"
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client#1ffe2e7abd52941d2c4263a4ab7a5853edc7369a"
   dependencies:
     axios "1.11.0"
     verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
 
 "verusid-ts-client@git+https://github.com/VerusCoin/verusid-ts-client.git":
   version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#bc0e8b1e397b54490413d59977847b7b02f2a086"
+  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#377eaa56eb6060620172ee06fae3c8b6ce29422d"
   dependencies:
     "@bitgo/utxo-lib" "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus"
     axios "1.11.0"

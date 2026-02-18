@@ -1,8 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, StatusBar, Platform } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, StatusBar, Platform, Image, ActivityIndicator } from 'react-native';
 import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import { DataPacketRequestDetails, DataDescriptor } from 'verus-typescript-primitives';
+import { 
+  DataPacketRequestDetails, 
+  DataDescriptor,
+  DataResponseDetails,
+  DataResponseOrdinalVDXFObject,
+  GenericResponse,
+  VerifiableSignatureData,
+  CompactAddressObject,
+  SignatureData,
+  VdxfUniValue,
+  CrossChainDataRef,
+  URLRef,
+} from 'verus-typescript-primitives';
+import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import Colors from '../../../globals/colors';
@@ -20,8 +33,26 @@ import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { DataDescriptorList } from '../../../components/DataDescriptorList';
 import { processDataDescriptors } from '../../../utils/dataDescriptor';
+import { BN } from 'bn.js';
+import { requestServiceStoredData } from '../../../utils/auth/authBox';
+import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
+import { signHash } from '../../../utils/api/channels/vrpc/requests/signHash';
+import { getInfo } from '../../../utils/api/channels/vrpc/callCreators';
+import { modifyAttestationDataForUser } from '../../../actions/actions/attestations/dispatchers/attestations';
+import SemiModal from '../../../components/SemiModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import axios from 'axios';
+const crypto = require('create-hash');
 
-const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
+// Data packet storage type constant
+const DATA_PACKETS_RECEIVED = "data_packets_received";
+
+const truncateAddress = (addr) => {
+  if (!addr || addr.length <= 14) return addr;
+  return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+};
+
+const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { onPress, activeOpacity: 0.7 } : {};
 
@@ -35,13 +66,317 @@ const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
       {...wrapperProps}
     >
       <View style={styles.detailLeft}>
-        <Text style={styles.detailTitle}>{title}</Text>
+        <Text style={styles.detailTitle} numberOfLines={singleLine ? 1 : undefined}>{title}</Text>
         {subtitle ? <Text style={styles.detailSubtitle}>{subtitle}</Text> : null}
       </View>
       {rightIcon ? (
         <MaterialCommunityIcons name={rightIcon} size={18} color="#888" />
       ) : null}
     </Wrapper>
+  );
+};
+
+// Statement Detail Modal for viewing full statement text
+const StatementModal = ({ visible, statement, onClose }) => {
+  const insets = useSafeAreaInsets();
+  
+  if (!visible) return null;
+  
+  return (
+    <Portal>
+      <SemiModal
+        animationType="slide"
+        transparent={true}
+        visible={visible}
+        onRequestClose={onClose}
+        title="Statement"
+        flexHeight={0.01}
+        contentContainerStyle={{
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          flex: 0,
+          width: '100%',
+          alignSelf: 'flex-end',
+          paddingBottom: 16 + insets.bottom,
+          maxHeight: '70%',
+        }}
+      >
+        <ScrollView style={styles.statementModalContent}>
+          <Text style={styles.statementModalText}>{statement}</Text>
+        </ScrollView>
+        <View style={styles.statementModalActions}>
+          <Button
+            mode="contained"
+            onPress={() => copyToClipboard(statement, {
+              title: 'Statement copied',
+              message: 'Statement copied to clipboard.',
+            })}
+            style={styles.statementCopyButton}
+            buttonColor="#EBF6FF"
+            textColor={Colors.primaryColor}
+          >
+            Copy to clipboard
+          </Button>
+        </View>
+      </SemiModal>
+    </Portal>
+  );
+};
+
+// Identity Picker Sheet for selecting signing identity
+const IdentityPickerSheet = ({
+  visible,
+  linkedIds,
+  sortedIds,
+  selectedIdentity,
+  onClose,
+  onSelect,
+}) => {
+  const insets = useSafeAreaInsets();
+  const paddingBottom = 16 + insets.bottom;
+
+  if (!visible) return null;
+
+  const hasIdentities = Object.keys(sortedIds).some(chainId =>
+    sortedIds[chainId] && sortedIds[chainId].length > 0
+  );
+
+  return (
+    <Portal>
+      <SemiModal
+        animationType="slide"
+        transparent={true}
+        visible={visible}
+        onRequestClose={onClose}
+        title="Select identity to sign"
+        flexHeight={0.01}
+        contentContainerStyle={{
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          flex: 0,
+          width: '100%',
+          alignSelf: 'flex-end',
+          paddingBottom,
+          maxHeight: '70%',
+        }}
+      >
+        <View>
+          <View style={styles.sheetDescription}>
+            <Text style={styles.sheetDescriptionText}>
+              Choose a VerusID to sign this data packet.
+            </Text>
+          </View>
+
+          <ScrollView style={{ maxHeight: 400 }}>
+            <View style={styles.listContainer}>
+              {!hasIdentities && (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    No linked identities found.
+                  </Text>
+                </View>
+              )}
+
+              {Object.keys(sortedIds).map(chainId => {
+                const identities = sortedIds[chainId];
+                if (!identities || identities.length === 0) return null;
+
+                return (
+                  <View key={chainId} style={styles.networkGroup}>
+                    <View style={styles.networkHeader}>
+                      <Text style={styles.networkHeaderText}>{chainId}</Text>
+                    </View>
+
+                    {identities.map(iAddr => {
+                      const friendlyName = linkedIds[chainId]?.[iAddr] || iAddr;
+                      const isSelected =
+                        selectedIdentity &&
+                        selectedIdentity.chainId === chainId &&
+                        selectedIdentity.iAddress === iAddr;
+
+                      return (
+                        <TouchableOpacity
+                          key={iAddr}
+                          style={[
+                            styles.identityCard,
+                            isSelected && styles.identityCardSelected,
+                          ]}
+                          onPress={() => onSelect(chainId, iAddr, friendlyName)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.identityIconContainer}>
+                            <MaterialCommunityIcons
+                              name="account"
+                              size={22}
+                              color={isSelected ? Colors.verusGreenColor : '#666'}
+                            />
+                          </View>
+                          <View style={styles.identityTextSection}>
+                            <Text
+                              style={[
+                                styles.identityName,
+                                isSelected && styles.identityNameSelected,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {friendlyName}
+                            </Text>
+                            <Text
+                              style={styles.identityAddress}
+                              numberOfLines={1}
+                            >
+                              {truncateAddress(iAddr)}
+                            </Text>
+                          </View>
+
+                          {isSelected ? (
+                            <MaterialCommunityIcons
+                              name="check-circle"
+                              size={20}
+                              color={Colors.verusGreenColor}
+                              style={styles.chevron}
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name="chevron-right"
+                              size={20}
+                              color="#CCC"
+                              style={styles.chevron}
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      </SemiModal>
+    </Portal>
+  );
+};
+
+// URL Download Modal
+const UrlDownloadModal = ({ 
+  visible, 
+  url, 
+  onClose, 
+  onDownload, 
+  downloading, 
+  downloadError,
+  downloadedContent,
+  contentMimeType,
+  hashVerified 
+}) => {
+  const insets = useSafeAreaInsets();
+  
+  if (!visible) return null;
+  
+  const isTextContent = contentMimeType?.startsWith('text/');
+  const isImageContent = contentMimeType?.startsWith('image/');
+  
+  return (
+    <Portal>
+      <SemiModal
+        animationType="slide"
+        transparent={true}
+        visible={visible}
+        onRequestClose={onClose}
+        title="Download Data"
+        flexHeight={0.01}
+        contentContainerStyle={{
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          flex: 0,
+          width: '100%',
+          alignSelf: 'flex-end',
+          paddingBottom: 16 + insets.bottom,
+          maxHeight: '80%',
+        }}
+      >
+        <ScrollView style={styles.downloadModalContent}>
+          <View style={styles.downloadUrlContainer}>
+            <MaterialCommunityIcons name="link-variant" size={20} color="#666" />
+            <Text style={styles.downloadUrl} numberOfLines={2}>{url}</Text>
+          </View>
+          
+          {downloadError && (
+            <View style={styles.downloadErrorContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={20} color="#C62828" />
+              <Text style={styles.downloadErrorText}>{downloadError}</Text>
+            </View>
+          )}
+          
+          {downloading && (
+            <View style={styles.downloadingContainer}>
+              <ActivityIndicator size="small" color={Colors.primaryColor} />
+              <Text style={styles.downloadingText}>Downloading...</Text>
+            </View>
+          )}
+          
+          {downloadedContent && !downloading && (
+            <View style={styles.downloadedContentContainer}>
+              {hashVerified === true && (
+                <View style={styles.hashVerifiedBadge}>
+                  <MaterialCommunityIcons name="check-circle" size={18} color="#2E7D32" />
+                  <Text style={styles.hashVerifiedText}>Hash verified</Text>
+                </View>
+              )}
+              {hashVerified === false && (
+                <View style={styles.hashFailedBadge}>
+                  <MaterialCommunityIcons name="alert-circle" size={18} color="#C62828" />
+                  <Text style={styles.hashFailedText}>Hash verification failed</Text>
+                </View>
+              )}
+              
+              {isTextContent && (
+                <View style={styles.textContentPreview}>
+                  <Text style={styles.previewLabel}>Content Preview:</Text>
+                  <Text style={styles.textContent}>{downloadedContent.substring(0, 500)}{downloadedContent.length > 500 ? '...' : ''}</Text>
+                </View>
+              )}
+              
+              {isImageContent && (
+                <View style={styles.imageContentPreview}>
+                  <Text style={styles.previewLabel}>Image Preview:</Text>
+                  <Image 
+                    source={{ uri: `data:${contentMimeType};base64,${downloadedContent}` }}
+                    style={styles.previewImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
+        
+        <View style={styles.downloadModalActions}>
+          {!downloadedContent && !downloading && (
+            <GradientButton onPress={onDownload} style={styles.downloadButton}>
+              Download
+            </GradientButton>
+          )}
+          {downloadedContent && hashVerified === true && (
+            <GradientButton onPress={onClose} style={styles.downloadButton}>
+              Continue
+            </GradientButton>
+          )}
+          {(downloading || (downloadedContent && hashVerified !== true)) && (
+            <Button
+              mode="contained"
+              onPress={onClose}
+              buttonColor="#EBF6FF"
+              textColor={Colors.primaryColor}
+              style={styles.cancelDownloadButton}
+            >
+              Cancel
+            </Button>
+          )}
+        </View>
+      </SemiModal>
+    </Portal>
   );
 };
 
@@ -68,10 +403,32 @@ const DataPacketRequestInfo = props => {
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
   const [sigDateString, setSigDateString] = useState(unixToDate(sigtime));
   const [waitingForSignin, setWaitingForSignin] = useState(false);
+  
+  // Statement modal state
+  const [statementModalVisible, setStatementModalVisible] = useState(false);
+  const [selectedStatement, setSelectedStatement] = useState('');
+  
+  // Identity picker state (for FLAG_FOR_USERS_SIGNATURE)
+  const [linkedIds, setLinkedIds] = useState({});
+  const [sortedIds, setSortedIds] = useState({});
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  const [selectedIdentity, setSelectedIdentity] = useState(null);
+  
+  // URL download state (for FLAG_HAS_URL_FOR_DOWNLOAD)
+  const [urlDownloadModalVisible, setUrlDownloadModalVisible] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(null);
+  const [downloadedContent, setDownloadedContent] = useState(null);
+  const [contentMimeType, setContentMimeType] = useState(null);
+  const [hashVerified, setHashVerified] = useState(null);
+  const [urlRef, setUrlRef] = useState(null);
+  const [downloadedDataDescriptor, setDownloadedDataDescriptor] = useState(null);
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
+  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
 
   // Determine if request is testnet from the request object
   const requestIsTestnet = request != null ? request.isTestnet() : false;
@@ -155,11 +512,327 @@ const DataPacketRequestInfo = props => {
     return accounts.filter(x => !x.testnetOverrides || Object.keys(x.testnetOverrides).length === 0);
   };
 
-  const handleContinue = () => {
+  // Generate random salt (32 bytes as hex)
+  const generateRandomSalt = () => {
+    const bytes = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return Buffer.from(bytes).toString('hex');
+  };
+
+  // Sign the DataPacketRequestDetails and create DataResponseDetails
+  const signAndCreateResponse = async () => {
+    if (!selectedIdentity) {
+      createAlert('Error', 'Please select an identity to sign with.');
+      return null;
+    }
+
+    try {
+      setLoading(true);
+      
+      const { chainId, iAddress } = selectedIdentity;
+      const coinObjForSign = CoinDirectory.findCoinObj(chainId, null, true);
+      const systemId = coinObjForSign.system_id;
+      
+      // Get current chain height
+      const chainInfo = await getInfo(systemId);
+      if (chainInfo.error) throw new Error(chainInfo.error.message);
+      const height = chainInfo.result.longestchain;
+      
+      // Hash the entire DataPacketRequestDetails buffer
+      const detailsBuffer = details.toBuffer();
+      const signatureHash = crypto('sha256').update(detailsBuffer).digest();
+      
+      // Create SignatureData object
+      const sigData = new SignatureData({
+        version: new BN(1),
+        system_ID: systemId,
+        identity_ID: iAddress,
+        signature_hash: signatureHash,
+        hash_type: new BN(5), // SHA256
+        sig_type: new BN(1), // TYPE_VERUSID_DEFAULT
+      });
+      
+      // Get the identity hash for signing
+      const sigHash = sigData.getIdentityHash({ version: 2, hash_type: 5, height });
+      
+      // Sign the hash
+      const signature = await signHash(coinObjForSign, iAddress, sigHash, height);
+      sigData.signature_as_vch = Buffer.from(signature, 'base64');
+      
+      // Create VdxfUniValue with SignatureData
+      const dataKeyMap = [];
+      dataKeyMap.push({ [VDXF_Data.SignatureDataKey.vdxfid]: sigData });
+      const signatureUniValue = new VdxfUniValue({ values: dataKeyMap });
+      
+      // Create nested DataDescriptor with signature
+      const nestedDescriptor = DataDescriptor.fromJson({
+        version: 1,
+        flags: 2, // FLAG_SALT_PRESENT
+        objectdata: signatureUniValue.toBuffer().toString('hex'),
+        salt: generateRandomSalt(),
+      });
+      
+      // Create DataResponseDetails
+      const responseDetails = new DataResponseDetails({
+        data: nestedDescriptor,
+        requestID: details.requestID,
+      });
+      
+      // Create DataResponseOrdinalVDXFObject
+      const responseOrdinal = new DataResponseOrdinalVDXFObject({
+        data: responseDetails,
+      });
+      
+      // Build the GenericResponse
+      const baseResponse = response || new GenericResponse();
+      if (baseResponse.details == null) baseResponse.details = [];
+      baseResponse.details = [...baseResponse.details, responseOrdinal];
+      
+      // Set signature info for the outer response
+      if (baseResponse.signature == null) {
+        baseResponse.signature = new VerifiableSignatureData({
+          systemID: CompactAddressObject.fromIAddress(systemId),
+          identityID: CompactAddressObject.fromIAddress(iAddress),
+        });
+        baseResponse.setSigned();
+      }
+      
+      return baseResponse;
+    } catch (e) {
+      console.error('Error signing data packet:', e);
+      createAlert('Error', `Failed to sign data packet: ${e.message}`);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Store data packet for transmittal (FLAG_FOR_TRANSMITTAL_TO_USER)
+  const storeDataPacket = async () => {
+    try {
+      if (!activeAccount) {
+        throw new Error('No active account');
+      }
+      
+      const packetId = details.requestID?.toIAddress?.() || `packet_${Date.now()}`;
+      const dataToStore = {
+        [packetId]: {
+          name: signerFqn || 'Data Packet',
+          signer: signerFqn || signerIdentityID || 'Unknown',
+          signerIdentityID,
+          signerSystemID,
+          data: detailsBufferString,
+          timestamp: Date.now(),
+          sigtime,
+          isSignatureValid,
+          type: 'data_packet',
+          statements: details.statements || [],
+          signableObjectsCount: details.signableObjects?.length || 0,
+        }
+      };
+      
+      await modifyAttestationDataForUser(dataToStore, DATA_PACKETS_RECEIVED, activeAccount.accountHash);
+      
+      createAlert('Saved', 'Data packet has been saved to your wallet.');
+    } catch (e) {
+      console.error('Error storing data packet:', e);
+      createAlert('Error', `Failed to save data packet: ${e.message}`);
+    }
+  };
+
+  // Extract URLRef from signableObjects
+  const extractUrlRef = () => {
+    if (!details.signableObjects || details.signableObjects.length === 0) return null;
+    
+    const firstObj = details.signableObjects[0];
+    
+    // Check if the objectdata contains a CrossChainDataRef with URLRef
+    if (firstObj.objectdata) {
+      try {
+        // Get the objectdata as a Buffer
+        let dataBuffer;
+        if (typeof firstObj.objectdata === 'string') {
+          dataBuffer = Buffer.from(firstObj.objectdata, 'hex');
+        } else if (Buffer.isBuffer(firstObj.objectdata)) {
+          dataBuffer = firstObj.objectdata;
+        } else if (firstObj.objectdata?.type === 'Buffer' && Array.isArray(firstObj.objectdata?.data)) {
+          dataBuffer = Buffer.from(firstObj.objectdata.data);
+        }
+        
+        if (dataBuffer && dataBuffer.length > 0) {
+     
+          // Parse using VdxfUniValue - the data is serialized as:
+          // VdxfUniValue { values: [{ CrossChainDataRefKey.vdxfid: CrossChainDataRef(URLRef) }] }
+          const uniValue = new VdxfUniValue();
+          uniValue.fromBuffer(dataBuffer);
+          
+          // Look for CrossChainDataRef in values
+          if (uniValue.values && uniValue.values.length > 0) {
+            for (const valueItem of uniValue.values) {
+              const crossChainRefKey = VDXF_Data.CrossChainDataRefKey?.vdxfid;
+              console.log('Checking value item for CrossChainDataRef:', valueItem);
+              if (crossChainRefKey && valueItem[crossChainRefKey]) {
+                
+                // CrossChainDataRef.ref contains the URLRef
+                if (valueItem[crossChainRefKey]?.ref && valueItem[crossChainRefKey].ref.url) {
+                  return valueItem[crossChainRefKey].ref;
+                }
+              }
+            }
+          }
+        }
+        
+        // Fallback: try to access via the inflated data structure
+        if (typeof firstObj.objectdata === 'object' && firstObj.objectdata !== null && !Buffer.isBuffer(firstObj.objectdata)) {
+          const crossChainRefFromKey = firstObj.objectdata[VDXF_Data.CrossChainDataRefKey?.vdxfid];
+          if (crossChainRefFromKey && crossChainRefFromKey.ref && crossChainRefFromKey.ref.url) {
+            return crossChainRefFromKey.ref;
+          }
+          if (crossChainRefFromKey && crossChainRefFromKey.url) {
+            return crossChainRefFromKey;
+          }
+        }
+      } catch (e) {
+        console.warn('Error extracting URLRef:', e);
+      }
+    }
+    
+    return null;
+  };
+
+  // Download data from URL and verify hash
+  const handleDownload = async () => {
+    if (!urlRef || !urlRef.url) {
+      setDownloadError('No URL available for download');
+      return;
+    }
+    
+    // Check if data_hash is present (optional - we can download without verification)
+    const flagValue = urlRef.flags instanceof BN ? urlRef.flags : new BN(urlRef.flags || 0);
+    const FLAG_HAS_HASH = URLRef?.FLAG_HAS_HASH || new BN(1);
+    const hasHash = flagValue.and(FLAG_HAS_HASH).gt(new BN(0)) && urlRef.data_hash && urlRef.data_hash.length > 0;
+    console.log('handleDownload - hasHash:', hasHash, 'flags:', flagValue.toString(), 'url:', urlRef.url);
+    
+    try {
+      setDownloading(true);
+      setDownloadError(null);
+      
+      const downloadResponse = await axios.get(urlRef.url, {
+        timeout: 30000,
+      });
+      
+      const dataBuffer = Buffer.from(downloadResponse.data, 'hex');
+      
+      // Try to determine content type from response headers
+      const contentTypeHeader = downloadResponse.headers?.['content-type'] || '';
+      
+      // If we have a hash, verify it
+      if (hasHash) {
+
+        const downloadedHash = crypto('sha256').update(dataBuffer).digest();
+        const expectedHash = urlRef.data_hash;
+        const hashMatches = downloadedHash.equals(expectedHash);
+        
+        setHashVerified(hashMatches);
+
+        if (!hashMatches) {
+          setDownloadError('Downloaded data hash does not match expected hash');
+          setDownloading(false);
+          return;
+        }
+      } else {
+        // No hash to verify - mark as verified (trusted download)
+        setHashVerified(true);
+        console.log('No hash present - skipping verification');
+      }
+      
+      // Try to parse as DataDescriptor first
+      let mimeType = 'text/plain';
+      let content = '';
+      
+      try {
+        const downloadedDescriptor = new DataDescriptor();
+        downloadedDescriptor.fromBuffer(dataBuffer);
+        setDownloadedDataDescriptor(downloadedDescriptor);
+        
+        mimeType = downloadedDescriptor.mimeType || 'application/octet-stream';
+        if (mimeType.startsWith('text/')) {
+          content = downloadedDescriptor.objectdata?.toString?.('utf-8') || 
+                    Buffer.from(downloadedDescriptor.objectdata || '').toString('utf-8');
+        } else if (mimeType.startsWith('image/')) {
+          content = Buffer.from(downloadedDescriptor.objectdata || '').toString('base64');
+        }
+      } catch (parseErr) {
+        // Not a DataDescriptor - treat as raw content
+        console.log('Not a DataDescriptor, treating as raw content:', parseErr.message);
+        
+        // Determine mime type from header or content
+        if (contentTypeHeader.includes('text/') || contentTypeHeader.includes('application/json')) {
+          mimeType = contentTypeHeader.split(';')[0] || 'text/plain';
+          content = dataBuffer.toString('utf-8');
+        } else if (contentTypeHeader.includes('image/')) {
+          mimeType = contentTypeHeader.split(';')[0];
+          content = dataBuffer.toString('base64');
+        } else {
+          // Try to detect if it's text
+          const sample = dataBuffer.slice(0, 100).toString('utf-8');
+          const isText = /^[\x20-\x7E\s]+$/.test(sample);
+          if (isText) {
+            mimeType = 'text/plain';
+            content = dataBuffer.toString('utf-8');
+          } else {
+            setDownloadError('Unsupported content type. Only text and images are supported.');
+            setHashVerified(null);
+            return;
+          }
+        }
+      }
+      
+      setContentMimeType(mimeType);
+      setDownloadedContent(content);
+      console.log('Download complete - mimeType:', mimeType, 'content length:', content.length);
+      
+    } catch (e) {
+      console.error('Download error:', e);
+      setDownloadError(`Download failed: ${e.message}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleContinue = async () => {
     if (signedIn) {
-      // Navigate to next step or call next()
-      // For now, we'll just acknowledge the request
-      next(response, [detailIndex]);
+      const isForUserSig = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_USERS_SIGNATURE)?.gt?.(new BN(0)) || false;
+      const isForTransmittal = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_TRANSMITTAL_TO_USER)?.gt?.(new BN(0)) || false;
+      const hasUrlDownload = details.flags?.and?.(DataPacketRequestDetails.FLAG_HAS_URL_FOR_DOWNLOAD)?.gt?.(new BN(0)) || false;
+      
+      // If URL download is required but not completed, show error
+      if (hasUrlDownload && hashVerified !== true) {
+        createAlert('Download Required', 'Please download and verify the data before continuing.');
+        return;
+      }
+      
+      // If user signature is required
+      if (isForUserSig) {
+        if (!selectedIdentity) {
+          createAlert('Identity Required', 'Please select an identity to sign with.');
+          return;
+        }
+        
+        const signedResponse = await signAndCreateResponse();
+        if (signedResponse) {
+          next(signedResponse, [detailIndex]);
+        }
+      } else if (isForTransmittal) {
+        // Store the data packet
+        await storeDataPacket();
+        next(response, [detailIndex]);
+      } else {
+        // Default behavior
+        next(response, [detailIndex]);
+      }
     } else {
       setWaitingForSignin(true);
       const allowList = getAllowList();
@@ -178,6 +851,16 @@ const DataPacketRequestInfo = props => {
     }
   };
 
+  // Identity sheet handlers
+  const handleOpenIdentitySheet = () => {
+    setIdentitySheetVisible(true);
+  };
+
+  const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    setSelectedIdentity({ chainId, iAddress, friendlyName });
+    setIdentitySheetVisible(false);
+  };
+
   useEffect(() => {
     if (signedIn && waitingForSignin) {
       handleContinue();
@@ -192,6 +875,7 @@ const DataPacketRequestInfo = props => {
     if (detailsBufferString) {
       const det = new DataPacketRequestDetails();
       det.fromBuffer(Buffer.from(detailsBufferString, 'hex'));
+      console.log('Parsed DataPacketRequestDetails:', det.toJson());
       setDetails(det);
     }
   }, [detailsBufferString]);
@@ -206,14 +890,57 @@ const DataPacketRequestInfo = props => {
     } else setLoading(true);
   }, [sendModalType]);
 
+  // Load linked identities when signed in
+  useEffect(() => {
+    const loadLinkedIds = async () => {
+      try {
+        const verusIdServiceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+        if (verusIdServiceData.linked_ids) {
+          setLinkedIds(verusIdServiceData.linked_ids);
+        } else {
+          setLinkedIds({});
+        }
+      } catch (e) {
+        setLinkedIds({});
+      }
+    };
+
+    if (signedIn) {
+      loadLinkedIds();
+    }
+  }, [encryptedIds, signedIn]);
+
+  // Sort identities alphabetically
+  useEffect(() => {
+    const sorted = {};
+    for (const chainId of Object.keys(linkedIds)) {
+      sorted[chainId] = linkedIds[chainId]
+        ? Object.keys(linkedIds[chainId]).sort((a, b) => {
+            const nameA = linkedIds[chainId][a] || '';
+            const nameB = linkedIds[chainId][b] || '';
+            return nameA.localeCompare(nameB);
+          })
+        : [];
+    }
+    setSortedIds(sorted);
+  }, [linkedIds]);
+
+  // Extract URLRef when details change
+  useEffect(() => {
+    const hasUrlFlag = details.flags?.and?.(DataPacketRequestDetails.FLAG_HAS_URL_FOR_DOWNLOAD)?.gt?.(new BN(0)) || false;
+    if (hasUrlFlag) {
+      const ref = extractUrlRef();
+      setUrlRef(ref);
+    }
+  }, [details]);
+
   // Determine flags for display
   const hasRequestId = details.hasRequestID();
   const hasStatements = details.hasStatements();
   const hasSignature = details.hasSignature();
-  const isForUserSignature = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_USERS_SIGNATURE)?.gt?.(0) || false;
-  const isForTransmittalToUser = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_TRANSMITTAL_TO_USER)?.gt?.(0) || false;
-  const hasUrlForDownload = details.flags?.and?.(DataPacketRequestDetails.FLAG_HAS_URL_FOR_DOWNLOAD)?.gt?.(0) || false;
-
+  const isForUserSignature = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_USERS_SIGNATURE)?.gt?.(new BN(0)) || false;
+  const isForTransmittalToUser = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_TRANSMITTAL_TO_USER)?.gt?.(new BN(0)) || false;
+  const hasUrlForDownload = details.flags?.and?.(DataPacketRequestDetails.FLAG_HAS_URL_FOR_DOWNLOAD)?.gt?.(new BN(0)) || false;
   const requesterLabel = signerFqn || signerIdentityID || 'Unknown signer';
   const canOpenSignerModal = Boolean(chain_id && signerIdentityID);
 
@@ -221,12 +948,13 @@ const DataPacketRequestInfo = props => {
   const detailRows = useMemo(() => {
     const rows = [];
 
-    // Request type indicator
+    // Request type indicators
     if (isForUserSignature) {
       rows.push({
         key: 'for-signature',
         title: 'Signature requested',
         subtitle: 'This request is asking for your signature on the data.',
+        rightIcon: 'pen',
       });
     }
 
@@ -234,15 +962,18 @@ const DataPacketRequestInfo = props => {
       rows.push({
         key: 'transmittal',
         title: 'Data transmittal',
-        subtitle: 'Data is being transmitted to you.',
+        subtitle: 'Data will be saved to your wallet.',
+        rightIcon: 'download',
       });
     }
 
     if (hasUrlForDownload) {
       rows.push({
         key: 'url-download',
-        title: 'Contains download URL',
-        subtitle: 'A URL for downloading data is included.',
+        title: 'Download required',
+        subtitle: urlRef?.url || 'URL for downloading data is included.',
+        rightIcon: hashVerified === true ? 'check-circle' : 'cloud-download',
+        onPress: () => setUrlDownloadModalVisible(true),
       });
     }
 
@@ -261,9 +992,8 @@ const DataPacketRequestInfo = props => {
       });
     }
 
-    // Note: Signable objects are now displayed in a separate section below
-    // We still add a summary row here for quick reference
-    if (details.signableObjects && details.signableObjects.length > 0) {
+    // Data objects summary - skip if using URL download
+    if (details.signableObjects && details.signableObjects.length > 0 && !hasUrlForDownload) {
       rows.push({
         key: 'signable-objects-summary',
         title: `${details.signableObjects.length} data object${details.signableObjects.length > 1 ? 's' : ''}`,
@@ -271,18 +1001,19 @@ const DataPacketRequestInfo = props => {
       });
     }
 
-    // Statements
+    // Statements - limited to 1 line with tap to expand
     if (hasStatements && details.statements && details.statements.length > 0) {
       details.statements.forEach((statement, index) => {
         rows.push({
           key: `statement-${index}`,
-          title: statement.length > 100 ? statement.substring(0, 100) + '...' : statement,
-          subtitle: `Statement ${index + 1}`,
-          onPress: () => copyToClipboard(statement, {
-            title: 'Statement copied',
-            message: 'Statement copied to clipboard.',
-          }),
-          rightIcon: 'content-copy',
+          title: statement,
+          subtitle: `Statement ${index + 1} - tap to view full`,
+          singleLine: true,
+          onPress: () => {
+            setSelectedStatement(statement);
+            setStatementModalVisible(true);
+          },
+          rightIcon: 'chevron-right',
         });
       });
     }
@@ -298,18 +1029,28 @@ const DataPacketRequestInfo = props => {
     }
 
     return rows;
-  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, isSignatureValid]);
+  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, isSignatureValid, urlRef, hashVerified]);
+
+  // Determine if continue button should be disabled
+  const continueDisabled = useMemo(() => {
+    if (isSigned && isSignatureValid === false) return true;
+    if (isForUserSignature && !selectedIdentity && signedIn) return true;
+    if (hasUrlForDownload && hashVerified !== true && signedIn) return true;
+    return false;
+  }, [isSigned, isSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified]);
 
   // Determine hero text based on request type
   const getHeroTitle = () => {
     if (isForUserSignature) return 'Signature Request';
     if (isForTransmittalToUser) return 'Data Packet';
+    if (hasUrlForDownload) return 'Download & Verify';
     return 'Data Request';
   };
 
   const getHeroSubtitle = () => {
     if (isForUserSignature) return 'Sign the included data';
-    if (isForTransmittalToUser) return 'Review incoming data';
+    if (isForTransmittalToUser) return 'Review and save data';
+    if (hasUrlForDownload) return 'Download and verify data';
     return 'Review data packet';
   };
 
@@ -322,6 +1063,34 @@ const DataPacketRequestInfo = props => {
           <VerusIdDetailsModal {...verusIdDetailsModalProps} />
         )}
       </Portal>
+      
+      <StatementModal
+        visible={statementModalVisible}
+        statement={selectedStatement}
+        onClose={() => setStatementModalVisible(false)}
+      />
+      
+      <IdentityPickerSheet
+        visible={identitySheetVisible}
+        linkedIds={linkedIds}
+        sortedIds={sortedIds}
+        selectedIdentity={selectedIdentity}
+        onClose={() => setIdentitySheetVisible(false)}
+        onSelect={handleSelectIdentity}
+      />
+      
+      <UrlDownloadModal
+        visible={urlDownloadModalVisible}
+        url={urlRef?.url}
+        onClose={() => setUrlDownloadModalVisible(false)}
+        onDownload={handleDownload}
+        downloading={downloading}
+        downloadError={downloadError}
+        downloadedContent={downloadedContent}
+        contentMimeType={contentMimeType}
+        hashVerified={hashVerified}
+      />
+      
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -391,6 +1160,47 @@ const DataPacketRequestInfo = props => {
           </View>
         )}
 
+        {/* Identity Selection Card - shown when FLAG_FOR_USERS_SIGNATURE is set and signed in */}
+        {isForUserSignature && signedIn && (
+          <TouchableOpacity
+            style={[
+              styles.identitySelectCard,
+              selectedIdentity && styles.identitySelectCardSelected,
+            ]}
+            onPress={handleOpenIdentitySheet}
+            activeOpacity={0.7}
+          >
+            <View style={styles.identitySelectIconContainer}>
+              <MaterialCommunityIcons
+                name="account-check"
+                size={28}
+                color={selectedIdentity ? Colors.verusGreenColor : '#666'}
+              />
+            </View>
+            <View style={styles.identitySelectTextContainer}>
+              <Text style={styles.identitySelectLabel}>
+                {selectedIdentity ? 'Signing as' : 'Select identity to sign'}
+              </Text>
+              <Text style={[
+                styles.identitySelectName,
+                selectedIdentity && styles.identitySelectNameSelected,
+              ]}>
+                {selectedIdentity ? selectedIdentity.friendlyName : 'Tap to choose'}
+              </Text>
+              {selectedIdentity && (
+                <Text style={styles.identitySelectAddress}>
+                  {truncateAddress(selectedIdentity.iAddress)}
+                </Text>
+              )}
+            </View>
+            <MaterialCommunityIcons
+              name={selectedIdentity ? 'check-circle' : 'chevron-right'}
+              size={24}
+              color={selectedIdentity ? Colors.verusGreenColor : '#CCC'}
+            />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.heroContainer}>
           <Text style={styles.heroAmount}>{getHeroTitle()}</Text>
           <Text style={styles.heroCurrency}>{getHeroSubtitle()}</Text>
@@ -417,6 +1227,7 @@ const DataPacketRequestInfo = props => {
                   onPress={row.onPress}
                   rightIcon={row.rightIcon}
                   showBorder={index > 0}
+                  singleLine={row.singleLine}
                 />
               ))
             )}
@@ -424,11 +1235,11 @@ const DataPacketRequestInfo = props => {
         </View>
 
         {/* Data Objects Section */}
-        {details.signableObjects && details.signableObjects.length > 0 && (
+        {details.signableObjects && details.signableObjects.length > 0 && !hasUrlForDownload && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="file-document-multiple-outline" size={20} color="#666" />
+                <MaterialCommunityIcons name="text-box-multiple-outline" size={20} color="#666" />
                 <Text style={styles.sectionTitle}>Data objects</Text>
               </View>
               <View style={styles.objectCountBadge}>
@@ -474,7 +1285,7 @@ const DataPacketRequestInfo = props => {
           <GradientButton
             onPress={() => handleContinue()}
             style={styles.primaryCta}
-            disabled={isSigned && isSignatureValid === false}
+            disabled={continueDisabled}
           >
             Continue
           </GradientButton>
@@ -742,6 +1553,259 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
     textTransform: 'uppercase',
+  },
+  // Statement modal styles
+  statementModalContent: {
+    paddingHorizontal: 20,
+    maxHeight: 300,
+  },
+  statementModalText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    lineHeight: 22,
+  },
+  statementModalActions: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  statementCopyButton: {
+    borderRadius: 22,
+  },
+  // Identity picker sheet styles
+  sheetDescription: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  sheetDescriptionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  emptyContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  networkGroup: {
+    marginBottom: 20,
+  },
+  networkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  networkHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  identityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  identityCardSelected: {
+    backgroundColor: '#F0F9F1',
+    borderWidth: 1,
+    borderColor: Colors.verusGreenColor,
+  },
+  identityIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFEFEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  identityTextSection: {
+    flex: 1,
+  },
+  identityName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  identityNameSelected: {
+    color: Colors.verusGreenColor,
+  },
+  identityAddress: {
+    fontSize: 12,
+    color: '#888',
+  },
+  chevron: {
+    marginLeft: 8,
+  },
+  // Identity selection card styles (main screen)
+  identitySelectCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  identitySelectCardSelected: {
+    borderColor: Colors.verusGreenColor,
+    backgroundColor: '#F5FBF6',
+  },
+  identitySelectIconContainer: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  identitySelectTextContainer: {
+    flex: 1,
+  },
+  identitySelectLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  identitySelectName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#666',
+  },
+  identitySelectNameSelected: {
+    color: Colors.verusGreenColor,
+  },
+  identitySelectAddress: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  // Download modal styles
+  downloadModalContent: {
+    paddingHorizontal: 20,
+    maxHeight: 400,
+  },
+  downloadUrlContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  downloadUrl: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666',
+  },
+  downloadErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  downloadErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#C62828',
+  },
+  downloadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  downloadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  downloadedContentContainer: {
+    marginTop: 8,
+  },
+  hashVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  hashVerifiedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  hashFailedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  hashFailedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C62828',
+  },
+  textContentPreview: {
+    marginTop: 8,
+  },
+  previewLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  textContent: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    lineHeight: 20,
+    backgroundColor: '#F9F9F9',
+    padding: 12,
+    borderRadius: 8,
+  },
+  imageContentPreview: {
+    marginTop: 8,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  downloadModalActions: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  downloadButton: {
+    width: '100%',
+    borderRadius: 22,
+  },
+  cancelDownloadButton: {
+    width: '100%',
+    borderRadius: 22,
   },
 });
 

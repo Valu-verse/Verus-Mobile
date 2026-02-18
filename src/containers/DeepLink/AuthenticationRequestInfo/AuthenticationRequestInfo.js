@@ -12,7 +12,7 @@
 */
 import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { Button, Portal, Text } from 'react-native-paper';
+import { Button, Portal, Text, Divider, List } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -590,7 +590,6 @@ const AuthenticationRequestInfo = props => {
         <ScrollView
           style={Styles.fullWidth}
           contentContainerStyle={Styles.focalCenter}>
-          {height >= SMALL_DEVICE_HEGHT && <VerusIdLogo width={'55%'} height={'10%'} />}
           <Text style={{ fontSize: 18, textAlign: 'center', paddingBottom: 12, width: "90%" }}>
             {getMainHeading()}
           </Text>
