@@ -12003,17 +12003,6 @@ version_compare@0.0.3:
     bs58check "2.0.0"
     create-hash "1.2.0"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git#":
-  version "1.0.0"
-  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#b109c77139f77b3849245299986157b8e24babc0"
-  dependencies:
-    base64url "3.0.1"
-    bech32 "2.0.0"
-    blake2b "https://github.com/VerusCoin/blake2b"
-    bn.js "5.2.1"
-    bs58check "2.0.0"
-    create-hash "1.2.0"
-
 "verus-zkedid-utils@git+https://github.com/VerusCoin/verus-zkedid-utils.git":
   version "1.0.0"
   resolved "git+https://github.com/VerusCoin/verus-zkedid-utils.git#70d7f5ed6b4787da14b06de5d2d669d714d1860b"
