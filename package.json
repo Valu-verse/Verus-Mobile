@@ -235,7 +235,7 @@
     "base-x": "3.0.11",
     "cipher-base": "1.0.5",
     "sha.js": "2.4.12",
-    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a"
+    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#7f71d1ea0a5f64954312e83e622f7a893d199d94"
   },
   "jest": {
     "preset": "react-native",

@@ -257,8 +257,10 @@ export const findCurrencyByImportId = (importObj) => {
 export const getSystemNameFromSystemId = (systemId) => {
   switch (systemId) {
     case "i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV":
+    case "VRSC":
       return "VRSC"
     case "iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq":
+    case "VRSCTEST":
       return "VRSCTEST"
     default:
       throw new Error("Could not find coin for system id " + systemId)
