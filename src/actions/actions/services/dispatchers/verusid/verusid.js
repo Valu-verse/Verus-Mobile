@@ -192,11 +192,18 @@ export const checkVerusIdNotificationsForUpdates = async () => {
 
             const response = await axios.get(pendingIds[ticker][iaddress].infoUri);
             const responseData = new primitives.LoginConsentProvisioningResponse(response.data);
-            const req = new primitives.LoginConsentRequest();
-            req.fromBuffer(Buffer.from(pendingIds[ticker][iaddress].loginRequest, 'base64'));
+            const requestType = pendingIds[ticker][iaddress].requestType || 'loginconsent';
+            let signingId = pendingIds[ticker][iaddress].signingId || null;
+
+            if (requestType === 'loginconsent') {
+              const req = new primitives.LoginConsentRequest();
+              req.fromBuffer(Buffer.from(pendingIds[ticker][iaddress].loginRequest, 'base64'));
+              signingId = req.signing_id;
+            }
+
             const verified = await verifyIdProvisioningResponse(system, response.data);
 
-            if (responseData.signing_id !== req.signing_id || !verified) {
+            if (!signingId || responseData.signing_id !== signingId || !verified) {
               throw new Error('Failed to verify response from service');
             }
 
@@ -210,8 +217,9 @@ export const checkVerusIdNotificationsForUpdates = async () => {
                 pendingIds[ticker][iaddress].loginRequest,
                 state.authentication.activeAccount.accountHash,
                 null,
-                null
-              );
+                null,
+                pendingIds[ticker][iaddress].requestType || 'loginconsent'
+              ); 
               await deleteProvisionedIds(iaddress, ticker);
               await updatePendingVerusIds();
               newVerusIdProvisioningNotification.icon = NOTIFICATION_ICON_ERROR;
@@ -268,19 +276,26 @@ export const checkVerusIdNotificationsForUpdates = async () => {
         await setRequestedVerusId(iaddress, pendingIds[ticker][iaddress], ticker);
         await updatePendingVerusIds();
 
-        const req = new primitives.LoginConsentRequest();
-        req.fromBuffer(Buffer.from(pendingIds[ticker][iaddress].loginRequest, 'base64'));
+        const requestType = pendingIds[ticker][iaddress].requestType || 'loginconsent';
+        let hasResponseUris = pendingIds[ticker][iaddress].hasResponseUris;
 
-        const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification(
-          (req.challenge.redirect_uris && req.challenge.redirect_uris.length > 0) ? "link and login" : "link VerusID",
+        if (requestType === 'loginconsent') {
+          const req = new primitives.LoginConsentRequest();
+          req.fromBuffer(Buffer.from(pendingIds[ticker][iaddress].loginRequest, 'base64'));
+          hasResponseUris = req.challenge.redirect_uris && req.challenge.redirect_uris.length > 0;
+        }
+
+        const newVerusIdProvisioningNotification = new VerusIdProvisioningNotification (
+          hasResponseUris ? "link and login" : "link VerusID",
           [`${identity.result.fullyqualifiedname.substring(0, identity.result.fullyqualifiedname.lastIndexOf('.'))}@`, ` is ready`],
           null,
           pendingIds[ticker][iaddress].notificationUid,
           pendingIds[ticker][iaddress].loginRequest,
           state.authentication.activeAccount.accountHash,
           pendingIds[ticker][iaddress].fqn,
-          null
-        );
+          null,
+          requestType
+        ); 
 
         newVerusIdProvisioningNotification.icon = NOTIFICATION_ICON_VERUSID;
         dispatchAddNotification(newVerusIdProvisioningNotification);

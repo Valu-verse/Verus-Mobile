@@ -15,7 +15,7 @@
     "debug-android": "cd android && ./gradlew assembleDebug --stacktrace && cd ..",
     "test": "jest",
     "lint": "eslint .",
-    "update-verus-libs": "yarn remove verus-typescript-primitives && yarn add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && yarn remove @bitgo/utxo-lib && yarn add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && yarn remove verusd-rpc-ts-client && yarn add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client' && yarn remove verusid-ts-client && yarn add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
+    "update-verus-libs": "yarn remove verus-typescript-primitives && yarn add 'git+https://github.com/VerusCoin/verus-typescript-primitives.git' && yarn remove @bitgo/utxo-lib && yarn add 'git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus' && yarn remove verusd-rpc-ts-client && yarn add 'git+https://github.com/VerusCoin/verusd-rpc-ts-client.git' && yarn remove verusid-ts-client && yarn add 'git+https://github.com/VerusCoin/verusid-ts-client.git'"
   },
   "dependencies": {
     "@bitgo/utxo-lib": "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus",
@@ -122,7 +122,6 @@
     "verus-pay-utils": "git+https://github.com/VerusCoin/verus-pay-utils.git",
     "verus-typescript-primitives": "git+https://github.com/VerusCoin/verus-typescript-primitives.git",
     "verus-zkedid-utils": "git+https://github.com/VerusCoin/verus-zkedid-utils.git",
-    "verusd-rpc-ts-client": "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git",
     "verusid-ts-client": "git+https://github.com/VerusCoin/verusid-ts-client.git",
     "vm-browserify": "0.0.4",
     "wif": "2.0.6"
@@ -227,7 +226,6 @@
     "@babel/core": "7.25.7",
     "blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
     "@bitgo/blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
-    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#4fa59891c0be96e27054226e05417d363eea43a7",
     "browserify-sign": "4.2.2",
     "secp256k1": "3.8.1",
     "form-data": "4.0.4",
@@ -236,7 +234,8 @@
     "brace-expansion": "1.1.12",
     "base-x": "3.0.11",
     "cipher-base": "1.0.5",
-    "sha.js": "2.4.12"
+    "sha.js": "2.4.12",
+    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a"
   },
   "jest": {
     "preset": "react-native",
