@@ -11992,7 +11992,18 @@ version_compare@0.0.3:
     bignumber.js "^9.0.0"
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git":
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a":
+  version "1.0.0"
+  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a"
+  dependencies:
+    base64url "3.0.1"
+    bech32 "2.0.0"
+    blake2b "https://github.com/VerusCoin/blake2b"
+    bn.js "5.2.1"
+    bs58check "2.0.0"
+    create-hash "1.2.0"
+
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git#":
   version "1.0.0"
   resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#b109c77139f77b3849245299986157b8e24babc0"
   dependencies:

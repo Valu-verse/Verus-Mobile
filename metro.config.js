@@ -24,6 +24,7 @@ module.exports = (async () => {
         path: require.resolve('path-browserify'),
         stream: require.resolve('stream-browserify'),
         process: require.resolve('process'),
+        'bn.js': require.resolve('bn.js'),
       },
     },
   };

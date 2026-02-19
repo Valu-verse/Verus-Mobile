@@ -120,7 +120,7 @@
     "varuint-bitcoin": "1.0.4",
     "version_compare": "0.0.3",
     "verus-pay-utils": "git+https://github.com/VerusCoin/verus-pay-utils.git",
-    "verus-typescript-primitives": "git+https://github.com/VerusCoin/verus-typescript-primitives.git",
+    "verus-typescript-primitives": "git+https://github.com/VerusCoin/verus-typescript-primitives.git#",
     "verus-zkedid-utils": "git+https://github.com/VerusCoin/verus-zkedid-utils.git",
     "verusid-ts-client": "git+https://github.com/VerusCoin/verusid-ts-client.git",
     "vm-browserify": "0.0.4",
@@ -234,7 +234,8 @@
     "brace-expansion": "1.1.12",
     "base-x": "3.0.11",
     "cipher-base": "1.0.5",
-    "sha.js": "2.4.12"
+    "sha.js": "2.4.12",
+    "verus-typescript-primitives": "git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a"
   },
   "jest": {
     "preset": "react-native",
