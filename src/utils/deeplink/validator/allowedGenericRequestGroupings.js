@@ -23,9 +23,11 @@ const USER_DATA = USER_DATA_REQUEST_VDXF_KEY.vdxfid;
 // Configure per-type rules:
 //   - maxCount: Maximum occurrences allowed (default: Infinity)
 //   - mustBeAlone: If true, cannot appear with any other request type
+//   - allowedCompanions: If set, only these types may appear alongside this type
+//                        (overrides mustBeAlone when the companion is allowed)
 // ============================================================================
 const requestTypeConstraints = {
-  [AUTH]:            { maxCount: 1, mustBeAlone: true },
+  [AUTH]:            { maxCount: 1, mustBeAlone: false, allowedCompanions: [DATA_PACKET, IDENTITY_UPDATE] },
   [IDENTITY_UPDATE]: { maxCount: 1, mustBeAlone: false },
   [VERUSPAY]:        { maxCount: 5, mustBeAlone: false },
   [APP_ENCRYPTION]:  { maxCount: 1, mustBeAlone: false },
@@ -80,13 +82,24 @@ export const validateGenericRequestGroupings = (details) => {
     }
   }
 
-  // Rule 2: Check mustBeAlone constraints
+  // Rule 2: Check mustBeAlone constraints (with allowedCompanions override)
   for (const type of presentTypes) {
     const constraint = requestTypeConstraints[type];
     if (constraint && constraint.mustBeAlone && presentTypes.length > 1) {
       throw new Error(
         `Request type ${type} must be the only type in the request, but found ${presentTypes.length} types`
       );
+    }
+    // If allowedCompanions is defined, only those companions may appear alongside this type
+    if (constraint && constraint.allowedCompanions && presentTypes.length > 1) {
+      const otherTypes = presentTypes.filter(t => t !== type);
+      const disallowed = otherTypes.filter(t => !constraint.allowedCompanions.includes(t));
+      if (disallowed.length > 0) {
+        throw new Error(
+          `Request type ${type} can only appear with ${constraint.allowedCompanions.join(', ')}, ` +
+          `but found disallowed types: ${disallowed.join(', ')}`
+        );
+      }
     }
   }
 

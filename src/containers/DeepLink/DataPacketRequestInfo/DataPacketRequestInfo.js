@@ -836,6 +836,12 @@ const DataPacketRequestInfo = props => {
         createAlert('Download Required', 'Please download and verify the data before continuing.');
         return;
       }
+
+      // Check recipient constraints for transmittal first
+      if (isForTransmittal && recipientConstraintIds.size > 0 && !recipientId) {
+        createAlert('Identity Required', 'You do not have the required identity to accept this data packet.');
+        return;
+      }
       
       // If user signature is required
       if (isForUserSig) {
@@ -846,14 +852,13 @@ const DataPacketRequestInfo = props => {
         
         const signedResponse = await signAndCreateResponse();
         if (signedResponse) {
+          // If transmittal is also set, save data before advancing
+          if (isForTransmittal) {
+            await storeDataPacket();
+          }
           next(signedResponse, [detailIndex]);
         }
       } else if (isForTransmittal) {
-        // Check recipient constraints if present
-        if (recipientConstraintIds.size > 0 && !recipientId) {
-          createAlert('Identity Required', 'You do not have the required identity to accept this data packet.');
-          return;
-        }
         // Store the data packet
         await storeDataPacket();
         next(response, [detailIndex]);

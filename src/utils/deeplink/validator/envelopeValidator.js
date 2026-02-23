@@ -9,6 +9,7 @@ import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValid
 import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
+import { validateGenericRequestGroupings } from "./allowedGenericRequestGroupings";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import store from "../../../store";
@@ -99,7 +100,10 @@ export const validateGenericRequest = async (request) => {
     throw new Error("This type of request requires a signature")
   }
 
-  
+  // Validate detail grouping constraints (max counts, mutual exclusivity,
+  // allowed companions) before running per-detail validators
+  validateGenericRequestGroupings(request.details);
+
   for (let i = 0; i < request.details.length; i++) {
     const detail = request.getDetails(i);
     const detailKey = detail.getIAddressKey();
