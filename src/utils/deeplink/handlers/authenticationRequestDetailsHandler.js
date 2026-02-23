@@ -1,4 +1,4 @@
-import { AuthenticationRequestOrdinalVDXFObject, GenericRequest, GenericResponse, ProvisionIdentityDetailsOrdinalVDXFObject, DataPacketRequestOrdinalVDXFObject } from "verus-typescript-primitives";
+import { AuthenticationRequestOrdinalVDXFObject, GenericRequest, GenericResponse, ProvisionIdentityDetailsOrdinalVDXFObject, DataPacketRequestOrdinalVDXFObject, UserDataRequestOrdinalVDXFObject } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
 import { getSignatureInfo } from "../../api/channels/vrpc/requests/getSignatureInfo";
@@ -33,11 +33,12 @@ export const handleAuthenticationRequestDetailsVDXFObject = async (request, resp
   if (details == null) throw new Error("Invalid index for request details");
   if (!(details instanceof AuthenticationRequestOrdinalVDXFObject)) throw new Error("Authentication request details not found at specified index");
 
-  // If a DataPacketRequestOrdinalVDXFObject is also present in the request,
-  // skip the AuthenticationRequestInfo screen and let the data packet handler
-  // take over (it will extract recipient constraints from this auth detail).
+  // If a DataPacketRequestOrdinalVDXFObject or UserDataRequestOrdinalVDXFObject
+  // is also present in the request, skip the AuthenticationRequestInfo screen
+  // and let the respective handler take over.
   const possibleDataPacketDetail = request.details.find(x => x instanceof DataPacketRequestOrdinalVDXFObject);
-  if (possibleDataPacketDetail) {
+  const possibleUserDataDetail = request.details.find(x => x instanceof UserDataRequestOrdinalVDXFObject);
+  if (possibleDataPacketDetail || possibleUserDataDetail) {
     return {
       displayProps: undefined,
       response,
