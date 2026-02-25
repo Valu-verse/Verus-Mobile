@@ -23,7 +23,7 @@
     name and info icon (AuthorityInfoSheet) instead of generic outcome messaging.
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
-import {SafeAreaView, View, StyleSheet} from 'react-native';
+import {SafeAreaView, View, StyleSheet, Platform, StatusBar} from 'react-native';
 import { primitives } from "verusid-ts-client"
 import { Button, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -677,6 +677,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   scrollView: {
     flex: 1,

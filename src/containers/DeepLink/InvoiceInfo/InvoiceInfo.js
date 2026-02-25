@@ -1,6 +1,6 @@
 // Updated invoice request UI to match DeepLink request styling.
 import React, {useState, useEffect} from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar} from 'react-native';
 import { primitives } from "verusid-ts-client"
 import { Button, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -516,6 +516,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   scrollView: {
     flex: 1,

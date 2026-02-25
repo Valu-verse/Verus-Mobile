@@ -1,4 +1,5 @@
-import { AuthenticationRequestOrdinalVDXFObject, GenericRequest, GenericResponse, ProvisionIdentityDetailsOrdinalVDXFObject, DataPacketRequestOrdinalVDXFObject, UserDataRequestOrdinalVDXFObject } from "verus-typescript-primitives";
+import { AuthenticationRequestOrdinalVDXFObject, GenericRequest, GenericResponse, ProvisionIdentityDetailsOrdinalVDXFObject, 
+  DataPacketRequestOrdinalVDXFObject, UserDataRequestOrdinalVDXFObject, AppEncryptionRequestOrdinalVDXFObject } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
 import { getSignatureInfo } from "../../api/channels/vrpc/requests/getSignatureInfo";
@@ -38,7 +39,8 @@ export const handleAuthenticationRequestDetailsVDXFObject = async (request, resp
   // and let the respective handler take over.
   const possibleDataPacketDetail = request.details.find(x => x instanceof DataPacketRequestOrdinalVDXFObject);
   const possibleUserDataDetail = request.details.find(x => x instanceof UserDataRequestOrdinalVDXFObject);
-  if (possibleDataPacketDetail || possibleUserDataDetail) {
+  const possibleEncryptionDetail = request.details.find(x => x instanceof AppEncryptionRequestOrdinalVDXFObject);
+  if (possibleDataPacketDetail || possibleUserDataDetail || possibleEncryptionDetail) {
     return {
       displayProps: undefined,
       response,

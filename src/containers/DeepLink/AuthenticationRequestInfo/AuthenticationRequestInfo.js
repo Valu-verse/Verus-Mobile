@@ -17,6 +17,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
+  Platform,
+  StatusBar,
 } from 'react-native';
 import {Button, Portal, Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
@@ -1255,6 +1257,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   scrollView: {
     flex: 1,

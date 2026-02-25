@@ -8,7 +8,7 @@
     "Your response will be sent to the requester".
 */
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { SafeAreaView, StyleSheet, View, Platform, StatusBar } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -206,6 +206,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   centerContent: {
     flex: 1,

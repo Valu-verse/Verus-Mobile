@@ -27,7 +27,7 @@ const USER_DATA = USER_DATA_REQUEST_VDXF_KEY.vdxfid;
 //                        (overrides mustBeAlone when the companion is allowed)
 // ============================================================================
 const requestTypeConstraints = {
-  [AUTH]:            { maxCount: 1, mustBeAlone: false, allowedCompanions: [DATA_PACKET, IDENTITY_UPDATE, USER_DATA] },
+  [AUTH]:            { maxCount: 1, mustBeAlone: false, allowedCompanions: [DATA_PACKET, IDENTITY_UPDATE, USER_DATA, APP_ENCRYPTION] },
   [IDENTITY_UPDATE]: { maxCount: 1, mustBeAlone: false },
   [VERUSPAY]:        { maxCount: 5, mustBeAlone: false },
   [APP_ENCRYPTION]:  { maxCount: 1, mustBeAlone: false },
