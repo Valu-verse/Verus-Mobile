@@ -99,7 +99,7 @@
     "react-native-udp": "4.1.5",
     "react-native-url-polyfill": "1.3.0",
     "react-native-vector-icons": "git+https://github.com/VerusCoin/react-native-vector-icons.git",
-    "react-native-verus": "git+https://github.com/VerusCoin/react-native-verus.git#master",
+    "react-native-verus": "https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7",
     "react-native-video": "^6.17.0",
     "react-native-vision-camera": "4.3.1",
     "react-redux": "8.0.2",
@@ -152,6 +152,7 @@
     "node-fetch": "2.6.7",
     "patch-package": "6.2.1",
     "react-native-flipper": "0.125.0",
+    "react-native-verus": "git+https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7",
     "react-test-renderer": "18.2.0",
     "snyk": "1.1064.0",
     "typescript": "5.8.3"

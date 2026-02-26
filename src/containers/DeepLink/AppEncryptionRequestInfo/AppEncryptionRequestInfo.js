@@ -34,6 +34,7 @@ import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
+import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
 import { processAppEncryptionRequest } from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 
 // ── Helpers ──
@@ -123,12 +124,20 @@ const AppEncryptionRequestInfo = (props) => {
   const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
   const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
   const requestIsTestnet = request != null ? request.isTestnet() : false;
+  const testnetOverrides = useObjectSelector(
+    state => state.authentication.activeAccount?.testnetOverrides || {},
+  );
+  const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    ? testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    : VERUSID_NETWORK_DEFAULT;
 
   // ── Local state ──
   const [loading, setLoading] = useState(false);
   const [waitingForSignin, setWaitingForSignin] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
   const [selectedIdentity, setSelectedIdentity] = useState(null);
+  const [linkedIds, setLinkedIds] = useState({});
+  const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
 
   // ── Derived values ──
   const requesterLabel = signerFqn || 'An application';
@@ -145,17 +154,32 @@ const AppEncryptionRequestInfo = (props) => {
     return requestIsTestnet !== isTestAccount;
   }, [activeAccount, requestIsTestnet]);
 
-  // ── Load linked identities ──
-  const linkedIds = useMemo(() => {
-    if (!encryptedIds) return {};
-    const ids = {};
-    for (const [key, value] of Object.entries(encryptedIds)) {
-      if (value && value.id) {
-        ids[key] = value;
+  // ── Load linked identities (decrypt stored data) ──
+  useEffect(() => {
+    const loadLinkedIds = async () => {
+      try {
+        const verusIdServiceData = await requestServiceStoredData(
+          VERUSID_SERVICE_ID,
+        );
+        if (verusIdServiceData.linked_ids) {
+          setLinkedIds(verusIdServiceData.linked_ids);
+        } else {
+          setLinkedIds({});
+        }
+      } catch (e) {
+        setLinkedIds({});
+      } finally {
+        setLinkedIdsLoaded(true);
       }
+    };
+
+    if (signedIn) {
+      setLinkedIdsLoaded(false);
+      loadLinkedIds();
+    } else {
+      setLinkedIdsLoaded(false);
     }
-    return ids;
-  }, [encryptedIds]);
+  }, [encryptedIds, signedIn]);
 
   // ── Handle sign-in flow ──
   useEffect(() => {
@@ -166,21 +190,19 @@ const AppEncryptionRequestInfo = (props) => {
 
   // ── Auto-select first matching identity ──
   useEffect(() => {
-    if (!selectedIdentity && Object.keys(linkedIds).length > 0) {
-      const identityChain = requestIsTestnet ? 'VRSCTEST' : 'VRSC';
-      const matchingId = Object.entries(linkedIds).find(([key]) => 
-        key.startsWith(identityChain + ':')
-      );
-      if (matchingId) {
-        const [key, value] = matchingId;
+    if (!selectedIdentity && linkedIdsLoaded) {
+      const identityChain = requestIsTestnet ? 'VRSCTEST' : identityNetwork;
+      const chainIds = linkedIds[identityChain];
+      if (chainIds && Object.keys(chainIds).length > 0) {
+        const firstIAddress = Object.keys(chainIds)[0];
         setSelectedIdentity({
           chainId: identityChain,
-          iAddress: value.id,
-          friendlyName: value.name || value.id,
+          iAddress: firstIAddress,
+          friendlyName: chainIds[firstIAddress] || firstIAddress,
         });
       }
     }
-  }, [linkedIds, selectedIdentity, requestIsTestnet]);
+  }, [linkedIds, linkedIdsLoaded, selectedIdentity, requestIsTestnet, identityNetwork]);
 
   // ── Open signer modal ──
   const openSignerModal = () => {
@@ -208,13 +230,10 @@ const AppEncryptionRequestInfo = (props) => {
     // Check if signed in
     if (!signedIn) {
       const allowlist = {};
-      const identityChain = requestIsTestnet ? 'VRSCTEST' : 'VRSC';
-      const linkedIdList = Object.entries(linkedIds)
-        .filter(([key]) => key.startsWith(identityChain + ':'))
-        .map(([, value]) => value.id);
-
-      if (linkedIdList.length > 0) {
-        allowlist[identityChain] = linkedIdList;
+      const identityChain = requestIsTestnet ? 'VRSCTEST' : identityNetwork;
+      const chainIds = linkedIds[identityChain];
+      if (chainIds) {
+        allowlist[identityChain] = Object.keys(chainIds);
       }
 
       openAuthenticateUserModal({
