@@ -227,7 +227,7 @@ const DeepLink = (props) => {
         await validateExpiry()
         setDisplayProps({
           detailsBufferString: invoice.details.toBuffer().toString('hex'),
-          invoiceVersion: invoice.version.toString(),
+          invoiceVersion: invoice.getVersionNoFlags().toString(),
           isSigned: true,
           sigtime,
           signerFqn: convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname),
@@ -254,7 +254,7 @@ const DeepLink = (props) => {
       await validateExpiry()
       setDisplayProps({
         detailsBufferString: invoice.details.toBuffer().toString('hex'),
-        invoiceVersion: invoice.version.toString(),
+        invoiceVersion: invoice.getVersionNoFlags().toString(),
         isSigned: false,
         currencyDefinition: requestedCurrency.result,
         amountDisplay: invoice.details.acceptsAnyAmount() ? null : satsToCoins(BigNumber(invoice.details.amount)).toString(),

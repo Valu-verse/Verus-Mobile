@@ -14,6 +14,8 @@ import {
   VdxfUniValue,
   CrossChainDataRef,
   URLRef,
+  AuthenticationRequestOrdinalVDXFObject,
+  RecipientConstraint,
 } from 'verus-typescript-primitives';
 import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
@@ -52,7 +54,7 @@ const truncateAddress = (addr) => {
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
 };
 
-const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine }) => {
+const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine, isError }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { onPress, activeOpacity: 0.7 } : {};
 
@@ -62,15 +64,16 @@ const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine
         styles.detailRow,
         showBorder && styles.detailRowBorder,
         onPress && styles.detailRowPressable,
+        isError && styles.detailRowError,
       ]}
       {...wrapperProps}
     >
       <View style={styles.detailLeft}>
-        <Text style={styles.detailTitle} numberOfLines={singleLine ? 1 : undefined}>{title}</Text>
-        {subtitle ? <Text style={styles.detailSubtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.detailTitle, isError && styles.detailTitleError]} numberOfLines={singleLine ? 1 : undefined}>{title}</Text>
+        {subtitle ? <Text style={[styles.detailSubtitle, isError && styles.detailSubtitleError]}>{subtitle}</Text> : null}
       </View>
       {rightIcon ? (
-        <MaterialCommunityIcons name={rightIcon} size={18} color="#888" />
+        <MaterialCommunityIcons name={rightIcon} size={18} color={isError ? "#C62828" : "#888"} />
       ) : null}
     </Wrapper>
   );
@@ -384,11 +387,15 @@ const DataPacketRequestInfo = props => {
   const {
     detailsBufferString,
     isSigned,
-    sigtime,
-    signerFqn,
-    signerSystemID,
-    signerIdentityID,
-    isSignatureValid,
+    requestSignerFqn,
+    requestSignerIdentityID,
+    requestSignerSystemID,
+    requestSigtime,
+    embeddedSignerFqn,
+    embeddedSignerIdentityID,
+    embeddedSignerSystemID,
+    embeddedSigtime,
+    embeddedIsSignatureValid,
     coinObj,
     cancel,
     navigation,
@@ -401,7 +408,8 @@ const DataPacketRequestInfo = props => {
   const [details, setDetails] = useState(new DataPacketRequestDetails());
   const [loading, setLoading] = useState(false);
   const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
-  const [sigDateString, setSigDateString] = useState(unixToDate(sigtime));
+  const [requestSigDateString, setRequestSigDateString] = useState(unixToDate(requestSigtime));
+  const [embeddedSigDateString, setEmbeddedSigDateString] = useState(unixToDate(embeddedSigtime));
   const [waitingForSignin, setWaitingForSignin] = useState(false);
   
   // Statement modal state
@@ -414,6 +422,10 @@ const DataPacketRequestInfo = props => {
   const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
   const [selectedIdentity, setSelectedIdentity] = useState(null);
   
+  // Recipient constraint state (from AuthenticationRequestDetails if present)
+  const [recipientConstraintIds, setRecipientConstraintIds] = useState(new Set());
+  const [recipientId, setRecipientId] = useState("");
+
   // URL download state (for FLAG_HAS_URL_FOR_DOWNLOAD)
   const [urlDownloadModalVisible, setUrlDownloadModalVisible] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -444,7 +456,9 @@ const DataPacketRequestInfo = props => {
     );
   });
 
-  const chain_id = isSigned ? getSystemNameFromSystemId(signerSystemID) : null;
+  // Derive chain IDs for outer request signer and embedded signer
+  const requestChainId = requestSignerSystemID ? getSystemNameFromSystemId(requestSignerSystemID) : null;
+  const embeddedChainId = embeddedSignerSystemID ? getSystemNameFromSystemId(embeddedSignerSystemID) : null;
 
   const getVerusId = async (chain, iAddrOrName) => {
     const identity = await getIdentity(CoinDirectory.getBasicCoinObj(chain).system_id, iAddrOrName);
@@ -474,12 +488,20 @@ const DataPacketRequestInfo = props => {
     });
   };
 
-  const handleSignerDetailsPress = () => {
-    if (!chain_id || !signerIdentityID) {
+  const handleRequestSignerDetailsPress = () => {
+    if (!requestChainId || !requestSignerIdentityID) {
       createAlert('Signer unavailable', 'No signer identity is available for this request.');
       return;
     }
-    openVerusIdDetailsModal(chain_id, signerIdentityID);
+    openVerusIdDetailsModal(requestChainId, requestSignerIdentityID);
+  };
+
+  const handleEmbeddedSignerDetailsPress = () => {
+    if (!embeddedChainId || !embeddedSignerIdentityID) {
+      createAlert('Signer unavailable', 'No embedded signer identity is available.');
+      return;
+    }
+    openVerusIdDetailsModal(embeddedChainId, embeddedSignerIdentityID);
   };
 
   const wrongRequestType = (isTestRequest) => {
@@ -619,14 +641,15 @@ const DataPacketRequestInfo = props => {
       const packetId = details.requestID?.toIAddress?.() || `packet_${Date.now()}`;
       const dataToStore = {
         [packetId]: {
-          name: signerFqn || 'Data Packet',
-          signer: signerFqn || signerIdentityID || 'Unknown',
-          signerIdentityID,
-          signerSystemID,
+          name: requestSignerFqn || embeddedSignerFqn || 'Data Packet',
+          signer: requestSignerFqn || requestSignerIdentityID || embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown',
+          signerIdentityID: requestSignerIdentityID || embeddedSignerIdentityID,
+          signerSystemID: requestSignerSystemID || embeddedSignerSystemID,
+          recipientId: recipientId,
           data: detailsBufferString,
           timestamp: Date.now(),
-          sigtime,
-          isSignatureValid,
+          sigtime: requestSigtime || embeddedSigtime,
+          isSignatureValid: embeddedIsSignatureValid,
           type: 'data_packet',
           statements: details.statements || [],
           signableObjectsCount: details.signableObjects?.length || 0,
@@ -813,6 +836,12 @@ const DataPacketRequestInfo = props => {
         createAlert('Download Required', 'Please download and verify the data before continuing.');
         return;
       }
+
+      // Check recipient constraints for transmittal first
+      if (isForTransmittal && recipientConstraintIds.size > 0 && !recipientId) {
+        createAlert('Identity Required', 'You do not have the required identity to accept this data packet.');
+        return;
+      }
       
       // If user signature is required
       if (isForUserSig) {
@@ -823,6 +852,10 @@ const DataPacketRequestInfo = props => {
         
         const signedResponse = await signAndCreateResponse();
         if (signedResponse) {
+          // If transmittal is also set, save data before advancing
+          if (isForTransmittal) {
+            await storeDataPacket();
+          }
           next(signedResponse, [detailIndex]);
         }
       } else if (isForTransmittal) {
@@ -875,14 +908,17 @@ const DataPacketRequestInfo = props => {
     if (detailsBufferString) {
       const det = new DataPacketRequestDetails();
       det.fromBuffer(Buffer.from(detailsBufferString, 'hex'));
-      console.log('Parsed DataPacketRequestDetails:', det.toJson());
       setDetails(det);
     }
   }, [detailsBufferString]);
 
   useEffect(() => {
-    setSigDateString(unixToDate(sigtime));
-  }, [sigtime]);
+    setRequestSigDateString(unixToDate(requestSigtime));
+  }, [requestSigtime]);
+
+  useEffect(() => {
+    setEmbeddedSigDateString(unixToDate(embeddedSigtime));
+  }, [embeddedSigtime]);
 
   useEffect(() => {
     if (sendModalType != AUTHENTICATE_USER_SEND_MODAL) {
@@ -934,6 +970,60 @@ const DataPacketRequestInfo = props => {
     }
   }, [details]);
 
+  // Extract recipient constraints from AuthenticationRequestDetails if present in request.details
+  useEffect(() => {
+    if (request && request.details) {
+      const possibleAuthenticationDetails = request.details.find(
+        x => x instanceof AuthenticationRequestOrdinalVDXFObject
+      );
+      console.log( 'found:', possibleAuthenticationDetails);
+      if (possibleAuthenticationDetails) {
+        const authDetails = possibleAuthenticationDetails.data;
+        if (authDetails && authDetails.recipientConstraints) {
+          const requiredIds = new Set(
+            authDetails.recipientConstraints
+              .filter(x => Number(x.type) === RecipientConstraint.REQUIRED_ID)
+              .map(x => {
+                try {
+                  console.log('Processing recipient constraint:', x);
+                  return x.identity.toIAddress();
+                } catch (e){
+                  console.warn('Error getting constraint i-address:', e); 
+                  return null;
+                }
+              })
+              .filter(x => x != null)
+          );
+          console.log('Extracted recipient constraints:', authDetails.recipientConstraints);
+          setRecipientConstraintIds(requiredIds);
+        }
+      }
+    }
+  }, [request]);
+
+  // Determine recipientId based on recipient constraints and linked identities
+  useEffect(() => {
+    if (recipientConstraintIds.size === 0) {
+      setRecipientId("");
+      return;
+    }
+
+    // Check if any linked identity matches the constraints
+    for (const chainId of Object.keys(linkedIds)) {
+      if (linkedIds[chainId]) {
+        for (const iAddr of Object.keys(linkedIds[chainId])) {
+          if (recipientConstraintIds.has(iAddr)) {
+            setRecipientId(iAddr);
+            return;
+          }
+        }
+      }
+    }
+
+    // No matching identity found
+    setRecipientId("");
+  }, [recipientConstraintIds, linkedIds]);
+
   // Determine flags for display
   const hasRequestId = details.hasRequestID();
   const hasStatements = details.hasStatements();
@@ -941,8 +1031,11 @@ const DataPacketRequestInfo = props => {
   const isForUserSignature = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_USERS_SIGNATURE)?.gt?.(new BN(0)) || false;
   const isForTransmittalToUser = details.flags?.and?.(DataPacketRequestDetails.FLAG_FOR_TRANSMITTAL_TO_USER)?.gt?.(new BN(0)) || false;
   const hasUrlForDownload = details.flags?.and?.(DataPacketRequestDetails.FLAG_HAS_URL_FOR_DOWNLOAD)?.gt?.(new BN(0)) || false;
-  const requesterLabel = signerFqn || signerIdentityID || 'Unknown signer';
-  const canOpenSignerModal = Boolean(chain_id && signerIdentityID);
+  const requesterLabel = requestSignerFqn || requestSignerIdentityID || embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown signer';
+  const requesterAddress = requestSignerIdentityID || embeddedSignerIdentityID;
+  const canOpenRequestSignerModal = Boolean(requestChainId && requestSignerIdentityID);
+  const canOpenEmbeddedSignerModal = Boolean(embeddedChainId && embeddedSignerIdentityID);
+  const canOpenSignerModal = canOpenRequestSignerModal || canOpenEmbeddedSignerModal;
 
   // Build detail rows
   const detailRows = useMemo(() => {
@@ -965,6 +1058,40 @@ const DataPacketRequestInfo = props => {
         subtitle: 'Data will be saved to your wallet.',
         rightIcon: 'download',
       });
+
+      // Show recipient constraint info
+      if (recipientConstraintIds.size > 0) {
+        const constraintAddrs = Array.from(recipientConstraintIds);
+        // Try to resolve a friendly name from linked identities
+        let recipientLabel = constraintAddrs[0];
+        for (const chainId of Object.keys(linkedIds)) {
+          if (linkedIds[chainId]) {
+            for (const iAddr of constraintAddrs) {
+              if (linkedIds[chainId][iAddr]) {
+                recipientLabel = linkedIds[chainId][iAddr];
+                break;
+              }
+            }
+          }
+        }
+
+        if (recipientId) {
+          rows.push({
+            key: 'recipient-constraint',
+            title: `Intended for: ${recipientLabel}`,
+            subtitle: truncateAddress(recipientId),
+            rightIcon: 'check-circle-outline',
+          });
+        } else {
+          rows.push({
+            key: 'recipient-constraint-missing',
+            title: `Requires identity: ${truncateAddress(constraintAddrs[0])}`,
+            subtitle: 'You do not have the required identity linked.',
+            rightIcon: 'alert-circle-outline',
+            isError: true,
+          });
+        }
+      }
     }
 
     if (hasUrlForDownload) {
@@ -1018,26 +1145,47 @@ const DataPacketRequestInfo = props => {
       });
     }
 
-    // Internal signature status (separate from main request signature)
+    // Embedded signature section with signer details
     if (hasSignature && details.signature) {
+      const embeddedSignerLabel = embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown signer';
+      const embeddedSignerAddr = embeddedSignerIdentityID ? truncateAddress(embeddedSignerIdentityID) : null;
+
       rows.push({
-        key: 'internal-signature',
-        title: isSignatureValid ? 'Valid signature' : 'Invalid signature',
-        subtitle: 'Embedded signature on data packet',
-        rightIcon: isSignatureValid ? 'check-circle-outline' : 'alert-circle-outline',
+        key: 'embedded-signer',
+        title: embeddedSignerLabel,
+        subtitle: embeddedSignerAddr ? `Signed by ${embeddedSignerAddr}` : 'Embedded signature on data packet',
+        rightIcon: canOpenEmbeddedSignerModal ? 'chevron-right' : undefined,
+        onPress: canOpenEmbeddedSignerModal ? handleEmbeddedSignerDetailsPress : undefined,
       });
+
+      if (embeddedChainId || embeddedSigDateString) {
+        rows.push({
+          key: 'embedded-sig-info',
+          title: [embeddedChainId, embeddedSigDateString].filter(Boolean).join(' · '),
+          subtitle: embeddedIsSignatureValid === true ? 'Verified' : embeddedIsSignatureValid === false ? 'Unverified' : 'Verification pending',
+          rightIcon: embeddedIsSignatureValid === true ? 'check-circle-outline' : embeddedIsSignatureValid === false ? 'alert-circle-outline' : 'clock-outline',
+        });
+      } else {
+        rows.push({
+          key: 'embedded-sig-status',
+          title: embeddedIsSignatureValid === true ? 'Valid signature' : embeddedIsSignatureValid === false ? 'Invalid signature' : 'Signature status unknown',
+          subtitle: 'Embedded signature on data packet',
+          rightIcon: embeddedIsSignatureValid === true ? 'check-circle-outline' : embeddedIsSignatureValid === false ? 'alert-circle-outline' : 'clock-outline',
+        });
+      }
     }
 
     return rows;
-  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, isSignatureValid, urlRef, hashVerified]);
+  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, embeddedIsSignatureValid, embeddedSignerFqn, embeddedSignerIdentityID, embeddedChainId, embeddedSigDateString, canOpenEmbeddedSignerModal, urlRef, hashVerified, recipientConstraintIds, recipientId, linkedIds]);
 
   // Determine if continue button should be disabled
   const continueDisabled = useMemo(() => {
-    if (isSigned && isSignatureValid === false) return true;
+    if (isSigned && embeddedIsSignatureValid === false) return true;
     if (isForUserSignature && !selectedIdentity && signedIn) return true;
     if (hasUrlForDownload && hashVerified !== true && signedIn) return true;
+    if (isForTransmittalToUser && recipientConstraintIds.size > 0 && !recipientId && signedIn) return true;
     return false;
-  }, [isSigned, isSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified]);
+  }, [isSigned, embeddedIsSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified, isForTransmittalToUser, recipientConstraintIds, recipientId]);
 
   // Determine hero text based on request type
   const getHeroTitle = () => {
@@ -1103,7 +1251,7 @@ const DataPacketRequestInfo = props => {
         {isSigned ? (
           <TouchableOpacity
             style={styles.requesterCard}
-            onPress={canOpenSignerModal ? handleSignerDetailsPress : undefined}
+            onPress={canOpenRequestSignerModal ? handleRequestSignerDetailsPress : (canOpenEmbeddedSignerModal ? handleEmbeddedSignerDetailsPress : undefined)}
             activeOpacity={canOpenSignerModal ? 0.7 : 1}
           >
             <View style={styles.requesterHeaderRow}>
@@ -1117,6 +1265,9 @@ const DataPacketRequestInfo = props => {
               <View style={styles.requesterTextContainer}>
                 <Text style={styles.requesterLabel}>Request from</Text>
                 <Text style={styles.requesterName}>{requesterLabel}</Text>
+                {requesterAddress ? (
+                  <Text style={styles.requesterAddress}>{truncateAddress(requesterAddress)}</Text>
+                ) : null}
               </View>
               {canOpenSignerModal ? (
                 <MaterialCommunityIcons
@@ -1127,23 +1278,16 @@ const DataPacketRequestInfo = props => {
               ) : null}
             </View>
             <View style={styles.requesterDetailsRow}>
-              {chain_id ? (
+              {requestChainId ? (
                 <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{chain_id}</Text>
+                  <Text style={styles.chipText}>{requestChainId}</Text>
                 </View>
               ) : null}
-              {sigDateString ? (
+              {requestSigDateString ? (
                 <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{sigDateString}</Text>
+                  <Text style={styles.chipText}>{requestSigDateString}</Text>
                 </View>
               ) : null}
-              {isSignatureValid !== undefined && (
-                <View style={[styles.chipContainer, isSignatureValid ? styles.chipValid : styles.chipInvalid]}>
-                  <Text style={[styles.chipText, isSignatureValid ? styles.chipTextValid : styles.chipTextInvalid]}>
-                    {isSignatureValid ? 'Verified' : 'Unverified'}
-                  </Text>
-                </View>
-              )}
             </View>
           </TouchableOpacity>
         ) : (
@@ -1228,6 +1372,7 @@ const DataPacketRequestInfo = props => {
                   rightIcon={row.rightIcon}
                   showBorder={index > 0}
                   singleLine={row.singleLine}
+                  isError={row.isError}
                 />
               ))
             )}
@@ -1355,6 +1500,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#1A1A1A',
+  },
+  requesterAddress: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
   requesterDetailsRow: {
     flexDirection: 'row',
@@ -1806,6 +1957,18 @@ const styles = StyleSheet.create({
   cancelDownloadButton: {
     width: '100%',
     borderRadius: 22,
+  },
+  detailRowError: {
+    backgroundColor: '#FFEBEE',
+    borderLeftWidth: 3,
+    borderLeftColor: '#C62828',
+  },
+  detailTitleError: {
+    color: '#C62828',
+    fontWeight: '600',
+  },
+  detailSubtitleError: {
+    color: '#D32F2F',
   },
 });
 

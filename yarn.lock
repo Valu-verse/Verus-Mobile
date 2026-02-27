@@ -10080,9 +10080,9 @@ react-native-url-polyfill@1.3.0:
     prop-types "^15.7.2"
     yargs "^16.1.1"
 
-"react-native-verus@git+https://github.com/VerusCoin/react-native-verus.git":
+"react-native-verus@https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7":
   version "0.6.10"
-  resolved "git+https://github.com/VerusCoin/react-native-verus.git#4ef1e6beb59e0bc4345317495d9726ed643d2ba6"
+  resolved "https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7"
   dependencies:
     biggystring "^4.1.3"
     rfc4648 "^1.3.0"
@@ -11992,9 +11992,9 @@ version_compare@0.0.3:
     bignumber.js "^9.0.0"
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a":
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#7f71d1ea0a5f64954312e83e622f7a893d199d94":
   version "1.0.0"
-  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#cb91f376ee4582f5306080d356ab5f3ae11c8a8a"
+  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#7f71d1ea0a5f64954312e83e622f7a893d199d94"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"

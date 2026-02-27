@@ -18,12 +18,15 @@ const createHash = require("create-hash");
  *  displayProps: {
  *    detailsBufferString: string;
  *    isSigned: boolean;
- *    sigtime?: number;
- *    signerFqn?: string;
- *    signerSystemID?: string;
- *    signerSystemName?: string;
- *    signerIdentityID?: string;
- *    isSignatureValid?: boolean;
+ *    requestSignerFqn?: string;
+ *    requestSignerIdentityID?: string;
+ *    requestSignerSystemID?: string;
+ *    requestSigtime?: number;
+ *    embeddedSignerFqn?: string;
+ *    embeddedSignerIdentityID?: string;
+ *    embeddedSignerSystemID?: string;
+ *    embeddedSigtime?: number;
+ *    embeddedIsSignatureValid?: boolean;
  *    coinObj?: any;
  *  }
  *  response: GenericResponse;
@@ -42,8 +45,21 @@ export const handleDataPacketRequestDetailsVDXFObject = async (request, response
   const details = ordinalObj.data;
   let displayProps = {};
 
-  // Determine if testnet based on flags or default to mainnet
-  const coinObj = CoinDirectory.getBasicCoinObj('VRSC');
+  // Determine network: use the embedded signature's systemID if available,
+  // otherwise fall back to request.isTestnet(), otherwise default to mainnet.
+  let networkCoinId = 'VRSC';
+  if (details.hasSignature() && details.signature) {
+    const sigSystemId = details.signature.systemID?.toIAddress?.();
+    if (sigSystemId) {
+      const sigSystemName = getSystemNameFromSystemId(sigSystemId);
+      if (sigSystemName) networkCoinId = sigSystemName;
+    }
+  }
+  if (networkCoinId === 'VRSC' && request.isTestnet && request.isTestnet()) {
+    networkCoinId = 'VRSCTEST';
+  }
+
+  const coinObj = CoinDirectory.getBasicCoinObj(networkCoinId);
   VrpcProvider.initEndpoint(coinObj.system_id, coinObj.vrpc_endpoints[0]);
 
   // Get chain info
@@ -51,41 +67,50 @@ export const handleDataPacketRequestDetailsVDXFObject = async (request, response
   if (chainInfo.error) throw new Error(chainInfo.error.message);
 
   // Check for embedded signature within the data packet details
-  let isSignatureValid = undefined;
-  let sigtime = undefined;
-  let signerFqn = undefined;
-  let signerIdentityID = undefined;
-  let signerSystemID = undefined;
+  let embeddedIsSignatureValid = undefined;
+  let embeddedSigtime = undefined;
+  let embeddedSignerFqn = undefined;
+  let embeddedSignerIdentityID = undefined;
+  let embeddedSignerSystemID = undefined;
 
   if (details.hasSignature() && details.signature) {
     // Extract the signature from the details
     const embeddedSignature = details.signature;
     
-    // Create a copy of details without the signature for verification
-    // The signed data is the DataPacketRequestDetails without the signature field
+    // Create a copy of details without the signature data for verification.
+    // The signed data is the DataPacketRequestDetails with FLAG_HAS_SIGNATURE
+    // still set in flags, but without the actual signature bytes serialized.
+    // This matches the signing convention where the flag indicates a signature
+    // will be present, but the signature itself is not part of the signed message.
     const detailsForVerification = new DataPacketRequestDetails({
       version: details.version,
-      flags: details.flags.and(DataPacketRequestDetails.FLAG_HAS_SIGNATURE.notn(256)), // Remove signature flag
+      flags: details.flags, // Keep FLAG_HAS_SIGNATURE in flags - it's part of the signed data
       signableObjects: details.signableObjects,
       statements: details.statements,
       requestID: details.requestID,
-      // signature is intentionally omitted
+      // signature is intentionally omitted - toBuffer() skips writing it when undefined
     });
 
     // Get the buffer of the unsigned details - this is what was signed
     const signedDataBuffer = detailsForVerification.toBuffer();
     const signedDataHash = createHash("sha256").update(signedDataBuffer).digest();
-    
     // Extract signer info from embedded signature
-    signerIdentityID = embeddedSignature.identityID?.toIAddress?.();
-    signerSystemID = embeddedSignature.systemID?.toIAddress?.();
+    embeddedSignerIdentityID = embeddedSignature.identityID?.toIAddress?.();
+    embeddedSignerSystemID = embeddedSignature.systemID?.toIAddress?.();
 
-    if (signerIdentityID && signerSystemID) {
+    if (embeddedSignerIdentityID && embeddedSignerSystemID) {
       try {
+        // Ensure the endpoint for the signer's system is initialized
+        const signerSystemName = getSystemNameFromSystemId(embeddedSignerSystemID);
+        if (signerSystemName) {
+          const signerCoinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
+          VrpcProvider.initEndpoint(signerCoinObj.system_id, signerCoinObj.vrpc_endpoints[0]);
+        }
+
         // Get signature info to extract block height
         const sigInfo = await getSignatureInfo(
-          signerSystemID,
-          signerIdentityID,
+          embeddedSignerSystemID,
+          embeddedSignerIdentityID,
           embeddedSignature.signatureAsVch.toString('base64')
         );
 
@@ -94,58 +119,62 @@ export const handleDataPacketRequestDetailsVDXFObject = async (request, response
           sigInfo.height,
           signedDataHash
         );
- 
         const verified = await verifyHash(
-          signerSystemID,
-          signerIdentityID,
+          embeddedSignerSystemID,
+          embeddedSignerIdentityID,
           embeddedSignature.signatureAsVch.toString('base64'),
           hashToVerify
         );
 
-        isSignatureValid = !!verified;
+        embeddedIsSignatureValid = !!verified;
 
         // Get signature time from block
         if (sigInfo.height) {
-          const sigblock = await getBlock(signerSystemID, sigInfo.height);
+          const sigblock = await getBlock(embeddedSignerSystemID, sigInfo.height);
           if (!sigblock.error) {
-            sigtime = sigblock.result.time;
+            embeddedSigtime = sigblock.result.time;
           }
         }
 
         // Get signer friendly name
-        const signedBy = await getIdentity(signerSystemID, signerIdentityID);
+        const signedBy = await getIdentity(embeddedSignerSystemID, embeddedSignerIdentityID);
         if (!signedBy.error) {
-          signerFqn = convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname);
+          embeddedSignerFqn = convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname);
         }
       } catch (e) {
         console.warn("Error verifying embedded signature:", e);
-        isSignatureValid = false;
+        embeddedIsSignatureValid = false;
       }
     }
   }
 
-  // Also check main request signature if present
-  if (request.isSigned() && !signerIdentityID) {
-    signerIdentityID = request.signature.identityID.toIAddress();
-    signerSystemID = request.signature.systemID.toIAddress();
+  // Also extract main request signature info if present
+  let requestSignerFqn = undefined;
+  let requestSignerIdentityID = undefined;
+  let requestSignerSystemID = undefined;
+  let requestSigtime = undefined;
+
+  if (request.isSigned()) {
+    requestSignerIdentityID = request.signature.identityID.toIAddress();
+    requestSignerSystemID = request.signature.systemID.toIAddress();
 
     try {
       const sigInfo = await getSignatureInfo(
-        signerSystemID,
-        signerIdentityID,
+        requestSignerSystemID,
+        requestSignerIdentityID,
         request.signature.signatureAsVch.toString('base64')
       );
 
       if (sigInfo.height) {
-        const sigblock = await getBlock(signerSystemID, sigInfo.height);
+        const sigblock = await getBlock(requestSignerSystemID, sigInfo.height);
         if (!sigblock.error) {
-          sigtime = sigblock.result.time;
+          requestSigtime = sigblock.result.time;
         }
       }
 
-      const signedBy = await getIdentity(signerSystemID, signerIdentityID);
+      const signedBy = await getIdentity(requestSignerSystemID, requestSignerIdentityID);
       if (!signedBy.error) {
-        signerFqn = convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname);
+        requestSignerFqn = convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname);
       }
     } catch (e) {
       console.warn("Error getting request signature info:", e);
@@ -155,11 +184,15 @@ export const handleDataPacketRequestDetailsVDXFObject = async (request, response
   displayProps = {
     detailsBufferString: details.toBuffer().toString('hex'),
     isSigned: !!(details.hasSignature() || request.isSigned()),
-    sigtime,
-    signerFqn,
-    signerSystemID,
-    signerIdentityID,
-    isSignatureValid,
+    requestSignerFqn,
+    requestSignerIdentityID,
+    requestSignerSystemID,
+    requestSigtime,
+    embeddedSignerFqn,
+    embeddedSignerIdentityID,
+    embeddedSignerSystemID,
+    embeddedSigtime,
+    embeddedIsSignatureValid,
     coinObj,
     chainInfo: chainInfo.result,
   };

@@ -15,7 +15,7 @@
     - Reduces cognitive load for simple authentication requests
 */
 import React, { useMemo, useState, useEffect } from 'react';
-import { SafeAreaView, ScrollView, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { SafeAreaView, ScrollView, TouchableOpacity, View, StyleSheet, Platform, StatusBar } from 'react-native';
 import { primitives } from 'verusid-ts-client';
 import { Button, Portal, Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -982,6 +982,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
   },
   scrollView: {
     flex: 1,
