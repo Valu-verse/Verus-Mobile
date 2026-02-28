@@ -15,6 +15,9 @@ import {
   DataDescriptorOrdinalVDXFObject,
   GenericRequest,
   GenericResponse,
+  IdentityID,
+  DataDescriptorKey,
+  VdxfUniValue
 } from "verus-typescript-primitives";
 
 import { SaplingExtendedViewingKey } from "verus-typescript-primitives/dist/pbaas/SaplingExtendedViewingKey";
@@ -30,36 +33,72 @@ import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
 import { getSignatureInfo } from "../../api/channels/vrpc/requests/getSignatureInfo";
 
-import { requestPrivKey } from "../../auth/authBox";
+import { requestPrivKey, requestSeeds } from "../../auth/authBox";
 import { DLIGHT_PRIVATE } from "../../constants/intervalConstants";
+import { isDlightSpendingKey } from "../../keys";
 
 import { z_getencryptionaddress } from "../../api/channels/dlight/requests/zGetEncryptionAddress";
-import { encryptVerusMessage } from "../../api/channels/dlight/requests/encrypt";
+import { encryptData } from "../../api/channels/dlight/requests/encrypt";
 
 // Configuration
 
 // Set to false when real z_functions are available
-const USE_MOCK_Z_FUNCTIONS = true;
+const USE_MOCK_Z_FUNCTIONS = false;
 
 /**
- * Gets the Extended Spending Key from the wallet
+ * Gets key material for z_getencryptionaddress.
+ * 
+ * IMPORTANT: We prefer the raw mnemonic seed over the extsk because the
+ * daemon's z_getencryptionaddress takes the raw 64-byte seed (the output of
+ * SeedPhrase.new(mnemonic).toByteArray()), NOT the extended spending key.
+ * Passing extsk goes through a different derivation path and produces
+ * different results.
+ *
+ * Returns { mnemonicSeed } when possible, or { extsk } as last resort.
+ * The native module converts mnemonicSeed via SeedPhrase.new() internally.
+ *
  * @param {string} systemID - The system ID (VRSC or VRSCTEST)
- * @returns {Promise<string>} The ESK
- * @throws {Error} If ESK cannot be retrieved
+ * @returns {Promise<{extsk?: string, mnemonicSeed?: string}>}
+ * @throws {Error} If no key material can be retrieved
  */
-const getExtendedSpendingKey = async (systemID) => {
-  const coinId = CoinDirectory.getBasicCoinObj(systemID);
+const getKeyMaterial = async (systemID) => {
+  const coinObj = CoinDirectory.getBasicCoinObj(systemID);
+
+  // 1. Prefer raw mnemonic seed — this matches what the daemon uses.
+  //    The native module will run SeedPhrase.new(mnemonic).toByteArray()
+  //    to turn it into the 64-byte seed the derivation expects.
   try {
-    const esk = await requestPrivKey(coinId.id, DLIGHT_PRIVATE);
-    
-    if (!esk) {
-      throw new Error(`extended spending key not available for ${coinId}`);
+    const seeds = await requestSeeds();
+    const dlightSeed = seeds[DLIGHT_PRIVATE];
+    if (dlightSeed) {
+      if (isDlightSpendingKey(dlightSeed)) {
+        // Stored "seed" is actually an extsk (bech32 spending key).
+        // Can't use it as a mnemonic — fall through to extsk path.
+        console.warn('dlight seed is an extsk, cannot use as mnemonic');
+      } else {
+        // Raw mnemonic seed — this is what the daemon's z_getencryptionaddress expects.
+        return { mnemonicSeed: dlightSeed };
+      }
     }
-    
-    return esk;
   } catch (e) {
-    throw new Error(`failed to retrieve extended spending key: ${e.message}`);
+    console.warn('Failed to get raw seeds, trying stored keys:', e?.message);
   }
+
+  // 2. Fallback: try stored ESK for the requested coin
+  try {
+    const esk = await requestPrivKey(coinObj.id, DLIGHT_PRIVATE);
+    if (esk) return { extsk: esk };
+  } catch (_) {}
+
+  // 3. Fallback: try stored ESK for VRSC (same seed, network-agnostic)
+  if (coinObj.id !== 'VRSC') {
+    try {
+      const esk = await requestPrivKey('VRSC', DLIGHT_PRIVATE);
+      if (esk) return { extsk: esk };
+    } catch (_) {}
+  }
+
+  throw new Error(`No key material available for ${coinObj.id}`);
 };
 
 // remove when tested with real functions
@@ -73,7 +112,7 @@ const mock_z_getencryptionaddress = async (systemID, params) => {
   };
 };
 
-const mock_encryptVerusMessage = async (systemID, toAddress, data, returnSsk) => {
+const mock_encryptData = async (systemID, toAddress, data, returnSsk) => {
   return {
     err: false,
     result: data
@@ -93,11 +132,11 @@ const callZGetEncryptionAddress = async (systemID, params) => {
     return z_getencryptionaddress(systemID, params);
 };
 
-const callEncryptVerusMessage = async (systemID, toAddress, data, returnSsk) => {
+const callEncryptData = async (systemID, toAddress, data, returnSsk) => {
   if (USE_MOCK_Z_FUNCTIONS) {
-    return mock_encryptVerusMessage(systemID, toAddress, data, returnSsk);
+    return mock_encryptData(systemID, toAddress, data, returnSsk);
   }
-    return encryptVerusMessage(systemID, toAddress, data, returnSsk);
+    return encryptData(systemID, toAddress, data, returnSsk);
 };
 
 
@@ -273,8 +312,8 @@ export const processAppEncryptionRequest = async ({
     throw new Error("Unsupported system: " + systemID);
   }
 
-  // Get ESK for key derivation
-  const eskForDerivation = await getExtendedSpendingKey(coinObj.id);
+  // Get key material (either extsk or mnemonicSeed) for derivation
+  const keyMaterial = await getKeyMaterial(coinObj.id);
 
   // Use appOrDelegatedID if present, otherwise use requestSignerID
   const appID = appOrDelegatedID || requestSignerID;
@@ -282,12 +321,36 @@ export const processAppEncryptionRequest = async ({
   // Check if spending key requested via flags
   const returnESK = encryptionRequest.returnESK();
 
-  // Build derivation params
+  // Determine toId: the derivationID from the encryption request is the
+  // identity we derive a shared key with (matches daemon's "toid").
+  // Falls back to appOrDelegatedID or requestSignerID if no derivationID.
+  let toIdAddress;
+  if (encryptionRequest.hasDerivationID()) {
+    toIdAddress = encryptionRequest.derivationID.toIAddress();
+  } else {
+    toIdAddress = appID;
+  }
+
+  // Convert i-addresses to 20-byte hex strings for the native module.
+  // The native Rust code (verus_zfunc) reverses these bytes before hashing,
+  // but the C++ daemon hashes uint160::data[] directly (no reversal).
+  // To compensate, we send the bytes pre-reversed so that after the Rust
+  // reversal they end up in the original order—matching the daemon.
+  const fromIdBytes = IdentityID.fromAddress(responseSignerID).hash;
+  const toIdBytes = IdentityID.fromAddress(toIdAddress).hash;
+  const fromIdHex = Buffer.from(fromIdBytes).reverse().toString('hex');
+  const toIdHex = Buffer.from(toIdBytes).reverse().toString('hex');
+
+  // Build derivation params matching ChannelKeysRequest interface.
+  // When using an extsk (already-derived spending key), omit hdIndex so the
+  // JS wrapper sends -1 ("not provided") to the native module.  The native
+  // code rejects hdIndex >= 0 together with a spending key because HD
+  // derivation only applies to a mnemonic seed.
   const derivationParams = {
-    spendingKey: eskForDerivation,
-    fromId: responseSignerID,
-    toId: appID,
-    hdIndex: 0,
+    ...keyMaterial,           // { extsk } or { mnemonicSeed }
+    fromId: fromIdHex,
+    toId: toIdHex,
+    ...(keyMaterial.mnemonicSeed ? { hdIndex: 0 } : {}),
     encryptionIndex: encryptionRequest.derivationNumber.toNumber(),
     returnSecret: returnESK
   };
@@ -296,7 +359,10 @@ export const processAppEncryptionRequest = async ({
   const derivationResult = await callZGetEncryptionAddress(coinObj.system_id, derivationParams);
 
   if (derivationResult.err) {
-    throw new Error("Key derivation failed: " + (derivationResult.err.message || derivationResult.err));
+    const errMsg = typeof derivationResult.err === 'string'
+      ? derivationResult.err
+      : derivationResult.result?.message || derivationResult.result?.toString() || String(derivationResult.err);
+    throw new Error("Key derivation failed: " + errMsg);
   }
 
   const keys = derivationResult.result;
@@ -367,19 +433,32 @@ export const processAppEncryptionRequest = async ({
 
   if (!encryptTo) {
     // Return unencrypted response
-    return new AppEncryptionResponseOrdinalVDXFObject({
-      data: responseDetails
-    });
+    return {
+      responseDetail: new AppEncryptionResponseOrdinalVDXFObject({
+        data: responseDetails
+      }),
+      encryptedDescriptorJson: null,
+    };
   }
 
   // Encrypt response
   const responseBuffer = responseDetails.toBuffer();
-  const responseHex = responseBuffer.toString("hex");
 
-  const encryptResult = await callEncryptVerusMessage(
+  
+  //wrap data in a DataDescriptor for encryption
+
+  const innerDescriptor = new DataDescriptor({objectdata: responseBuffer});
+
+  const innerRef = [];
+  innerRef.push({ [DataDescriptorKey.vdxfid]: innerDescriptor });
+  
+  // Create VdxfUniValue from the map
+  const urlRefUniValue = new VdxfUniValue({ values: innerRef });
+
+  const encryptResult = await callEncryptData(
     coinObj.system_id,
     encryptTo,
-    responseHex,
+    urlRefUniValue.toBuffer().toString('hex'), // Pass the buffer of the VdxfUniValue
     true
   );
 
@@ -389,16 +468,36 @@ export const processAppEncryptionRequest = async ({
   
   const encryptedData = encryptResult.result;
 
+  // Extract raw ciphertext hex — handle both string result and object result
+  const ciphertextHex = typeof encryptedData === 'string' ? encryptedData : encryptedData.encryptedData;
+  const epkHex = encryptedData.ephemeralPublicKey;
+  const sskHex = encryptedData.symmetricKey;
+
+  
+
   // Wrap encrypted data in DataDescriptor
   const encryptedDescriptor = new DataDescriptor({
     flags: DataDescriptor.FLAG_ENCRYPTED_DATA,
-    objectdata: Buffer.from(typeof encryptedData === 'string' ? encryptedData : encryptedData.ciphertext, 'hex'),
-    epk: encryptedData.epk ? Buffer.from(encryptedData.epk, 'hex') : undefined,
+    objectdata: Buffer.from(ciphertextHex, 'hex'),
+    epk: Buffer.from(epkHex, 'hex'),
+   // ssk: sskHex ? Buffer.from(sskHex, 'hex') : undefined,
   });
 
-  return new DataDescriptorOrdinalVDXFObject({
-    data: encryptedDescriptor
-  });
+  // Build daemon-compatible JSON (raw hex values, NOT through VdxfUniValue)
+  const encryptedDescriptorJson = {
+    version: 1,
+    flags: encryptedDescriptor.flags.toNumber(),
+    objectdata: ciphertextHex,
+    epk: epkHex,
+   // ...(sskHex ? { ssk: sskHex } : {}),
+  };
+
+  return {
+    responseDetail: new DataDescriptorOrdinalVDXFObject({
+      data: encryptedDescriptor
+    }),
+    encryptedDescriptorJson,
+  };
 };
 
 

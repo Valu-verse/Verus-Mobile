@@ -3,14 +3,14 @@ import ApiException from '../../../errors/apiError';
 import { DLIGHT_PRIVATE } from '../../../../constants/intervalConstants';
 
 
-export const decryptVerusMessage = async (alias, params) => {
+export const decryptData = async (alias, params) => {
   try {
-    const plaintext = await Tools.decryptVerusMessage(
-      params.fvkHex || null,
-      params.epkHex || null,
-      params.ciphertextHex,
-      params.sskHex || null
-    );
+    const plaintext = await Tools.decryptData({
+      ivkHex: params.ivkHex || null,
+      ephemeralPublicKeyHex: params.ephemeralPublicKeyHex || null,
+      ciphertextHex: params.ciphertextHex,
+      symmetricKeyHex: params.symmetricKeyHex || null
+    });
 
     return {
       result: plaintext,
