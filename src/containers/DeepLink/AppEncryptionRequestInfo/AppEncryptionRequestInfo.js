@@ -15,10 +15,12 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import { Button, Text } from 'react-native-paper';
+import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import { GenericResponse } from 'verus-typescript-primitives';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import SemiModal from '../../../components/SemiModal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import Colors from '../../../globals/colors';
 import GradientButton from '../../../components/GradientButton';
@@ -47,6 +49,142 @@ const truncateAddress = (addr) => {
 const truncateZAddress = (addr) => {
   if (!addr || addr.length <= 20) return addr;
   return `${addr.slice(0, 10)}...${addr.slice(-10)}`;
+};
+
+// ── Identity Picker Sheet ──
+
+const IdentityPickerSheet = ({
+  visible,
+  linkedIds,
+  sortedIds,
+  selectedIdentity,
+  onClose,
+  onSelect,
+}) => {
+  const insets = useSafeAreaInsets();
+  const paddingBottom = 16 + insets.bottom;
+
+  if (!visible) return null;
+
+  const hasIdentities = Object.keys(sortedIds).some(chainId =>
+    sortedIds[chainId] && sortedIds[chainId].length > 0
+  );
+
+  return (
+    <Portal>
+      <SemiModal
+        animationType="slide"
+        transparent={true}
+        visible={visible}
+        onRequestClose={onClose}
+        title="Select identity to respond with"
+        flexHeight={0.01}
+        contentContainerStyle={{
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          flex: 0,
+          width: '100%',
+          alignSelf: 'flex-end',
+          paddingBottom,
+          maxHeight: '70%',
+        }}
+      >
+        <View>
+          <View style={styles.sheetDescription}>
+            <Text style={styles.sheetDescriptionText}>
+              Choose a VerusID to derive the encryption key from.
+            </Text>
+          </View>
+
+          <ScrollView style={{ maxHeight: 400 }}>
+            <View style={styles.listContainer}>
+              {!hasIdentities && (
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>
+                    No linked identities found.
+                  </Text>
+                </View>
+              )}
+
+              {Object.keys(sortedIds).map(chainId => {
+                const identities = sortedIds[chainId];
+                if (!identities || identities.length === 0) return null;
+
+                return (
+                  <View key={chainId} style={styles.networkGroup}>
+                    <View style={styles.networkHeader}>
+                      <Text style={styles.networkHeaderText}>{chainId}</Text>
+                    </View>
+
+                    {identities.map(iAddr => {
+                      const friendlyName = linkedIds[chainId]?.[iAddr] || iAddr;
+                      const isSelected =
+                        selectedIdentity &&
+                        selectedIdentity.chainId === chainId &&
+                        selectedIdentity.iAddress === iAddr;
+
+                      return (
+                        <TouchableOpacity
+                          key={iAddr}
+                          style={[
+                            styles.identityCard,
+                            isSelected && styles.identityCardSelected,
+                          ]}
+                          onPress={() => onSelect(chainId, iAddr, friendlyName)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.identityIconContainer}>
+                            <MaterialCommunityIcons
+                              name="account"
+                              size={22}
+                              color={isSelected ? Colors.verusGreenColor : '#666'}
+                            />
+                          </View>
+                          <View style={styles.identityTextSection}>
+                            <Text
+                              style={[
+                                styles.identityName,
+                                isSelected && styles.identityNameSelected,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {friendlyName}
+                            </Text>
+                            <Text
+                              style={styles.identityAddress}
+                              numberOfLines={1}
+                            >
+                              {truncateAddress(iAddr)}
+                            </Text>
+                          </View>
+
+                          {isSelected ? (
+                            <MaterialCommunityIcons
+                              name="check-circle"
+                              size={20}
+                              color={Colors.verusGreenColor}
+                              style={styles.chevronIcon}
+                            />
+                          ) : (
+                            <MaterialCommunityIcons
+                              name="chevron-right"
+                              size={20}
+                              color="#CCC"
+                              style={styles.chevronIcon}
+                            />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      </SemiModal>
+    </Portal>
+  );
 };
 
 // ── Detail Row Component ──
@@ -138,6 +276,13 @@ const AppEncryptionRequestInfo = (props) => {
   const [selectedIdentity, setSelectedIdentity] = useState(null);
   const [linkedIds, setLinkedIds] = useState({});
   const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
+  const [sortedIds, setSortedIds] = useState({});
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+
+  // ── Encrypted response preview state ──
+  const [encryptedResponseHex, setEncryptedResponseHex] = useState(null);
+  const [encryptedDescriptorJson, setEncryptedDescriptorJson] = useState(null);
+  const [pendingResponse, setPendingResponse] = useState(null);
 
   // ── Derived values ──
   const requesterLabel = signerFqn || 'An application';
@@ -181,6 +326,21 @@ const AppEncryptionRequestInfo = (props) => {
     }
   }, [encryptedIds, signedIn]);
 
+  // ── Sort identities alphabetically ──
+  useEffect(() => {
+    const sorted = {};
+    for (const chainId of Object.keys(linkedIds)) {
+      sorted[chainId] = linkedIds[chainId]
+        ? Object.keys(linkedIds[chainId]).sort((a, b) => {
+            const nameA = linkedIds[chainId][a] || '';
+            const nameB = linkedIds[chainId][b] || '';
+            return nameA.localeCompare(nameB);
+          })
+        : [];
+    }
+    setSortedIds(sorted);
+  }, [linkedIds]);
+
   // ── Handle sign-in flow ──
   useEffect(() => {
     if (waitingForSignin && signedIn && sendModalType == null) {
@@ -203,6 +363,16 @@ const AppEncryptionRequestInfo = (props) => {
       }
     }
   }, [linkedIds, linkedIdsLoaded, selectedIdentity, requestIsTestnet, identityNetwork]);
+
+  // ── Identity picker handlers ──
+  const handleOpenIdentitySheet = () => {
+    setIdentitySheetVisible(true);
+  };
+
+  const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    setSelectedIdentity({ chainId, iAddress, friendlyName });
+    setIdentitySheetVisible(false);
+  };
 
   // ── Open signer modal ──
   const openSignerModal = () => {
@@ -252,7 +422,7 @@ const AppEncryptionRequestInfo = (props) => {
 
     try {
       // Process the encryption request
-      const responseDetail = await processAppEncryptionRequest({
+      const { responseDetail, encryptedDescriptorJson: descriptorJson } = await processAppEncryptionRequest({
         request,
         detailIndex,
         responseSignerID: selectedIdentity.iAddress,
@@ -263,8 +433,11 @@ const AppEncryptionRequestInfo = (props) => {
       updatedResponse.details = updatedResponse.details || [];
       updatedResponse.details.push(responseDetail);
 
-      // Call next to proceed
-      await next(updatedResponse, [detailIndex]);
+      // Serialize to hex so the user can preview/copy the encrypted response
+      const responseHex = updatedResponse.toBuffer().toString('hex');
+      setEncryptedResponseHex(responseHex);
+      setEncryptedDescriptorJson(descriptorJson);
+      setPendingResponse({ updatedResponse, handledIndices: [detailIndex] });
     } catch (e) {
       console.error('AppEncryptionRequest processing failed:', e);
       createAlert('Error', e.message || 'Failed to process encryption request.');
@@ -290,6 +463,138 @@ const AppEncryptionRequestInfo = (props) => {
     copyToClipboard(address);
     createAlert('Copied', 'Address copied to clipboard.');
   };
+
+  // ── Send the pending response (after reviewing debug info) ──
+  const handleSendResponse = async () => {
+    if (!pendingResponse) return;
+    setLoading(true);
+    try {
+      await next(pendingResponse.updatedResponse, pendingResponse.handledIndices);
+    } catch (e) {
+      console.error('Failed to send response:', e);
+      createAlert('Error', e.message || 'Failed to send response.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Render encrypted response preview screen ──
+  if (encryptedResponseHex && pendingResponse) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <MaterialCommunityIcons name="lock-check" size={48} color={Colors.verusGreenColor} />
+            <Text style={styles.headerTitle}>Encrypted Response Ready</Text>
+            <Text style={styles.headerSubtitle}>
+              Your encrypted response has been generated. Review and copy the hex below, then send it back to the requesting app.
+            </Text>
+          </View>
+
+          {/* Response Hex */}
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Response Hex ({encryptedResponseHex.length} chars)</Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => {
+                copyToClipboard(encryptedResponseHex);
+                createAlert('Copied', 'Encrypted response hex copied to clipboard.');
+              }}
+              style={styles.responseHexContainer}
+            >
+              <Text selectable style={styles.responseHexText}>
+                {encryptedResponseHex}
+              </Text>
+              <View style={styles.responseHexCopyHint}>
+                <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                <Text style={styles.responseHexCopyHintText}>Tap to copy</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* Encrypted Descriptor JSON (daemon-compatible) */}
+          {encryptedDescriptorJson && (
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Encrypted Descriptor (JSON)</Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  const jsonStr = JSON.stringify(encryptedDescriptorJson, null, 2);
+                  copyToClipboard(jsonStr);
+                  createAlert('Copied', 'Encrypted descriptor JSON copied to clipboard.');
+                }}
+                style={styles.responseHexContainer}
+              >
+                <Text selectable style={styles.responseHexText}>
+                  {JSON.stringify(encryptedDescriptorJson, null, 2)}
+                </Text>
+                <View style={styles.responseHexCopyHint}>
+                  <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                  <Text style={styles.responseHexCopyHintText}>Tap to copy</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Daemon decryptdata command */}
+          {encryptedDescriptorJson && (
+            <View style={styles.card}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Daemon Command</Text>
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => {
+                  const cmd = `./verus -chain=vrsctest decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`;
+                  copyToClipboard(cmd);
+                  createAlert('Copied', 'Daemon command copied to clipboard.');
+                }}
+                style={styles.responseHexContainer}
+              >
+                <Text selectable style={styles.responseHexText}>
+                  {`./verus -chain=vrsctest decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`}
+                </Text>
+                <View style={styles.responseHexCopyHint}>
+                  <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                  <Text style={styles.responseHexCopyHintText}>Tap to copy command</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Footer: Copy + Send */}
+        <View style={styles.footer}>
+          <View style={styles.ctaCol}>
+            <Button
+              mode="outlined"
+              onPress={() => {
+                copyToClipboard(encryptedResponseHex);
+                createAlert('Copied', 'Response hex copied to clipboard.');
+              }}
+              style={styles.secondaryCta}
+              contentStyle={styles.secondaryCtaContent}
+              labelStyle={styles.secondaryCtaLabel}
+            >
+              Copy Hex
+            </Button>
+          </View>
+          <View style={styles.ctaCol}>
+            <GradientButton
+              onPress={handleSendResponse}
+              style={styles.primaryCta}
+            >
+              Send Response
+            </GradientButton>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ── Render ──
   if (loading) {
@@ -362,7 +667,7 @@ const AppEncryptionRequestInfo = (props) => {
           {/* Linked Identity */}
           <DetailRow
             title={hasDerivationID ? derivationIdFqn : 'Your signing identity'}
-            subtitle="Linked Identity • Base identity for key derivation"
+            subtitle="Identity to Encrypt to"
             showBorder={true}
           />
 
@@ -370,7 +675,7 @@ const AppEncryptionRequestInfo = (props) => {
           {hasRequestID && (
             <DetailRow
               title={requestIdFqn}
-              subtitle="Request ID • For tracking and correlation"
+              subtitle="Request ID"
               showBorder={true}
             />
           )}
@@ -379,7 +684,7 @@ const AppEncryptionRequestInfo = (props) => {
           {hasEncryptResponseToAddress && (
             <DetailRow
               title={truncateZAddress(encryptResponseToAddress)}
-              subtitle="Encrypt Reply To • Response will be encrypted to this address"
+              subtitle="Encrypt Reply To"
               onPress={() => copyZAddress(encryptResponseToAddress)}
               rightIcon="content-copy"
               showBorder={true}
@@ -408,19 +713,56 @@ const AppEncryptionRequestInfo = (props) => {
           </View>
         )}
 
-        {/* Identity Selection */}
-        {selectedIdentity && (
-          <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Responding As</Text>
+        {/* Identity Selection Card */}
+        {signedIn && (
+          <TouchableOpacity
+            style={[
+              styles.identitySelectCard,
+              selectedIdentity && styles.identitySelectCardSelected,
+            ]}
+            onPress={handleOpenIdentitySheet}
+            activeOpacity={0.7}
+          >
+            <View style={styles.identitySelectIconContainer}>
+              <MaterialCommunityIcons
+                name="account-check"
+                size={28}
+                color={selectedIdentity ? Colors.verusGreenColor : '#666'}
+              />
             </View>
-            <DetailRow
-              title={selectedIdentity.friendlyName}
-              subtitle={truncateAddress(selectedIdentity.iAddress)}
-              showBorder={false}
+            <View style={styles.identitySelectTextContainer}>
+              <Text style={styles.identitySelectLabel}>
+                {selectedIdentity ? 'You are Responding as' : 'Select identity to respond'}
+              </Text>
+              <Text style={[
+                styles.identitySelectName,
+                selectedIdentity && styles.identitySelectNameSelected,
+              ]}>
+                {selectedIdentity ? selectedIdentity.friendlyName : 'Tap to choose'}
+              </Text>
+              {selectedIdentity && (
+                <Text style={styles.identitySelectAddress}>
+                  {truncateAddress(selectedIdentity.iAddress)}
+                </Text>
+              )}
+            </View>
+            <MaterialCommunityIcons
+              name={selectedIdentity ? 'check-circle' : 'chevron-right'}
+              size={24}
+              color={selectedIdentity ? Colors.verusGreenColor : '#CCC'}
             />
-          </View>
+          </TouchableOpacity>
         )}
+
+        {/* Identity Picker Sheet */}
+        <IdentityPickerSheet
+          visible={identitySheetVisible}
+          linkedIds={linkedIds}
+          sortedIds={sortedIds}
+          selectedIdentity={selectedIdentity}
+          onClose={() => setIdentitySheetVisible(false)}
+          onSelect={handleSelectIdentity}
+        />
 
         {/* Wrong Network Warning */}
         {isWrongRequestType && (
@@ -653,6 +995,154 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: 44,
     borderRadius: 22,
+  },
+  // Identity picker sheet styles
+  sheetDescription: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+  },
+  sheetDescriptionText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  emptyContainer: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#888',
+  },
+  networkGroup: {
+    marginBottom: 20,
+  },
+  networkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  networkHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  identityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  identityCardSelected: {
+    backgroundColor: '#F0F9F1',
+    borderWidth: 1,
+    borderColor: Colors.verusGreenColor,
+  },
+  identityIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EFEFEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  identityTextSection: {
+    flex: 1,
+  },
+  identityName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  identityNameSelected: {
+    color: Colors.verusGreenColor,
+  },
+  identityAddress: {
+    fontSize: 12,
+    color: '#888',
+  },
+  chevronIcon: {
+    marginLeft: 8,
+  },
+  // Identity selection card styles (main screen)
+  identitySelectCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  identitySelectCardSelected: {
+    borderColor: Colors.verusGreenColor,
+    backgroundColor: '#F5FBF6',
+  },
+  identitySelectIconContainer: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  identitySelectTextContainer: {
+    flex: 1,
+  },
+  identitySelectLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  identitySelectName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#666',
+  },
+  identitySelectNameSelected: {
+    color: Colors.verusGreenColor,
+  },
+  identitySelectAddress: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 2,
+  },
+  // Encrypted response preview styles
+  responseHexContainer: {
+    padding: 16,
+  },
+  responseHexText: {
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontSize: 11,
+    color: '#333',
+    lineHeight: 16,
+  },
+  responseHexCopyHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 6,
+  },
+  responseHexCopyHintText: {
+    fontSize: 12,
+    color: Colors.primaryColor,
+    fontWeight: '600',
   },
 });
 
