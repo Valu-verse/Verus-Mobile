@@ -152,7 +152,7 @@ const GenericRequestHome = props => {
       }
     }
 
-    if (request && newDetailsProcessed < request.details.length - 1) {
+    if (request && newDetailsProcessed < request.details.length) {
       props.navigation.popToTop();
     }
 
