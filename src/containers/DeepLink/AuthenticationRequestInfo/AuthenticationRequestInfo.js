@@ -184,12 +184,8 @@ const AuthenticationRequestInfo = props => {
       return request.responseURIs;
     }
 
-    if (details && details.responseURIs && details.responseURIs.length > 0) {
-      return details.responseURIs;
-    }
-
     return [];
-  }, [request, details]);
+  }, [request]);
 
   const allowedSystems = useMemo(() => {
     const systems = recipientConstraints
