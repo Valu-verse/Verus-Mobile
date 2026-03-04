@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
-import { GenericResponse } from 'verus-typescript-primitives';
+import { GenericResponse, VerifiableSignatureData, CompactAddressObject } from 'verus-typescript-primitives';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import SemiModal from '../../../components/SemiModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -432,6 +432,16 @@ const AppEncryptionRequestInfo = (props) => {
       const updatedResponse = response || new GenericResponse();
       updatedResponse.details = updatedResponse.details || [];
       updatedResponse.details.push(responseDetail);
+
+      // Set signature template so GenericRequestComplete can sign and deliver
+      if (updatedResponse.signature == null) {
+        const coinObj = CoinDirectory.findCoinObj(selectedIdentity.chainId);
+        updatedResponse.signature = new VerifiableSignatureData({
+          systemID: CompactAddressObject.fromIAddress(coinObj.system_id),
+          identityID: CompactAddressObject.fromIAddress(selectedIdentity.iAddress),
+        });
+        updatedResponse.setSigned();
+      }
 
       // Serialize to hex so the user can preview/copy the encrypted response
       const responseHex = updatedResponse.toBuffer().toString('hex');
