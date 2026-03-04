@@ -34,6 +34,8 @@ export const PersonalLocationsEditAddressRender = function () {
               title="Select a Country"
               flexHeight={3}
               visible={this.state.countryModalOpen}
+              showSearch={true}
+              searchPlaceholder="Search countries"
               onSelect={(item) => this.selectCountry(item.key)}
               data={ISO_3166_ALPHA_2_CODES.map((code) => {
                 const item = ISO_3166_COUNTRIES[code];

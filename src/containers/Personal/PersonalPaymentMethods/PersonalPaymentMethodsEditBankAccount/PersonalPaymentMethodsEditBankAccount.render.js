@@ -7,7 +7,10 @@ import ListSelectionModal from "../../../../components/ListSelectionModal/ListSe
 import Colors from "../../../../globals/colors";
 import DatePickerModal from "../../../../components/DatePickerModal/DatePickerModal";
 import PhoneNumberModal from "../../../../components/PhoneNumberModal/PhoneNumberModal";
-import { PERSONAL_BANK_COUNTRY } from "../../../../utils/constants/personal";
+import {
+  PERSONAL_BANK_COUNTRY,
+  PERSONAL_BANK_PRIMARY_CURRENCY,
+} from "../../../../utils/constants/personal";
 import { ISO_3166_COUNTRIES } from "../../../../utils/constants/iso3166";
 import { BANK_ACCOUNT_KEYS, DEFAULT_BANK_KEYS } from "../../../../utils/constants/bankAccountKeys";
 import { primitives } from "verusid-ts-client"
@@ -186,6 +189,15 @@ export const PersonalPaymentMethodsEditBankAccountRender = function () {
                 this.state.bankAccount[this.state.currentListSelectionModal]
               }
               visible={this.state.currentListSelectionModal != null}
+              showSearch={
+                this.state.currentListSelectionModal === PERSONAL_BANK_COUNTRY ||
+                this.state.currentListSelectionModal === PERSONAL_BANK_PRIMARY_CURRENCY
+              }
+              searchPlaceholder={
+                this.state.currentListSelectionModal === PERSONAL_BANK_COUNTRY
+                  ? "Search countries"
+                  : "Search currencies"
+              }
               onSelect={(item) => {
                 if (item != null)
                   this.setState({

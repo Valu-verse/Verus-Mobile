@@ -1055,6 +1055,8 @@ class ValuOffRampChooseSource extends Component {
             title="Select a Country"
             flexHeight={3}
             visible={this.state.countryModalOpen}
+            showSearch={true}
+            searchPlaceholder="Search countries"
             onSelect={(item) => this.handleChange(null, item.key)}
             data={ALLOWED_COUNTRIES.map((code) => {
               const item = ISO_3166_COUNTRIES[code];
@@ -1072,6 +1074,8 @@ class ValuOffRampChooseSource extends Component {
             title={`Select a ${this.state.mainVerusNetwork} address`}
             flexHeight={3}
             visible={this.state.addressModalOpen}
+            showSearch={true}
+            searchPlaceholder="Search addresses"
             onSelect={(item) => {
               this.setState({
                 chosenAddress: item.address,

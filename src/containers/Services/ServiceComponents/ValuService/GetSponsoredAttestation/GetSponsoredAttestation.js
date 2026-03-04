@@ -911,6 +911,8 @@ const GetSponsoredAttestation = (props) => {
                 visible={existingIdentityModalVisible}
                 cancel={() => setExistingIdentityModalVisible(false)}
                 title="Select VerusID"
+                showSearch={true}
+                searchPlaceholder="Search identities"
                 data={Object.keys(sortedIds).map(iAddress => ({
                     key: iAddress,
                     title: sortedIds[iAddress]

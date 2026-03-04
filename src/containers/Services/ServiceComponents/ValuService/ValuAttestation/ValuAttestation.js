@@ -1333,6 +1333,8 @@ const ValuAttestation = (props) => {
                         title="Select Identity"
                         flexHeight={3}
                         visible={existingIdentityModalVisible}
+                        showSearch={true}
+                        searchPlaceholder="Search identities"
                         onSelect={(item) => selectExistingIdentity(item.key)}
                         data={[
                             // Existing identities from the network

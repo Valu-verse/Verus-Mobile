@@ -120,6 +120,8 @@ export const HomeRender = ({
               title="Currencies"
               selectedKey={displayCurrency}
               visible={displayCurrencyModalOpen}
+              showSearch={true}
+              searchPlaceholder="Search currencies"
               onSelect={(item) => setDisplayCurrency(item.key)}
               data={SUPPORTED_UNIVERSAL_DISPLAY_CURRENCIES.map((key) => {
                 return {
