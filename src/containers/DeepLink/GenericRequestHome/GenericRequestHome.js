@@ -82,7 +82,6 @@ const GenericRequestHome = props => {
 
     if (detail) {
       const iaddr = detail.getIAddressKey();
-      console.log("Processing detail with iaddr " + iaddr + " at index " + index);
       if (detailHandlers.has(iaddr)) {
         setDetailIndex(index);
         return await detailHandlers.get(iaddr)(request, response, index);
