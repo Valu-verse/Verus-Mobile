@@ -1,6 +1,7 @@
 import { 
   AUTHENTICATION_REQUEST_VDXF_KEY, 
   IDENTITY_UPDATE_REQUEST_VDXF_KEY, 
+  PROVISION_IDENTITY_DETAILS_VDXF_KEY,
   VERUSPAY_INVOICE_DETAILS_VDXF_KEY, 
   APP_ENCRYPTION_REQUEST_VDXF_KEY, 
   DATA_PACKET_REQUEST_VDXF_KEY, 
@@ -13,6 +14,7 @@ import {
 // ============================================================================
 const AUTH = AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid;
 const IDENTITY_UPDATE = IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid;
+const PROVISION_IDENTITY = PROVISION_IDENTITY_DETAILS_VDXF_KEY.vdxfid;
 const VERUSPAY = VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid;
 const APP_ENCRYPTION = APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid;
 const DATA_PACKET = DATA_PACKET_REQUEST_VDXF_KEY.vdxfid;
@@ -27,8 +29,9 @@ const USER_DATA = USER_DATA_REQUEST_VDXF_KEY.vdxfid;
 //                        (overrides mustBeAlone when the companion is allowed)
 // ============================================================================
 const requestTypeConstraints = {
-  [AUTH]:            { maxCount: 1, mustBeAlone: false, allowedCompanions: [DATA_PACKET, IDENTITY_UPDATE, USER_DATA, APP_ENCRYPTION] },
+  [AUTH]:            { maxCount: 1, mustBeAlone: false, allowedCompanions: [DATA_PACKET, IDENTITY_UPDATE, USER_DATA, APP_ENCRYPTION, PROVISION_IDENTITY] },
   [IDENTITY_UPDATE]: { maxCount: 1, mustBeAlone: false },
+  [PROVISION_IDENTITY]: { maxCount: 1, mustBeAlone: false },
   [VERUSPAY]:        { maxCount: 5, mustBeAlone: false },
   [APP_ENCRYPTION]:  { maxCount: 1, mustBeAlone: false },
   [DATA_PACKET]:     { maxCount: 1, mustBeAlone: false },

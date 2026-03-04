@@ -5,6 +5,7 @@ import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, GenericResponse, IDENTITY_UPDATE_REQUEST_VDXF_KEY, 
   VERUSPAY_INVOICE_DETAILS_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY,
+  PROVISION_IDENTITY_DETAILS_VDXF_KEY,
   APP_ENCRYPTION_REQUEST_VDXF_KEY } from 'verus-typescript-primitives';
 import InvoiceInfo from '../InvoiceInfo/InvoiceInfo';
 import { handleVerusPayInvoiceDetailsVDXFObject } from '../../../utils/deeplink/handlers/verusPayInvoiceDetailsHandler';
@@ -57,11 +58,20 @@ const GenericRequestHome = props => {
    */
   const detailHandlers = new Map();
 
+  const handleProvisionIdentityDetailsVDXFObject = async (_request, currentResponse, index) => {
+    return {
+      displayProps: undefined,
+      response: currentResponse,
+      handledIndices: [index],
+    };
+  };
+
   detailHandlers.set(VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid, handleVerusPayInvoiceDetailsVDXFObject);
   detailHandlers.set(AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid, handleAuthenticationRequestDetailsVDXFObject);
   detailHandlers.set(IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid, handleIdentityUpdateRequestDetailsVDXFObject);
   detailHandlers.set(DATA_PACKET_REQUEST_VDXF_KEY.vdxfid, handleDataPacketRequestDetailsVDXFObject);
   detailHandlers.set(USER_DATA_REQUEST_VDXF_KEY.vdxfid, handleUserDataRequestDetailsVDXFObject);
+  detailHandlers.set(PROVISION_IDENTITY_DETAILS_VDXF_KEY.vdxfid, handleProvisionIdentityDetailsVDXFObject);
   detailHandlers.set(APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid, handleAppEncryptionRequestVDXFObject);
   /**
    * Processes a detail in the request at a certain index
@@ -142,7 +152,7 @@ const GenericRequestHome = props => {
       }
     }
 
-    if (request && newDetailsProcessed < request.details.length - 1) {
+    if (request && newDetailsProcessed < request.details.length) {
       props.navigation.popToTop();
     }
 

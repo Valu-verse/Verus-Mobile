@@ -27,6 +27,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import IdentityInfoSheet from './components/IdentityInfoSheet';
+import PendingIdentityStatusSheet from './components/PendingIdentityStatusSheet';
 import IdentityListItem from './components/IdentityListItem';
 import GradientButton from '../../../components/GradientButton';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
@@ -49,8 +50,16 @@ const IdentityHomeRender = ({
   hasPending,
   infoSheetVisible,
   setInfoSheetVisible,
+  pendingStatusSheetVisible,
+  selectedPendingItem,
+  pendingAction,
+  openPendingStatusSheet,
+  closePendingStatusSheet,
+  refreshPendingIdentity,
+  removePendingIdentity,
+  retryPendingIdentity,
   openLink,
-  openLinkPrefilled,
+  handleReadyIdentityAction,
   navigateToVerusIdDetails,
   identityNetwork,
   onLayout
@@ -77,6 +86,15 @@ const IdentityHomeRender = ({
       <IdentityInfoSheet 
         visible={infoSheetVisible} 
         onClose={() => setInfoSheetVisible(false)}
+      />
+      <PendingIdentityStatusSheet
+        visible={pendingStatusSheetVisible}
+        item={selectedPendingItem}
+        activeAction={pendingAction}
+        onClose={closePendingStatusSheet}
+        onRefresh={refreshPendingIdentity}
+        onRemove={removePendingIdentity}
+        onRetry={retryPendingIdentity}
       />
     </Portal>
   );
@@ -223,29 +241,35 @@ const IdentityHomeRender = ({
                           : !isReady
                             ? 'In progress'
                             : undefined;
+                        const pendingPress = isReady
+                          ? () => handleReadyIdentityAction(item)
+                          : () => openPendingStatusSheet(item);
+                        const ctaLabel = item.readyActionConfig?.ctaLabel || 'Link';
+                        const usesLoginFlow = item.readyActionConfig?.hasResponseUris;
 
                         return (
                           <View key={`${item.chainId}:${item.iAddr}`} style={styles.pendingRow}>
                             <IdentityListItem
                               name={item.display}
                               subtitle={subtitle}
-                              network={item.chainId}
+                              network={isReady ? null : item.chainId}
                               isPreferred={item.chainId === identityNetwork}
-                              onPress={() => openLinkPrefilled(item.chainId, item.linkInput)}
+                              onPress={pendingPress}
+                              contentRightInset={isReady ? (usesLoginFlow ? 140 : 90) : 0}
                             />
                             {isReady && (
                               <View style={styles.pendingCtaWrap}>
                                 <Button
                                   mode="contained"
-                                  onPress={() => openLinkPrefilled(item.chainId, item.linkInput)}
-                                  contentStyle={{ height: 44 }}
+                                  onPress={pendingPress}
+                                  contentStyle={{ height: 36 }}
                                   uppercase={false}
                                   buttonColor="#EBF6FF"
                                   textColor={Colors.primaryColor}
-                                  style={styles.pendingCta}
+                                  style={[styles.pendingCta, usesLoginFlow && styles.pendingCtaWide]}
                                   labelStyle={styles.pendingCtaLabel}
                                 >
-                                  Link
+                                  {ctaLabel}
                                 </Button>
                               </View>
                             )}
@@ -472,9 +496,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // Safest way to vertically center in the absolute container
   },
   pendingCta: {
-    borderRadius: 22,
-    height: 44,
+    borderRadius: 18,
+    height: 36,
     paddingHorizontal: 4,
+    minWidth: 74,
     borderWidth: 0,
     backgroundColor: '#EBF6FF',
     elevation: 0,
@@ -483,10 +508,13 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     shadowOffset: { width: 0, height: 0 },
   },
+  pendingCtaWide: {
+    minWidth: 132,
+  },
   pendingCtaLabel: {
     color: Colors.primaryColor,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 13,
     letterSpacing: -0.2,
     textTransform: 'none',
   },

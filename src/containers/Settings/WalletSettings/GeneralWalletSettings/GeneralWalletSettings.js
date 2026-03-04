@@ -233,6 +233,8 @@ const WalletSettings = props => {
             title="Currencies"
             selectedKey={settings.displayCurrency}
             visible={displayCurrencyModalOpen}
+            showSearch={true}
+            searchPlaceholder="Search currencies"
             onSelect={(item) => {
               setSettings({
                 ...settings,

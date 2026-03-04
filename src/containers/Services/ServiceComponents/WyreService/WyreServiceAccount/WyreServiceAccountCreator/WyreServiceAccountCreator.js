@@ -259,6 +259,8 @@ class WyreServiceAccountCreator extends Component {
                 title="Select a Country"
                 flexHeight={0.3}
                 visible={this.state.countryModalOpen}
+                showSearch={true}
+                searchPlaceholder="Search countries"
                 onSelect={(item) => this.setState({ country: item })}
                 data={this.state.supportedCountries.map((code) => {
                   const item = ISO_3166_COUNTRIES[code];

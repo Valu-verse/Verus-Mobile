@@ -20,6 +20,8 @@ export const PersonalAttributesRender = function () {
               title="Select a Nationality"
               flexHeight={3}
               visible={this.state.nationalityModalOpen}
+              showSearch={true}
+              searchPlaceholder="Search nationalities"
               onSelect={(item) => this.addNationality(item.key)}
               data={ISO_3166_ALPHA_2_CODES.map((code) => {
                 const item = ISO_3166_COUNTRIES[code];

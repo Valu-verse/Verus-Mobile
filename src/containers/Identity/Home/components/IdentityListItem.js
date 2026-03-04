@@ -18,6 +18,7 @@ const IdentityListItem = ({
   isPreferred,
   onPress,
   subtitle,
+  contentRightInset = 0,
 }) => {
   const isVrsc = network && VRSC_NETWORKS.includes(network);
 
@@ -28,8 +29,8 @@ const IdentityListItem = ({
       style={styles.container}
     >
       <View style={styles.mainRow}>
-        <View style={styles.textContainer}>
-          <Text style={styles.name} numberOfLines={1}>{name}</Text>
+        <View style={[styles.textContainer, contentRightInset ? { paddingRight: contentRightInset } : null]}>
+          <Text style={styles.name} numberOfLines={1} ellipsizeMode="middle">{name}</Text>
           {!!subtitle && <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>}
         </View>
         {network && (

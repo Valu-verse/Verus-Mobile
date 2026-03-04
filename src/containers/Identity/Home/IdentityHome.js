@@ -8,6 +8,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
+import { primitives } from 'verusid-ts-client';
+import { Buffer } from 'buffer';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
@@ -19,10 +21,17 @@ import { setServiceLoading } from '../../../actions/actionCreators';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { openLinkIdentityModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import { dispatchRemoveNotification } from '../../../actions/actions/notifications/dispatchers/notifications';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import IdentityHomeRender from './IdentityHome.render';
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { SEND_MODAL_IDENTITY_TO_LINK_FIELD } from '../../../utils/constants/sendModal';
+import { processVerusId } from '../../Services/ServiceComponents/VerusIdService/VerusIdLogin';
+import {
+  checkVerusIdNotificationsForUpdates,
+  deleteProvisionedIds,
+} from '../../../actions/actions/services/dispatchers/verusid/verusid';
+import { updatePendingVerusIds } from '../../../actions/actions/channels/verusid/dispatchers/VerusidWalletReduxManager';
 
 function countLinkedIds(linkedIds) {
   if (!linkedIds || typeof linkedIds !== 'object') return 0;
@@ -34,6 +43,27 @@ function countLinkedIds(linkedIds) {
     }
   }
   return count;
+}
+
+function getReadyActionConfig(details) {
+  const requestType = details?.requestType || 'loginconsent';
+  let hasResponseUris = Boolean(details?.hasResponseUris);
+
+  if (!hasResponseUris && requestType === 'loginconsent' && details?.loginRequest) {
+    try {
+      const req = new primitives.LoginConsentRequest();
+      req.fromBuffer(Buffer.from(details.loginRequest, 'base64'));
+      hasResponseUris = Array.isArray(req.challenge?.redirect_uris) && req.challenge.redirect_uris.length > 0;
+    } catch (e) {
+      hasResponseUris = false;
+    }
+  }
+
+  return {
+    requestType,
+    hasResponseUris,
+    ctaLabel: hasResponseUris ? 'Link and login' : 'Link',
+  };
 }
 
 const IdentityHome = () => {
@@ -54,6 +84,9 @@ const IdentityHome = () => {
 
   // Local state
   const [infoSheetVisible, setInfoSheetVisible] = useState(false);
+  const [pendingStatusSheetVisible, setPendingStatusSheetVisible] = useState(false);
+  const [selectedPendingItem, setSelectedPendingItem] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [linkedIds, setLinkedIds] = useState(null);
 
@@ -95,6 +128,103 @@ const IdentityHome = () => {
     const coinObj = CoinDirectory.findCoinObj(chain);
     openLinkIdentityModal(coinObj, { [SEND_MODAL_IDENTITY_TO_LINK_FIELD]: identityInput });
   }, []);
+
+  const openPendingStatusSheet = useCallback((item) => {
+    setSelectedPendingItem(item);
+    setPendingStatusSheetVisible(true);
+  }, []);
+
+  const closePendingStatusSheet = useCallback(() => {
+    if (pendingAction) return;
+    setPendingStatusSheetVisible(false);
+    setSelectedPendingItem(null);
+  }, [pendingAction]);
+
+  const refreshPendingIdentity = useCallback(async () => {
+    if (!selectedPendingItem || pendingAction) return;
+
+    setPendingAction('refresh');
+    try {
+      await checkVerusIdNotificationsForUpdates();
+      await updatePendingVerusIds();
+      setPendingStatusSheetVisible(false);
+      setSelectedPendingItem(null);
+    } catch (e) {
+      createAlert('Unable to refresh status', e.message);
+    } finally {
+      setPendingAction(null);
+    }
+  }, [selectedPendingItem, pendingAction]);
+
+  const removePendingIdentity = useCallback(async () => {
+    if (!selectedPendingItem || pendingAction) return;
+
+    setPendingAction('remove');
+    try {
+      await deleteProvisionedIds(selectedPendingItem.iAddr, selectedPendingItem.chainId);
+      await updatePendingVerusIds();
+      if (selectedPendingItem.details?.notificationUid) {
+        dispatchRemoveNotification(selectedPendingItem.details.notificationUid);
+      }
+      setPendingStatusSheetVisible(false);
+      setSelectedPendingItem(null);
+    } catch (e) {
+      createAlert('Unable to remove identity', e.message);
+    } finally {
+      setPendingAction(null);
+    }
+  }, [selectedPendingItem, pendingAction]);
+
+  const retryPendingIdentity = useCallback(async () => {
+    if (!selectedPendingItem || pendingAction) return;
+
+    if (!selectedPendingItem.details?.loginRequest) {
+      createAlert('Retry unavailable', 'The original provisioning payload is missing for this item.');
+      return;
+    }
+
+    setPendingAction('retry');
+    try {
+      setPendingStatusSheetVisible(false);
+      await processVerusId(
+        { dispatch, navigation },
+        selectedPendingItem.details.loginRequest,
+        selectedPendingItem.details.fromService || null,
+        selectedPendingItem.details.fqn || null,
+        selectedPendingItem.details.requestType || 'loginconsent',
+      );
+      setSelectedPendingItem(null);
+    } catch (e) {
+      createAlert('Unable to retry request', e.message);
+    } finally {
+      setPendingAction(null);
+    }
+  }, [selectedPendingItem, pendingAction, dispatch, navigation]);
+
+  const handleReadyIdentityAction = useCallback((item) => {
+    const config = item?.readyActionConfig;
+    if (!config?.hasResponseUris) {
+      openLinkPrefilled(item.chainId, item.linkInput);
+      return;
+    }
+
+    if (!item?.details?.loginRequest) {
+      openLinkPrefilled(item.chainId, item.linkInput);
+      return;
+    }
+
+    Promise.resolve(
+      processVerusId(
+        { dispatch, navigation },
+        item.details.loginRequest,
+        item.details.fromService || null,
+        item.details.fqn || null,
+        config.requestType,
+      ),
+    ).catch(() => {
+      openLinkPrefilled(item.chainId, item.linkInput);
+    });
+  }, [dispatch, navigation, openLinkPrefilled]);
 
   // Navigate to VerusIdDetails screen instead of opening a modal
   const navigateToVerusIdDetails = useCallback(
@@ -193,6 +323,7 @@ const IdentityHome = () => {
             display,
             linkInput,
             details,
+            readyActionConfig: getReadyActionConfig(details),
           };
 
           if (status === NOTIFICATION_TYPE_VERUSID_READY) groups.ready.push(item);
@@ -226,11 +357,19 @@ const IdentityHome = () => {
       hasLinkedIds={linkedIdCount > 0}
       infoSheetVisible={infoSheetVisible}
       setInfoSheetVisible={setInfoSheetVisible}
+      pendingStatusSheetVisible={pendingStatusSheetVisible}
+      selectedPendingItem={selectedPendingItem}
+      pendingAction={pendingAction}
+      openPendingStatusSheet={openPendingStatusSheet}
+      closePendingStatusSheet={closePendingStatusSheet}
+      refreshPendingIdentity={refreshPendingIdentity}
+      removePendingIdentity={removePendingIdentity}
+      retryPendingIdentity={retryPendingIdentity}
       openLink={openLink}
-      openLinkPrefilled={openLinkPrefilled}
       linkedItems={linkedItems}
       pendingGroups={pendingGroups}
       hasPending={hasPending}
+      handleReadyIdentityAction={handleReadyIdentityAction}
       navigateToVerusIdDetails={navigateToVerusIdDetails}
       identityNetwork={identityNetwork}
       onLayout={onLayout}

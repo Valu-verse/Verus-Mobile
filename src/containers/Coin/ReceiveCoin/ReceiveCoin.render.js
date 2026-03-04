@@ -76,6 +76,8 @@ export const RenderReceiveCoin = function() {
               title="Select an Address"
               flexHeight={1}
               visible={addressSelectModalOpen}
+              showSearch={true}
+              searchPlaceholder="Search addresses"
               onSelect={item => this.validateFormData(item.key)}
               data={this.state.addresses.map((addr, index) => {
                 return {

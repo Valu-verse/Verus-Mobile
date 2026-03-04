@@ -9,9 +9,9 @@
   - 2026-01-22: Standardized all tab icons to Feather for visual consistency.
     Services uses "compass", Scan uses "maximize" (scanning frame corners).
 */
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Feather from 'react-native-vector-icons/Feather';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Colors from '../../../globals/colors';
 import WalletStackScreens from '../WalletStackScreens/WalletStackScreens';
@@ -22,11 +22,47 @@ import SettingsStackScreens from '../SettingsStackScreens/SettingsStackScreens';
 import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
 import { useDispatch } from 'react-redux';
 import { setConfigSection } from '../../../actions/actionCreators';
+import { useObjectSelector } from '../../../hooks/useObjectSelector';
+import {
+  NOTIFICATION_TYPE_VERUSID_ERROR,
+  NOTIFICATION_TYPE_VERUSID_READY,
+} from '../../../utils/constants/services';
 
 const HomeTabs = createBottomTabNavigator();
 
+const isActionableIdentityStatus = (status) =>
+  status === NOTIFICATION_TYPE_VERUSID_READY || status === NOTIFICATION_TYPE_VERUSID_ERROR;
+
 const HomeTabScreens = props => {
   const dispatch = useDispatch();
+  const pendingIds = useObjectSelector((state) => state.channelStore_verusid?.pendingIds || {});
+  const [lastSeenPendingIdentityKey, setLastSeenPendingIdentityKey] = useState('');
+
+  const pendingIdentityMeta = useMemo(() => {
+    const actionable = [];
+
+    for (const chainId of Object.keys(pendingIds || {})) {
+      const chainMap = pendingIds[chainId] || {};
+      for (const iAddr of Object.keys(chainMap)) {
+        const details = chainMap[iAddr] || {};
+        if (!isActionableIdentityStatus(details.status)) continue;
+
+        actionable.push(
+          `${chainId}:${iAddr}:${details.status || ''}:${details.notificationUid || ''}:${details.createdAt || ''}`,
+        );
+      }
+    }
+
+    actionable.sort();
+
+    return {
+      count: actionable.length,
+      key: actionable.join('|'),
+    };
+  }, [pendingIds]);
+
+  const hasUnseenIdentityPending =
+    pendingIdentityMeta.count > 0 && pendingIdentityMeta.key !== lastSeenPendingIdentityKey;
 
   return (
     <HomeTabs.Navigator
@@ -69,10 +105,18 @@ const HomeTabScreens = props => {
       <HomeTabs.Screen
         name="IdentityTab"
         component={IdentityStackScreens}
+        listeners={{
+          focus: () => {
+            setLastSeenPendingIdentityKey(pendingIdentityMeta.key);
+          },
+        }}
         options={{
           title: "Identity",
-          tabBarIcon: ({ color }) => (
-            <VerusIdAtIcon width={22} height={22} fill={color} style={{ marginBottom: 2 }} />
+          tabBarIcon: ({ color, focused }) => (
+            <View style={styles.identityIconWrap}>
+              <VerusIdAtIcon width={22} height={22} fill={color} style={{ marginBottom: 2 }} />
+              {hasUnseenIdentityPending && !focused && <View style={styles.identityAlertDot} />}
+            </View>
           ),
         }}
       />
@@ -116,5 +160,26 @@ const HomeTabScreens = props => {
     </HomeTabs.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  identityIconWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  identityAlertDot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+});
 
 export default HomeTabScreens

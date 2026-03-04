@@ -16,6 +16,7 @@ import { initSession } from '../auth/authBox';
 import { SecureStorage } from '../keychain/secureStore';
 import { Alert } from 'react-native';
 import { SUSPICIOUS_UNICODE_CHARACTER_TEST } from '../constants/regex';
+import { INCORRECT_PASSWORD_DELAY_ERROR_MS } from '../constants/errors';
 
 //Set storage to hold encrypted user data
 export const storeUser = (authData, users) => {
@@ -355,8 +356,11 @@ export const checkPinForUser = (pin, userName, alertOnFail = true, alertOnCorrup
 
               resolve(_decryptedSeeds);
             } else {
-              if (alertOnFail) Alert.alert("Authentication Error", "Incorrect password");
-              throw new Error("Incorrect password");
+              setTimeout(() => {
+                if (alertOnFail) Alert.alert("Authentication Error", "Incorrect password");
+
+                reject(new Error("Incorrect password"));
+              }, INCORRECT_PASSWORD_DELAY_ERROR_MS);
             }
           }
           else {
