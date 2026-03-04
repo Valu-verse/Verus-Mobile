@@ -215,7 +215,7 @@ class ViewAttestation extends Component {
             const attestationPairBuffer = Buffer.from(attestation.data, "hex");
             
             // Import AttestationPair from the correct location
-            const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+            const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
             
             // Create AttestationPair from the buffer using the constructor and fromBuffer method
             const attestationPair = new AttestationPair();

@@ -66,7 +66,7 @@ const extractRecipientIdFromData = (attestationData) => {
     if (!attestationData) return null;
     
     const attestationPairBuffer = Buffer.from(attestationData, 'hex');
-    const { AttestationPair } = require('verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails');
+    const { AttestationPair } = require('verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js');
     
     const attestationPair = new AttestationPair();
     attestationPair.fromBuffer(attestationPairBuffer);

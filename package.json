@@ -5,9 +5,10 @@
   "scripts": {
     "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
     "start-emulator": "node scripts/start-emulator.js",
-    "android": "node scripts/start-emulator.js && react-native run-android --main-activity SplashActivity",
+    "stop-emulator": "node scripts/stop-emulator.js",
+    "android": "npx react-native run-android --main-activity SplashActivity --no-packager",
     "ios": "react-native run-ios",
-    "start": "react-native start",
+    "start": "node scripts/start-emulator.js --with-metro-terminal --run-android",
     "bundle-android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/",
     "bundle-ios": "react-native bundle --dev false --entry-file index.js --bundle-output ios/main.jsbundle --platform ios --assets-dest='./ios'",
     "clean-android-res": "rm -rf android/app/src/main/res/drawable-* && rm -rf android/app/build/generated/res",
@@ -296,6 +297,5 @@
     "tty": "tty-browserify",
     "vm": "vm-browserify",
     "zlib": "browserify-zlib"
-  },
-  "packageManager": "yarn@4.12.0"
+  }
 }

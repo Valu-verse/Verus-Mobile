@@ -1,6 +1,6 @@
 import { handleRedirect } from '../deeplink/handleRedirect';
 import { primitives } from 'verusid-ts-client';
-import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails";
+import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js";
 
 /**
  * Downloads attestation data from a provider URL using webhook redirect

@@ -20,9 +20,9 @@ import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { at } from "lodash";
 import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
 import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
-const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
-const { RequestInformation, RequestItem } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest");
+const { RequestInformation, RequestItem } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest.js");
 
 class LoginShareAttestation extends Component {
   constructor(props) {

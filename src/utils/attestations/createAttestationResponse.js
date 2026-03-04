@@ -1,5 +1,5 @@
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
-const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
 
 export const createAttestationResponse = async (selectionOrSelections, requiredKeys, multipleAttestations = false) => {
   if (multipleAttestations) {

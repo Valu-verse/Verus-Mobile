@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { createAlert, resolveAlert } from "../../../actions/actions/alert/dispatchers/alert"
 import { LoginReceiveAttestationRender } from "./LoginReceiveAttestation.render"
 import { primitives } from "verusid-ts-client"
-import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails";
+import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js";
 import { verifyHash } from "../../../utils/api/channels/vrpc/requests/verifyHash";
 import { getSignatureInfo } from "../../../utils/api/channels/vrpc/requests/getSignatureInfo";
 import { IdentityVdxfidMap } from "verus-typescript-primitives/dist/utils/IdentityData";
@@ -108,7 +108,7 @@ class LoginReceiveAttestation extends Component {
         const attestationPair = downloadedAttestations.attestations[index];
 
         // Recreate AttestationPair objects from the JSON data
-        const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+        const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
         const recreatedPair = AttestationPair.fromJson(attestationPair);
 
         // Validate the attestation pair
