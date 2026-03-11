@@ -178,6 +178,11 @@ const GenericRequestHome = props => {
         setDisplayProps({});
         processNextDetail();
       } else {
+        // Ensure flags reflect current details count before serialisation
+        if (typeof response.setFlags === 'function') {
+          response.setFlags();
+        }
+
         const responseBufferString = response.details && response.details.length > 0
           ? response.toBuffer().toString('hex')
           : '';

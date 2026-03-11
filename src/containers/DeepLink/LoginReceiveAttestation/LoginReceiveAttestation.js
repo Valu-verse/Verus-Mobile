@@ -16,6 +16,8 @@ import { getIdentity } from "../../../utils/api/channels/verusid/callCreators"
 import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
 import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
+import { serializeStoredAttestation } from '../../../utils/attestations/serializedAttestation';
+import { MMRDescriptor, SignatureData } from 'verus-typescript-primitives';
 
 const { ATTESTATION_NAME, DataDescriptorKey } = primitives;
 class LoginReceiveAttestation extends Component {
@@ -107,23 +109,22 @@ class LoginReceiveAttestation extends Component {
       for (let index = 0; index < downloadedAttestations.attestations.length; index++) {
         const attestationPair = downloadedAttestations.attestations[index];
 
-        // Recreate AttestationPair objects from the JSON data
-        const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
-        const recreatedPair = AttestationPair.fromJson(attestationPair);
+        const recreatedMmrDescriptor = MMRDescriptor.fromJson(attestationPair.mmrdescriptor);
+        const recreatedSignatureData = SignatureData.fromJson(attestationPair.signaturedata);
 
         // Validate the attestation pair
         const isValid = await this.validateAttestation(
-          recreatedPair.signatureData,
-          recreatedPair.mmrDescriptor
+          recreatedSignatureData,
+          recreatedMmrDescriptor
         );
 
         validationResults.push({ isValid });
 
         // Extract attestation name and MMR hash
-        const attestationName = isValid ? this.extractAttestationName(recreatedPair.mmrDescriptor) : null;
-        const mmrHash = this.extractMmrHash(recreatedPair.mmrDescriptor);
-        const extractedId = this.extractAttestationId(recreatedPair.mmrDescriptor);
-        const recipientId = this.extractRecipientId(recreatedPair.mmrDescriptor);
+        const attestationName = isValid ? this.extractAttestationName(recreatedMmrDescriptor) : null;
+        const mmrHash = this.extractMmrHash(recreatedMmrDescriptor);
+        const extractedId = this.extractAttestationId(recreatedMmrDescriptor);
+        const recipientId = this.extractRecipientId(recreatedMmrDescriptor);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -132,8 +133,8 @@ class LoginReceiveAttestation extends Component {
           issuer: this.state.signerFqn,
           timestamp: downloadedAttestations.timestamp || Date.now(),
           index: index,
-          identityId: recreatedPair.signatureData.identity_ID,
-          systemId: recreatedPair.signatureData.system_ID,
+          identityId: recreatedSignatureData.identity_ID,
+          systemId: recreatedSignatureData.system_ID,
           internal_id: extractedId
         };
 
@@ -142,7 +143,7 @@ class LoginReceiveAttestation extends Component {
           completeAttestationObjects[mmrHash] = {
             name: attestationName || `Attestation ${index + 1}`,
             signer: this.state.signerFqn,
-            data: recreatedPair.toBuffer().toString('hex'),
+            data: serializeStoredAttestation(recreatedMmrDescriptor, recreatedSignatureData).toString('hex'),
             downloaded: true,
             timestamp: downloadedAttestations.timestamp || Date.now(),
             metadata: {
@@ -445,7 +446,7 @@ class LoginReceiveAttestation extends Component {
         completeAttestationObjects[mmrHash] = {
           name: extractedName || `${attestationName} ${i + 1}`,
           signer: this.state.signerFqn,
-          data: attestationPair.toBuffer().toString('hex'),
+          data: serializeStoredAttestation(mmrData, signatureData).toString('hex'),
           timestamp: attestationDetails.timestamp ? attestationDetails.timestamp.toNumber() : Date.now(),
           id: attestationDetails.id || undefined,
           validated: true,

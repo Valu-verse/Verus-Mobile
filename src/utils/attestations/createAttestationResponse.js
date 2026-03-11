@@ -1,80 +1,66 @@
+/*
+ * Helpers for building attestation response buffers from stored attestation hex.
+ * Supports full and partial (filtered) data responses.
+ */
+import { parseStoredAttestationHex, serializeStoredAttestation } from './serializedAttestation';
+import { MMRDescriptor } from 'verus-typescript-primitives';
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
-const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
 
-export const createAttestationResponse = async (selectionOrSelections, requiredKeys, multipleAttestations = false) => {
-  if (multipleAttestations) {
-    // Expect an array of selected attestation objects with a `raw` property
-    if (!Array.isArray(selectionOrSelections)) {
-      throw new Error('For multiple attestations, pass an array of selected attestations');
-    }
+/**
+ * Extract the label from a DataDescriptor JSON object, handling both nested
+ * and flat serialization formats.
+ *   Nested: objectdata[DataDescriptorKey] → { label, objectdata }
+ *   Flat:   { label, objectdata }
+ */
+const getDescriptorLabel = (descriptorJson) => {
+  const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
+  const nested = descriptorJson?.objectdata?.[descriptorKeyId];
+  return nested?.label || descriptorJson?.label || null;
+};
 
-    const multipleAttestationResponse = [];
+/**
+ * Build a binary response buffer from a stored attestation hex string.
+ * For PARTIAL_DATA requests, only the descriptors whose labels appear in
+ * `requiredKeys` are kept; the rest are dropped.
+ *
+ * Returns a Buffer containing the serialized MMRDescriptor + SignatureData.
+ *
+ * @param {string} storedHex  The stored attestation hex (MMRDescriptor + SignatureData)
+ * @param {string[]|null} requiredKeys  VDXF label keys to keep (null = keep all)
+ * @returns {Buffer}
+ */
+export const createAttestationResponseBuffer = (storedHex, requiredKeys) => {
+  const { mmrDescriptor, signatureData } = parseStoredAttestationHex(storedHex);
 
-    for (const sel of selectionOrSelections) {
-      const raw = sel && sel.raw ? sel.raw : null;
-      if (!raw) {
-        console.warn(`Selection missing raw attestation data, skipping`);
-        continue;
-      }
-      // Keep the complete stored attestation object as-is
-      multipleAttestationResponse.push({ ...raw });
-    }
-
-    return multipleAttestationResponse;
-  } else {
-    // Single attestation: expect a single selection object with `raw`
-    const sel = selectionOrSelections;
-    const raw = sel && sel.raw ? sel.raw : null;
-    if (!raw) throw new Error('Selected attestation is missing raw data');
-
-    const attestation = { ...raw };
-
-    // Parse AttestationPair and convert to JSON immediately
-    let attestationDetailsJson;
-    try {
-      const attestationDetails = new AttestationPair();
-      attestationDetails.fromBuffer(Buffer.from(attestation.data, 'hex'));
-      attestationDetailsJson = attestationDetails.toJson();
-
-    } catch (e) {
-      console.error("Failed to parse AttestationPair:", e);
-      throw new Error('Failed to parse attestation data');
-    }
-
-    const mmrDescriptor = attestationDetailsJson?.mmrdescriptor;
-    if (!mmrDescriptor || !mmrDescriptor.datadescriptors) {
-      throw new Error('No MMR descriptor or data descriptors found in attestation');
-    }
-
-    // Filter dataDescriptors by requiredKeys if provided
-    let filteredDataDescriptors = mmrDescriptor.datadescriptors;
-    
-    if (Array.isArray(requiredKeys) && requiredKeys.length > 0) {
-      filteredDataDescriptors = mmrDescriptor.datadescriptors.filter((dataDescriptor) => {
-        try {
-          const dd = dataDescriptor?.objectdata?.[VDXF_Data.DataDescriptorKey.vdxfid];
-          const label = dd?.label;
-          return label && requiredKeys.indexOf(label) !== -1;
-        } catch (e) {
-          console.warn("Error processing dataDescriptor:", e);
-          return false;
-        }
-      });
-
-    }
-
-    // Create filtered attestation JSON with only the filtered descriptors
-    const filteredAttestationJson = {
-      ...attestationDetailsJson,
-      mmrdescriptor: {
-        ...mmrDescriptor,
-        datadescriptors: filteredDataDescriptors
-      }
-    };
-
-    // Return as JSON
-    attestation.data = filteredAttestationJson;
-
-    return attestation;
+  if (!mmrDescriptor || !mmrDescriptor.dataDescriptors) {
+    throw new Error('No MMR descriptor or data descriptors found in attestation');
   }
-}
+
+  if (!Array.isArray(requiredKeys) || requiredKeys.length === 0) {
+    // FULL_DATA — return the original bytes unchanged
+    return Buffer.from(storedHex, 'hex');
+  }
+
+  // PARTIAL_DATA — filter descriptors, rebuild, re-serialise
+  const filteredDescriptors = mmrDescriptor.dataDescriptors.filter((dd) => {
+    try {
+      const label = getDescriptorLabel(dd.toJson());
+      return label && requiredKeys.includes(label);
+    } catch (e) {
+      console.warn('Error filtering data descriptor:', e);
+      return false;
+    }
+  });
+
+  // Build a new MMRDescriptor with only the filtered descriptors
+  const filteredMmr = new MMRDescriptor({
+    version: mmrDescriptor.version,
+    objectHashType: mmrDescriptor.objectHashType,
+    mmrHashType: mmrDescriptor.mmrHashType,
+    mmrRoot: mmrDescriptor.mmrRoot,
+    mmrHashes: mmrDescriptor.mmrHashes,
+    dataDescriptors: filteredDescriptors,
+  });
+
+  return serializeStoredAttestation(filteredMmr, signatureData);
+};

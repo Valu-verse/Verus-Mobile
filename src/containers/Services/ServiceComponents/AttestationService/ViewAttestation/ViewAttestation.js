@@ -12,6 +12,7 @@ import Styles from "../../../../../styles";
 import Colors from '../../../../../globals/colors';
 import { Valu } from '../../../../../images/customIcons';
 import { tryGetClaim, flattenClaimData, formatClaimKey } from '../../../../../utils/attestation/claimParser';
+import { parseStoredAttestationHex } from '../../../../../utils/attestations/serializedAttestation';
 
 // Claim type constants
 const CLAIM_EMPLOYMENT = {
@@ -210,24 +211,36 @@ class ViewAttestation extends Component {
                 console.error('No attestation data provided');
                 return;
             }
-         
-            // The data is a hex string representing an AttestationPair buffer
-            const attestationPairBuffer = Buffer.from(attestation.data, "hex");
-            
-            // Import AttestationPair from the correct location
-            const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
-            
-            // Create AttestationPair from the buffer using the constructor and fromBuffer method
-            const attestationPair = new AttestationPair();
-            attestationPair.fromBuffer(attestationPairBuffer);
 
-            if (!attestationPair || !attestationPair.mmrDescriptor) {
+            const { mmrDescriptor } = parseStoredAttestationHex(attestation.data);
+
+            if (!mmrDescriptor) {
                 console.error('No MMR descriptor found in attestation data');
                 return;
             }
 
-            const attestationItems = attestationPair.mmrDescriptor.dataDescriptors;
-            const attestationDataDescriptors = attestationItems.map((dataDescriptor) => dataDescriptor.toJson().objectdata);
+            const attestationItems = mmrDescriptor.dataDescriptors;
+            const attestationDataDescriptors = attestationItems.map((dataDescriptor) => {
+              const json = dataDescriptor.toJson();
+              const nested = json?.objectdata?.[DataDescriptorKey.vdxfid];
+              // Nested format: objectdata contains DataDescriptorKey wrapper with label inside
+              if (nested?.label) {
+                return json.objectdata;
+              }
+              // Flat format: label is on the DataDescriptor itself, objectdata is the raw payload.
+              // Wrap it so getAttestationData sees the same shape as nested format.
+              if (json.label) {
+                return {
+                  [DataDescriptorKey.vdxfid]: {
+                    label: json.label,
+                    objectdata: json.objectdata,
+                    mimetype: json.mimetype || '',
+                  }
+                };
+              }
+              // Fallback: pass objectdata as-is
+              return json.objectdata;
+            });
             const { data: containingData, attestationName } = this.getAttestationData(attestationDataDescriptors);
             
             this.setState({ 

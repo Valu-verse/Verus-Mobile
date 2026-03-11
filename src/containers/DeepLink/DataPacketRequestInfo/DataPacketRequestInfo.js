@@ -16,6 +16,14 @@ import {
   URLRef,
   AuthenticationRequestOrdinalVDXFObject,
   RecipientConstraint,
+  MMRDescriptor,
+  DATA_TYPE_DEFINEDKEY,
+  DefinedKey,
+  IDENTITY_ATTESTATION_RECIPIENT,
+  ATTESTATION_TYPE,
+  ATTESTATION_ID,
+  ATTESTATION_NAME,
+  IDENTITY_ATTESTOR
 } from 'verus-typescript-primitives';
 import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
@@ -35,9 +43,13 @@ import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { DataDescriptorList } from '../../../components/DataDescriptorList';
 import { processDataDescriptors } from '../../../utils/dataDescriptor';
+import { getIdentityContent } from '../../../utils/api/channels/verusid/requests/getIdentityContent';
+import { capitalizeString } from '../../../utils/stringUtils';
+import { serializeStoredAttestation } from '../../../utils/attestations/serializedAttestation';
 import { BN } from 'bn.js';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
+import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
 import { signHash } from '../../../utils/api/channels/vrpc/requests/signHash';
 import { getInfo } from '../../../utils/api/channels/vrpc/callCreators';
 import { modifyAttestationDataForUser } from '../../../actions/actions/attestations/dispatchers/attestations';
@@ -48,6 +60,16 @@ const crypto = require('create-hash');
 
 // Data packet storage type constant
 const DATA_PACKETS_RECEIVED = "data_packets_received";
+
+const ATTESTATION_REQUIRED_LABELS = {
+  identityAttestor: IDENTITY_ATTESTOR.vdxfid,
+  attestationRecipient: IDENTITY_ATTESTATION_RECIPIENT.vdxfid,
+  attestationId: ATTESTATION_ID.vdxfid,
+  attestationName: ATTESTATION_NAME.vdxfid,
+  attestationType: ATTESTATION_TYPE.vdxfid,
+};
+const ATTESTATION_RECIPIENT_VDXF_ID = IDENTITY_ATTESTATION_RECIPIENT.vdxfid;
+const RECEIVING_IDENTITY_LABEL = 'receiving_identity';
 
 const truncateAddress = (addr) => {
   if (!addr || addr.length <= 14) return addr;
@@ -271,7 +293,14 @@ const UrlDownloadModal = ({
   downloadError,
   downloadedContent,
   contentMimeType,
-  hashVerified 
+  hashVerified,
+  attestationDescriptors,
+  attestationAccepted,
+  attestationTitle,
+  attestationSigner,
+  onAcceptAttestation,
+  onRejectAttestation,
+  onDescriptorPress,
 }) => {
   const insets = useSafeAreaInsets();
   
@@ -279,6 +308,7 @@ const UrlDownloadModal = ({
   
   const isTextContent = contentMimeType?.startsWith('text/');
   const isImageContent = contentMimeType?.startsWith('image/');
+  const isAttestation = contentMimeType === 'application/attestation';
   
   return (
     <Portal>
@@ -334,7 +364,27 @@ const UrlDownloadModal = ({
                 </View>
               )}
               
-              {isTextContent && (
+              {isAttestation && (
+                <View style={styles.attestationSuccessContainer}>
+                  <MaterialCommunityIcons name="certificate" size={24} color={Colors.primaryColor} />
+                  <Text style={styles.attestationSuccessText}>{downloadedContent}</Text>
+                  {attestationTitle ? (
+                    <Text style={styles.attestationMetaText}>Title: {attestationTitle}</Text>
+                  ) : null}
+                  {attestationSigner ? (
+                    <Text style={styles.attestationMetaText}>Signer: {attestationSigner}</Text>
+                  ) : null}
+                  <View style={styles.attestationListContainer}>
+                    <DataDescriptorList
+                      descriptors={attestationDescriptors || []}
+                      onItemPress={onDescriptorPress}
+                      emptyMessage="No attestation fields available"
+                    />
+                  </View>
+                </View>
+              )}
+              
+              {isTextContent && !isAttestation && (
                 <View style={styles.textContentPreview}>
                   <Text style={styles.previewLabel}>Content Preview:</Text>
                   <Text style={styles.textContent}>{downloadedContent.substring(0, 500)}{downloadedContent.length > 500 ? '...' : ''}</Text>
@@ -361,7 +411,24 @@ const UrlDownloadModal = ({
               Download
             </GradientButton>
           )}
-          {downloadedContent && hashVerified === true && (
+          {isAttestation && downloadedContent && hashVerified === true && !attestationAccepted && (
+            <>
+              <GradientButton onPress={onAcceptAttestation} style={styles.downloadButton}>
+                Accept attestation
+              </GradientButton>
+              <Button
+                mode="contained"
+                onPress={onRejectAttestation || onClose}
+                buttonColor="#EBF6FF"
+                textColor={Colors.primaryColor}
+                style={styles.rejectDownloadButton}
+                contentStyle={styles.rejectDownloadButtonContent}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          {downloadedContent && hashVerified === true && (!isAttestation || attestationAccepted) && (
             <GradientButton onPress={onClose} style={styles.downloadButton}>
               Continue
             </GradientButton>
@@ -435,6 +502,10 @@ const DataPacketRequestInfo = props => {
   const [hashVerified, setHashVerified] = useState(null);
   const [urlRef, setUrlRef] = useState(null);
   const [downloadedDataDescriptor, setDownloadedDataDescriptor] = useState(null);
+  const [pendingAttestationData, setPendingAttestationData] = useState(null);
+  const [pendingAttestationDescriptors, setPendingAttestationDescriptors] = useState([]);
+  const [pendingAttestationSigner, setPendingAttestationSigner] = useState(null);
+  const [attestationAccepted, setAttestationAccepted] = useState(false);
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
@@ -695,7 +766,6 @@ const DataPacketRequestInfo = props => {
           if (uniValue.values && uniValue.values.length > 0) {
             for (const valueItem of uniValue.values) {
               const crossChainRefKey = VDXF_Data.CrossChainDataRefKey?.vdxfid;
-              console.log('Checking value item for CrossChainDataRef:', valueItem);
               if (crossChainRefKey && valueItem[crossChainRefKey]) {
                 
                 // CrossChainDataRef.ref contains the URLRef
@@ -725,6 +795,314 @@ const DataPacketRequestInfo = props => {
     return null;
   };
 
+  // Helper function to extract attestation objects from UniValue objectdata
+  const extractAttestationFromUniValue = (objectdata) => {
+    try {
+      // objectdata is expected to be a serialized VdxfUniValue buffer
+      let dataBuffer;
+      if (typeof objectdata === 'string') {
+        dataBuffer = Buffer.from(objectdata, 'hex');
+      } else if (Buffer.isBuffer(objectdata)) {
+        dataBuffer = objectdata;
+      } else if (objectdata?.type === 'Buffer' && Array.isArray(objectdata?.data)) {
+        dataBuffer = Buffer.from(objectdata.data);
+      } else {
+        return null;
+      }
+
+      if (!dataBuffer || dataBuffer.length === 0) {
+        return null;
+      }
+
+      // Parse as VdxfUniValue
+      const uniValue = new VdxfUniValue();
+      uniValue.fromBuffer(dataBuffer);
+
+      if (!uniValue.values || uniValue.values.length === 0) {
+        return null;
+      }
+
+      let mmrDescriptor = null;
+      let signatureData = null;
+      const mmrKey = VDXF_Data.MMRDescriptorKey?.vdxfid;
+      const signatureKey = VDXF_Data.SignatureDataKey?.vdxfid;
+
+      for (const valueItem of uniValue.values) {
+        if (!valueItem || typeof valueItem !== 'object') continue;
+
+        if (mmrKey && Object.prototype.hasOwnProperty.call(valueItem, mmrKey)) {
+          const mmrValue = valueItem[mmrKey];
+          if (mmrValue instanceof MMRDescriptor || (mmrValue && typeof mmrValue.toBuffer === 'function')) {
+            mmrDescriptor = { id: mmrKey, data: mmrValue };
+          }
+        }
+
+        if (signatureKey && Object.prototype.hasOwnProperty.call(valueItem, signatureKey)) {
+          const signatureValue = valueItem[signatureKey];
+          if (signatureValue instanceof SignatureData || (signatureValue && typeof signatureValue.toBuffer === 'function')) {
+            signatureData = { id: signatureKey, data: signatureValue };
+          }
+        }
+      }
+
+      if (mmrDescriptor && signatureData) {
+        const mmrValue = mmrDescriptor.data;
+        const descriptorItems = mmrValue?.dataDescriptors || mmrValue?.datadescriptors || [];
+        const descriptorLabels = [];
+        const normalizedDescriptors = [];
+        let attestationName = null;
+
+        for (const descriptor of descriptorItems) {
+          let descriptorLabel = null;
+          let descriptorMessage = null;
+          let normalizedDescriptor = null;
+
+          if (descriptor && typeof descriptor.toJson === 'function') {
+            const descriptorJson = descriptor.toJson();
+            const vdxfPayload = descriptorJson?.objectdata?.[VDXF_Data.DataDescriptorKey?.vdxfid];
+            descriptorLabel = vdxfPayload?.label || descriptorJson?.label || null;
+            descriptorMessage = vdxfPayload?.objectdata?.message || descriptorJson?.objectdata?.message || null;
+            normalizedDescriptor = vdxfPayload || descriptorJson;
+          } else {
+            descriptorLabel = descriptor?.label || null;
+            descriptorMessage = descriptor?.objectdata?.message || null;
+            normalizedDescriptor = descriptor;
+          }
+
+          if (descriptorLabel) {
+            descriptorLabels.push(descriptorLabel);
+          }
+
+          if (normalizedDescriptor) {
+            normalizedDescriptors.push(normalizedDescriptor);
+          }
+
+          if (descriptorLabel === ATTESTATION_NAME.vdxfid && descriptorMessage) {
+            attestationName = descriptorMessage;
+          }
+        }
+
+        const missingRequiredLabels = Object.values(ATTESTATION_REQUIRED_LABELS).filter(
+          requiredLabel => !descriptorLabels.includes(requiredLabel)
+        );
+
+        return {
+          type: 'attestation',
+          mmrDescriptor,
+          signatureData,
+          label: attestationName || 'downloaded proof',
+          data: dataBuffer.toString('hex'),
+          descriptorLabels,
+          descriptors: normalizedDescriptors,
+          missingRequiredLabels,
+        };
+      }
+
+      return null;
+    } catch (e) {
+      console.warn('Error extracting attestation from UniValue:', e);
+      return null;
+    }
+  };
+
+  // Helper function to store attestation data
+  // Uses the same extraction and storage format as LoginReceiveAttestation
+  // so attestations are backwards compatible with existing wallet entries
+  const storeAttestationDataDownload = async (attestationData) => {
+    try {
+      if (!activeAccount) {
+        throw new Error('No active account');
+      }
+
+      const mmrData = attestationData.mmrDescriptor.data;
+      const sigData = attestationData.signatureData.data;
+      const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
+
+      // MMR hash as key (same as LoginReceiveAttestation.extractMmrHash)
+      let mmrHash;
+      try {
+        mmrHash = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex');
+      } catch (e) {
+        mmrHash = `attestation_${Date.now()}`;
+      }
+
+      // Helper to get label and message from a DataDescriptor.
+      // Handles two formats:
+      //   1) Nested: toJson().objectdata[DataDescriptorKey] = { label, objectdata: { message } }
+      //   2) Flat:   toJson() = { label, objectdata: { message } }
+      const getDescriptorLabelAndMessage = (descriptor) => {
+        const json = descriptor.toJson();
+        const nested = json?.objectdata?.[descriptorKeyId];
+        if (nested?.label) {
+          return { label: nested.label, message: nested?.objectdata?.message };
+        }
+        return { label: json?.label || null, message: json?.objectdata?.message || null };
+      };
+
+      // Attestation name
+      let extractedName = null;
+      // Internal ID
+      let extractedId = null;
+      // Recipient ID — prioritise 'receiving_identity' over IDENTITY_ATTESTATION_RECIPIENT
+      let receivingIdentity = null;
+      let attestationRecipient = null;
+
+      try {
+        for (const descriptor of mmrData.dataDescriptors) {
+          const { label, message } = getDescriptorLabelAndMessage(descriptor);
+          if (!label) continue;
+
+          if (label === ATTESTATION_NAME.vdxfid && message) {
+            extractedName = message;
+          }
+          if (label === 'i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ' && message) {
+            extractedId = message;
+          }
+          if (label === 'receiving_identity' && message) {
+            receivingIdentity = message;
+          }
+          if (label === IDENTITY_ATTESTATION_RECIPIENT.vdxfid && message) {
+            attestationRecipient = message;
+          }
+        }
+      } catch (e) {
+        // Extraction errors are non-fatal
+      }
+
+      const storedRecipientId = receivingIdentity || attestationRecipient || null;
+
+      // Store in same format as LoginReceiveAttestation
+      const dataToStore = {
+        [mmrHash]: {
+          name: extractedName || attestationData.label || 'downloaded proof',
+          signer: attestationData.signerDisplayName || embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown Signer',
+          data: serializeStoredAttestation(mmrData, sigData).toString('hex'),
+          timestamp: Date.now(),
+          id: undefined,
+          validated: true,
+          internal_id: extractedId,
+          recipientId: storedRecipientId,
+        }
+      };
+
+      await modifyAttestationDataForUser(dataToStore, ATTESTATIONS_PROVISIONED, activeAccount.accountHash);
+      return true;
+    } catch (e) {
+      console.error('Error storing attestation data:', e);
+      throw e;
+    }
+  };
+
+  const resolveSignerDefinedKeyLabels = async () => {
+    const resolvedLabels = {};
+
+    try {
+      const signerSystemId = requestSignerSystemID || embeddedSignerSystemID;
+      const signingIAddr = requestSignerIdentityID || embeddedSignerIdentityID;
+
+      if (!signerSystemId || !signingIAddr) {
+        return resolvedLabels;
+      }
+
+      const contentRes = await getIdentityContent(signerSystemId, signingIAddr);
+      if (contentRes.error) {
+        throw new Error(contentRes.error.message);
+      }
+
+      const signerIdentity = contentRes.result.identity;
+      const definedKeyContent = signerIdentity?.contentmultimap?.[DATA_TYPE_DEFINEDKEY.vdxfid];
+      const definedKeyBufs = Array.isArray(definedKeyContent) ? definedKeyContent : definedKeyContent ? [definedKeyContent] : [];
+
+      for (const definedKeyHex of definedKeyBufs) {
+        try {
+          const definedKey = new DefinedKey();
+          definedKey.fromBuffer(Buffer.from(definedKeyHex, 'hex'));
+
+          const iAddr = definedKey.getIAddr();
+          const ns = definedKey.getNameSpaceID();
+          if (ns !== signerIdentity.identityaddress) {
+            continue;
+          }
+
+          const splitUri = definedKey.vdxfuri.split('::');
+          const label = splitUri.length > 1 ? splitUri[1] : splitUri[0];
+          resolvedLabels[iAddr] = capitalizeString(label.split('.').join(' '));
+        } catch (e) {
+          console.warn('Failed to parse signer defined key:', e);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to resolve signer defined key labels:', e);
+    }
+
+    return resolvedLabels;
+  };
+
+  const buildAttestationPreviewDescriptors = async (attestationData) => {
+    const signerDefinedLabels = await resolveSignerDefinedKeyLabels();
+
+    return processDataDescriptors(attestationData?.descriptors || []).map(descriptor => ({
+      ...descriptor,
+      title:
+        signerDefinedLabels[descriptor.label] ||
+        (descriptor.label === ATTESTATION_NAME.vdxfid ? 'Attestation Name' : descriptor.title),
+    }));
+  };
+
+  const resolveAttestationSignerDisplayName = async (attestationData) => {
+    try {
+      const signatureObject = attestationData?.signatureData?.data;
+      if (!signatureObject) {
+        return embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown signer';
+      }
+
+      const identityId = signatureObject.identity_ID || signatureObject.identityid || signatureObject?.toJson?.()?.identityid;
+      const systemId = signatureObject.system_ID || signatureObject.systemid || signatureObject?.toJson?.()?.systemid;
+
+      if (!identityId || !systemId) {
+        return embeddedSignerFqn || embeddedSignerIdentityID || identityId || 'Unknown signer';
+      }
+
+      const identityResult = await getIdentity(systemId, identityId);
+      const fqn = identityResult?.result?.fullyqualifiedname;
+      if (fqn) {
+        return convertFqnToDisplayFormat(fqn);
+      }
+
+      return identityId;
+    } catch (e) {
+      console.warn('Failed to resolve attestation signer friendly name:', e);
+      return embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown signer';
+    }
+  };
+
+  const handleAcceptDownloadedAttestation = async () => {
+    if (!pendingAttestationData) return;
+
+    try {
+      setLoading(true);
+      await storeAttestationDataDownload(pendingAttestationData);
+      setAttestationAccepted(true);
+      setDownloadedContent(`Attestation \"${pendingAttestationData.label || 'downloaded proof'}\" accepted.`);
+      setUrlDownloadModalVisible(false);
+    } catch (e) {
+      createAlert('Error', `Failed to save attestation: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectDownloadedAttestation = () => {
+    setPendingAttestationData(null);
+    setPendingAttestationDescriptors([]);
+    setPendingAttestationSigner(null);
+    setAttestationAccepted(false);
+    setDownloadedContent(null);
+    setContentMimeType(null);
+    setHashVerified(null);
+    setUrlDownloadModalVisible(false);
+  };
+
   // Download data from URL and verify hash
   const handleDownload = async () => {
     if (!urlRef || !urlRef.url) {
@@ -736,7 +1114,6 @@ const DataPacketRequestInfo = props => {
     const flagValue = urlRef.flags instanceof BN ? urlRef.flags : new BN(urlRef.flags || 0);
     const FLAG_HAS_HASH = URLRef?.FLAG_HAS_HASH || new BN(1);
     const hasHash = flagValue.and(FLAG_HAS_HASH).gt(new BN(0)) && urlRef.data_hash && urlRef.data_hash.length > 0;
-    console.log('handleDownload - hasHash:', hasHash, 'flags:', flagValue.toString(), 'url:', urlRef.url);
     
     try {
       setDownloading(true);
@@ -753,7 +1130,6 @@ const DataPacketRequestInfo = props => {
       
       // If we have a hash, verify it
       if (hasHash) {
-
         const downloadedHash = crypto('sha256').update(dataBuffer).digest();
         const expectedHash = urlRef.data_hash;
         const hashMatches = downloadedHash.equals(expectedHash);
@@ -768,28 +1144,70 @@ const DataPacketRequestInfo = props => {
       } else {
         // No hash to verify - mark as verified (trusted download)
         setHashVerified(true);
-        console.log('No hash present - skipping verification');
       }
       
       // Try to parse as DataDescriptor first
+      let downloadedDescriptor = null;
+      let attestationData = null;
       let mimeType = 'text/plain';
       let content = '';
       
       try {
-        const downloadedDescriptor = new DataDescriptor();
+        downloadedDescriptor = new DataDescriptor();
         downloadedDescriptor.fromBuffer(dataBuffer);
         setDownloadedDataDescriptor(downloadedDescriptor);
         
-        mimeType = downloadedDescriptor.mimeType || 'application/octet-stream';
-        if (mimeType.startsWith('text/')) {
-          content = downloadedDescriptor.objectdata?.toString?.('utf-8') || 
-                    Buffer.from(downloadedDescriptor.objectdata || '').toString('utf-8');
-        } else if (mimeType.startsWith('image/')) {
-          content = Buffer.from(downloadedDescriptor.objectdata || '').toString('base64');
+        // Check if this is an attestation (no mimetype and contains UniValue objects)
+        if (!downloadedDescriptor.mimeType || downloadedDescriptor.mimeType === '') {
+          attestationData = extractAttestationFromUniValue(downloadedDescriptor.objectdata);
+          
+          if (attestationData) {
+            const signerDisplayName = await resolveAttestationSignerDisplayName(attestationData);
+            const previewDescriptors = await buildAttestationPreviewDescriptors(attestationData);
+            const attestationPayload = {
+              ...attestationData,
+              signerDisplayName,
+            };
+            setPendingAttestationData(attestationPayload);
+            setPendingAttestationDescriptors(previewDescriptors);
+            setPendingAttestationSigner(signerDisplayName);
+            setAttestationAccepted(false);
+            
+            // Set content to indicate attestation should be reviewed
+            mimeType = 'application/attestation';
+            content = `Review this attestation before accepting it.`;
+            attestationData = attestationPayload;
+          }
+        }
+        
+        // If not an attestation, process as regular content
+        if (!attestationData) {
+          mimeType = downloadedDescriptor.mimeType || 'application/octet-stream';
+          
+          if (mimeType && mimeType.startsWith('text/')) {
+            content = downloadedDescriptor.objectdata?.toString?.('utf-8') || 
+                      Buffer.from(downloadedDescriptor.objectdata || '').toString('utf-8');
+          } else if (mimeType && mimeType.startsWith('image/')) {
+            content = Buffer.from(downloadedDescriptor.objectdata || '').toString('base64');
+          } else if (mimeType === 'application/octet-stream') {
+            // Try to detect if it's text
+            const objectdataBuffer = Buffer.isBuffer(downloadedDescriptor.objectdata) 
+              ? downloadedDescriptor.objectdata 
+              : Buffer.from(downloadedDescriptor.objectdata || '');
+            const sample = objectdataBuffer.slice(0, 100).toString('utf-8');
+            const isText = /^[\x20-\x7E\s\n\r\t]+$/.test(sample);
+            if (isText) {
+              mimeType = 'text/plain';
+              content = objectdataBuffer.toString('utf-8');
+            } else {
+              setDownloadError('Unsupported content type. Only text, images, and attestations are supported.');
+              setHashVerified(null);
+              return;
+            }
+          }
         }
       } catch (parseErr) {
         // Not a DataDescriptor - treat as raw content
-        console.log('Not a DataDescriptor, treating as raw content:', parseErr.message);
         
         // Determine mime type from header or content
         if (contentTypeHeader.includes('text/') || contentTypeHeader.includes('application/json')) {
@@ -801,12 +1219,12 @@ const DataPacketRequestInfo = props => {
         } else {
           // Try to detect if it's text
           const sample = dataBuffer.slice(0, 100).toString('utf-8');
-          const isText = /^[\x20-\x7E\s]+$/.test(sample);
+          const isText = /^[\x20-\x7E\s\n\r\t]+$/.test(sample);
           if (isText) {
             mimeType = 'text/plain';
             content = dataBuffer.toString('utf-8');
           } else {
-            setDownloadError('Unsupported content type. Only text and images are supported.');
+            setDownloadError('Unsupported content type. Only text, images, and attestations are supported.');
             setHashVerified(null);
             return;
           }
@@ -815,7 +1233,6 @@ const DataPacketRequestInfo = props => {
       
       setContentMimeType(mimeType);
       setDownloadedContent(content);
-      console.log('Download complete - mimeType:', mimeType, 'content length:', content.length);
       
     } catch (e) {
       console.error('Download error:', e);
@@ -834,6 +1251,11 @@ const DataPacketRequestInfo = props => {
       // If URL download is required but not completed, show error
       if (hasUrlDownload && hashVerified !== true) {
         createAlert('Download Required', 'Please download and verify the data before continuing.');
+        return;
+      }
+
+      if (hasUrlDownload && pendingAttestationData && !attestationAccepted) {
+        createAlert('Acceptance Required', 'Please review and accept the attestation before continuing.');
         return;
       }
 
@@ -976,7 +1398,6 @@ const DataPacketRequestInfo = props => {
       const possibleAuthenticationDetails = request.details.find(
         x => x instanceof AuthenticationRequestOrdinalVDXFObject
       );
-      console.log( 'found:', possibleAuthenticationDetails);
       if (possibleAuthenticationDetails) {
         const authDetails = possibleAuthenticationDetails.data;
         if (authDetails && authDetails.recipientConstraints) {
@@ -985,7 +1406,6 @@ const DataPacketRequestInfo = props => {
               .filter(x => Number(x.type) === RecipientConstraint.REQUIRED_ID)
               .map(x => {
                 try {
-                  console.log('Processing recipient constraint:', x);
                   return x.identity.toIAddress();
                 } catch (e){
                   console.warn('Error getting constraint i-address:', e); 
@@ -994,7 +1414,6 @@ const DataPacketRequestInfo = props => {
               })
               .filter(x => x != null)
           );
-          console.log('Extracted recipient constraints:', authDetails.recipientConstraints);
           setRecipientConstraintIds(requiredIds);
         }
       }
@@ -1183,9 +1602,10 @@ const DataPacketRequestInfo = props => {
     if (isSigned && embeddedIsSignatureValid === false) return true;
     if (isForUserSignature && !selectedIdentity && signedIn) return true;
     if (hasUrlForDownload && hashVerified !== true && signedIn) return true;
+    if (hasUrlForDownload && pendingAttestationData && !attestationAccepted && signedIn) return true;
     if (isForTransmittalToUser && recipientConstraintIds.size > 0 && !recipientId && signedIn) return true;
     return false;
-  }, [isSigned, embeddedIsSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified, isForTransmittalToUser, recipientConstraintIds, recipientId]);
+  }, [isSigned, embeddedIsSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified, pendingAttestationData, attestationAccepted, isForTransmittalToUser, recipientConstraintIds, recipientId]);
 
   // Determine hero text based on request type
   const getHeroTitle = () => {
@@ -1237,6 +1657,20 @@ const DataPacketRequestInfo = props => {
         downloadedContent={downloadedContent}
         contentMimeType={contentMimeType}
         hashVerified={hashVerified}
+        attestationDescriptors={pendingAttestationDescriptors}
+        attestationAccepted={attestationAccepted}
+        attestationTitle={pendingAttestationData?.label}
+        attestationSigner={pendingAttestationSigner}
+        onAcceptAttestation={handleAcceptDownloadedAttestation}
+        onRejectAttestation={handleRejectDownloadedAttestation}
+        onDescriptorPress={(descriptor) => {
+          if (descriptor.content && !descriptor.isEncrypted) {
+            copyToClipboard(descriptor.content, {
+              title: 'Content copied',
+              message: `${descriptor.title} copied to clipboard.`,
+            });
+          }
+        }}
       />
       
       <ScrollView
@@ -1969,6 +2403,43 @@ const styles = StyleSheet.create({
   },
   detailSubtitleError: {
     color: '#D32F2F',
+  },
+  attestationSuccessContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 8,
+    gap: 12,
+  },
+  attestationSuccessText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  attestationMetaText: {
+    fontSize: 13,
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  attestationListContainer: {
+    width: '100%',
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    overflow: 'visible',
+  },
+  rejectDownloadButton: {
+    width: '100%',
+    borderRadius: 22,
+    marginTop: 12,
+  },
+  rejectDownloadButtonContent: {
+    height: 44,
   },
 });
 

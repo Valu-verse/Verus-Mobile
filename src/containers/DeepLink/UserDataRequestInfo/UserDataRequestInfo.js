@@ -8,10 +8,11 @@ import {
   DataResponseDetails,
   DataResponseOrdinalVDXFObject,
   GenericResponse,
+  VerifiableSignatureData,
+  CompactAddressObject,
 } from 'verus-typescript-primitives';
 import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
 import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
-const { AttestationPair } = require('verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails');
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import Colors from '../../../globals/colors';
@@ -28,7 +29,7 @@ import { useObjectSelector } from '../../../hooks/useObjectSelector';
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
-import { createAttestationResponse } from '../../../utils/attestations/createAttestationResponse';
+import { createAttestationResponseBuffer } from '../../../utils/attestations/createAttestationResponse';
 import { BN } from 'bn.js';
 
 // ── Helpers ──
@@ -99,11 +100,16 @@ const friendlyKeyLabel = (vdxfKey) => {
 const extractFieldLabels = (attestationDetails) => {
   const labels = [];
   try {
+    const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
     if (attestationDetails?.mmrDescriptor?.dataDescriptors) {
       for (const dd of attestationDetails.mmrDescriptor.dataDescriptors) {
-        const parsed = dd.toJson?.()?.objectdata?.[VDXF_Data.DataDescriptorKey.vdxfid];
-        if (parsed?.label) {
-          labels.push(friendlyKeyLabel(parsed.label));
+        const json = dd.toJson?.();
+        // Handle nested format: objectdata[DataDescriptorKey] = { label, ... }
+        const nested = json?.objectdata?.[descriptorKeyId];
+        // Handle flat format: { label, objectdata: { message } }
+        const label = nested?.label || json?.label;
+        if (label) {
+          labels.push(friendlyKeyLabel(label));
         }
       }
     }
@@ -323,44 +329,28 @@ const UserDataRequestInfo = (props) => {
     try {
       setLoading(true);
 
-      // For each matched attestation, create the filtered attestation response
-      let attestationResponseData;
-
-      if (isCollection) {
-        attestationResponseData = await createAttestationResponse(
-          matchingAttestations,
-          null,
-          true,
-        );
-      } else if (isPartialData && requestedKeys) {
-        attestationResponseData = await createAttestationResponse(
-          matchingAttestations[0],
-          requestedKeys,
-          false,
-        );
-      } else {
-        // FULL_DATA
-        attestationResponseData = await createAttestationResponse(
-          matchingAttestations[0],
-          null,
-          false,
-        );
+      const att = isCollection ? matchingAttestations[0] : matchingAttestations[0];
+      if (!att || !att.raw || !att.raw.data) {
+        throw new Error('Selected attestation is missing raw data');
       }
 
-      // Serialize the attestation response into a DataDescriptor
-      const responseHex = typeof attestationResponseData === 'string'
-        ? attestationResponseData
-        : Buffer.from(JSON.stringify(attestationResponseData)).toString('hex');
+      // Build the response payload from the raw stored attestation hex.
+      // For PARTIAL_DATA, filter the MMR descriptors to only include
+      // the requested keys, then re-serialise the filtered attestation.
+      const responseBuffer = createAttestationResponseBuffer(
+        att.raw.data,
+        isPartialData ? requestedKeys : null,
+      );
 
-      const dataDescriptor = DataDescriptor.fromJson({
-        version: 1,
-        objectdata: responseHex,
+      // Wrap the binary attestation payload in a DataDescriptor
+      const dataDescriptor = new DataDescriptor({
+        version: new BN(1),
+        objectdata: responseBuffer,
       });
 
       // Wrap in DataResponseDetails
       const responseDetails = new DataResponseDetails({
         data: dataDescriptor,
-        requestID: requestIDDisplay ? undefined : undefined, // auto-set if present in details
       });
 
       // Wrap in DataResponseOrdinalVDXFObject
@@ -372,6 +362,43 @@ const UserDataRequestInfo = (props) => {
       const baseResponse = response || new GenericResponse();
       if (baseResponse.details == null) baseResponse.details = [];
       baseResponse.details = [...baseResponse.details, responseOrdinal];
+
+      // Ensure the multi-details flag is set when there are 2+ details
+      if (baseResponse.details.length > 1 && typeof baseResponse.setHasMultiDetails === 'function') {
+        baseResponse.setHasMultiDetails();
+      }
+
+      // Set signature using the attestation recipient identity so
+      // GenericRequestComplete can sign and deliver the response.
+      if (baseResponse.signature == null) {
+        let recipientIAddress = att.raw?.recipientId;
+        const systemID = att.attestationDetails?.signatureData?.system_ID;
+
+        if (!recipientIAddress || !systemID) {
+          throw new Error(
+            'Attestation is missing recipient identity or system information. ' +
+            'Cannot sign the response.',
+          );
+        }
+
+        // recipientId may be an FQN (e.g. "name@") rather than an i-address.
+        // Resolve it to an i-address via getIdentity if needed.
+        if (!recipientIAddress.startsWith('i')) {
+          const idResult = await getIdentity(systemID, recipientIAddress);
+          if (idResult.error || !idResult.result?.identity?.identityaddress) {
+            throw new Error(
+              `Could not resolve recipient identity "${recipientIAddress}" to an i-address.`,
+            );
+          }
+          recipientIAddress = idResult.result.identity.identityaddress;
+        }
+
+        baseResponse.signature = new VerifiableSignatureData({
+          systemID: CompactAddressObject.fromIAddress(systemID),
+          identityID: CompactAddressObject.fromIAddress(recipientIAddress),
+        });
+        baseResponse.setSigned();
+      }
 
       return baseResponse;
     } catch (e) {

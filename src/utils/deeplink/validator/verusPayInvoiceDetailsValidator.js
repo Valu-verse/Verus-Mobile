@@ -23,8 +23,15 @@ export const validateVerusPayInvoiceVDXFObject = (request, detailIndex) => {
 export const validateVerusPayInvoiceDetails = async (details) => {
   if (!details) throw new Error("No invoice details found.")
 
+  const acceptsAnyDestination = details.acceptsAnyDestination()
+  const hasDestination = details.destination != null
+
   if (details.acceptsNonVerusSystems() && details.excludesVerusBlockchain()) {
     throw new Error("This invoice accepts no systems to pay on, and is therefore unpayable.")
+  }
+
+  if (!acceptsAnyDestination && !hasDestination) {
+    throw new Error("This invoice requires a destination, but none was provided.")
   }
 
   const coinObj = CoinDirectory.getBasicCoinObj(details.isTestnet() ? 'VRSCTEST' : 'VRSC')
@@ -52,7 +59,7 @@ export const validateVerusPayInvoiceDetails = async (details) => {
     throw new Error("Tagged invoices not yet supported.")
   }
 
-  if (details.destinationIsSaplingPaymentAddress()) {
+  if (!acceptsAnyDestination && hasDestination && details.destinationIsSaplingPaymentAddress()) {
     throw new Error("Sapling invoice destinations not yet supported.")
   }
 }

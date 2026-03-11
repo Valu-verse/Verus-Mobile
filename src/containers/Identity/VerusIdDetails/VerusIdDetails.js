@@ -50,66 +50,9 @@ import { convertFqnToDisplayFormat } from '../../../utils/fullyqualifiedname';
 import { openUrl } from '../../../utils/linking';
 import { requestAttestationData } from '../../../utils/auth/authBox';
 import { ATTESTATIONS_PROVISIONED } from '../../../utils/constants/attestations';
-import { primitives } from 'verusid-ts-client';
+import { replaceAttestationDataForUser } from '../../../actions/actions/attestations/dispatchers/attestations';
 
-const { DataDescriptorKey } = primitives;
-// IDENTITY_ATTESTATION_RECIPIENT vdxfid
-const ATTESTATION_RECIPIENT_VDXFID = 'iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn';
-// Server-provided receiving_identity label (takes priority over ATTESTATION_RECIPIENT_VDXFID)
-const RECEIVING_IDENTITY_LABEL = 'receiving_identity';
-
-// Helper function to extract recipientId from stored attestation data
-// Used as fallback for attestations stored before recipientId was added
-// Prioritizes 'receiving_identity' label over ATTESTATION_RECIPIENT_VDXFID
-const extractRecipientIdFromData = (attestationData) => {
-  try {
-    if (!attestationData) return null;
-    
-    const attestationPairBuffer = Buffer.from(attestationData, 'hex');
-    const { AttestationPair } = require('verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js');
-    
-    const attestationPair = new AttestationPair();
-    attestationPair.fromBuffer(attestationPairBuffer);
-    
-    if (!attestationPair || !attestationPair.mmrDescriptor) return null;
-    
-    let receivingIdentity = null;
-    let attestationRecipient = null;
-    
-    // Iterate through data descriptors to find the recipient
-    // Structure: dataDescriptor.toJson().objectdata[DataDescriptorKey.vdxfid] = { label, objectdata: { message } }
-    for (const dataDescriptor of attestationPair.mmrDescriptor.dataDescriptors) {
-      try {
-        const objectdata = dataDescriptor.toJson().objectdata;
-        const vdxfData = objectdata?.[DataDescriptorKey.vdxfid];
-        
-        // Check for receiving_identity label (priority)
-        if (vdxfData?.label === RECEIVING_IDENTITY_LABEL) {
-          receivingIdentity = vdxfData?.objectdata?.message;
-          console.log('Found receiving_identity in attestation data:', receivingIdentity);
-        }
-        // Check for ATTESTATION_RECIPIENT_VDXFID (fallback)
-        else if (vdxfData?.label === ATTESTATION_RECIPIENT_VDXFID) {
-          attestationRecipient = vdxfData?.objectdata?.message;
-          console.log('Found ATTESTATION_RECIPIENT in attestation data:', attestationRecipient);
-        }
-      } catch (innerError) {
-        // Skip this descriptor if it can't be parsed
-        continue;
-      }
-    }
-    
-    // Prioritize receiving_identity over ATTESTATION_RECIPIENT_VDXFID
-    const recipientId = receivingIdentity || attestationRecipient;
-    if (recipientId) {
-      console.log('Using recipientId:', recipientId);
-    }
-    return recipientId || null;
-  } catch (error) {
-    console.warn('Error extracting recipientId from attestation data:', error.message);
-  }
-  return null;
-};
+const DATA_PACKETS_RECEIVED = 'data_packets_received';
 
 const VerusIdDetails = () => {
   const navigation = useNavigation();
@@ -135,6 +78,9 @@ const VerusIdDetails = () => {
   const [attestationsExpanded, setAttestationsExpanded] = useState(true);
   const [unlinkSheetVisible, setUnlinkSheetVisible] = useState(false);
   const [unlinking, setUnlinking] = useState(false);
+  const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletingAttestation, setDeletingAttestation] = useState(false);
 
   // Bottom fade dimensions
   const bottomPadding = Math.max(insets.bottom, 20);
@@ -250,43 +196,64 @@ const VerusIdDetails = () => {
   // Falls back to extracting recipientId from attestation data for older stored attestations
   const loadAttestations = useCallback(async () => {
     try {
-      const attestationData = await requestAttestationData(ATTESTATIONS_PROVISIONED);
-      
-      if (attestationData && typeof attestationData === 'object') {
-        // Filter attestations by recipientId matching iAddress or displayName
-        const linkedAttestations = Object.entries(attestationData)
-          .filter(([key, att]) => {
-            if (!att || typeof att !== 'object') return false;
-         
-            // Helper to check if recipientId matches this identity
-            const matchesIdentity = (recipientId) => {
-              if (!recipientId) return false;
-              // Match against i-address or friendly name (displayName from route params)
-              return recipientId === iAddress || recipientId === displayName;
-            };
+      const [provisionedAttestations, legacyDataPackets] = await Promise.all([
+        requestAttestationData(ATTESTATIONS_PROVISIONED),
+        requestAttestationData(DATA_PACKETS_RECEIVED),
+      ]);
 
-            // First check if recipientId is already stored at top level
-            if (att.recipientId) {
-              return matchesIdentity(att.recipientId);
-            }
-          
-            // Fallback: try to extract recipientId from the attestation data
-            // This handles older attestations stored before recipientId was added
-            if (att.data) {
-              const extractedRecipientId = extractRecipientIdFromData(att.data);
-              if (extractedRecipientId) {
-                return matchesIdentity(extractedRecipientId);
-              }
-            }
-            
-            return false;
-          })
-          .map(([key, att]) => ({ ...att, _key: key }));
+      const legacyAttestations =
+        legacyDataPackets && typeof legacyDataPackets === 'object'
+          ? Object.fromEntries(
+              Object.entries(legacyDataPackets).filter(([, att]) =>
+                att && typeof att === 'object' && att.type === 'attestation'
+              )
+            )
+          : {};
 
-        setAttestations(linkedAttestations);
-      } else {
-        setAttestations([]);
+      const storedAttestations = [
+        ...Object.entries(legacyAttestations || {}).map(([key, att]) => ({
+          ...(att || {}),
+          _key: key,
+          _storageType: DATA_PACKETS_RECEIVED,
+        })),
+        ...Object.entries(
+          provisionedAttestations && typeof provisionedAttestations === 'object' ? provisionedAttestations : {}
+        ).map(([key, att]) => ({
+          ...(att || {}),
+          _key: key,
+          _storageType: ATTESTATIONS_PROVISIONED,
+        })),
+      ];
+
+      const matchesIdentity = (recipientId) => {
+        if (!recipientId) return false;
+        if (recipientId === iAddress) return true;
+        if (recipientId === displayName) return true;
+        // Also match bare name (e.g. "generictest@") against full FQN
+        // ("generictest.VRSCTEST@") since attestations may store only the
+        // short form without the system suffix
+        if (displayName && displayName.includes('.')) {
+          const bareName = displayName.replace(/\.[^.@]+@$/, '@');
+          if (recipientId === bareName) return true;
+        }
+        return false;
+      };
+
+      const linkedAttestations = [];
+
+      for (const att of storedAttestations) {
+        if (!att || typeof att !== 'object') {
+          continue;
+        }
+
+        const storedRecipientId = att.recipientId;
+
+        if (matchesIdentity(storedRecipientId)) {
+          linkedAttestations.push(att);
+        }
       }
+
+      setAttestations(linkedAttestations);
     } catch (e) {
       console.warn('Failed to load attestations:', e.message);
       setAttestations([]);
@@ -345,6 +312,38 @@ const VerusIdDetails = () => {
       dispatch(setServiceLoading(false, VERUSID_SERVICE_ID));
     }
   }, [dispatch, activeAccount, activeCoinList, chain, iAddress, navigation]);
+
+  // Delete a single attestation from encrypted storage
+  const deleteStoredAttestation = useCallback(async () => {
+    if (!deleteTarget?._key || !deleteTarget?._storageType) return;
+    if (!activeAccount?.accountHash) {
+      createAlert('Error', 'No active account.');
+      return;
+    }
+
+    setDeletingAttestation(true);
+    try {
+      const currentData = await requestAttestationData(deleteTarget._storageType);
+      const updatedData = { ...(currentData && typeof currentData === 'object' ? currentData : {}) };
+      delete updatedData[deleteTarget._key];
+
+      await replaceAttestationDataForUser(updatedData, deleteTarget._storageType, activeAccount.accountHash);
+
+      setDeleteSheetVisible(false);
+      setDeleteTarget(null);
+      await loadAttestations();
+      createAlert('Deleted', 'Attestation removed from storage.');
+    } catch (e) {
+      createAlert('Error', e.message);
+    } finally {
+      setDeletingAttestation(false);
+    }
+  }, [deleteTarget, activeAccount, loadAttestations]);
+
+  const showDeleteConfirmation = useCallback((attestation) => {
+    setDeleteTarget(attestation);
+    setDeleteSheetVisible(true);
+  }, []);
 
   // View attestation details
   const viewAttestationDetails = useCallback((attestation) => {
@@ -432,7 +431,7 @@ const VerusIdDetails = () => {
     const description = `Signed by: ${signerName}${dateStr !== 'Date unknown' ? ` • ${dateStr}` : ''}`;
 
     return (
-      <React.Fragment key={attestation._key || index}>
+      <React.Fragment key={`${attestation._storageType || 'attestation'}:${attestation._key || index}`}>
         <List.Item
           title={attestation?.name || attestation?.claimName || attestation?.title || 'Unnamed Attestation'}
           description={description}
@@ -448,7 +447,18 @@ const VerusIdDetails = () => {
             </View>
           )}
           right={props => (
-            <List.Icon {...props} icon="chevron-right" size={20} />
+            <View style={styles.attestationItemActions}>
+              <TouchableOpacity
+                onPress={() => showDeleteConfirmation(attestation)}
+                accessibilityRole="button"
+                accessibilityLabel="Delete attestation"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.attestationDeleteButton}
+              >
+                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#D32F2F" />
+              </TouchableOpacity>
+              <List.Icon {...props} icon="chevron-right" size={20} />
+            </View>
           )}
           style={styles.attestationItem}
         />
@@ -579,6 +589,34 @@ const VerusIdDetails = () => {
             </GradientButton>
           </View>
         </SemiModal>
+
+        <SemiModal
+          animationType="slide"
+          transparent={true}
+          visible={deleteSheetVisible}
+          onRequestClose={() => !deletingAttestation && setDeleteSheetVisible(false)}
+          closeDisabled={deletingAttestation}
+          title="Delete attestation"
+          flexHeight={0.01}
+          contentContainerStyle={styles.unlinkSheetContent}
+        >
+          <View style={styles.unlinkSheetBody}>
+            <Text style={styles.unlinkSheetDescription}>
+              {`Delete "${deleteTarget?.name || 'this attestation'}" from encrypted storage? This cannot be undone.`}
+            </Text>
+            <GradientButton
+              onPress={deleteStoredAttestation}
+              topColor="#EF5350"
+              bottomColor="#D32F2F"
+              disabled={deletingAttestation}
+              leftIcon={deletingAttestation ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : null}
+            >
+              {deletingAttestation ? 'Deleting...' : 'Delete from storage'}
+            </GradientButton>
+          </View>
+        </SemiModal>
       </Portal>
     </View>
   );
@@ -641,6 +679,16 @@ const styles = StyleSheet.create({
   attestationItem: {
     backgroundColor: '#FFFFFF',
     paddingLeft: 16,
+  },
+  attestationItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  attestationDeleteButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    marginRight: -4,
   },
   attestationIconContainer: {
     justifyContent: 'center',

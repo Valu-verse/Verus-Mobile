@@ -67,11 +67,17 @@ const InvoicePaymentConfiguration = props => {
     try {
       const { definitions, remainingSystems } = acceptedSystemsDefinitions;
       const supportedSystemIds = [...Object.keys(definitions), ...remainingSystems];
-      const maxSlippage = satsToCoins(BigNumber(details.maxestimatedslippage)).toNumber();
+      const hasMaxSlippage = details.maxestimatedslippage != null;
+      const maxSlippage = hasMaxSlippage
+        ? satsToCoins(BigNumber(details.maxestimatedslippage)).toNumber()
+        : undefined;
+      const amount = details.acceptsAnyAmount() || details.amount == null
+        ? undefined
+        : satsToCoins(BigNumber(details.amount)).toNumber();
   
       const sourceOptionsMap = await getInvoiceSourceOptions(
         details.requestedcurrencyid,
-        satsToCoins(BigNumber(details.amount)).toNumber(),
+        amount,
         supportedSystemIds,
         activeCoinsForUser.filter(x => x.tags.includes(IS_PBAAS)).map(x => x.currency_id),
         maxSlippage
@@ -167,7 +173,7 @@ const InvoicePaymentConfiguration = props => {
           allowNonVerusSystems={details.acceptsNonVerusSystems()}
           acceptedSystems={details.acceptedsystems}
           requestedCurrency={details.requestedcurrencyid}
-          amount={details.amount.toNumber()}
+          amount={details.amount ? details.amount.toNumber() : 0  }
           excludeVerusBlockchain={details.excludesVerusBlockchain()}
         />
       </View>

@@ -1,3 +1,4 @@
+import { parseStoredAttestationHex } from '../../attestations/serializedAttestation';
 import {
   UserDataRequestOrdinalVDXFObject,
   UserDataRequestDetails,
@@ -17,7 +18,22 @@ import { requestAttestationData } from "../../auth/authBox";
 import { ATTESTATIONS_PROVISIONED } from "../../constants/attestations";
 import { BN } from "bn.js";
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
-const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails");
+
+/**
+ * Extract label and message from a DataDescriptor, handling both nested and
+ * flat serialization formats.
+ *   Nested: toJson().objectdata[DataDescriptorKey] → { label, objectdata: { message } }
+ *   Flat:   toJson() → { label, objectdata: { message } }
+ */
+const getDescriptorLabelAndMessage = (descriptor) => {
+  const json = descriptor.toJson();
+  const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
+  const nested = json?.objectdata?.[descriptorKeyId];
+  if (nested?.label) {
+    return { label: nested.label, message: nested?.objectdata?.message };
+  }
+  return { label: json?.label || null, message: json?.objectdata?.message || null };
+};
 
 /**
  * Finds attestations matching the searchDataKey criteria from the stored attestation data.
@@ -39,13 +55,10 @@ const findMatchingAttestations = (searchDataKey, signerIAddress, isCollection, a
     const attestationId = attestationDataKeys[i];
     const att = attestationDataValues[i];
     try {
-      const attestationDetails = new AttestationPair();
-      attestationDetails.fromBuffer(Buffer.from(att.data, 'hex'));
-      if (!attestationDetails || !attestationDetails.mmrDescriptor) continue;
+      const { mmrDescriptor, signatureData } = parseStoredAttestationHex(att.data);
+      if (!mmrDescriptor) continue;
 
-      const signatureData = attestationDetails.signatureData;
-
-      // Filter by signer if specified
+      // Filter by signer if specified (identity_ID is an i-address string after fromBuffer)
       if (signerIAddress && signatureData.identity_ID !== signerIAddress) continue;
 
       let matchFound = false;
@@ -57,10 +70,10 @@ const findMatchingAttestations = (searchDataKey, signerIAddress, isCollection, a
           const sdkKey = Object.keys(searchEntry)[0];
           const sdkValue = searchEntry[sdkKey];
 
-          for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
-            const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
-            const keyMatches = dd?.label === sdkKey;
-            const valueMatches = sdkValue === "" || dd?.objectdata?.message === sdkValue;
+          for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
+            const { label, message } = getDescriptorLabelAndMessage(dataDescriptor);
+            const keyMatches = label === sdkKey;
+            const valueMatches = sdkValue === "" || message === sdkValue;
 
             if (keyMatches && valueMatches) {
               matchFound = true;
@@ -74,9 +87,9 @@ const findMatchingAttestations = (searchDataKey, signerIAddress, isCollection, a
         const sdkKey = Object.keys(searchDataKey[0])[0];
         const sdkValue = searchDataKey[0][sdkKey];
 
-        for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
-          const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
-          if (dd?.label === sdkKey && (sdkValue === "" || dd?.objectdata?.message === sdkValue)) {
+        for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
+          const { label, message } = getDescriptorLabelAndMessage(dataDescriptor);
+          if (label === sdkKey && (sdkValue === "" || message === sdkValue)) {
             matchFound = true;
             break;
           }
@@ -89,7 +102,7 @@ const findMatchingAttestations = (searchDataKey, signerIAddress, isCollection, a
         id: attestationId,
         name: att?.name || "Attestation",
         raw: att,
-        attestationDetails,
+        attestationDetails: { mmrDescriptor, signatureData },
         matchingDescriptors: isCollection ? matchingDescriptors : undefined,
       });
     } catch (e) {

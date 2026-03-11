@@ -16,11 +16,11 @@ import { requestAttestationData } from "../../../utils/auth/authBox";
 import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { createAttestationResponse } from "../../../utils/attestations/createAttestationResponse";
+import { parseStoredAttestationHex } from '../../../utils/attestations/serializedAttestation';
 import * as VDXF_Data from "verus-typescript-primitives/dist/vdxf/vdxfdatakeys";
 import { at } from "lodash";
 import { setPermissionAgreed } from "../../../actions/actions/deeplink/creators/passthroughData";
 import { LOGIN_PERMISSION_TYPES } from "../../../utils/constants/loginPermissions";
-const { AttestationPair } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js");
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
 const { RequestInformation, RequestItem } = require("verus-typescript-primitives/dist/vdxf/classes/attestation/InformationRequest.js");
 
@@ -162,11 +162,8 @@ class LoginShareAttestation extends Component {
       const attestationId = attestationDataKeys[i];
       const att = attestationDataValues[i];
       try {
-        const attestationDetails = new AttestationPair();
-        attestationDetails.fromBuffer(Buffer.from(att.data, 'hex'));
-        if (!attestationDetails || !attestationDetails.mmrDescriptor) continue;
-
-        const signatureData = attestationDetails.signatureData;
+        const { mmrDescriptor, signatureData } = parseStoredAttestationHex(att.data);
+        if (!mmrDescriptor) continue;
         // Signer must match
         if (requestItem.signer && signatureData.identity_ID !== requestItem.signer) continue;
 
@@ -180,7 +177,7 @@ class LoginShareAttestation extends Component {
           for (const idKey of idKeys) {
             const idValue = requestItem.id[idKey];
             
-            for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
+            for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
               const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
               
               // Match by key only (when value is empty string) or by key-value pair
@@ -199,7 +196,7 @@ class LoginShareAttestation extends Component {
           const idKey = idKeys[0];
           const idValue = requestItem.id[idKey];
           
-          for (const dataDescriptor of attestationDetails.mmrDescriptor.dataDescriptors) {
+          for (const dataDescriptor of mmrDescriptor.dataDescriptors) {
             const dd = dataDescriptor.toJson().objectdata[VDXF_Data.DataDescriptorKey.vdxfid];
             if (dd?.label === idKey && dd?.objectdata?.message === idValue) {
               matchFound = true;
@@ -220,7 +217,7 @@ class LoginShareAttestation extends Component {
           id: attestationId,
           name: att?.name || "Attestation",
           fields,
-          attestationDetails,
+          attestationDetails: { mmrDescriptor, signatureData },
           raw: att, // keep the original stored attestation object for sending later
           matchingDescriptors: isCollection ? matchingDescriptors : undefined, // Store which descriptors matched for COLLECTION
         });
