@@ -1,6 +1,6 @@
 import { handleRedirect } from '../deeplink/handleRedirect';
 import { primitives } from 'verusid-ts-client';
-import { AttestationDetails } from "verus-typescript-primitives/dist/vdxf/classes/attestation/AttestationDetails.js";
+import { MMRDescriptor, SignatureData } from 'verus-typescript-primitives';
 
 /**
  * Downloads attestation data from a provider URL using webhook redirect
@@ -39,7 +39,7 @@ export const downloadAttestationData = async (url, requestData = {}) => {
  * @param {Function} setIsDownloadingAttestation - Function to set downloading state
  * @param {Function} setDownloadedAttestations - Function to set downloaded attestations
  * @param {Function} createAlert - Function to create alerts
- * @returns {Promise<AttestationDetails>} The downloaded attestation details
+ * @returns {Promise<Object>} The downloaded attestation data with mmrdescriptor and signaturedata
  */
 export const downloadAndProcessAttestationData = async (req, setLoading, setIsDownloadingAttestation, setDownloadedAttestations, createAlert) => {
   try {
@@ -51,14 +51,17 @@ export const downloadAndProcessAttestationData = async (req, setLoading, setIsDo
     );
 
     const attestationResponse = await downloadAttestationData(attestationProvisionUrl.uri);
-    const attestationDetails = AttestationDetails.fromJson(attestationResponse);
 
-    if (!attestationResponse || !attestationDetails.isValid() || attestationDetails.attestations.length === 0) {
-      throw new Error("Invalid or empty attestation details");
+    if (!attestationResponse || !attestationResponse.mmrdescriptor || !attestationResponse.signaturedata) {
+      throw new Error("Invalid or empty attestation data");
     }
 
-    setDownloadedAttestations(attestationDetails);
-    return attestationDetails;
+    // Validate by attempting to parse
+    MMRDescriptor.fromJson(attestationResponse.mmrdescriptor);
+    SignatureData.fromJson(attestationResponse.signaturedata);
+
+    setDownloadedAttestations(attestationResponse);
+    return attestationResponse;
 
   } catch (error) {
     console.error('Download error details:', error);
@@ -97,9 +100,9 @@ export const validateAttestationData = (attestationData) => {
     return false;
   }
 
-  // Check if it's in the new AttestationDetails format
-  if (attestationData.version !== undefined && attestationData.attestations && Array.isArray(attestationData.attestations)) {
-    return attestationData.attestations.length > 0;
+  // Check if it has mmrdescriptor and signaturedata (concatenated format)
+  if (attestationData.mmrdescriptor && attestationData.signaturedata) {
+    return true;
   }
 
   // Check if it's raw buffer/hex data that can be parsed

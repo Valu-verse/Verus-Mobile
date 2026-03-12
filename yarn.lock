@@ -3447,6 +3447,11 @@ bn.js@5.2.1, bn.js@^5.0.0, bn.js@^5.2.0, bn.js@^5.2.1:
   resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-5.2.1.tgz#0bc527a6a0d18d0aa8d5b0538ce4a77dccfa7b70"
   integrity sha512-eXRvHzWyYPBuB4NBy0cmYQjGitUrtqwbvlzP3G6VFnNRbsZQIxQ10PbKKHt8gZ/HW/D/747aDl+QkDqg3KQLMQ==
 
+bn.js@5.2.3:
+  version "5.2.3"
+  resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-5.2.3.tgz#16a9e409616b23fef3ccbedb8d42f13bff80295e"
+  integrity sha512-EAcmnPkxpntVL+DS7bO1zhcZNvCkxqtkd0ZY53h06GNQ3DEkkGZ/gKgmDv6DdZQGj9BgfSPKtJJ7Dp1GPP8f7w==
+
 bn.js@^4.0.0, bn.js@^4.11.0, bn.js@^4.11.8, bn.js@^4.11.9:
   version "4.12.0"
   resolved "https://registry.yarnpkg.com/bn.js/-/bn.js-4.12.0.tgz#775b3f278efbb9718eec7361f483fb36fbbfea88"
@@ -10080,9 +10085,8 @@ react-native-url-polyfill@1.3.0:
     prop-types "^15.7.2"
     yargs "^16.1.1"
 
-"react-native-verus@https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7":
+"react-native-verus@file:../react-native-verus":
   version "0.6.10"
-  resolved "https://github.com/who-biz/react-native-verus.git#7c81851190f914eb2d343ed99dfeb9ff50cc2bd7"
   dependencies:
     biggystring "^4.1.3"
     rfc4648 "^1.3.0"
@@ -11992,14 +11996,15 @@ version_compare@0.0.3:
     bignumber.js "^9.0.0"
     verus-zkedid-utils "https://github.com/michaeltout/verus-zkedid-utils#dev"
 
-"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/monkins1010/verus-typescript-primitives.git#7f71d1ea0a5f64954312e83e622f7a893d199d94":
+"verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git#f9633091ba7fc03c4fbe2657d901a81cac2d45e1":
   version "1.0.0"
-  resolved "git+https://github.com/monkins1010/verus-typescript-primitives.git#7f71d1ea0a5f64954312e83e622f7a893d199d94"
+  uid f9633091ba7fc03c4fbe2657d901a81cac2d45e1
+  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#f9633091ba7fc03c4fbe2657d901a81cac2d45e1"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
     blake2b "https://github.com/VerusCoin/blake2b"
-    bn.js "5.2.1"
+    bn.js "5.2.3"
     bs58check "2.0.0"
     create-hash "1.2.0"
 
