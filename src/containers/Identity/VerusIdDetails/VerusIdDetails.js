@@ -225,18 +225,9 @@ const VerusIdDetails = () => {
         })),
       ];
 
-      const matchesIdentity = (recipientId) => {
-        if (!recipientId) return false;
-        if (recipientId === iAddress) return true;
-        if (recipientId === displayName) return true;
-        // Also match bare name (e.g. "generictest@") against full FQN
-        // ("generictest.VRSCTEST@") since attestations may store only the
-        // short form without the system suffix
-        if (displayName && displayName.includes('.')) {
-          const bareName = displayName.replace(/\.[^.@]+@$/, '@');
-          if (recipientId === bareName) return true;
-        }
-        return false;
+      const matchesIdentity = (storedRecipientId) => {
+        if (!storedRecipientId) return false;
+        return storedRecipientId === iAddress;
       };
 
       const linkedAttestations = [];

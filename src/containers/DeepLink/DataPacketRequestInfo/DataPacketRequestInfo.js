@@ -969,7 +969,27 @@ const DataPacketRequestInfo = props => {
         // Extraction errors are non-fatal
       }
 
-      const storedRecipientId = receivingIdentity || attestationRecipient || null;
+      // Resolve recipient to i-address so attestations can be matched reliably
+      let resolvedRecipientId = null;
+      const extractedRecipient = receivingIdentity || attestationRecipient || null;
+
+      // Prefer the recipientId state (already an i-address from constraint matching)
+      if (recipientId) {
+        resolvedRecipientId = recipientId;
+      } else if (extractedRecipient) {
+        // Extracted value may be a friendly name — resolve to i-address
+        try {
+          const systemId = requestSignerSystemID || embeddedSignerSystemID;
+          if (systemId) {
+            const identityRes = await getIdentity(systemId, extractedRecipient);
+            if (!identityRes.error && identityRes.result?.identity?.identityaddress) {
+              resolvedRecipientId = identityRes.result.identity.identityaddress;
+            }
+          }
+        } catch (e) {
+          // Resolution failed — store null rather than a name that won't match
+        }
+      }
 
       // Store in same format as LoginReceiveAttestation
       const dataToStore = {
@@ -981,7 +1001,7 @@ const DataPacketRequestInfo = props => {
           id: undefined,
           validated: true,
           internal_id: extractedId,
-          recipientId: storedRecipientId,
+          recipientId: resolvedRecipientId,
         }
       };
 

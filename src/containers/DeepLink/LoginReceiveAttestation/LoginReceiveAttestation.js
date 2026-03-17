@@ -150,7 +150,7 @@ class LoginReceiveAttestation extends Component {
         const attestationName = isValid ? this.extractAttestationName(recreatedMmrDescriptor) : null;
         const mmrHash = this.extractMmrHash(recreatedMmrDescriptor);
         const extractedId = this.extractAttestationId(recreatedMmrDescriptor);
-        const recipientId = this.extractRecipientId(recreatedMmrDescriptor);
+        const recipientId = await this.extractRecipientId(recreatedMmrDescriptor, recreatedSignatureData.system_ID);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -318,7 +318,8 @@ class LoginReceiveAttestation extends Component {
 
   // Extract the recipient identity address from the attestation
   // Prioritizes 'receiving_identity' label over IDENTITY_ATTESTATION_RECIPIENT vdxfid
-  extractRecipientId = (mmrDescriptor) => {
+  // Resolves friendly names to i-addresses using getIdentity
+  extractRecipientId = async (mmrDescriptor, systemId) => {
     try {
       let receivingIdentity = null;
       let attestationRecipient = null;
@@ -342,7 +343,22 @@ class LoginReceiveAttestation extends Component {
       }
       
       // Prioritize receiving_identity over ATTESTATION_RECIPIENT
-      return receivingIdentity || attestationRecipient || null;
+      const extracted = receivingIdentity || attestationRecipient || null;
+      if (!extracted) return null;
+
+      // Resolve to i-address if a system ID is available
+      if (systemId) {
+        try {
+          const identityRes = await getIdentity(systemId, extracted);
+          if (!identityRes.error && identityRes.result?.identity?.identityaddress) {
+            return identityRes.result.identity.identityaddress;
+          }
+        } catch (e) {
+          // Resolution failed — return null rather than a name
+        }
+      }
+
+      return null;
     } catch (error) {
       console.warn('Error extracting recipient id:', error);
       return null;
@@ -448,7 +464,7 @@ class LoginReceiveAttestation extends Component {
         }
 
         const extractedId = this.extractAttestationId(mmrData);
-        const recipientId = this.extractRecipientId(mmrData);
+        const recipientId = await this.extractRecipientId(mmrData, signatureData.system_ID);
 
         // Generate MMR hash using helper method
         const mmrHash = this.extractMmrHash(mmrData);
