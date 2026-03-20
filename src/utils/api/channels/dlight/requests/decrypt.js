@@ -5,12 +5,12 @@ import { DLIGHT_PRIVATE } from '../../../../constants/intervalConstants';
 
 export const decryptData = async (alias, params) => {
   try {
-    const plaintext = await Tools.decryptData({
-      ivkHex: params.ivkHex || null,
-      ephemeralPublicKeyHex: params.ephemeralPublicKeyHex || null,
-      ciphertextHex: params.ciphertextHex,
-      symmetricKeyHex: params.symmetricKeyHex || null
-    });
+    const plaintext = await Tools.decryptVerusData(
+      params.ivkHex || null,
+      params.ephemeralPublicKeyHex || null,
+      params.ciphertextHex,
+      params.symmetricKeyHex || null
+    );
 
     return {
       result: plaintext,

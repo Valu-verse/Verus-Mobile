@@ -5,7 +5,7 @@ import { DLIGHT_PRIVATE } from '../../../../constants/intervalConstants';
 
 export const encryptData = async (alias, address, dataHex, returnSsk = false) => {
   try {
-    const payload = await Tools.encryptData(address, dataHex, returnSsk);
+    const payload = await Tools.encryptVerusData(address, dataHex, returnSsk);
 
     return {
       result: payload,

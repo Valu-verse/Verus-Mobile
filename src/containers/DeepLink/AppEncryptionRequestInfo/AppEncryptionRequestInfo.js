@@ -450,7 +450,14 @@ const AppEncryptionRequestInfo = (props) => {
       setPendingResponse({ updatedResponse, handledIndices: [detailIndex] });
     } catch (e) {
       console.error('AppEncryptionRequest processing failed:', e);
-      createAlert('Error', e.message || 'Failed to process encryption request.');
+      const isZSeedMissing = e.message && e.message.includes('No Z (shielded address) seed');
+      createAlert(
+        isZSeedMissing ? 'Z Seed Required' : 'Error',
+        e.message || 'Failed to process encryption request.'
+      );
+      if (isZSeedMissing) {
+        cancel();
+      }
     } finally {
       setLoading(false);
     }

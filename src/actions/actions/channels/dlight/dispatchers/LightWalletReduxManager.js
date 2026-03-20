@@ -112,6 +112,8 @@ export const initDlightWallet = async (coinObj) => {
       type: ERROR_DLIGHT_INIT,
       payload: { chainTicker: id, error: e }
     })
+
+    return Promise.resolve()
   }
 
   return new Promise((resolve) => {
@@ -205,8 +207,14 @@ export const closeDlightWallet = async (coinObj, clearDb) => {
           ? eraseWallet(id, accountHash, proto)
           : closeWallet(id, accountHash, proto))
        ];
-    } else  {
-      throw new Error(id + "'s dlight wallet cannot be stopped if it was never started.")
+    } else {
+      // Best-effort: try to stop native synchronizer even if JS state says it wasn't started
+      try {
+        const synchronizer = getSynchronizerInstance(accountHash, id);
+        await synchronizer.stop();
+      } catch (e) {
+        // Ignore - synchronizer may not exist natively either
+      }
     }
   } catch (e) {
     console.warn(e)

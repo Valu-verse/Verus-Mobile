@@ -98,7 +98,10 @@ const getKeyMaterial = async (systemID) => {
     } catch (_) {}
   }
 
-  throw new Error(`No key material available for ${coinObj.id}`);
+  throw new Error(
+    `No Z (shielded address) seed has been set up. ` +
+    `Please go to Settings → Profile and set up a Z Seed before accepting encryption requests.`
+  );
 };
 
 // remove when tested with real functions
@@ -136,6 +139,7 @@ const callEncryptData = async (systemID, toAddress, data, returnSsk) => {
   if (USE_MOCK_Z_FUNCTIONS) {
     return mock_encryptData(systemID, toAddress, data, returnSsk);
   }
+    console.log("Calling encryptData with", { systemID, toAddress, data, returnSsk });
     return encryptData(systemID, toAddress, data, returnSsk);
 };
 
@@ -338,8 +342,14 @@ export const processAppEncryptionRequest = async ({
   // reversal they end up in the original order—matching the daemon.
   const fromIdBytes = IdentityID.fromAddress(responseSignerID).hash;
   const toIdBytes = IdentityID.fromAddress(toIdAddress).hash;
-  const fromIdHex = Buffer.from(fromIdBytes).reverse().toString('hex');
-  const toIdHex = Buffer.from(toIdBytes).reverse().toString('hex');
+  let fromIdHex = Buffer.from(fromIdBytes).reverse().toString('hex');
+  let toIdHex = Buffer.from(toIdBytes).reverse().toString('hex');
+
+  // Ensure even-length hex (native Hex.decode requires it).
+  // This should always be 40 chars from a 20-byte hash, but guard against edge cases.
+  if (fromIdHex.length % 2 !== 0) fromIdHex = '0' + fromIdHex;
+  if (toIdHex.length % 2 !== 0) toIdHex = '0' + toIdHex;
+
 
   // Build derivation params matching ChannelKeysRequest interface.
   // When using an extsk (already-derived spending key), omit hdIndex so the
@@ -405,11 +415,11 @@ export const processAppEncryptionRequest = async ({
     });
   } else {
     // Real mode: parse actual keys from z_getencryptionaddress
-    if (!keys.ivk || !keys.fvk || !keys.address) {
+    if (!keys.ivk || !keys.extfvk || !keys.address) {
       throw new Error("Incomplete key derivation result");
     }
 
-    if (returnESK && !keys.spending_key) {
+    if (returnESK && !keys.spendingKey) {
       throw new Error("Spending key requested but not returned");
     }
 
@@ -417,10 +427,10 @@ export const processAppEncryptionRequest = async ({
       version: new BN(1),
       flags: responseFlags,
       incomingViewingKey: Buffer.from(keys.ivk, 'hex'),
-      extendedViewingKey: SaplingExtendedViewingKey.fromKeyString(keys.fvk),
+      extendedViewingKey: SaplingExtendedViewingKey.fromKeyString(keys.extfvk),
       address: SaplingPaymentAddress.fromAddressString(keys.address),
       extendedSpendingKey: returnESK
-        ? SaplingExtendedSpendingKey.fromKeyString(keys.spending_key) 
+        ? SaplingExtendedSpendingKey.fromKeyString(keys.spendingKey) 
         : undefined,
       requestID: encryptionRequest.hasRequestID() ? encryptionRequest.requestID : undefined,
     });

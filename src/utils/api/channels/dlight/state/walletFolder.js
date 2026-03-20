@@ -19,6 +19,7 @@ export const initializeWallet = async (coinId, coinProto, accountHash, host, por
        return sync;
      } catch (error) {
        console.warn(error)
+       throw error;
      }
 };
 
