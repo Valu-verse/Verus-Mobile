@@ -1,6 +1,4 @@
 import { AuthenticationRequestOrdinalVDXFObject, GenericRequest, GenericResponse, ProvisionIdentityDetailsOrdinalVDXFObject,
-  AppEncryptionRequestOrdinalVDXFObject
-, 
   DataPacketRequestOrdinalVDXFObject, UserDataRequestOrdinalVDXFObject, AppEncryptionRequestOrdinalVDXFObject } from "verus-typescript-primitives";
 import VrpcProvider from '../../vrpc/vrpcInterface';
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";

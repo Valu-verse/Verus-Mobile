@@ -7,8 +7,7 @@ import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import { AUTHENTICATION_REQUEST_VDXF_KEY, DEEPLINK_PROTOCOL_URL_STRING, GenericRequest, GenericResponse, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID, 
   VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY,
-  PROVISION_IDENTITY_DETAILS_VDXF_KEY,
-  APP_ENCRYPTION_REQUEST_VDXF_KEY } from 'verus-typescript-primitives';
+  PROVISION_IDENTITY_DETAILS_VDXF_KEY } from 'verus-typescript-primitives';
 import InvoiceInfo from '../InvoiceInfo/InvoiceInfo';
 import { handleVerusPayInvoiceDetailsVDXFObject } from '../../../utils/deeplink/handlers/verusPayInvoiceDetailsHandler';
 import { handleAuthenticationRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/authenticationRequestDetailsHandler';
@@ -16,7 +15,6 @@ import { handleIdentityUpdateRequestDetailsVDXFObject } from '../../../utils/dee
 import { handleAppEncryptionRequestVDXFObject } from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import { handleDataPacketRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestDetailsHandler';
 import { handleUserDataRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/userDataRequestDetailsHandler';
-import { handleAppEncryptionRequestVDXFObject } from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { CommonActions } from '@react-navigation/native';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
@@ -28,7 +26,6 @@ import Colors from '../../../globals/colors';
 
 import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
 import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
-import AppEncryptionRequestInfo from '../AppEncryptionRequestInfo/AppEncryptionRequestInfo';
 
 const GenericRequestHome = props => {
   const {
@@ -268,16 +265,7 @@ const GenericRequestHome = props => {
         request={request}
         detailIndex={detailIndex}
       />
-    )
-  };
-
-  const openInValu = () => {
-    const originalUri = request.toWalletDeeplinkUri();
-    const redirectUri = originalUri.replace(
-      `${DEEPLINK_PROTOCOL_URL_STRING}://`,
-      `${DEEPLINK_PROTOCOL_URL_STRING}${VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID}://`
-    );
-    Linking.openURL(redirectUri).catch(e => createAlert('Error', e.message));
+    ),
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
       <DataPacketRequestInfo
         {...displayProps}
@@ -301,19 +289,17 @@ const GenericRequestHome = props => {
         request={request}
         detailIndex={detailIndex}
       />
-    ),
-    [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: () => (
-      <AppEncryptionRequestInfo
-        {...displayProps}
-        cancel={props.cancel}
-        setLoading={props.setLoading}
-        navigation={props.navigation}
-        next={next}
-        response={response}
-        request={request}
-        detailIndex={detailIndex}
-      />
-    ),
+    )
+  };
+
+  const openInValu = () => {
+    const originalUri = request.toWalletDeeplinkUri();
+    const redirectUri = originalUri.replace(
+      `${DEEPLINK_PROTOCOL_URL_STRING}://`,
+      `${DEEPLINK_PROTOCOL_URL_STRING}${VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID}://`
+    );
+    Linking.openURL(redirectUri).catch(e => createAlert('Error', e.message));
+    
   };
 
   return (
