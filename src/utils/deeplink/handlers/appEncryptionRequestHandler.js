@@ -139,7 +139,7 @@ const callEncryptData = async (systemID, toAddress, data, returnSsk) => {
   if (USE_MOCK_Z_FUNCTIONS) {
     return mock_encryptData(systemID, toAddress, data, returnSsk);
   }
-    console.log("Calling encryptData with", { systemID, toAddress, data, returnSsk });
+
     return encryptData(systemID, toAddress, data, returnSsk);
 };
 
@@ -415,6 +415,7 @@ export const processAppEncryptionRequest = async ({
     });
   } else {
     // Real mode: parse actual keys from z_getencryptionaddress
+    console.log("keys", {keys})
     if (!keys.ivk || !keys.extfvk || !keys.address) {
       throw new Error("Incomplete key derivation result");
     }
@@ -422,7 +423,6 @@ export const processAppEncryptionRequest = async ({
     if (returnESK && !keys.spendingKey) {
       throw new Error("Spending key requested but not returned");
     }
-
     responseDetails = new AppEncryptionResponseDetails({
       version: new BN(1),
       flags: responseFlags,
