@@ -269,10 +269,10 @@ export const processAppEncryptionRequest = async ({
   };
 
   // Derive channel keys
-  const keys = await zGetEncryptionAddress(coinObj.system_id, derivationParams);
+  const keys  = await zGetEncryptionAddress(coinObj.system_id, derivationParams);
   
   // Clear sensitive data from memory as soon as possible
-  derivationParams = null;
+  derivationParams = null
 
   // Build response details
   let responseDetails;

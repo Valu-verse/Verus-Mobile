@@ -276,7 +276,7 @@ export const authenticateAccount = async (account, password) => {
             _keys[activeCoins[i].id] = {};
 
             for (const channel of CHANNELS) {
-              if (
+             if (
                 (activeCoins[i].compatible_channels.includes(channel) &&
                   seeds[channel]) ||
                 (channel === DLIGHT_PRIVATE &&

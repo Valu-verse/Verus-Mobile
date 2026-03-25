@@ -1,6 +1,5 @@
 import { Tools } from 'react-native-verus'; 
 
-
 /**
  * Calls Tools.getVerusEncryptionAddress with a ChannelKeysRequest object.
  * @param {string} alias - The coin system ID
