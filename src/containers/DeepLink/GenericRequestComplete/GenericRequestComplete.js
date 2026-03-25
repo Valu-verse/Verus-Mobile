@@ -8,6 +8,7 @@
     "Your response will be sent to the requester".
 */
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView, StyleSheet, View, Platform, StatusBar, TouchableOpacity, Clipboard } from 'react-native';
 import { Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
@@ -27,6 +28,8 @@ import { signGenericResponse } from '../../../utils/api/channels/vrpc/callCreato
 import { verifyGenericResponse } from '../../../utils/api/channels/vrpc/requests/verifyGenericResponse';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { VERUS_MOBILE_HANDLER_ID } from '../../../utils/constants/deeplink';
+import { GenericRequest, GenericResponse, GENERIC_RESPONSE_DEEPLINK_VDXF_KEY, IDENTITY_UPDATE_RESPONSE_VDXF_KEY, ResponseURI } from 'verus-typescript-primitives';
+import BigNumber from 'bignumber.js';
 
 const GenericRequestComplete = props => {
   const { requestBufferString, responseBufferString } = props.route.params;

@@ -114,9 +114,3 @@ subprojects {
      }
   }
 }
-
-allprojects {
-    repositories {
-        mavenLocal()
-    }
-}
