@@ -172,35 +172,105 @@ class ReceiveCoin extends Component {
   }
 
   createQRString = (coinObj, amount, address, memo, maxSlippage) => {
-    const { displayCurrency, rates, subWallet } = this.props
+    const { displayCurrency } = this.props
+    const rates = this.props.rates
 
-    this.setState({ loadingBox: true }, async () => {
-      try {
-        const { qrString, showVerusIcon } = await generateReceiveInvoice({
-          coinObj,
-          subWallet,
-          address,
-          amountValue: amount,
-          amountFiat: this.state.amountFiat,
-          memo,
-          allowConversion: this.state.allowConversion && this.state.amount != 0,
-          maxSlippageValue: maxSlippage,
-          displayCurrency,
-          priceMap: rates || {},
-        });
+    let _price = rates[displayCurrency];
 
-        this.setState({
-          verusQRString: qrString,
-          showModal: true,
-          loadingBox: false,
-          showVerusIconInQr: showVerusIcon,
-        });
-      } catch (e) {
-        console.warn(e);
-        createAlert('Error', e.message || 'Error creating VerusPay invoice.');
-        this.setState({ loadingBox: false });
-      }
-    });
+    try {
+      this.setState({
+        loadingBox: true
+      }, async () => {
+        try {
+          let qrString;
+          let showVerusIconInQr = false;
+          const wallet = this.props.subWallet;
+
+          const amountCrypto = this.state.amountFiat
+            ? BigNumber(amount).dividedBy(BigNumber(_price)).toString()
+            : amount.toString();
+    
+          if (coinObj.proto === 'vrsc' && wallet.id !== "PRIVATE_WALLET") {
+            const { hash, version } = fromBase58Check(address);
+            let destinationType;
+    
+            if (version === I_ADDRESS_VERSION) {
+              destinationType = primitives.DEST_ID;
+            } else if (version === R_ADDRESS_VERSION) {
+              destinationType = primitives.DEST_PKH;
+            } else throw new Error("Unknown or unsupported destination type");
+    
+            const verusSystem = coinObj.testnet ? coinsList.VRSCTEST.currency_id : coinsList.VRSC.currency_id;
+            const nonVerusSystems = wallet.network === verusSystem ? [] : [wallet.network];
+    
+            const amountBN = new primitives.BigNumber(
+              coinsToSats(BigNumber(amountCrypto)).toString(),
+              10,
+            );
+            const amountGtZero = amountBN.gt(new primitives.BigNumber(0));
+
+            const acceptsConversion = this.state.allowConversion && this.state.amount != 0;
+    
+            const invoice = await createVerusPayInvoice(
+              coinObj,
+              new primitives.VerusPayInvoiceDetails({
+                amount: amountGtZero ? new primitives.BigNumber(
+                  coinsToSats(BigNumber(amountCrypto)).toString(),
+                  10,
+                ) : undefined,
+                destination: new primitives.TransferDestination({
+                  type: destinationType,
+                  destinationBytes: hash,
+                }),
+                requestedcurrencyid: coinObj.currency_id,
+                acceptedsystems: nonVerusSystems,
+                maxestimatedslippage: acceptsConversion ? maxSlippage != null ? new primitives.BigNumber(
+                  coinsToSats(BigNumber(maxSlippage).dividedBy(100)).toString(),
+                  10,
+                ) : new primitives.BigNumber(
+                  coinsToSats(BigNumber('0.005')).toString(),
+                  10,
+                ) : undefined,
+              }),
+            );
+    
+            invoice.details.setFlags({
+              acceptsConversion,
+              isTestnet: !!(coinObj.testnet),
+              acceptsNonVerusSystems: nonVerusSystems.length > 0,
+              acceptsAnyAmount: !amountGtZero
+            })
+    
+            qrString = invoice.toWalletDeeplinkUri();
+            showVerusIconInQr = true;
+          } else {
+            qrString = VerusPayParser.v0.writeVerusPayQR(
+              coinObj,
+              amountCrypto,
+              address,
+              memo
+            )
+          }
+    
+          this.setState({
+            verusQRString: qrString,
+            showModal: true,
+            loadingBox: false,
+            showVerusIconInQr
+          });
+        } catch(e) {
+          console.warn(e)
+          createAlert("Error", "Error creating VerusPay invoice.")
+
+          this.setState({
+            loadingBox: false
+          })
+        }
+      })
+    } catch(e) {
+      console.warn(e)
+      createAlert("Error", "Error creating QR payment request.")
+    }
   }
 
   showAddressString = () => {

@@ -23,8 +23,7 @@ module.exports = (async () => {
         crypto: require.resolve('react-native-crypto'),
         path: require.resolve('path-browserify'),
         stream: require.resolve('stream-browserify'),
-        process: require.resolve('process'),
-        'bn.js': require.resolve('bn.js'),
+        process: require.resolve('process')
       },
       resolveRequest: (context, moduleName, platform) => {
         if (moduleName === 'axios') {
@@ -34,7 +33,7 @@ module.exports = (async () => {
           };
         }
         return context.resolveRequest(context, moduleName, platform);
-      },
+      }
     },
   };
 })();

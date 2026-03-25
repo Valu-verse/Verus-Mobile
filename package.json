@@ -1,6 +1,6 @@
 {
   "name": "verusmobile",
-  "version": "1.0.31",
+  "version": "1.0.34",
   "private": true,
   "scripts": {
     "postinstall": "npx jetify && rm node_modules/@adraffy/ens-normalize/package.json && cp patches/@adraffy/ens-normalize/adraffy_ens_normalize_package.json node_modules/@adraffy/ens-normalize/package.json && patch-package",
@@ -222,8 +222,8 @@
     "decode-uri-component": "0.2.2",
     "@sideway/formula": "3.0.1",
     "@babel/core": "7.25.7",
-    "blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
-    "@bitgo/blake2b-wasm": "https://github.com/VerusCoin/blake2b-wasm/",
+    "blake2b-wasm": "git+https://github.com/VerusCoin/blake2b-wasm.git",
+    "@bitgo/blake2b-wasm": "git+https://github.com/VerusCoin/blake2b-wasm.git",
     "browserify-sign": "4.2.2",
     "secp256k1": "3.8.1",
     "form-data": "4.0.4",
