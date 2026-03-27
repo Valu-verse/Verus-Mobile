@@ -17,12 +17,14 @@ import {
     purchaseUpdatedListener,
     purchaseErrorListener,
     getAvailablePurchases,
-    clearTransactionIOS,
 } from 'react-native-iap';
 import ValuProvider from '../services/ValuProvider';
 
 // Product ID for Valu Proof of Personhood attestation (configure in App Store Connect)
-export const VALU_POP_PRODUCT_ID = 'valuPoP.mobile';
+export const VALU_POP_PRODUCT_ID = 'valu.arkeytyp.pop';
+
+// Timeout for the purchase flow (5 minutes)
+const PURCHASE_TIMEOUT_MS = 5 * 60 * 1000;
 
 class AppleIAPManager {
     constructor() {
@@ -32,6 +34,7 @@ class AppleIAPManager {
         this.currentPurchaseResolver = null;
         this.currentPurchaseRejecter = null;
         this.invoiceNumber = null;
+        this._purchaseTimeout = null;
     }
 
     /**
@@ -48,10 +51,6 @@ class AppleIAPManager {
             const result = await initConnection();
             this.isConnected = true;
             console.log('AppleIAPManager: Connection initialized', result);
-            
-            // Clear any pending transactions from previous sessions
-            await this.clearPendingTransactions();
-            
             return true;
         } catch (error) {
             console.error('AppleIAPManager: Failed to initialize connection', error);
@@ -61,25 +60,10 @@ class AppleIAPManager {
     }
 
     /**
-     * Clear any pending/unfinished transactions
+     * Setup purchase listeners for handling purchase updates.
+     * The invoiceNumber is passed explicitly to avoid stale singleton state.
      */
-    async clearPendingTransactions() {
-        if (Platform.OS !== 'ios') return;
-        
-        try {
-            await clearTransactionIOS();
-            console.log('AppleIAPManager: Cleared pending transactions');
-        } catch (error) {
-            console.log('AppleIAPManager: No pending transactions to clear', error);
-        }
-    }
-
-    /**
-     * Setup purchase listeners for handling purchase updates
-     * @param {Function} onPurchaseSuccess - Callback for successful purchase
-     * @param {Function} onPurchaseError - Callback for purchase errors
-     */
-    setupListeners(onPurchaseSuccess, onPurchaseError) {
+    setupListeners(invoiceNumber) {
         // Remove existing listeners if any
         this.removeListeners();
 
@@ -89,18 +73,22 @@ class AppleIAPManager {
             if (purchase && purchase.transactionReceipt) {
                 try {
                     // Verify the purchase with Valu server
-                    const verificationResult = await this.verifyAndConfirmPurchase(purchase);
+                    const verificationResult = await this.verifyAndConfirmPurchase(purchase, invoiceNumber);
                     
                     if (verificationResult.success) {
-                        // Finish the transaction to acknowledge it
-                        // Non-consumable: isConsumable = false
-                        await finishTransaction({ purchase, isConsumable: false });
-                        
+                        // Resolve the Promise first — payment is confirmed server-side
                         if (this.currentPurchaseResolver) {
                             this.currentPurchaseResolver(verificationResult);
+                            this.currentPurchaseResolver = null;
+                            this.currentPurchaseRejecter = null;
                         }
-                        if (onPurchaseSuccess) {
-                            onPurchaseSuccess(verificationResult);
+                        this._clearPurchaseTimeout();
+
+                        // Finish the transaction best-effort; Apple re-delivers if this fails
+                        try {
+                            await finishTransaction({ purchase, isConsumable: false });
+                        } catch (finishError) {
+                            console.warn('AppleIAPManager: finishTransaction failed, Apple will re-deliver', finishError);
                         }
                     } else {
                         throw new Error(verificationResult.error || 'Purchase verification failed');
@@ -110,10 +98,10 @@ class AppleIAPManager {
                     
                     if (this.currentPurchaseRejecter) {
                         this.currentPurchaseRejecter(error);
+                        this.currentPurchaseResolver = null;
+                        this.currentPurchaseRejecter = null;
                     }
-                    if (onPurchaseError) {
-                        onPurchaseError(error);
-                    }
+                    this._clearPurchaseTimeout();
                 }
             }
         });
@@ -123,10 +111,10 @@ class AppleIAPManager {
             
             if (this.currentPurchaseRejecter) {
                 this.currentPurchaseRejecter(error);
+                this.currentPurchaseResolver = null;
+                this.currentPurchaseRejecter = null;
             }
-            if (onPurchaseError) {
-                onPurchaseError(error);
-            }
+            this._clearPurchaseTimeout();
         });
     }
 
@@ -145,6 +133,16 @@ class AppleIAPManager {
     }
 
     /**
+     * Clear the purchase timeout timer
+     */
+    _clearPurchaseTimeout() {
+        if (this._purchaseTimeout) {
+            clearTimeout(this._purchaseTimeout);
+            this._purchaseTimeout = null;
+        }
+    }
+
+    /**
      * Get product details for Valu POP attestation
      */
     async getProduct() {
@@ -156,7 +154,6 @@ class AppleIAPManager {
             console.log('AppleIAPManager: Requesting product with SKU:', VALU_POP_PRODUCT_ID);
             const products = await getProducts({ skus: [VALU_POP_PRODUCT_ID] });
             console.log('AppleIAPManager: Products fetched, count:', products.length);
-            console.log('AppleIAPManager: Products details:', JSON.stringify(products, null, 2));
             
             if (products.length === 0) {
                 throw new Error(`Purchase is not available yet. The product may still be pending review by Apple. Please try again later.`);
@@ -181,11 +178,11 @@ class AppleIAPManager {
                 throw new Error(response.error || 'Failed to initiate payment session');
             }
             
-            this.invoiceNumber = response.data.invoiceNumber;
-            console.log('AppleIAPManager: Payment session initiated, invoice:', this.invoiceNumber);
+            const invoiceNumber = response.data.invoiceNumber;
+            console.log('AppleIAPManager: Payment session initiated, invoice:', invoiceNumber);
             
             return {
-                invoiceNumber: this.invoiceNumber,
+                invoiceNumber,
                 ...response.data
             };
         } catch (error) {
@@ -204,48 +201,61 @@ class AppleIAPManager {
             await this.initialize();
         }
 
-        return new Promise(async (resolve, reject) => {
-            this.currentPurchaseResolver = resolve;
-            this.currentPurchaseRejecter = reject;
-            this.invoiceNumber = invoiceNumber;
+        // Guard against concurrent purchases
+        if (this.currentPurchaseResolver) {
+            throw new Error('A purchase is already in progress');
+        }
 
-            try {
-                // Setup listeners before requesting purchase
-                this.setupListeners(
-                    (result) => {
-                        this.currentPurchaseResolver = null;
-                        this.currentPurchaseRejecter = null;
-                    },
-                    (error) => {
-                        this.currentPurchaseResolver = null;
-                        this.currentPurchaseRejecter = null;
-                    }
-                );
+        // Use deferred pattern to avoid async Promise executor anti-pattern
+        let resolve, reject;
+        const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
 
-                // Request the purchase
-                // The applicationUsername helps link the purchase to our invoice
-                await requestPurchase({
-                    sku: VALU_POP_PRODUCT_ID,
-                    andDangerouslyFinishTransactionAutomaticallyIOS: false,
-                    appAccountToken: invoiceNumber, // Links purchase to our invoice
-                });
-            } catch (error) {
-                console.error('AppleIAPManager: Failed to request purchase', error);
+        this.currentPurchaseResolver = resolve;
+        this.currentPurchaseRejecter = reject;
+        this.invoiceNumber = invoiceNumber;
+
+        // Setup listeners before requesting purchase, passing invoiceNumber explicitly
+        this.setupListeners(invoiceNumber);
+
+        // Set a timeout so the UI doesn't hang forever
+        this._purchaseTimeout = setTimeout(() => {
+            if (this.currentPurchaseRejecter) {
+                this.currentPurchaseRejecter(new Error('Purchase timed out. Please try again.'));
                 this.currentPurchaseResolver = null;
                 this.currentPurchaseRejecter = null;
-                reject(error);
+                this.removeListeners();
             }
-        });
+        }, PURCHASE_TIMEOUT_MS);
+
+        try {
+            // Request the purchase
+            // The appAccountToken helps link the purchase to our invoice
+            await requestPurchase({
+                sku: VALU_POP_PRODUCT_ID,
+                andDangerouslyFinishTransactionAutomaticallyIOS: false,
+                appAccountToken: invoiceNumber,
+            });
+        } catch (error) {
+            console.error('AppleIAPManager: Failed to request purchase', error);
+            this.currentPurchaseResolver = null;
+            this.currentPurchaseRejecter = null;
+            this._clearPurchaseTimeout();
+            this.removeListeners();
+            reject(error);
+        }
+
+        return promise;
     }
 
     /**
      * Verify and confirm purchase with Valu server
      * @param {Object} purchase - Purchase object from IAP
+     * @param {string} invoiceNumber - Invoice number for this purchase
      */
-    async verifyAndConfirmPurchase(purchase) {
+    async verifyAndConfirmPurchase(purchase, invoiceNumber) {
         try {
             const response = await ValuProvider.confirmIAPPayment({
-                invoiceNumber: this.invoiceNumber,
+                invoiceNumber,
                 transactionId: purchase.transactionId,
                 transactionReceipt: purchase.transactionReceipt,
                 productId: purchase.productId,
@@ -279,8 +289,7 @@ class AppleIAPManager {
 
             // Step 2: Verify product is available BEFORE initiating payment session
             console.log('AppleIAPManager: Verifying product availability...');
-            const product = await this.getProduct();
-            console.log('AppleIAPManager: Product verified:', product.productId, 'Price:', product.localizedPrice);
+            await this.getProduct();
 
             // Step 3: Initiate payment session with Valu server
             const session = await this.initiatePaymentSession();
@@ -290,6 +299,9 @@ class AppleIAPManager {
             
             return purchaseResult;
         } catch (error) {
+            // Clean up listeners on any failure in the flow
+            this.removeListeners();
+            this._clearPurchaseTimeout();
             console.error('AppleIAPManager: Purchase flow failed', error);
             throw error;
         }
@@ -318,6 +330,12 @@ class AppleIAPManager {
      */
     async cleanup() {
         this.removeListeners();
+        this._clearPurchaseTimeout();
+
+        // Reject any in-flight purchase so the caller's await doesn't hang
+        if (this.currentPurchaseRejecter) {
+            this.currentPurchaseRejecter(new Error('IAP manager cleaned up'));
+        }
         this.currentPurchaseResolver = null;
         this.currentPurchaseRejecter = null;
         this.invoiceNumber = null;

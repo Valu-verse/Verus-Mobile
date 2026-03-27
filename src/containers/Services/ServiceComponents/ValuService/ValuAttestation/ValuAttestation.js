@@ -856,6 +856,7 @@ const ValuAttestation = (props) => {
                         
                         // Payment successful, refresh status to proceed to next step
                         await fetchData();
+                        setLoading(false);
                         
                         // Show success notification
                         if (!skipDispatchNotification) {
@@ -922,6 +923,7 @@ const ValuAttestation = (props) => {
                                 const purchaseResult = await AppleIAPManager.completePurchaseFlow();
                                 console.log('iOS IAP purchase successful:', purchaseResult);
                                 await fetchData();
+                                setLoading(false);
                             } catch (iapError) {
                                 console.error('iOS IAP error:', iapError);
                                 setLoading(false);
@@ -951,6 +953,7 @@ const ValuAttestation = (props) => {
                                 const purchaseResult = await AppleIAPManager.completePurchaseFlow();
                                 console.log('iOS IAP purchase successful:', purchaseResult);
                                 await fetchData();
+                                setLoading(false);
                             } catch (iapError) {
                                 console.error('iOS IAP error:', iapError);
                                 setLoading(false);
