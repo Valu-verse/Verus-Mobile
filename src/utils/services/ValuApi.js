@@ -221,6 +221,14 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     return await this.service.claimSponsoredAttestation(payload);
   }
 
+  initiateIAPSession = async () => {
+    return await this.service.initiateIAPSession();
+  }
+
+  confirmIAPPayment = async (payload) => {
+    return await this.service.confirmIAPPayment(payload);
+  }
+
   getSumSubURL = () => {
     return `${this.service.url}/verusidloginnewaccount`;
   }

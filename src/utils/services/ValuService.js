@@ -414,6 +414,22 @@ class ValuService {
       return this.service.post(`${this.url}/claim-sponsored-attestation`, payload);
     });
   }
+
+  // Initiate an Apple In-App Purchase session
+  // Creates a pending payment record on the server and returns an invoice number
+  initiateIAPSession = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-iap-initiate`);
+    });
+  }
+
+  // Confirm an Apple In-App Purchase payment
+  // Verifies the transaction receipt with Apple and marks payment as complete
+  confirmIAPPayment = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/attestation-iap-confirm`, payload);
+    });
+  }
 }
 
 export default ValuService;
