@@ -11,7 +11,7 @@
     "start": "react-native start",
     "bundle-android": "react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/",
     "bundle-ios": "react-native bundle --dev false --entry-file index.js --bundle-output ios/main.jsbundle --platform ios --assets-dest='./ios'",
-    "clean-android-res": "rm -rf android/app/src/main/res/drawable-* && rm -rf android/app/build/generated/res",
+    "clean-android-res": "rm -rf android/app/src/main/res/drawable-* && rm -rf android/app/src/main/res/raw && rm -rf android/app/build/generated/res",
     "dist-android": "yarn clean-android-res && cd android && ./gradlew clean && ./gradlew assembleRelease && cd ..",
     "debug-android": "cd android && ./gradlew assembleDebug --stacktrace && cd ..",
     "test": "jest",

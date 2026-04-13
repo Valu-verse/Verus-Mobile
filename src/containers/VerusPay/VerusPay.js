@@ -45,6 +45,7 @@ import {
 import { SET_DEEPLINK_DATA } from '../../utils/constants/storeType';
 import { getCurrency } from '../../utils/api/channels/verusid/callCreators';
 import { CommonActions } from '@react-navigation/routers';
+import { DEEPLINK_PROTOCOL_URL_STRING, GENERIC_REQUEST_DEEPLINK_VDXF_KEY, GenericRequest } from 'verus-typescript-primitives';
 import { useNavigation } from '@react-navigation/native';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 
@@ -115,6 +116,26 @@ const VerusPay = (props) => {
 
   const tryProcessDeeplink = (urlstring) => {
     const url = new URL(urlstring);
+
+    if (url.protocol === `${DEEPLINK_PROTOCOL_URL_STRING}:`) {
+      const req = GenericRequest.fromWalletDeeplinkUri(urlstring);
+
+      dispatch({
+        type: SET_DEEPLINK_DATA,
+        payload: {
+          id: GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid,
+          data: req.toBuffer().toString('hex'),
+        },
+      });
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'DeepLink' }],
+        }),
+      );
+      return;
+    }
+
     if (url.host !== CALLBACK_HOST)
       throw new Error('Unsupported deeplink host url.');
 

@@ -6,7 +6,7 @@ import com.android.build.OutputFile
 def versionMajor = 1
 def versionMinor = 0
 def versionRevision = 31
-def versionBuild = 0
+def versionBuild = 2
 
 def keystorePropertiesFile = rootProject.file("keystore.properties");
 
@@ -238,6 +238,38 @@ dependencies {
 
     testImplementation('org.objenesis:objenesis:2.6') {
         force = true
+    }
+}
+
+// Automatically clean stale React Native generated resources from src/main/res
+// to prevent duplicate resource errors when switching between debug/release builds.
+// RN's bundle task copies assets into src/main/res/ but Gradle's own bundle task
+// generates them into build/generated/res/react/, causing conflicts.
+android.applicationVariants.all { variant ->
+    def capitalizedName = variant.name.capitalize()
+    def cleanTask = tasks.register("cleanReactNativeRes${capitalizedName}") {
+        doLast {
+            def resDir = file("${projectDir}/src/main/res")
+            def generatedResDir = file("${buildDir}/generated/res/react/${variant.name}")
+            if (generatedResDir.exists()) {
+                fileTree(generatedResDir).each { genFile ->
+                    def relativePath = generatedResDir.toPath().relativize(genFile.toPath()).toString()
+                    def srcFile = new File(resDir, relativePath)
+                    if (srcFile.exists()) {
+                        logger.lifecycle("Removing stale RN resource: ${srcFile}")
+                        srcFile.delete()
+                    }
+                }
+            }
+            // Also clean any leftover drawable-* dirs from previous RN bundle runs
+            resDir.listFiles()?.findAll { it.isDirectory() && it.name.startsWith("drawable-") }?.each {
+                logger.lifecycle("Removing stale RN drawable dir: ${it}")
+                delete it
+            }
+        }
+    }
+    tasks.matching { it.name == "merge${capitalizedName}Resources" }.configureEach {
+        dependsOn(cleanTask)
     }
 }
 
