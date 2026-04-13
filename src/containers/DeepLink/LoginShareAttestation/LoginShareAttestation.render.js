@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Divider, List, Button, Text, Card } from "react-native-paper";
 import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
 
@@ -182,6 +183,7 @@ export const LoginShareAttestationRender = function (props) {
           flexDirection: 'row',
           justifyContent: 'space-between',
           display: 'flex',
+          paddingBottom: 24,
         }}>
         <Button
           color={Colors.warningButtonColor}

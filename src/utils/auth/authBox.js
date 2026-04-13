@@ -32,8 +32,14 @@ export const requestPassword = async () => {
   ) {
     throw new Error("You must be signed in to retrieve sensitive info");
   } else {
-    const sessionPass = await getSessionCredential();
+    let sessionPass;
     
+    try {
+      sessionPass = await getSessionCredential();
+    } catch (e) {
+      throw new Error("Unable to retrieve session credential: " + e.message);
+    }
+
     const password = decryptkey(state.authentication.sessionKey, sessionPass)
 
     if (password !== false) {

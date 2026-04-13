@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, ScrollView, View, TouchableOpacity } from "react-native";
+import { ScrollView, View, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Divider, List, Button, Text, Card } from "react-native-paper";
 import Styles from "../../../styles";
 import Colors from '../../../globals/colors';
@@ -215,6 +216,7 @@ export const LoginSignDataRequestRender = function () {
           flexDirection: 'row',
           justifyContent: 'space-between',
           display: 'flex',
+          paddingBottom: 24,
         }}>
         <Button
           textColor={Colors.warningButtonColor}

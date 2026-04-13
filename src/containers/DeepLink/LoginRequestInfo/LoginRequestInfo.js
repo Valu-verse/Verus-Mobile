@@ -16,6 +16,7 @@
 */
 import React, { useMemo, useState, useEffect } from 'react';
 import { SafeAreaView, ScrollView, TouchableOpacity, View, StyleSheet, Platform, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { primitives } from 'verusid-ts-client';
 import { Button, Portal, Text } from 'react-native-paper';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -50,6 +51,7 @@ const Connector = () => {
 };
 
 const LoginRequestInfo = props => {
+  const insets = useSafeAreaInsets();
   const { deeplinkData, sigtime, cancel, signerFqn } = props
   const [req, setReq] = useState(new primitives.LoginConsentRequest(deeplinkData))
   const [loading, setLoading] = useState(false)
@@ -718,7 +720,7 @@ const LoginRequestInfo = props => {
         </View>
       </View>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"
@@ -940,7 +942,7 @@ const LoginRequestInfo = props => {
         <View style={{ height: 24 }} />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"

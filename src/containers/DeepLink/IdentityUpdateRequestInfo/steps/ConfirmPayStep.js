@@ -12,6 +12,7 @@
 */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import { formatCurrency } from 'react-native-format-currency';
@@ -53,6 +54,7 @@ const ConfirmPayStep = ({
   contentCount,
   styles: parentStyles,
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedSource, setSelectedSource] = useState(null);
   const [fee, setFee] = useState(null);
   const [feeCurrency, setFeeCurrency] = useState(null);
@@ -338,7 +340,7 @@ const ConfirmPayStep = ({
       </ScrollView>
 
       {/* Footer: Back + Update */}
-      <View style={parentStyles.footer}>
+      <View style={[parentStyles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={parentStyles.ctaCol}>
           <Button
             mode="contained"

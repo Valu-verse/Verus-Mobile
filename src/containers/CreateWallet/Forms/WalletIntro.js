@@ -10,6 +10,7 @@
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableOpacity, Image, SafeAreaView, StyleSheet} from 'react-native';
 import {Text, IconButton, Button} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../components/GradientButton';
 import Colors from '../../../globals/colors';
@@ -20,6 +21,7 @@ import { SMALL_DEVICE_HEGHT } from '../../../utils/constants/constants';
 
 export default function WalletIntro({ navigation, setNewSeed, setTestProfile, testProfile }) {
   const {height} = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
   const isSmall = height <= SMALL_DEVICE_HEGHT;
 
   const [loading, setLoading] = useState(false)
@@ -135,7 +137,7 @@ export default function WalletIntro({ navigation, setNewSeed, setTestProfile, te
           mode="contained"
           onPress={() => setImportSheetVisible(true)}
           disabled={loading}
-          style={styles.secondaryButton}
+          style={[styles.secondaryButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
           contentStyle={styles.secondaryButtonContent}
           labelStyle={styles.secondaryButtonLabel}
           buttonColor="#EBF6FF"

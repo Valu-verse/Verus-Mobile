@@ -21,6 +21,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import {Text, IconButton} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {createAlert} from '../../../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../../../components/GradientButton';
 import ScanSeed from '../../../../../components/ScanSeed';
@@ -34,6 +35,7 @@ export default function ImportText({
   onComplete,
 }) {
   const {height} = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
 
   const [showSeed, setShowSeed] = useState(false);
   const [scanQr, setScanQr] = useState(qr === true);
@@ -167,7 +169,7 @@ export default function ImportText({
           <GradientButton
             onPress={handleImport}
             disabled={!importedSeed || importedSeed.length === 0}
-            style={styles.importButton}
+            style={[styles.importButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
           >
             {'Import'}
           </GradientButton>

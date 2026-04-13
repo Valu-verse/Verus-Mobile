@@ -32,7 +32,7 @@ const getInternetCredential = async (credentialKey, title) => {
     authenticationPrompt: { title }
   });
 
-  if (credentials != null) return credentials.password
+  if (credentials && credentials.password) return credentials.password
   else throw new Error(`Failed to retrieve credential for ${credentialKey}`)
 }
 
@@ -56,7 +56,7 @@ const getGenericCredential = async (credentialKey = DEFAULT_GENERIC_PASSWORD_KEY
     service: credentialKey
   });
 
-  if (credentials != null) return credentials.password
+  if (credentials && credentials.password) return credentials.password
   else throw new Error(`Failed to retrieve credential for ${credentialKey}`)
 }
 

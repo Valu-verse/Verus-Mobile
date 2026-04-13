@@ -14,6 +14,7 @@
 import React, { useState } from 'react';
 import {View, Dimensions, TouchableWithoutFeedback, Keyboard, TouchableOpacity, TextInput as RNTextInput, SafeAreaView, StyleSheet} from 'react-native';
 import {Text, Portal} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAlert } from '../../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../../components/GradientButton';
 import Colors from '../../../../globals/colors';
@@ -23,6 +24,7 @@ import SemiModal from '../../../../components/SemiModal';
 
 export default function ChooseName({ profileName, setProfileName, navigation }) {
   const {height} = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
   const accounts = useObjectSelector(state => state.authentication.accounts)
   const [howItWorksVisible, setHowItWorksVisible] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
@@ -164,7 +166,7 @@ export default function ChooseName({ profileName, setProfileName, navigation }) 
           <GradientButton
             onPress={next}
             disabled={profileName.length === 0}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
           >
             {"Continue"}
           </GradientButton>
@@ -261,6 +263,6 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   continueButton: {
-    marginBottom: 24,
+    marginBottom: 24, // uses dynamic bottom in component
   },
 });

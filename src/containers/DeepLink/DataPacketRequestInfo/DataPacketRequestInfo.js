@@ -507,6 +507,8 @@ const DataPacketRequestInfo = props => {
   const [pendingAttestationSigner, setPendingAttestationSigner] = useState(null);
   const [attestationAccepted, setAttestationAccepted] = useState(false);
 
+  const insets = useSafeAreaInsets();
+
   const accounts = useObjectSelector(state => state.authentication.accounts);
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
@@ -1865,7 +1867,7 @@ const DataPacketRequestInfo = props => {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"

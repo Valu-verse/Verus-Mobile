@@ -24,12 +24,18 @@ export const validateUserDataRequestVDXFObject = (request, detailIndex) => {
   }
 
   // ── dataType must be 1, 2, or 3 ──
+  if (!details.dataType || typeof details.dataType.toNumber !== 'function') {
+    throw new Error("dataType is missing or not a valid BN instance.");
+  }
   const dt = details.dataType.toNumber();
   if (dt < 1 || dt > 3) {
     throw new Error(`Invalid dataType: ${dt}. Must be 1 (FULL_DATA), 2 (PARTIAL_DATA), or 3 (COLLECTION).`);
   }
 
   // ── requestType must be 1, 2, or 3 ──
+  if (!details.requestType || typeof details.requestType.toNumber !== 'function') {
+    throw new Error("requestType is missing or not a valid BN instance.");
+  }
   const rt = details.requestType.toNumber();
   if (rt < 1 || rt > 3) {
     throw new Error(`Invalid requestType: ${rt}. Must be 1 (ATTESTATION), 2 (CLAIM), or 3 (CREDENTIAL).`);
@@ -63,9 +69,9 @@ export const validateUserDataRequestVDXFObject = (request, detailIndex) => {
 
   // ── dataType ↔ requestedKeys cross-constraints ──
 
-  const isPartialData = dt === UserDataRequestDetails.PARTIAL_DATA.toNumber();
-  const isFullData = dt === UserDataRequestDetails.FULL_DATA.toNumber();
-  const isCollection = dt === UserDataRequestDetails.COLLECTION.toNumber();
+  const isPartialData = UserDataRequestDetails.PARTIAL_DATA && dt === UserDataRequestDetails.PARTIAL_DATA.toNumber();
+  const isFullData = UserDataRequestDetails.FULL_DATA && dt === UserDataRequestDetails.FULL_DATA.toNumber();
+  const isCollection = UserDataRequestDetails.COLLECTION && dt === UserDataRequestDetails.COLLECTION.toNumber();
 
   // PARTIAL_DATA requires requestedKeys
   if (isPartialData && !details.hasRequestedKeys()) {

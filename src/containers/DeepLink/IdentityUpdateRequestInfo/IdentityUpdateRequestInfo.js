@@ -24,6 +24,7 @@
 */
 import React, {useMemo, useState, useEffect, useCallback} from 'react';
 import {SafeAreaView, View, StyleSheet, Platform, StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { primitives } from "verusid-ts-client"
 import { Button, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -63,6 +64,7 @@ const STEP_CONFIRM_PAY = 3;
 const CMM_CLEAR_MAP_SENTINEL = '__CMM_CLEAR__';
 
 const IdentityUpdateRequestInfo = props => {
+  const insets = useSafeAreaInsets();
   const { 
     detailsBufferString,
     requestBufferString,
@@ -756,7 +758,7 @@ const IdentityUpdateRequestInfo = props => {
 
       {/* Footer - hidden on ConfirmPayStep (it has its own buttons) */}
       {showFooter && (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
           <View style={styles.ctaCol}>
             <Button
               mode="contained"

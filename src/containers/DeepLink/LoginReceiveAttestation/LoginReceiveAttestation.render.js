@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, ScrollView, View, Image, TouchableOpacity } from "react-native";
+import { ScrollView, View, Image, TouchableOpacity } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Divider, List, Button, Text, Card, IconButton } from "react-native-paper";
 import Styles from "../../../styles";
 import Colors from '../../../globals/colors';
@@ -244,6 +245,7 @@ export const LoginReceiveAttestationRender = function () {
             flexDirection: 'row',
             justifyContent: 'space-between',
             display: 'flex',
+            paddingBottom: 24,
           }}>
           <Button
             color={Colors.warningButtonColor}

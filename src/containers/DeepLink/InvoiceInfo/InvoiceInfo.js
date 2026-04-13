@@ -1,6 +1,7 @@
 // Updated invoice request UI to match DeepLink request styling.
 import React, {useState, useEffect} from 'react';
 import {SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { primitives } from "verusid-ts-client"
 import { Button, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
@@ -46,6 +47,7 @@ const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
 };
 
 const InvoiceInfo = props => {
+  const insets = useSafeAreaInsets();
   const { 
     detailsBufferString, 
     isSigned,
@@ -489,7 +491,7 @@ const InvoiceInfo = props => {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"

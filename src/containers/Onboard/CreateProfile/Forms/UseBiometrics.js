@@ -6,6 +6,7 @@
 import React from 'react';
 import {View, Dimensions, StyleSheet} from 'react-native';
 import {Text, Paragraph, Button} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../../globals/colors';
 import { canEnableBiometry } from '../../../../actions/actions/channels/dlight/dispatchers/AlertManager';
 import { Biometrics } from '../../../../images/customIcons';
@@ -14,6 +15,7 @@ import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 
 export default function UseBiometrics({ setUseBiometrics, navigation }) {
   const {height} = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
 
   const next = async (useBiometrics) => {
     if (useBiometrics && await canEnableBiometry()) {
@@ -65,14 +67,14 @@ export default function UseBiometrics({ setUseBiometrics, navigation }) {
       </View>
       <GradientButton
         onPress={() => next(true)}
-        style={styles.primaryButton}
+        style={[styles.primaryButton, { bottom: 96 + insets.bottom }]}
       >
         {"Enable"}
       </GradientButton>
       <Button
         mode="contained"
         onPress={() => next(false)}
-        style={styles.secondaryButton}
+        style={[styles.secondaryButton, { bottom: 40 + insets.bottom }]}
         contentStyle={styles.secondaryButtonContent}
         labelStyle={styles.secondaryButtonLabel}
         buttonColor="#EBF6FF"

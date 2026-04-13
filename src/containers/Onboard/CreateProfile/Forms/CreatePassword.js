@@ -18,6 +18,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import {Text} from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
 import GradientButton from '../../../../components/GradientButton';
 import Colors from '../../../../globals/colors';
@@ -26,6 +27,7 @@ import { MIN_PASS_LENGTH, MIN_PASS_SCORE, PASS_SCORE_LIMIT, SMALL_DEVICE_HEGHT }
 
 export default function CreatePassword({password, setPassword, navigation}) {
   const {height} = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
 
   const [pwd, setPwd] = useState('');
   const [score, setScore] = useState(0);
@@ -139,7 +141,7 @@ export default function CreatePassword({password, setPassword, navigation}) {
           <GradientButton
             onPress={next}
             disabled={!pwd || score < MIN_PASS_SCORE}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
           >
             {'Continue'}
           </GradientButton>

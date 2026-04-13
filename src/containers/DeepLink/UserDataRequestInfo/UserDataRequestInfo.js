@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, StatusBar, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Portal, Text } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import {
@@ -124,6 +125,7 @@ const extractFieldLabels = (attestationDetails) => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 const UserDataRequestInfo = (props) => {
+  const insets = useSafeAreaInsets();
   const {
     // From displayProps (handler output)
     detailsBufferString,
@@ -701,7 +703,7 @@ const UserDataRequestInfo = (props) => {
       </ScrollView>
 
       {/* Footer buttons */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"

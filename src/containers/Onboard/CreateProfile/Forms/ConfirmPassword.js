@@ -9,6 +9,7 @@
 import React, { useState } from 'react';
 import { View, Dimensions, TouchableWithoutFeedback, Keyboard, TextInput as RNTextInput, SafeAreaView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../../globals/colors';
 import GradientButton from '../../../../components/GradientButton';
 import { SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
@@ -17,6 +18,7 @@ import { createAlert } from '../../../../actions/actions/alert/dispatchers/alert
 
 export default function ConfirmPassword({ password, navigation }) {
   const { height } = Dimensions.get('window');
+  const insets = useSafeAreaInsets();
   const [confirm, setConfirm] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
@@ -76,7 +78,7 @@ export default function ConfirmPassword({ password, navigation }) {
           <GradientButton
             onPress={next}
             disabled={!confirm || confirm !== password}
-            style={styles.continueButton}
+            style={[styles.continueButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
           >
             {'Continue'}
           </GradientButton>

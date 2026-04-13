@@ -20,6 +20,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {Button, Portal, Text} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {CommonActions} from '@react-navigation/native';
@@ -108,6 +109,7 @@ const Connector = () => {
 };
 
 const AuthenticationRequestInfo = props => {
+  const insets = useSafeAreaInsets();
   const {
     detailsBufferString,
     sigtime,
@@ -1237,7 +1239,7 @@ const AuthenticationRequestInfo = props => {
         </View>
       )}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"

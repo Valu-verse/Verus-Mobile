@@ -5,7 +5,7 @@
 */
 import {createStackNavigator} from '@react-navigation/stack';
 import React, {useEffect, useState} from 'react';
-import {addCoin, addUser} from '../../../actions/actionCreators';
+import {addCoin, addUser, setSuppressUnlockAutoBiometrics} from '../../../actions/actionCreators';
 import {createAlert} from '../../../actions/actions/alert/dispatchers/alert';
 import {CHANNELS, DLIGHT_PRIVATE, ELECTRUM, VALU_SERVICE} from '../../../utils/constants/intervalConstants';
 import {hashAccountId} from '../../../utils/crypto/hash';
@@ -113,6 +113,7 @@ export default function CreateProfileStackScreens(props) {
         overrides
       );
 
+      dispatch(setSuppressUnlockAutoBiometrics(true));
       dispatch(action);
       await addStartingCoins(_userName, overrides);
 

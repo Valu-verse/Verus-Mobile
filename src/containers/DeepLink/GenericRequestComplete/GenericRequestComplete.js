@@ -10,6 +10,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { SafeAreaView, StyleSheet, View, Platform, StatusBar, TouchableOpacity, Clipboard } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -32,6 +33,7 @@ import { GenericRequest, GenericResponse, GENERIC_RESPONSE_DEEPLINK_VDXF_KEY, ID
 import BigNumber from 'bignumber.js';
 
 const GenericRequestComplete = props => {
+  const insets = useSafeAreaInsets();
   const { requestBufferString, responseBufferString } = props.route.params;
   const signedIn = useSelector(state => state.authentication.signedIn);
   const dispatch = useDispatch();
@@ -287,7 +289,7 @@ const GenericRequestComplete = props => {
       </View>
 
       {/* Footer with single Complete button */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
         <GradientButton
           onPress={onComplete}
           style={styles.completeButton}
