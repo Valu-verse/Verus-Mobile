@@ -58,6 +58,7 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import { set } from "lodash";
 import TimelineList from '../../../../../components/Timeline/TimelineList';
 import GradientButton from "../../../../../components/GradientButton";
+import AppleIAPManager from "../../../../../utils/iap/AppleIAPManager";
 
 
 const ValuAttestation = (props) => {
@@ -489,6 +490,17 @@ const ValuAttestation = (props) => {
 
     }, []);
 
+    // Cleanup Apple IAP when component unmounts (iOS only)
+    useEffect(() => {
+        return () => {
+            if (Platform.OS === 'ios') {
+                AppleIAPManager.cleanup().catch(err => {
+                    console.log('Error cleaning up Apple IAP:', err);
+                });
+            }
+        };
+    }, []);
+
     // Reload linked identities when encrypted IDs change
     useEffect(() => {
         if (encryptedIds) {
@@ -834,31 +846,132 @@ const ValuAttestation = (props) => {
                     }
                 });
 
-                const newRep = await ValuProvider.getAttestationPaymentURL();
+                // Use Apple In-App Purchase for iOS, external payment URL for Android
+                if (Platform.OS === 'ios') {
+                    try {
+                        // Complete the IAP purchase flow
+                        const purchaseResult = await AppleIAPManager.completePurchaseFlow();
+                        
+                        console.log('iOS IAP purchase successful:', purchaseResult);
+                        
+                        // Payment successful, refresh status to proceed to next step
+                        await fetchData();
+                        setLoading(false);
+                        
+                        // Show success notification
+                        if (!skipDispatchNotification) {
+                            const newLoadingNotification = new NavigationNotification();
+                            newLoadingNotification.body = "Continue";
+                            newLoadingNotification.title = [`Complete Valu Proof of Personhood`];
+                            newLoadingNotification.acchash = activeAccount.accountHash;
+                            newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
+                            newLoadingNotification.navigate = () => {
+                                props.navigation.navigate('ServicesHome', {
+                                    screen: 'ValuAttestation',
+                                });
+                            };
+                            dispatchAddNotification(newLoadingNotification);
+                        }
+                        
+                        return;
+                    } catch (iapError) {
+                        console.error('iOS IAP error:', iapError);
+                        setLoading(false);
+                        
+                        // Handle user cancellation gracefully
+                        if (iapError.code === 'E_USER_CANCELLED' || 
+                            iapError.message?.includes('cancelled') ||
+                            iapError.message?.includes('canceled')) {
+                            // User cancelled, no need to show error
+                            return;
+                        }
+                        
+                        createAlertDialog(
+                            `Payment failed: ${iapError.message || 'Unknown error'}. Please try again.`,
+                            "RETRY"
+                        );
+                        return;
+                    }
+                } else {
+                    // Android: Use existing external payment flow
+                    const newRep = await ValuProvider.getAttestationPaymentURL();
 
-                Linking.openURL(newRep.data.url);
-                if (skipDispatchNotification) {
-                    const newLoadingNotification = new NavigationNotification();
-                    newLoadingNotification.body = "Continue";
-                    newLoadingNotification.title = [`Complete Valu Proof of Personhood`]
-                    newLoadingNotification.acchash = activeAccount.accountHash;
-                    newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
-                    newLoadingNotification.navigate = () => {
-                        props.navigation.navigate('ServicesHome', {
-                            screen: 'ValuAttestation',
-                        });
-                    };
+                    Linking.openURL(newRep.data.url);
+                    if (!skipDispatchNotification) {
+                        const newLoadingNotification = new NavigationNotification();
+                        newLoadingNotification.body = "Continue";
+                        newLoadingNotification.title = [`Complete Valu Proof of Personhood`]
+                        newLoadingNotification.acchash = activeAccount.accountHash;
+                        newLoadingNotification.icon = NOTIFICATION_ICON_VALU;
+                        newLoadingNotification.navigate = () => {
+                            props.navigation.navigate('ServicesHome', {
+                                screen: 'ValuAttestation',
+                            });
+                        };
 
-                    dispatchAddNotification(newLoadingNotification);
+                        dispatchAddNotification(newLoadingNotification);
+                    }
                 }
 
             } else if (status === VALU_POL_PAYMENT_PENDING) {
-                createAlertDialog(
-                    `You already have a Valu Proof of Personhood in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
+                if (Platform.OS === 'ios') {
+                    // iOS: Resume IAP flow
+                    createAlertDialog(
+                        `You already have a Valu Proof of Personhood in progress.`, "RESUME", async () => {
+                            try {
+                                setLoading(true);
+                                const purchaseResult = await AppleIAPManager.completePurchaseFlow();
+                                console.log('iOS IAP purchase successful:', purchaseResult);
+                                await fetchData();
+                                setLoading(false);
+                            } catch (iapError) {
+                                console.error('iOS IAP error:', iapError);
+                                setLoading(false);
+                                if (iapError.code !== 'E_USER_CANCELLED' && 
+                                    !iapError.message?.includes('cancelled') &&
+                                    !iapError.message?.includes('canceled')) {
+                                    createAlertDialog(
+                                        `Payment failed: ${iapError.message || 'Unknown error'}. Please try again.`,
+                                        "OK"
+                                    );
+                                }
+                            }
+                        });
+                } else {
+                    // Android: Use external URL
+                    createAlertDialog(
+                        `You already have a Valu Proof of Personhood in progress.`, "RESUME", () => { Linking.openURL(valuReply.data.url) });
+                }
 
             } else if (status === VALU_POL_PAYMENT_FAILED) {
-                createAlertDialog(
-                    `Your previous payment attempt failed, would you like to try again?`, "RETRY")
+                if (Platform.OS === 'ios') {
+                    // iOS: Retry IAP flow
+                    createAlertDialog(
+                        `Your previous payment attempt failed, would you like to try again?`, "RETRY", async () => {
+                            try {
+                                setLoading(true);
+                                const purchaseResult = await AppleIAPManager.completePurchaseFlow();
+                                console.log('iOS IAP purchase successful:', purchaseResult);
+                                await fetchData();
+                                setLoading(false);
+                            } catch (iapError) {
+                                console.error('iOS IAP error:', iapError);
+                                setLoading(false);
+                                if (iapError.code !== 'E_USER_CANCELLED' && 
+                                    !iapError.message?.includes('cancelled') &&
+                                    !iapError.message?.includes('canceled')) {
+                                    createAlertDialog(
+                                        `Payment failed: ${iapError.message || 'Unknown error'}. Please try again.`,
+                                        "OK"
+                                    );
+                                }
+                            }
+                        });
+                } else {
+                    // Android: Show retry dialog (existing behavior)
+                    createAlertDialog(
+                        `Your previous payment attempt failed, would you like to try again?`, "RETRY");
+                }
             } else if (status === VALU_POL_PENDING || status === VALU_POL_IDENTITY_CONFIRMED) {
                 // Show loading spinner while checking status
                 setLoading(false);
