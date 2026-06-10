@@ -29,6 +29,7 @@ if (
 const STORAGE_KEY_PREFIX = 'wallet_promo';
 const WIDGET_ATTESTATION = 'attestation';
 const WIDGET_SOCIAL = 'social';
+const WIDGET_USDC = 'usdc';
 const WIDGET_DUMMY = 'dummy';
 const DISMISSAL_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
 
@@ -89,11 +90,13 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
   const navigation = useNavigation();
   const activeAccount = useSelector((state) => state.authentication.activeAccount);
   const attestation = useSelector((state) => state.attestation);
+  const activeCoinsForUser = useSelector((state) => state.coins.activeCoinsForUser);
   const accountHash = activeAccount?.accountHash ?? null;
   
   const [dismissedWidgets, setDismissedWidgets] = useState({
     [WIDGET_ATTESTATION]: true,
     [WIDGET_SOCIAL]: true,
+    [WIDGET_USDC]: true,
     [WIDGET_DUMMY]: true,
   });
   const [loaded, setLoaded] = useState(false);
@@ -129,6 +132,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
         setDismissedWidgets({
           [WIDGET_ATTESTATION]: false,
           [WIDGET_SOCIAL]: false,
+          [WIDGET_USDC]: false,
           [WIDGET_DUMMY]: false,
         });
         setLoaded(true);
@@ -137,7 +141,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
       }
 
       // Load dismissal timestamps for each widget
-      const widgetIds = [WIDGET_ATTESTATION, WIDGET_SOCIAL, WIDGET_DUMMY];
+      const widgetIds = [WIDGET_ATTESTATION, WIDGET_SOCIAL, WIDGET_USDC, WIDGET_DUMMY];
       const newState = {};
 
       for (const widgetId of widgetIds) {
@@ -200,6 +204,9 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     // Save dismissal timestamp to storage (30-day timer starts now)
     await saveDismissalTimestamp(accountHash, widgetKey);
   };
+
+  // True when the user has Ethereum USDC active in their wallet
+  const hasUsdcEth = Array.isArray(activeCoinsForUser) && activeCoinsForUser.some((c) => c.id === 'USDC');
 
   const attestationText = hasValuProofOfPersonhood
     ? 'View my Proof of Personhood'
@@ -285,6 +292,22 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
       )
     },
     {
+      id: WIDGET_USDC,
+      text: "Bridge your USDC\nto Verus",
+      action: () => navigation.navigate('SendWizard'),
+      background: (
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id="usdcGradient" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#2775CA" />
+              <Stop offset="1" stopColor="#1A4F8F" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#usdcGradient)" rx={12} ry={12} />
+        </Svg>
+      )
+    },
+    {
       id: WIDGET_DUMMY,
       text: "Stay tuned\nfor more...",
       action: () => {},
@@ -292,7 +315,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
         <View style={{ flex: 1, backgroundColor: '#E0E0E0' }} />
       )
     }
-  ].filter(w => !dismissedWidgets[w.id]);
+  ].filter(w => !dismissedWidgets[w.id] && (w.id !== WIDGET_USDC || hasUsdcEth));
 
   if (widgets.length === 0) {
     return (

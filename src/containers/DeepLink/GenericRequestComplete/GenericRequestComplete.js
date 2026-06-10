@@ -85,8 +85,7 @@ const GenericRequestComplete = props => {
       const responseBuffer = response.toBuffer();
       await axios.post(
         responseUri.getUriString(),
-        responseBuffer,
-        { headers: { 'Content-Type': 'application/octet-stream' } }
+        responseBuffer
       );
     } else if (isRedirectUri(responseUri)) {
       const url = new URL(responseUri.getUriString());

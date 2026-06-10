@@ -17,7 +17,7 @@ import { refreshActiveChainLifecycles } from '../../../../../actions/actions/int
 import { createAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiatePartnerUserId } from '../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
 import { requestSeeds } from '../../../../../utils/auth/authBox';
-import { API_GET_BALANCES, VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
+import { API_GET_BALANCES, ERC20, ETH, VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 // No drag handle – we follow other modals with a Close button in header
 
@@ -29,7 +29,9 @@ import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData
   - 2026-02-09: Removed "My wallet" badge from Buy address step.
 */
 
-const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id
+const VUSDC_VETH_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH coin id (used for sell flow balance)
+const USDC_ETH_ID = 'USDC'; // Ethereum USDC (ERC20) – destination for buy flow
+const ETH_COIN_ID = 'ETH';   // Ethereum coin – used to derive ETH address
 
 const ALLOWED_COUNTRIES = [
   'US', 'CA', 'GB', 'AT', 'BE', 'CY', 'CZ', 'EE', 'FI', 'FR', 'DE',
@@ -172,14 +174,23 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
   }, []);
 
   const enabledCurrency = useMemo(() => {
-    return Array.isArray(activeCoinsForUser) && activeCoinsForUser.some((c) => c.id === VUSDC_VETH_ID);
+    return Array.isArray(activeCoinsForUser) && activeCoinsForUser.some((c) => c.id === USDC_ETH_ID);
   }, [activeCoinsForUser]);
+
+  // Derive the user's Ethereum address from their account keys
+  const ethAddress = useMemo(() => {
+    return (
+      activeAccount?.keys?.[USDC_ETH_ID]?.[ERC20]?.addresses?.[0] ||
+      activeAccount?.keys?.[ETH_COIN_ID]?.[ETH]?.addresses?.[0] ||
+      null
+    );
+  }, [activeAccount]);
 
   const handleEnableCurrency = async () => {
     setLoading(true);
     try {
-      // 1) Find vUSDC.vETH coin definition
-      const fullCoinData = CoinDirectory.findCoinObj(VUSDC_VETH_ID);
+      // 1) Find USDC (ERC20 on Ethereum) coin definition
+      const fullCoinData = CoinDirectory.findCoinObj(USDC_ETH_ID);
 
       // 2) Add keypairs for user (idempotent)
       await dispatch(
@@ -207,7 +218,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
         refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
       }
     } catch (e) {
-      createAlert('Could not enable vUSDC.vETH', e.message || String(e));
+      createAlert('Could not enable USDC', e.message || String(e));
     }
     setLoading(false);
   };
@@ -312,23 +323,23 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                 {/* Introduction */}
                 <View style={{ marginBottom: 36 }}>
                   <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: 'black' }}>
-                    Cash transactions are now available for vUSDC
+                    Buy USDC directly to your Ethereum wallet
                   </Text>
                   <Text style={{ fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 32 }}>
-                    You can instantly buy vUSDC using your bank account or credit card, and sell it back to cash whenever you need.
+                    Purchase USDC using your bank account or credit card. It arrives in your Ethereum wallet first, and you can then bridge it to the Verus network whenever you like.
                   </Text>
                   <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: 'black' }}>
-                    vUSDC brings USDC to the Verus network
+                    Two simple steps
                   </Text>
                   <Text style={{ fontSize: 14, color: '#666', lineHeight: 20 }}>
-                    vUSDC is the bridged version of USDC (regulated stablecoin issued by Circle) that moves from Ethereum to Verus, and back. This allows you to use the stability of USDC within the Verus ecosystem.
+                    Step 1: Buy USDC — it lands in your Ethereum wallet address.{`\n`}Step 2: Bridge USDC to Verus using the Convert screen to receive vUSDC.vETH.
                   </Text>
                 </View>
 
                 {/* Requirements */}
                   <Text style={{ fontSize: 16, marginBottom: 8, fontWeight: '500' }}>Requirements</Text>
                 <List.Item
-                  title={enabledCurrency ? 'vUSDC.vETH enabled' : 'Enable vUSDC.vETH'}
+                  title={enabledCurrency ? 'USDC (Ethereum) enabled' : 'Enable USDC (Ethereum)'}
                   right={() => (
                     enabledCurrency ? (
                       <Text style={{ color: Colors.verusGreenColor, fontWeight: '600' }}>✓ Enabled</Text>
@@ -377,7 +388,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                 {/* Buy Option */}
                 <List.Item
                   title="Buy"
-                  description="Buy vUSDC with cash"
+                  description="Buy USDC on Ethereum with cash"
                   onPress={() => { setAction('buy'); setStep('address'); }}
                   left={(props) => (
                     <List.Icon {...props} icon="plus" color={'black'} />
@@ -475,15 +486,68 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
               </View>
             )}
 
-            {step === 'address' && (
+            {step === 'address' && action === 'buy' && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
-                <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>
-                  {action === 'sell' ? 'Choose source address' : 'Choose destination for vUSDC'}
-                </Text>
+                <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 4 }}>How it works</Text>
                 <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, lineHeight: 20 }}>
-                  {action === 'sell' 
-                    ? 'Select the address from which you want to sell your vUSDC.' 
-                    : 'Select the address where you want to receive your vUSDC.'}
+                  Your USDC is purchased in two steps.
+                </Text>
+
+                {/* Step 1 */}
+                <View style={[styles.addressCard, { flexDirection: 'column', alignItems: 'flex-start', marginBottom: 10 }]}>
+                  <Text style={{ fontSize: 12, color: Colors.primaryColor, fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 }}>STEP 1 — BUY NOW</Text>
+                  <Text style={styles.addressPrimaryText}>Purchase USDC on Ethereum</Text>
+                  <Text style={[styles.addressSecondaryText, { marginTop: 6 }]}>
+                    Your USDC will be deposited directly to your Ethereum wallet:
+                  </Text>
+                  <Text
+                    style={[styles.addressSecondaryText, { marginTop: 4, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 11 }]}
+                    numberOfLines={1}
+                    ellipsizeMode="middle"
+                  >
+                    {ethAddress || 'Ethereum address not found'}
+                  </Text>
+                </View>
+
+                {/* Step 2 */}
+                <View style={[styles.addressCard, { flexDirection: 'column', alignItems: 'flex-start', marginBottom: 20, opacity: 0.7 }]}>
+                  <Text style={{ fontSize: 12, color: '#888', fontWeight: '700', marginBottom: 4, letterSpacing: 0.5 }}>STEP 2 — BRIDGE LATER</Text>
+                  <Text style={styles.addressPrimaryText}>Send USDC to Verus Network</Text>
+                  <Text style={[styles.addressSecondaryText, { marginTop: 6 }]}>
+                    Once your USDC arrives on Ethereum, use the Convert screen to move your USDC to Verus.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    {
+                      backgroundColor: Colors.primaryColor,
+                      borderRadius: 22,
+                      paddingVertical: 14,
+                      alignItems: 'center',
+                      opacity: ethAddress ? 1 : 0.5,
+                    }
+                  ]}
+                  onPress={() => {
+                    if (!ethAddress) return;
+                    onComplete({
+                      action: 'buy',
+                      address: { id: ethAddress, name: 'Ethereum Wallet', addressType: 'ethereum' },
+                    });
+                  }}
+                  disabled={!ethAddress}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: 'white', fontWeight: '600', fontSize: 16 }}>Continue to payment</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {step === 'address' && action === 'sell' && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+                <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>Choose source address</Text>
+                <Text style={{ fontSize: 14, color: '#666', marginBottom: 16, lineHeight: 20 }}>
+                  Select the address from which you want to sell your vUSDC.
                 </Text>
                 <View>
                   {vusdcEligibleAddresses.map((addr) => {
@@ -497,27 +561,13 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
                         activeOpacity={0.7}
                       >
                         <View style={styles.addressCardLeft}>
-                          {action === 'sell' ? (
-                            <>
-                              <Text style={styles.addressPrimaryText}>
-                                {amountFormatted + ' vUSDC'}
-                                <Text style={[styles.addressSecondaryText, { marginTop: 0, fontWeight: '500', color: '#777' }]}>.vETH</Text>
-                              </Text>
-                              <Text style={styles.addressSecondaryText} numberOfLines={1}>
-                                {addr.name || addr.address}
-                              </Text>
-                            </>
-                          ) : (
-                            <>
-                              <Text style={styles.addressPrimaryText} numberOfLines={1}>
-                                {addr.name || addr.address}
-                              </Text>
-                              <Text style={styles.addressSecondaryText}>
-                                {'Current: ' + amountFormatted + ' vUSDC'}
-                                <Text style={{ fontSize: 12, color: '#999' }}>.vETH</Text>
-                              </Text>
-                            </>
-                          )}
+                          <Text style={styles.addressPrimaryText}>
+                            {amountFormatted + ' vUSDC'}
+                            <Text style={[styles.addressSecondaryText, { marginTop: 0, fontWeight: '500', color: '#777' }]}>.vETH</Text>
+                          </Text>
+                          <Text style={styles.addressSecondaryText} numberOfLines={1}>
+                            {addr.name || addr.address}
+                          </Text>
                         </View>
                         <View style={styles.addressCardRight}>
                           <MaterialCommunityIcons name="chevron-right" size={20} color="#CCC" style={styles.addressChevron} />

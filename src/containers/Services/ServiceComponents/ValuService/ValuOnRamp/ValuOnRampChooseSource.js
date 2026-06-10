@@ -76,7 +76,7 @@ const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI",
 
 const ONRAMP_DISCLOSURE_PARAGRAPHS = [
   "Paybis is our licensed payments partner and securely handles your checkout.",
-  "Your purchase is deposited to your wallet as vUSDC.vETH on the Verus blockchain."
+  "Your purchase will be deposited as USDC to your Ethereum wallet address."
 ];
 
 const ONRAMP_DISCLOSURE_LEARN_MORE_URL = 'https://paybis.com';
@@ -117,7 +117,8 @@ class ValuOnRampChooseSource extends Component {
       locations: {},
       partnerUserId: partnerUserId,
       paymentSheetVisible: false,
-      reviewVisible: false
+      reviewVisible: false,
+      congratsVisible: false
     };
     
     const decimalSample = (1.1).toLocaleString();
@@ -358,7 +359,7 @@ class ValuOnRampChooseSource extends Component {
         initiateOnrampRequest(reply.requestId, reply.details);
 
         if (await InAppBrowser.isAvailable()) {
-          InAppBrowser.open(reply.url, {
+          await InAppBrowser.open(reply.url, {
             // iOS Properties
             dismissButtonStyle: 'cancel',
             preferredBarTintColor: '#00A1CC',
@@ -389,10 +390,11 @@ class ValuOnRampChooseSource extends Component {
               endExit: 'slide_out_right'
             }
           });
-          this.resetToScreen();
-          // PoP eligibility check happens naturally when user completes purchase
+          // Browser closed - show congratulations screen
+          this.setState({ congratsVisible: true });
         } else {
           Linking.openURL(reply.url);
+          this.setState({ congratsVisible: true });
         }
       } catch (error) {
         console.error("Error starting on-ramp:", error);
@@ -760,7 +762,7 @@ class ValuOnRampChooseSource extends Component {
                     <Text style={styles.paymentSelectorAmountValue}>{formattedReceived}</Text>
                   ) : null
                 ) : null}
-                <Text style={styles.paymentSelectorTokenText}>vUSDC</Text>
+                <Text style={styles.paymentSelectorTokenText}>USDC</Text>
               </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="transparent" />
@@ -970,7 +972,7 @@ class ValuOnRampChooseSource extends Component {
           <View style={styles.reviewHero}>
             <Image source={USDCIcon} style={styles.reviewHeroIconLarge} />
             <Text style={styles.reviewHeroTitle}>
-              {`Buy ${formattedAmount} of vUSDC`}
+              {`Buy ${formattedAmount} of USDC`}
             </Text>
             {formattedPrice && (
               <Text style={styles.reviewHeroSubtitle}>
@@ -983,7 +985,7 @@ class ValuOnRampChooseSource extends Component {
           <View style={styles.reviewSummaryFlat}>
             <View style={styles.reviewSummaryRowFlat}>
               <Text style={styles.reviewSummaryLabelFlat}>Receive</Text>
-              <Text style={styles.reviewSummaryValueFlat}>{`${formattedReceived} vUSDC`}</Text>
+              <Text style={styles.reviewSummaryValueFlat}>{`${formattedReceived} USDC`}</Text>
             </View>
             <View style={styles.reviewSummaryRowFlat}>
               <Text style={styles.reviewSummaryLabelFlat}>Available in your wallet</Text>
@@ -1164,6 +1166,29 @@ class ValuOnRampChooseSource extends Component {
     Linking.openURL(ONRAMP_DISCLOSURE_LEARN_MORE_URL);
   };
 
+  renderCongratsScreen = () => {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', paddingHorizontal: 32 }}>
+        <MaterialCommunityIcons name="check-circle-outline" size={72} color={Colors.verusGreenColor} style={{ marginBottom: 24 }} />
+        <Text style={{ fontSize: 26, fontWeight: '700', color: '#1A1A1A', marginBottom: 12, textAlign: 'center' }}>
+          Purchase submitted!
+        </Text>
+        <Text style={{ fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 12 }}>
+          Your USDC will arrive in your Ethereum wallet shortly.
+        </Text>
+        <Text style={{ fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 48 }}>
+          Once it arrives, use the Convert screen to bridge it to the Verus network and receive vUSDC.
+        </Text>
+        <GradientButton
+          onPress={this.resetToScreen}
+          style={{ width: '100%' }}
+        >
+          Back to wallet
+        </GradientButton>
+      </View>
+    );
+  };
+
   render() {
     const { height, width } = Dimensions.get('window');
     const isSmall = height <= 667 || width <= 375;
@@ -1192,7 +1217,9 @@ class ValuOnRampChooseSource extends Component {
             {this.renderModals()}
             {this.renderPaymentMethodSheet()}
 
-            {reviewVisible ? (
+            {this.state.congratsVisible ? (
+              this.renderCongratsScreen()
+            ) : reviewVisible ? (
               this.renderReviewScreen(isSmall)
             ) : (
               <>
