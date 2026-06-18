@@ -173,6 +173,11 @@ export const handleAppEncryptionRequestVDXFObject = async (request, response, de
       encryptResponseToAddress,
       hasEncryptResponseToAddress: encryptionRequest.hasEncryptResponseToAddress(),
       returnESK: encryptionRequest.returnESK(),
+      // GenericRequest.FLAG_HAS_ENCRYPT_RESPONSE_TO_ADDRESS (0x100) — when set on the outer
+      // GenericRequest, the entire signed GenericResponse is encrypted to this address at send time.
+      wholeResponseEncryptAddress: request.hasEncryptResponseToAddress()
+        ? request.encryptResponseToAddress.toAddressString()
+        : null,
     },
     response,
     handledIndices: []
@@ -321,7 +326,9 @@ export const processAppEncryptionRequest = async ({
     };
   }
 
-  // Encrypt response
+  // Inner-only encryption: encrypt just the AppEncryptionResponseDetails.
+  // (If GenericRequest.FLAG_HAS_ENCRYPT_RESPONSE_TO_ADDRESS is also set, GenericRequestComplete
+  //  will additionally encrypt the entire signed GenericResponse at send time.)
   const { encryptedDescriptor, encryptedDescriptorJson } =
     await encryptDataToDescriptor(encryptTo, responseDetails.toBuffer());
 

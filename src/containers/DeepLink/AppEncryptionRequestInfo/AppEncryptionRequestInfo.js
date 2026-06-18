@@ -244,6 +244,7 @@ const AppEncryptionRequestInfo = (props) => {
     encryptResponseToAddress,
     hasEncryptResponseToAddress,
     returnESK,
+    wholeResponseEncryptAddress,
     // Standard props from GenericRequestHome
     cancel,
     navigation,
@@ -419,7 +420,10 @@ const AppEncryptionRequestInfo = (props) => {
 
     try {
       // Process the encryption request
-      const { responseDetail, encryptedDescriptorJson: descriptorJson } = await processAppEncryptionRequest({
+      const {
+        responseDetail,
+        encryptedDescriptorJson: descriptorJson,
+      } = await processAppEncryptionRequest({
         request,
         detailIndex,
         responseSignerID: selectedIdentity.iAddress,
@@ -429,6 +433,12 @@ const AppEncryptionRequestInfo = (props) => {
       const updatedResponse = response || new GenericResponse();
       updatedResponse.details = updatedResponse.details || [];
       updatedResponse.details.push(responseDetail);
+
+      // Echo the outer requestID from the GenericRequest back into the GenericResponse
+      // so the server can correlate the response to the original request.
+      if (request.hasRequestID() && !updatedResponse.requestID) {
+        updatedResponse.requestID = request.requestID;
+      }
 
       // Set signature template so GenericRequestComplete can sign and deliver
       if (updatedResponse.signature == null) {
@@ -440,7 +450,7 @@ const AppEncryptionRequestInfo = (props) => {
         updatedResponse.setSigned();
       }
 
-      // Serialize to hex so the user can preview/copy the encrypted response
+      // Serialize to hex so the user can preview the response
       const responseHex = updatedResponse.toBuffer().toString('hex');
       setEncryptedResponseHex(responseHex);
       setEncryptedDescriptorJson(descriptorJson);
@@ -502,81 +512,186 @@ const AppEncryptionRequestInfo = (props) => {
             <View style={styles.readyIconCircle}>
               <MaterialCommunityIcons name="lock-check" size={48} color={Colors.verusGreenColor} />
             </View>
-            <Text style={styles.readyTitle}>Your encrypted response is ready to send</Text>
+            <Text style={styles.readyTitle}>
+              {wholeResponseEncryptAddress
+                ? 'Response ready — will be encrypted on send'
+                : 'Your encrypted response is ready to send'}
+            </Text>
             <Text style={styles.readySubtitle}>
-              The encryption was successful. Press continue to send it back to the requesting app.
+              {wholeResponseEncryptAddress
+                ? 'The key data is ready. The full signed GenericResponse will be encrypted before delivery.'
+                : 'The encryption was successful. Press continue to send it back to the requesting app.'}
             </Text>
           </View>
 
           {/* Debug dropdown */}
-          {encryptedDescriptorJson && (
-            <View style={styles.debugSection}>
-              <TouchableOpacity
-                style={styles.debugToggle}
-                onPress={() => setDebugExpanded(!debugExpanded)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={debugExpanded ? 'chevron-up' : 'chevron-down'}
-                  size={20}
-                  color="#888"
-                />
-                <Text style={styles.debugToggleText}>View debug information</Text>
-              </TouchableOpacity>
+          <View style={styles.debugSection}>
+            <TouchableOpacity
+              style={styles.debugToggle}
+              onPress={() => setDebugExpanded(!debugExpanded)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={debugExpanded ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color="#888"
+              />
+              <Text style={styles.debugToggleText}>View debug information</Text>
+            </TouchableOpacity>
 
-              {debugExpanded && (
-                <View style={styles.debugContent}>
-                  {/* Encrypted Descriptor JSON */}
+            {debugExpanded && (
+              <View style={styles.debugContent}>
+                {wholeResponseEncryptAddress ? (
+                  // ── Whole-response encryption debug ──────────────────────────
+                  <>
+                    {/* Encryption mode explanation */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Encryption Mode: Full Response</Text>
+                      </View>
+                      <Text style={[styles.responseHexText, { padding: 12 }]}>
+                        {'The entire signed GenericResponse will be encrypted to the z-address below ' +
+                         'before being delivered via the responseURI.\n\n' +
+                         'The server receives an encrypted DataDescriptor (not a plain GenericResponse).'}
+                      </Text>
+                    </View>
+
+                    {/* Encryption target */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Whole-Response Encryption Target (z-address)</Text>
+                      </View>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          copyToClipboard(wholeResponseEncryptAddress);
+                          createAlert('Copied', 'Encryption target z-address copied to clipboard.');
+                        }}
+                        style={styles.responseHexContainer}
+                      >
+                        <Text selectable style={styles.responseHexText}>
+                          {wholeResponseEncryptAddress}
+                        </Text>
+                        <View style={styles.responseHexCopyHint}>
+                          <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                          <Text style={styles.responseHexCopyHintText}>Tap to copy</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* How to decrypt at server */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Server-Side Decryption</Text>
+                      </View>
+                      <Text style={[styles.responseHexText, { paddingHorizontal: 12, paddingTop: 8 }]}>
+                        {'After receiving the DataDescriptor at your responseURI:'}
+                      </Text>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          const cmd = `./verus -chain=${signerSystemName || 'VRSCTEST'} decryptdata '{"datadescriptor": <RECEIVED_DESCRIPTOR_JSON>}'`;
+                          copyToClipboard(cmd);
+                          createAlert('Copied', 'Decryption command template copied to clipboard.');
+                        }}
+                        style={styles.responseHexContainer}
+                      >
+                        <Text selectable style={styles.responseHexText}>
+                          {`./verus -chain=${signerSystemName || 'VRSCTEST'} decryptdata '{"datadescriptor": <RECEIVED_DESCRIPTOR_JSON>}'`}
+                        </Text>
+                        <View style={styles.responseHexCopyHint}>
+                          <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                          <Text style={styles.responseHexCopyHintText}>Tap to copy template</Text>
+                        </View>
+                      </TouchableOpacity>
+                      <Text style={[styles.responseHexText, { paddingHorizontal: 12, paddingBottom: 12, color: '#888' }]}>
+                        {'→ Decrypted bytes = full signed GenericResponse buffer\n' +
+                         '→ Parse: new GenericResponse().fromBuffer(Buffer.from(decryptedHex, \'hex\'))'}
+                      </Text>
+                    </View>
+                  </>
+                ) : encryptedDescriptorJson ? (
+                  // ── Inner-only encryption debug ──────────────────────────────
+                  <>
+                    {/* Encryption mode explanation */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Encryption Mode: Inner Response Only</Text>
+                      </View>
+                      <Text style={[styles.responseHexText, { padding: 12 }]}>
+                        {'The AppEncryptionResponseDetails is encrypted and placed inside an ' +
+                         'unencrypted GenericResponse as a DataDescriptor.\n\n' +
+                         'The server receives a plain GenericResponse whose details contain the ' +
+                         'encrypted descriptor below.'}
+                      </Text>
+                    </View>
+
+                    {/* Encrypted Descriptor JSON */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Encrypted Inner Descriptor (JSON)</Text>
+                      </View>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          const jsonStr = JSON.stringify(encryptedDescriptorJson, null, 2);
+                          copyToClipboard(jsonStr);
+                          createAlert('Copied', 'Encrypted descriptor JSON copied to clipboard.');
+                        }}
+                        style={styles.responseHexContainer}
+                      >
+                        <Text selectable style={styles.responseHexText}>
+                          {JSON.stringify(encryptedDescriptorJson, null, 2)}
+                        </Text>
+                        <View style={styles.responseHexCopyHint}>
+                          <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                          <Text style={styles.responseHexCopyHintText}>Tap to copy</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Daemon decryptdata command */}
+                    <View style={styles.debugCard}>
+                      <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Server-Side Decryption</Text>
+                      </View>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          const cmd = `./verus -chain=${signerSystemName || 'vrsctest'} decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`;
+                          copyToClipboard(cmd);
+                          createAlert('Copied', 'Daemon command copied to clipboard.');
+                        }}
+                        style={styles.responseHexContainer}
+                      >
+                        <Text selectable style={styles.responseHexText}>
+                          {`./verus -chain=${signerSystemName || 'vrsctest'} decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`}
+                        </Text>
+                        <View style={styles.responseHexCopyHint}>
+                          <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
+                          <Text style={styles.responseHexCopyHintText}>Tap to copy command</Text>
+                        </View>
+                      </TouchableOpacity>
+                      <Text style={[styles.responseHexText, { paddingHorizontal: 12, paddingBottom: 12, color: '#888' }]}>
+                        {'→ Decrypted bytes = AppEncryptionResponseDetails buffer'}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  // ── No encryption debug ──────────────────────────────────────
                   <View style={styles.debugCard}>
                     <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>Encrypted Descriptor (JSON)</Text>
+                      <Text style={styles.sectionTitle}>Encryption Mode: None</Text>
                     </View>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        const jsonStr = JSON.stringify(encryptedDescriptorJson, null, 2);
-                        copyToClipboard(jsonStr);
-                        createAlert('Copied', 'Encrypted descriptor JSON copied to clipboard.');
-                      }}
-                      style={styles.responseHexContainer}
-                    >
-                      <Text selectable style={styles.responseHexText}>
-                        {JSON.stringify(encryptedDescriptorJson, null, 2)}
-                      </Text>
-                      <View style={styles.responseHexCopyHint}>
-                        <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
-                        <Text style={styles.responseHexCopyHintText}>Tap to copy</Text>
-                      </View>
-                    </TouchableOpacity>
+                    <Text style={[styles.responseHexText, { padding: 12 }]}>
+                      {'No encryption was requested. The AppEncryptionResponseDetails is returned ' +
+                       'in plaintext inside the signed GenericResponse.'}
+                    </Text>
                   </View>
-
-                  {/* Daemon decryptdata command */}
-                  <View style={styles.debugCard}>
-                    <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>Daemon Command</Text>
-                    </View>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        const cmd = `./verus -chain=vrsctest decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`;
-                        copyToClipboard(cmd);
-                        createAlert('Copied', 'Daemon command copied to clipboard.');
-                      }}
-                      style={styles.responseHexContainer}
-                    >
-                      <Text selectable style={styles.responseHexText}>
-                        {`./verus -chain=vrsctest decryptdata '${JSON.stringify({ datadescriptor: encryptedDescriptorJson })}'`}
-                      </Text>
-                      <View style={styles.responseHexCopyHint}>
-                        <MaterialCommunityIcons name="content-copy" size={16} color={Colors.primaryColor} />
-                        <Text style={styles.responseHexCopyHintText}>Tap to copy command</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
+                )}
+              </View>
+            )}
+          </View>
         </ScrollView>
 
         {/* Footer: single Continue button */}
@@ -683,6 +798,24 @@ const AppEncryptionRequestInfo = (props) => {
               title={truncateZAddress(encryptResponseToAddress)}
               subtitle="Encrypt Reply To"
               onPress={() => copyZAddress(encryptResponseToAddress)}
+              rightIcon="content-copy"
+              showBorder={true}
+            />
+          )}
+
+          {/* Encryption Mode */}
+          {hasEncryptResponseToAddress && (
+            <DetailRow
+              title="Inner AppEncryptionResponse only"
+              subtitle="Encryption Scope"
+              showBorder={true}
+            />
+          )}
+          {!!wholeResponseEncryptAddress && (
+            <DetailRow
+              title={wholeResponseEncryptAddress.slice(0, 10) + '...' + wholeResponseEncryptAddress.slice(-8)}
+              subtitle="Whole Response Also Encrypted To"
+              onPress={() => copyZAddress(wholeResponseEncryptAddress)}
               rightIcon="content-copy"
               showBorder={true}
             />

@@ -31,6 +31,7 @@ import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
 import { VERUS_MOBILE_HANDLER_ID } from '../../../utils/constants/deeplink';
 import { GenericRequest, GenericResponse, GENERIC_RESPONSE_DEEPLINK_VDXF_KEY, IDENTITY_UPDATE_RESPONSE_VDXF_KEY, ResponseURI } from 'verus-typescript-primitives';
 import BigNumber from 'bignumber.js';
+import { encryptDataToDescriptor } from '../../../utils/crypto/encryptDataDescriptor';
 
 const GenericRequestComplete = props => {
   const insets = useSafeAreaInsets();
@@ -73,7 +74,7 @@ const GenericRequestComplete = props => {
     return redirectUri || null;
   };
 
-  const handleResponseUri = async (request, response) => {
+  const handleResponseUri = async (request, responseOrBuffer) => {
     if (!request) return;
 
     const responseUris = request.responseURIs || [];
@@ -81,17 +82,22 @@ const GenericRequestComplete = props => {
 
     if (responseUri == null) return;
 
+    // Accepts either a GenericResponse object or a pre-serialised Buffer
+    const getBuffer = () =>
+      Buffer.isBuffer(responseOrBuffer)
+        ? responseOrBuffer
+        : responseOrBuffer.toBuffer();
+
     if (isPostUri(responseUri)) {
-      const responseBuffer = response.toBuffer();
       await axios.post(
         responseUri.getUriString(),
-        responseBuffer
+        responseOrBuffer.toJson()
       );
     } else if (isRedirectUri(responseUri)) {
       const url = new URL(responseUri.getUriString());
       url.searchParams.set(
         GENERIC_RESPONSE_DEEPLINK_VDXF_KEY.vdxfid,
-        base64url(response.toBuffer())
+        base64url(getBuffer())
       );
 
       openUrl(url.toString());
@@ -217,7 +223,17 @@ const GenericRequestComplete = props => {
         );
       }
 
-      await handleResponseUri(request, signedResponse);
+      // If GenericRequest.FLAG_HAS_ENCRYPT_RESPONSE_TO_ADDRESS (0x100) is set, encrypt the entire
+      // signed GenericResponse to request.encryptResponseToAddress before delivery.
+      if (request.hasEncryptResponseToAddress()) {
+        const { encryptedDescriptor } = await encryptDataToDescriptor(
+          request.encryptResponseToAddress.toAddressString(),
+          signedResponse.toBuffer(),
+        );
+        await handleResponseUri(request, encryptedDescriptor);
+      } else {
+        await handleResponseUri(request, signedResponse);
+      }
     } catch (e) {
       createAlert('Error', e.message);
       console.warn(e);
