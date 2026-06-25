@@ -684,6 +684,11 @@ const DataPacketRequestInfo = props => {
       const baseResponse = response || new GenericResponse();
       if (baseResponse.details == null) baseResponse.details = [];
       baseResponse.details = [...baseResponse.details, responseOrdinal];
+
+      // Echo the request ID on the outer response so the server can correlate it.
+      if (details.hasRequestID() && !baseResponse.requestID) {
+        baseResponse.requestID = details.requestID;
+      }
       
       // Set signature info for the outer response
       if (baseResponse.signature == null) {

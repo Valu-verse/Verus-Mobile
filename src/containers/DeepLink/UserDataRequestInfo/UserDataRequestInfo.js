@@ -365,6 +365,11 @@ const UserDataRequestInfo = (props) => {
       if (baseResponse.details == null) baseResponse.details = [];
       baseResponse.details = [...baseResponse.details, responseOrdinal];
 
+      // Echo the request ID on the outer response so the server can correlate it.
+      if (request.hasRequestID() && !baseResponse.requestID) {
+        baseResponse.requestID = request.requestID;
+      }
+
       // Ensure the multi-details flag is set when there are 2+ details
       if (baseResponse.details.length > 1 && typeof baseResponse.setHasMultiDetails === 'function') {
         baseResponse.setHasMultiDetails();
