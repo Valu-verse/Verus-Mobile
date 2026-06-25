@@ -642,19 +642,19 @@ const DataPacketRequestInfo = props => {
       // Create SignatureData object
       const sigData = new SignatureData({
         version: new BN(1),
-        system_ID: systemId,
-        identity_ID: iAddress,
-        signature_hash: signatureHash,
-        hash_type: new BN(5), // SHA256
-        sig_type: new BN(1), // TYPE_VERUSID_DEFAULT
+        SystemID: systemId,
+        IdentityID: iAddress,
+        signmatureHash: signatureHash,
+        hashType: new BN(5), // SHA256
+        sigType: new BN(1), // TYPE_VERUSID_DEFAULT
       });
       
       // Get the identity hash for signing
-      const sigHash = sigData.getIdentityHash({ version: 2, hash_type: 5, height });
+      const sigHash = sigData.getIdentityHash({ version: 2, hashType: 5, height });
       
       // Sign the hash
       const signature = await signHash(coinObjForSign, iAddress, sigHash, height);
-      sigData.signature_as_vch = Buffer.from(signature, 'base64');
+      sigData.signatureAsVch = Buffer.from(signature, 'base64');
       
       // Create VdxfUniValue with SignatureData
       const dataKeyMap = [];
@@ -1083,8 +1083,8 @@ const DataPacketRequestInfo = props => {
         return embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown signer';
       }
 
-      const identityId = signatureObject.identity_ID || signatureObject.identityid || signatureObject?.toJson?.()?.identityid;
-      const systemId = signatureObject.system_ID || signatureObject.systemid || signatureObject?.toJson?.()?.systemid;
+      const identityId = signatureObject.IdentityID || signatureObject.identityid || signatureObject?.toJson?.()?.identityid;
+      const systemId = signatureObject.SystemID || signatureObject.systemid || signatureObject?.toJson?.()?.systemid;
 
       if (!identityId || !systemId) {
         return embeddedSignerFqn || embeddedSignerIdentityID || identityId || 'Unknown signer';

@@ -379,7 +379,7 @@ const UserDataRequestInfo = (props) => {
       // GenericRequestComplete can sign and deliver the response.
       if (baseResponse.signature == null) {
         let recipientIAddress = att.raw?.recipientId;
-        const systemID = att.attestationDetails?.signatureData?.system_ID;
+        const systemID = att.attestationDetails?.signatureData?.SystemID;
 
         if (!recipientIAddress || !systemID) {
           throw new Error(

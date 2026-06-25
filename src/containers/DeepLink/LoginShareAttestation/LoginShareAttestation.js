@@ -166,7 +166,7 @@ class LoginShareAttestation extends Component {
         const { mmrDescriptor, signatureData } = parseStoredAttestationHex(att.data);
         if (!mmrDescriptor) continue;
         // Signer must match
-        if (requestItem.signer && signatureData.identity_ID !== requestItem.signer) continue;
+        if (requestItem.signer && signatureData.IdentityID !== requestItem.signer) continue;
 
         // For COLLECTION, check if ANY of the id keys/values match
         // For non-COLLECTION, check if ALL id keys/values match (original behavior)
@@ -245,9 +245,9 @@ class LoginShareAttestation extends Component {
       try {
         const signatureData = attestation.attestationDetails.signatureData;
         const sigInfo = await getSignatureInfo(
-          signatureData.system_ID,
-          signatureData.identity_ID,
-          signatureData.signature_as_vch.toString('base64'),
+          signatureData.SystemID,
+          signatureData.IdentityID,
+          signatureData.signatureAsVch.toString('base64'),
         );
 
         attestationsWithHeights.push({

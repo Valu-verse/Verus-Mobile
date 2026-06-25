@@ -249,20 +249,20 @@ const LoginRequestIdentity = props => {
 
           const signatureData = new primitives.SignatureData({ version: new BN(1) });
 
-          signatureData.identity_ID = iAddress;
-          signatureData.system_ID = system_id;
-          signatureData.signature_hash = crypto.createHash('sha256').update(subjectItem.data).digest()
+          signatureData.IdentityID = iAddress;
+          signatureData.SystemID = system_id;
+          signatureData.signmatureHash = crypto.createHash('sha256').update(subjectItem.data).digest()
 
           const idClass = new primitives.SignatureData();
 
-          idClass.system_ID = system_id;
-          idClass.identity_ID = iAddress;
-          idClass.signature_hash = signatureData.signature_hash;
+          idClass.SystemID = system_id;
+          idClass.IdentityID = iAddress;
+          idClass.signmatureHash = signatureData.signmatureHash;
 
-          const sigHash = idClass.getIdentityHash({ version: 2, hash_type: 5, height });
+          const sigHash = idClass.getIdentityHash({ version: 2, hashType: 5, height });
           const signature = await signHash(CoinDirectory.findCoinObj(system_id, null, true), iAddress, sigHash, height);
 
-          signatureData.signature_as_vch = Buffer.from(signature, 'base64');
+          signatureData.signatureAsVch = Buffer.from(signature, 'base64');
           endorsement.signature = signatureData;
           endorsement.flags = primitives.Endorsement.FLAGS_HAS_SIGNATURE;
           

@@ -150,7 +150,7 @@ class LoginReceiveAttestation extends Component {
         const attestationName = isValid ? this.extractAttestationName(recreatedMmrDescriptor) : null;
         const mmrHash = this.extractMmrHash(recreatedMmrDescriptor);
         const extractedId = this.extractAttestationId(recreatedMmrDescriptor);
-        const recipientId = await this.extractRecipientId(recreatedMmrDescriptor, recreatedSignatureData.system_ID);
+        const recipientId = await this.extractRecipientId(recreatedMmrDescriptor, recreatedSignatureData.SystemID);
 
         // Store processed data
         processedData[mmrHash] = {
@@ -159,8 +159,8 @@ class LoginReceiveAttestation extends Component {
           issuer: this.state.signerFqn,
           timestamp: downloadedAttestations.timestamp || Date.now(),
           index: index,
-          identityId: recreatedSignatureData.identity_ID,
-          systemId: recreatedSignatureData.system_ID,
+          identityId: recreatedSignatureData.IdentityID,
+          systemId: recreatedSignatureData.SystemID,
           internal_id: extractedId
         };
 
@@ -368,13 +368,13 @@ class LoginReceiveAttestation extends Component {
   validateAttestation = async (signatureData, mmrData) => {
 
     const sigInfo = await getSignatureInfo(
-      signatureData.system_ID,
-      signatureData.identity_ID,
-      signatureData.signature_as_vch.toString('base64'),
+      signatureData.SystemID,
+      signatureData.IdentityID,
+      signatureData.signatureAsVch.toString('base64'),
     );
 
-    const hashVerified = await verifyHash(signatureData.system_ID, signatureData.identity_ID, signatureData.signature_as_vch.toString('base64'),
-      signatureData.getIdentityHash({ ...sigInfo, hash_type: sigInfo.hashtype }));
+    const hashVerified = await verifyHash(signatureData.SystemID, signatureData.IdentityID, signatureData.signatureAsVch.toString('base64'),
+      signatureData.getIdentityHash({ ...sigInfo, hashType: sigInfo.hashtype }));
 
     const mmrMatched = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex') == signatureData.toJson().signaturehash;
     const dataDescriptorsHashCorrect = await validateMMRfromMmrDatadescriptor(mmrData);
@@ -464,7 +464,7 @@ class LoginReceiveAttestation extends Component {
         }
 
         const extractedId = this.extractAttestationId(mmrData);
-        const recipientId = await this.extractRecipientId(mmrData, signatureData.system_ID);
+        const recipientId = await this.extractRecipientId(mmrData, signatureData.SystemID);
 
         // Generate MMR hash using helper method
         const mmrHash = this.extractMmrHash(mmrData);
