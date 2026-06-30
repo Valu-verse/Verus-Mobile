@@ -642,15 +642,15 @@ const DataPacketRequestInfo = props => {
       // Create SignatureData object
       const sigData = new SignatureData({
         version: new BN(1),
-        SystemID: systemId,
-        IdentityID: iAddress,
-        signmatureHash: signatureHash,
+        systemID: systemId,
+        identityID: iAddress,
+        signatureHash: signatureHash,
         hashType: new BN(5), // SHA256
         sigType: new BN(1), // TYPE_VERUSID_DEFAULT
       });
       
       // Get the identity hash for signing
-      const sigHash = sigData.getIdentityHash({ version: 2, hashType: 5, height });
+      const sigHash = sigData.getIdentityHash({ version: 2, hash_type: 5, height });
       
       // Sign the hash
       const signature = await signHash(coinObjForSign, iAddress, sigHash, height);

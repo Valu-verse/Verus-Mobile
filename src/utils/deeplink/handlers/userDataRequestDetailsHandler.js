@@ -58,8 +58,8 @@ const findMatchingAttestations = (searchDataKey, signerIAddress, isCollection, a
       const { mmrDescriptor, signatureData } = parseStoredAttestationHex(att.data);
       if (!mmrDescriptor) continue;
 
-      // Filter by signer if specified (IdentityID is an i-address string after fromBuffer)
-      if (signerIAddress && signatureData.IdentityID !== signerIAddress) continue;
+      // Filter by signer if specified (identityID is an i-address string after fromBuffer)
+      if (signerIAddress && signatureData.identityID !== signerIAddress) continue;
 
       let matchFound = false;
       let matchingDescriptors = [];
@@ -126,8 +126,8 @@ const selectBestAttestations = async (matchingAttestations, isCollection) => {
     try {
       const signatureData = attestation.attestationDetails.signatureData;
       const sigInfo = await getSignatureInfo(
-        signatureData.SystemID,
-        signatureData.IdentityID,
+        signatureData.systemID,
+        signatureData.identityID,
         signatureData.signatureAsVch.toString('base64'),
       );
       withHeights.push({ ...attestation, height: sigInfo.height });

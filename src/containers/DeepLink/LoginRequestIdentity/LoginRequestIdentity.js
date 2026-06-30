@@ -259,7 +259,7 @@ const LoginRequestIdentity = props => {
           idClass.IdentityID = iAddress;
           idClass.signmatureHash = signatureData.signmatureHash;
 
-          const sigHash = idClass.getIdentityHash({ version: 2, hashType: 5, height });
+          const sigHash = idClass.getIdentityHash({ version: 2, hash_type: 5, height });
           const signature = await signHash(CoinDirectory.findCoinObj(system_id, null, true), iAddress, sigHash, height);
 
           signatureData.signatureAsVch = Buffer.from(signature, 'base64');

@@ -374,7 +374,7 @@ class LoginReceiveAttestation extends Component {
     );
 
     const hashVerified = await verifyHash(signatureData.SystemID, signatureData.IdentityID, signatureData.signatureAsVch.toString('base64'),
-      signatureData.getIdentityHash({ ...sigInfo, hashType: sigInfo.hashtype }));
+      signatureData.getIdentityHash({ ...sigInfo, hash_type: sigInfo.hashtype }));
 
     const mmrMatched = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex') == signatureData.toJson().signaturehash;
     const dataDescriptorsHashCorrect = await validateMMRfromMmrDatadescriptor(mmrData);
