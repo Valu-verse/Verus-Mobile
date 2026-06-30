@@ -89,6 +89,7 @@ const ClaimTypeMap = {
 // Fallback lookup when IdentityVdxfidMap[label]?.EN is undefined
 const CustomVdxfLabelMap = {
   "i4d7U1aZhmoxZbWx8AVezh6z1YewAnuw3V": "Valu Claim",
+  "iNnJaKp16jp2ZYgDnCAs1Z3HEc4SaSsXfD": "Valu Claim",
   "iAkd3VBhYQ3MK6PUCtfhXrLVNbqSghxxpn": "Attestation Recipient",
   "i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ": "Claim ID"
 };
@@ -159,6 +160,9 @@ class ViewAttestation extends Component {
         const objectdata = dataDescriptor[DataDescriptorKey.vdxfid]?.objectdata;
 
         if (!objectdata) return;
+        // Skip descriptors with no usable payload (e.g. an empty array), which
+        // would otherwise render a meaningless "-" row.
+        if (Array.isArray(objectdata) && objectdata.length === 0) return;
 
         if (mime.startsWith("text/")) {
           data[key] = { "message": objectdata.message };
@@ -171,25 +175,28 @@ class ViewAttestation extends Component {
             }
           }
         } else if (mime == ""){
-            // Check if this is a known claim type using the label as vdxfid
-            const claimDescription = ClaimTypeMap[label];
-            if (claimDescription) {
-              data[key] = { 
-                "message": claimDescription
+            // Always try to parse the payload as a claim first, so any claim
+            // type renders its real category and fields dynamically rather than
+            // falling back to a static, hardcoded description string.
+            const claim = tryGetClaim(objectdata);
+            if (claim && claim.data) {
+              // Successfully parsed as a claim - flatten and store the data
+              const claimFields = flattenClaimData(claim.data);
+              data[key] = {
+                "claim": claim,
+                "claimFields": claimFields
               };
             } else {
-              // Try to parse as a claim object
-              const claim = tryGetClaim(objectdata);
-              if (claim && claim.data) {
-                // Successfully parsed as a claim - flatten and store the data
-                const claimFields = flattenClaimData(claim.data);
-                data[key] = { 
-                  "claim": claim,
-                  "claimFields": claimFields
+              // Not a parseable claim. Fall back to a known static description
+              // for the label, otherwise show the raw message.
+              const claimDescription = ClaimTypeMap[label];
+              if (claimDescription) {
+                data[key] = {
+                  "message": claimDescription
                 };
               } else {
                 // Not a claim, display as message
-                data[key] = { 
+                data[key] = {
                   "message": objectdata.message || (typeof objectdata === 'string' && objectdata.length > 20 ? objectdata.slice(0,20)+"..." : objectdata.message || "-")
                 };
               }
@@ -500,7 +507,7 @@ class ViewAttestation extends Component {
                                                                         fontWeight: '600',
                                                                         marginBottom: 8
                                                                     }}>
-                                                                        {item.claim.typeName}
+                                                                        {item.claim.category || item.claim.typeName}
                                                                     </Text>
                                                                     {item.claimFields.map((field, fieldIndex) => (
                                                                         <View key={fieldIndex} style={{
