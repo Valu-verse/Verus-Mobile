@@ -503,6 +503,10 @@ const DataPacketRequestInfo = props => {
   const [urlRef, setUrlRef] = useState(null);
   const [downloadedDataDescriptor, setDownloadedDataDescriptor] = useState(null);
   const [pendingAttestationData, setPendingAttestationData] = useState(null);
+  // Full list of attestations parsed from a downloaded packet (a packet may
+  // contain more than one). pendingAttestationData holds the first as the
+  // representative for the single-item preview and the continue guards.
+  const [pendingAttestations, setPendingAttestations] = useState([]);
   const [pendingAttestationDescriptors, setPendingAttestationDescriptors] = useState([]);
   const [pendingAttestationSigner, setPendingAttestationSigner] = useState(null);
   const [attestationAccepted, setAttestationAccepted] = useState(false);
@@ -829,30 +833,12 @@ const DataPacketRequestInfo = props => {
         return null;
       }
 
-      let mmrDescriptor = null;
-      let signatureData = null;
       const mmrKey = VDXF_Data.MMRDescriptorKey?.vdxfid;
       const signatureKey = VDXF_Data.SignatureDataKey?.vdxfid;
 
-      for (const valueItem of uniValue.values) {
-        if (!valueItem || typeof valueItem !== 'object') continue;
-
-        if (mmrKey && Object.prototype.hasOwnProperty.call(valueItem, mmrKey)) {
-          const mmrValue = valueItem[mmrKey];
-          if (mmrValue instanceof MMRDescriptor || (mmrValue && typeof mmrValue.toBuffer === 'function')) {
-            mmrDescriptor = { id: mmrKey, data: mmrValue };
-          }
-        }
-
-        if (signatureKey && Object.prototype.hasOwnProperty.call(valueItem, signatureKey)) {
-          const signatureValue = valueItem[signatureKey];
-          if (signatureValue instanceof SignatureData || (signatureValue && typeof signatureValue.toBuffer === 'function')) {
-            signatureData = { id: signatureKey, data: signatureValue };
-          }
-        }
-      }
-
-      if (mmrDescriptor && signatureData) {
+      // Build a single attestation object from a paired MMR descriptor and
+      // signature data, extracting display descriptors and the attestation name.
+      const buildAttestation = (mmrDescriptor, signatureData) => {
         const mmrValue = mmrDescriptor.data;
         const descriptorItems = mmrValue?.dataDescriptors || mmrValue?.datadescriptors || [];
         const descriptorLabels = [];
@@ -893,19 +879,54 @@ const DataPacketRequestInfo = props => {
           requiredLabel => !descriptorLabels.includes(requiredLabel)
         );
 
+        // Per-attestation serialized bytes (this pair only), not the whole packet.
+        let serializedHex = '';
+        try {
+          serializedHex = serializeStoredAttestation(mmrValue, signatureData.data).toString('hex');
+        } catch (e) {
+          serializedHex = '';
+        }
+
         return {
           type: 'attestation',
           mmrDescriptor,
           signatureData,
           label: attestationName || 'downloaded proof',
-          data: dataBuffer.toString('hex'),
+          data: serializedHex,
           descriptorLabels,
           descriptors: normalizedDescriptors,
           missingRequiredLabels,
         };
+      };
+
+      // A packet may contain multiple attestations laid out as interleaved
+      // [MMR, SIG, MMR, SIG, ...] entries. Walk values in order, pairing each
+      // MMR descriptor with the next signature, and emit one attestation per pair.
+      const attestations = [];
+      let currentMmr = null;
+
+      for (const valueItem of uniValue.values) {
+        if (!valueItem || typeof valueItem !== 'object') continue;
+
+        if (mmrKey && Object.prototype.hasOwnProperty.call(valueItem, mmrKey)) {
+          const mmrValue = valueItem[mmrKey];
+          if (mmrValue instanceof MMRDescriptor || (mmrValue && typeof mmrValue.toBuffer === 'function')) {
+            currentMmr = { id: mmrKey, data: mmrValue };
+          }
+        }
+
+        if (signatureKey && Object.prototype.hasOwnProperty.call(valueItem, signatureKey)) {
+          const signatureValue = valueItem[signatureKey];
+          if (signatureValue instanceof SignatureData || (signatureValue && typeof signatureValue.toBuffer === 'function')) {
+            if (currentMmr) {
+              attestations.push(buildAttestation(currentMmr, { id: signatureKey, data: signatureValue }));
+              currentMmr = null;
+            }
+          }
+        }
       }
 
-      return null;
+      return attestations.length > 0 ? attestations : null;
     } catch (e) {
       console.warn('Error extracting attestation from UniValue:', e);
       return null;
@@ -915,23 +936,14 @@ const DataPacketRequestInfo = props => {
   // Helper function to store attestation data
   // Uses the same extraction and storage format as LoginReceiveAttestation
   // so attestations are backwards compatible with existing wallet entries
-  const storeAttestationDataDownload = async (attestationData) => {
+  const storeAttestationDataDownload = async (attestations) => {
     try {
       if (!activeAccount) {
         throw new Error('No active account');
       }
 
-      const mmrData = attestationData.mmrDescriptor.data;
-      const sigData = attestationData.signatureData.data;
+      const list = Array.isArray(attestations) ? attestations : [attestations];
       const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
-
-      // MMR hash as key (same as LoginReceiveAttestation.extractMmrHash)
-      let mmrHash;
-      try {
-        mmrHash = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex');
-      } catch (e) {
-        mmrHash = `attestation_${Date.now()}`;
-      }
 
       // Helper to get label and message from a DataDescriptor.
       // Handles two formats:
@@ -946,61 +958,77 @@ const DataPacketRequestInfo = props => {
         return { label: json?.label || null, message: json?.objectdata?.message || null };
       };
 
-      // Attestation name
-      let extractedName = null;
-      // Internal ID
-      let extractedId = null;
-      // Recipient ID — prioritise 'receiving_identity' over IDENTITY_ATTESTATION_RECIPIENT
-      let receivingIdentity = null;
-      let attestationRecipient = null;
+      // Build a single store object containing every attestation in the packet,
+      // keyed by MMR hash (same format as LoginReceiveAttestation), then persist
+      // them in one merge so all claims are saved together.
+      const dataToStore = {};
 
-      try {
-        for (const descriptor of mmrData.dataDescriptors) {
-          const { label, message } = getDescriptorLabelAndMessage(descriptor);
-          if (!label) continue;
+      for (const attestationData of list) {
+        const mmrData = attestationData.mmrDescriptor.data;
+        const sigData = attestationData.signatureData.data;
 
-          if (label === ATTESTATION_NAME.vdxfid && message) {
-            extractedName = message;
-          }
-          if (label === 'i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ' && message) {
-            extractedId = message;
-          }
-          if (label === 'receiving_identity' && message) {
-            receivingIdentity = message;
-          }
-          if (label === IDENTITY_ATTESTATION_RECIPIENT.vdxfid && message) {
-            attestationRecipient = message;
-          }
-        }
-      } catch (e) {
-        // Extraction errors are non-fatal
-      }
-
-      // Resolve recipient to i-address so attestations can be matched reliably
-      let resolvedRecipientId = null;
-      const extractedRecipient = receivingIdentity || attestationRecipient || null;
-
-      // Prefer the recipientId state (already an i-address from constraint matching)
-      if (recipientId) {
-        resolvedRecipientId = recipientId;
-      } else if (extractedRecipient) {
-        // Extracted value may be a friendly name — resolve to i-address
+        // MMR hash as key (same as LoginReceiveAttestation.extractMmrHash)
+        let mmrHash;
         try {
-          const systemId = requestSignerSystemID || embeddedSignerSystemID;
-          if (systemId) {
-            const identityRes = await getIdentity(systemId, extractedRecipient);
-            if (!identityRes.error && identityRes.result?.identity?.identityaddress) {
-              resolvedRecipientId = identityRes.result.identity.identityaddress;
+          mmrHash = Buffer.from(mmrData.mmrRoot.objectdata).reverse().toString('hex');
+        } catch (e) {
+          mmrHash = `attestation_${Date.now()}_${Object.keys(dataToStore).length}`;
+        }
+
+        // Attestation name
+        let extractedName = null;
+        // Internal ID
+        let extractedId = null;
+        // Recipient ID — prioritise 'receiving_identity' over IDENTITY_ATTESTATION_RECIPIENT
+        let receivingIdentity = null;
+        let attestationRecipient = null;
+
+        try {
+          for (const descriptor of mmrData.dataDescriptors) {
+            const { label, message } = getDescriptorLabelAndMessage(descriptor);
+            if (!label) continue;
+
+            if (label === ATTESTATION_NAME.vdxfid && message) {
+              extractedName = message;
+            }
+            if (label === 'i6htkAtLSyUFr1YBFD13U9TSgPgQe2yDQZ' && message) {
+              extractedId = message;
+            }
+            if (label === 'receiving_identity' && message) {
+              receivingIdentity = message;
+            }
+            if (label === IDENTITY_ATTESTATION_RECIPIENT.vdxfid && message) {
+              attestationRecipient = message;
             }
           }
         } catch (e) {
-          // Resolution failed — store null rather than a name that won't match
+          // Extraction errors are non-fatal
         }
-      }
 
-      // Store in same format as LoginReceiveAttestation
-      const dataToStore = {
-        [mmrHash]: {
+        // Resolve recipient to i-address so attestations can be matched reliably
+        let resolvedRecipientId = null;
+        const extractedRecipient = receivingIdentity || attestationRecipient || null;
+
+        // Prefer the recipientId state (already an i-address from constraint matching)
+        if (recipientId) {
+          resolvedRecipientId = recipientId;
+        } else if (extractedRecipient) {
+          // Extracted value may be a friendly name — resolve to i-address
+          try {
+            const systemId = requestSignerSystemID || embeddedSignerSystemID;
+            if (systemId) {
+              const identityRes = await getIdentity(systemId, extractedRecipient);
+              if (!identityRes.error && identityRes.result?.identity?.identityaddress) {
+                resolvedRecipientId = identityRes.result.identity.identityaddress;
+              }
+            }
+          } catch (e) {
+            // Resolution failed — store null rather than a name that won't match
+          }
+        }
+
+        // Store in same format as LoginReceiveAttestation
+        dataToStore[mmrHash] = {
           name: extractedName || attestationData.label || 'downloaded proof',
           signer: attestationData.signerDisplayName || embeddedSignerFqn || embeddedSignerIdentityID || 'Unknown Signer',
           data: serializeStoredAttestation(mmrData, sigData).toString('hex'),
@@ -1009,8 +1037,8 @@ const DataPacketRequestInfo = props => {
           validated: true,
           internal_id: extractedId,
           recipientId: resolvedRecipientId,
-        }
-      };
+        };
+      }
 
       await modifyAttestationDataForUser(dataToStore, ATTESTATIONS_PROVISIONED, activeAccount.accountHash);
       return true;
@@ -1104,13 +1132,17 @@ const DataPacketRequestInfo = props => {
   };
 
   const handleAcceptDownloadedAttestation = async () => {
-    if (!pendingAttestationData) return;
+    if (!pendingAttestations || pendingAttestations.length === 0) return;
 
     try {
       setLoading(true);
-      await storeAttestationDataDownload(pendingAttestationData);
+      await storeAttestationDataDownload(pendingAttestations);
       setAttestationAccepted(true);
-      setDownloadedContent(`Attestation \"${pendingAttestationData.label || 'downloaded proof'}\" accepted.`);
+      setDownloadedContent(
+        pendingAttestations.length > 1
+          ? `${pendingAttestations.length} attestations accepted.`
+          : `Attestation "${pendingAttestations[0].label || 'downloaded proof'}" accepted.`,
+      );
       setUrlDownloadModalVisible(false);
     } catch (e) {
       createAlert('Error', `Failed to save attestation: ${e.message}`);
@@ -1121,6 +1153,7 @@ const DataPacketRequestInfo = props => {
 
   const handleRejectDownloadedAttestation = () => {
     setPendingAttestationData(null);
+    setPendingAttestations([]);
     setPendingAttestationDescriptors([]);
     setPendingAttestationSigner(null);
     setAttestationAccepted(false);
@@ -1184,26 +1217,35 @@ const DataPacketRequestInfo = props => {
         downloadedDescriptor.fromBuffer(dataBuffer);
         setDownloadedDataDescriptor(downloadedDescriptor);
         
-        // Check if this is an attestation (no mimetype and contains UniValue objects)
+        // Check if this is an attestation (no mimetype and contains UniValue objects).
+        // A packet may carry more than one attestation, so this returns an array.
         if (!downloadedDescriptor.mimeType || downloadedDescriptor.mimeType === '') {
-          attestationData = extractAttestationFromUniValue(downloadedDescriptor.objectdata);
-          
-          if (attestationData) {
-            const signerDisplayName = await resolveAttestationSignerDisplayName(attestationData);
-            const previewDescriptors = await buildAttestationPreviewDescriptors(attestationData);
-            const attestationPayload = {
-              ...attestationData,
-              signerDisplayName,
-            };
-            setPendingAttestationData(attestationPayload);
-            setPendingAttestationDescriptors(previewDescriptors);
-            setPendingAttestationSigner(signerDisplayName);
+          const extractedAttestations = extractAttestationFromUniValue(downloadedDescriptor.objectdata);
+
+          if (extractedAttestations && extractedAttestations.length > 0) {
+            // Resolve the signer name and preview descriptors for every attestation.
+            const payloads = await Promise.all(
+              extractedAttestations.map(async (att) => {
+                const signerDisplayName = await resolveAttestationSignerDisplayName(att);
+                const previewDescriptors = await buildAttestationPreviewDescriptors(att);
+                return { ...att, signerDisplayName, previewDescriptors };
+              }),
+            );
+
+            setPendingAttestations(payloads);
+            // The first attestation drives the single-item preview fields and the
+            // accept/continue guards; the combined descriptors show every field.
+            setPendingAttestationData(payloads[0]);
+            setPendingAttestationDescriptors(payloads.flatMap(p => p.previewDescriptors));
+            setPendingAttestationSigner(payloads[0].signerDisplayName);
             setAttestationAccepted(false);
-            
-            // Set content to indicate attestation should be reviewed
+
+            // Set content to indicate attestation(s) should be reviewed
             mimeType = 'application/attestation';
-            content = `Review this attestation before accepting it.`;
-            attestationData = attestationPayload;
+            content = payloads.length > 1
+              ? `Review these ${payloads.length} attestations before accepting.`
+              : `Review this attestation before accepting it.`;
+            attestationData = payloads[0];
           }
         }
         
@@ -1686,7 +1728,9 @@ const DataPacketRequestInfo = props => {
         hashVerified={hashVerified}
         attestationDescriptors={pendingAttestationDescriptors}
         attestationAccepted={attestationAccepted}
-        attestationTitle={pendingAttestationData?.label}
+        attestationTitle={pendingAttestations.length > 1
+          ? `${pendingAttestations.length} attestations`
+          : pendingAttestationData?.label}
         attestationSigner={pendingAttestationSigner}
         onAcceptAttestation={handleAcceptDownloadedAttestation}
         onRejectAttestation={handleRejectDownloadedAttestation}
