@@ -350,9 +350,19 @@ const UserDataRequestInfo = (props) => {
         objectdata: responseBuffer,
       });
 
+      // Echo the originating request's requestID onto the response detail so
+      // the server can correlate this response with its request. The requestID
+      // lives on the request's UserDataRequestDetails, and DataResponseDetails
+      // serializes it via FLAG_HAS_REQUEST_ID when present.
+      const requestDetailData = request.getDetails(detailIndex)?.data;
+      const requestID = requestDetailData?.hasRequestID?.()
+        ? requestDetailData.requestID
+        : undefined;
+
       // Wrap in DataResponseDetails
       const responseDetails = new DataResponseDetails({
         data: dataDescriptor,
+        requestID,
       });
 
       // Wrap in DataResponseOrdinalVDXFObject
@@ -365,11 +375,6 @@ const UserDataRequestInfo = (props) => {
       if (baseResponse.details == null) baseResponse.details = [];
       baseResponse.details = [...baseResponse.details, responseOrdinal];
 
-      // Echo the request ID on the outer response so the server can correlate it.
-      if (request.hasRequestID() && !baseResponse.requestID) {
-        baseResponse.requestID = request.requestID;
-      }
-
       // Ensure the multi-details flag is set when there are 2+ details
       if (baseResponse.details.length > 1 && typeof baseResponse.setHasMultiDetails === 'function') {
         baseResponse.setHasMultiDetails();
@@ -379,7 +384,7 @@ const UserDataRequestInfo = (props) => {
       // GenericRequestComplete can sign and deliver the response.
       if (baseResponse.signature == null) {
         let recipientIAddress = att.raw?.recipientId;
-        const systemID = att.attestationDetails?.signatureData?.SystemID;
+        const systemID = att.attestationDetails?.signatureData?.systemID;
 
         if (!recipientIAddress || !systemID) {
           throw new Error(

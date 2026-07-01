@@ -134,24 +134,59 @@ export function tryGetClaim(data) {
     const typeSlice = reader.readSlice(20);
     const type = toBase58Check(typeSlice, 102);
 
-    // Check if this is a known claim type
-    const claimTypeInfo = CLAIM_TYPE_MAP[type];
-
-    if (!claimTypeInfo) {
-      return null;
-    }
-
-    // Read the data JSON
+    // Read the data JSON. We do NOT gate on a known claim-type id: the same
+    // inner type is reused across categories (Skills, Achievement, …), which
+    // are distinguished by the JSON payload, not the type id.
     const dataSlice = reader.readVarSlice();
     const dataJson = dataSlice.toString('utf-8');
     const claimData = JSON.parse(dataJson);
-    console.log('claimData:', claimData, claimTypeInfo.name);
+
+    // A valid claim must look like a claim payload, otherwise treat as non-claim.
+    if (!claimData || typeof claimData !== 'object') return null;
+    const looksLikeClaim = Array.isArray(claimData.blockAnswers)
+      || claimData.blockTitle != null
+      || claimData.claimMessage != null
+      || claimData.attestationType != null;
+    if (!looksLikeClaim) return null;
+
+    const claimTypeInfo = CLAIM_TYPE_MAP[type];
+
+    // Keys that are form/plumbing metadata, not user-facing claim content.
+    const NOISE_KEYS = new Set([
+      'attestationType', 'blockSchema', 'blockId', 'networkId', 'id', 'type',
+      'referenceID', 'formReference', 'questionId', 'questionType',
+      'questionMessage', 'blockTitle', 'claimMessage',
+    ]);
+
+    // A claim carries one or more answers in blockAnswers. Map each answer to
+    // its human question title -> answer message so it displays meaningfully
+    // (e.g. "Skill name: test skill 1011"). Empty answers are omitted.
+    const fields = {};
+    if (Array.isArray(claimData.blockAnswers)) {
+      claimData.blockAnswers.forEach((ans, idx) => {
+        if (!ans || ans.answerMessage === undefined || ans.answerMessage === null || ans.answerMessage === '') return;
+        const fieldKey = ans.questionTitle || ans.questionMessage || ans.fieldReference || `Answer ${idx + 1}`;
+        fields[fieldKey] = ans.answerMessage;
+      });
+    }
+
+    // Fallback: if there were no blockAnswers, surface any other scalar fields
+    // so unfamiliar claim shapes still display their content instead of nothing.
+    if (Object.keys(fields).length === 0) {
+      for (const [k, v] of Object.entries(claimData)) {
+        if (NOISE_KEYS.has(k) || v == null || typeof v === 'object') continue;
+        fields[k] = String(v);
+      }
+    }
+
     return {
       type,
-      typeName: claimTypeInfo.name,
+      typeName: claimTypeInfo ? claimTypeInfo.name : 'Claim',
+      // Human-friendly claim category (e.g. "Skills"), falling back to the type name.
+      category: claimData.blockTitle || claimData.claimMessage || (claimTypeInfo ? claimTypeInfo.name : 'Claim'),
       version,
       flags,
-      data: {"type": claimData.blockAnswers[0].answerMessage}
+      data: fields,
     };
   } catch (error) {
     // Not a valid claim object
