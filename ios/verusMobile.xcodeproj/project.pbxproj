@@ -416,7 +416,7 @@
 				ORGANIZATIONNAME = Facebook;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
-						DevelopmentTeam = U5Y4ZSCF38;
+						DevelopmentTeam = FW6B5KTU64;
 						LastSwiftMigration = 1130;
 						ProvisioningStyle = Automatic;
 					};
@@ -706,7 +706,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0;
 				DEAD_CODE_STRIPPING = NO;
-				DEVELOPMENT_TEAM = U5Y4ZSCF38;
+				DEVELOPMENT_TEAM = FW6B5KTU64;
 				ENABLE_BITCODE = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				INFOPLIST_FILE = verusmobile/Info.plist;
@@ -760,7 +760,7 @@
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/rn-fetch-blob\"",
 				);
 				MARKETING_VERSION = 1.0.35;
-				PRODUCT_BUNDLE_IDENTIFIER = com.arkeytyp.valumobile.app;
+				PRODUCT_BUNDLE_IDENTIFIER = org.reactjs.native.verusmobilewithvalu;
 				PRODUCT_NAME = verusmobile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -785,7 +785,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 0;
 				DEAD_CODE_STRIPPING = YES;
-				DEVELOPMENT_TEAM = U5Y4ZSCF38;
+				DEVELOPMENT_TEAM = FW6B5KTU64;
 				ENABLE_BITCODE = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				INFOPLIST_FILE = verusmobile/Info.plist;
@@ -839,7 +839,7 @@
 					"\"${PODS_CONFIGURATION_BUILD_DIR}/rn-fetch-blob\"",
 				);
 				MARKETING_VERSION = 1.0.35;
-				PRODUCT_BUNDLE_IDENTIFIER = com.arkeytyp.valumobile.app;
+				PRODUCT_BUNDLE_IDENTIFIER = org.reactjs.native.verusmobilewithvalu;
 				PRODUCT_NAME = verusmobile;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

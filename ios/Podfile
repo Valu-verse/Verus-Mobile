@@ -1,4 +1,3 @@
-# Changes: add ReactCommon header search path to fix react/bridging includes.
 require_relative '../node_modules/react-native/scripts/react_native_pods'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 require_relative '../node_modules/react-native-permissions/scripts/setup'
@@ -46,6 +45,7 @@ $dynamic_frameworks = [
   'React-RCTSettings',
   'React-RCTText',
   'React-RCTVibration',
+  'ZcashLightClientKit',
   'gRPC-Swift',
   'Logging',
   'SwiftNIO',
@@ -169,63 +169,16 @@ target 'verusmobile' do
     )
     __apply_Xcode_12_5_M1_post_install_workaround(installer)
 
-
-
     installer.pods_project.targets.each do |target|
       target.build_configurations.each do |config|
-        # Maintain iOS 13 compatibility while fixing C++ ABI issues
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-        
-        # Force use of legacy C++ ABI for Xcode 16.4 compatibility
-        config.build_settings['CLANG_CXX_LIBRARY'] = 'libc++'
-        config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
-        
-        # Comprehensive C++ ABI compatibility for Xcode 16.4 with iOS 13
-        # Added _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION to fix Boost compatibility
-        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = '$(inherited) -D_LIBCPP_DISABLE_AVAILABILITY -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -fno-aligned-allocation'
-        
-        # Use GNU C standard to support typeof and other GNU extensions
-        config.build_settings['GCC_C_LANGUAGE_STANDARD'] = 'gnu11'
-        
-        # Add additional C flags for compatibility
-        config.build_settings['OTHER_CFLAGS'] = '$(inherited) -Wno-implicit-function-declaration'
-        
-        # Force older C++ ABI for exception handling compatibility
-        config.build_settings['OTHER_LDFLAGS'] = '$(inherited) -Wl,-weak_reference_mismatches,weak'
-        
-        # Disable new C++ features that require newer runtime
-        # Added _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION to restore std::unary_function for Boost
-        config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = '$(inherited) _LIBCPP_DISABLE_AVAILABILITY=1 _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION=1'
-        
-        # Ensure React bridging headers resolve under modular headers/frameworks
-        if target.name.start_with?('React')
-          header_search_paths = config.build_settings['HEADER_SEARCH_PATHS']
-          header_search_paths = '$(inherited)' if header_search_paths.nil?
-          header_search_paths = header_search_paths.join(' ') if header_search_paths.is_a?(Array)
-          react_common_headers = '$(PODS_ROOT)/../node_modules/react-native/ReactCommon'
-          unless header_search_paths.include?(react_common_headers)
-            header_search_paths += " \"#{react_common_headers}\""
-          end
-          config.build_settings['HEADER_SEARCH_PATHS'] = header_search_paths
-        end
 
-        # Special handling for Swift/C++ interop libraries that might cause ABI issues
-        if target.name.include?('Swift') || target.name.include?('gRPC') || target.name.include?('NIO')
-          puts "Applying extra C++ ABI fixes to #{target.name}"
-          config.build_settings['SWIFT_VERSION'] = '5.0'
-          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'  # Use older standard for problematic targets
-        end
         if target.name.include?('RCT-Folly')
            config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
            config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << '_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION=1'
         end
 
         config.build_settings['ENABLE_BITCODE'] = 'NO'
-        
-        # Ensure minimum iOS deployment target is 13.0 for all pods
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       end
     end
   end
 end
-
