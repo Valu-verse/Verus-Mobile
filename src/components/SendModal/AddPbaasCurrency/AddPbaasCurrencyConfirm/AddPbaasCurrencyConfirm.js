@@ -40,7 +40,7 @@ const AddPbaasCurrencyConfirm = props => {
 
     try {
       if (!CoinDirectory.coinExistsInDirectory(currency.currencyid)) {
-        await CoinDirectory.addPbaasCurrency(currency, Object.keys(activeAccount.testnetOverrides).length > 0, true);
+        await CoinDirectory.addPbaasCurrency(currency, Object.keys(activeAccount.testnetOverrides || {}).length > 0, true);
       }
 
       const fullCoinData = CoinDirectory.findCoinObj(currency.currencyid)

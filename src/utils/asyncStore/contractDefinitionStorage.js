@@ -41,6 +41,8 @@ export const removeInactiveContractDefinitions = async (activeCoinList) => {
   const activeCoinIds = {}
   activeCoinList.map(coin => {
     activeCoinIds[coin.id] = true
+    // Also index by currency_id so network-prefixed IDs match their stored address key
+    if (coin.currency_id != null) activeCoinIds[coin.currency_id] = true
 
     if (coin.mapped_to != null) {
       activeCoinIds[coin.mapped_to] = true
@@ -51,7 +53,9 @@ export const removeInactiveContractDefinitions = async (activeCoinList) => {
     const tokens = Object.keys(storedDefinitions[network])
 
     for (const contractAddress of tokens) {
-      if (!activeCoinIds[contractAddress]) {
+      // Check raw address AND network-prefixed ID
+      const networkPrefixedId = `${network}:${contractAddress}`;
+      if (!activeCoinIds[contractAddress] && !activeCoinIds[networkPrefixedId]) {
         delete storedDefinitions[network][contractAddress]
       }
     }

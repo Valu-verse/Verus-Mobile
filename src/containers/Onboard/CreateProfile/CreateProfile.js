@@ -16,7 +16,8 @@ import CreatePassword from './Forms/CreatePassword';
 import ConfirmPassword from './Forms/ConfirmPassword';
 import UseBiometrics from './Forms/UseBiometrics';
 import {KEY_DERIVATION_VERSION, SERVICES_DISABLED_DEFAULT} from '../../../../env/index';
-import {START_COINS, TEST_PROFILE_OVERRIDES} from '../../../utils/constants/constants';
+import {START_COINS, START_ERC20_TOKENS, START_ERC20_TOKENS_TESTNET, TEST_PROFILE_OVERRIDES} from '../../../utils/constants/constants';
+import {getErc20CoinId} from '../../../utils/CoinData/CoinDirectory';
 import {useDispatch} from 'react-redux';
 import {
   closeLoadingModal,
@@ -52,6 +53,18 @@ export default function CreateProfileStackScreens(props) {
       const fullCoinData = CoinDirectory.findCoinObj(coinKey, accountId);
 
       dispatch(await addCoin(fullCoinData, activeCoinList, accountId, []));
+    }
+
+    const erc20Tokens = testAccount ? START_ERC20_TOKENS_TESTNET : START_ERC20_TOKENS;
+    for (const tokenDef of erc20Tokens) {
+      try {
+        await CoinDirectory.addErc20Token(tokenDef, tokenDef.network);
+        const coinId = getErc20CoinId(tokenDef.address, tokenDef.network);
+        const fullCoinData = CoinDirectory.findCoinObj(coinId, accountId);
+        dispatch(await addCoin(fullCoinData, activeCoinList, accountId, []));
+      } catch (e) {
+        console.warn('Could not add default ERC20 token', tokenDef.symbol, e.message);
+      }
     }
   };
 

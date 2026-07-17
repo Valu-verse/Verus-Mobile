@@ -178,13 +178,76 @@ export const fetchActiveCoins = () => {
   });
 }
 
+const ERC20_NETWORK_DISPLAY_NAMES = {
+  'homestead': 'Ethereum', 'goerli': 'Goerli Testnet', 'sepolia': 'Sepolia Testnet',
+  'matic': 'Polygon', 'matic-amoy': 'Polygon Amoy',
+};
+
+// Returns the canonical (preferred) ID for an ERC20 token on a given network
+const getCanonicalErc20Id = (currencyId, network) => {
+  const ETH_NATIVE = ['homestead', 'goerli', 'sepolia'];
+  if (ETH_NATIVE.includes(network)) return currencyId;
+  return `${network}:${currencyId}`;
+};
+
+// Applies display_name migration to a coin object (returns a new object)
+const migrateErc20DisplayName = (coin) => {
+  if (coin.proto !== 'erc20' || !coin.network || coin.display_name?.includes(' on ')) return coin;
+  const networkDisplayName = ERC20_NETWORK_DISPLAY_NAMES[coin.network] || coin.network;
+  const baseName = (coin.display_name && coin.display_name.trim()) ? coin.display_name : coin.display_ticker;
+  return { ...coin, display_name: `${baseName} on ${networkDisplayName}` };
+};
+
+// Resolves the network for an ERC20 coin, inferring homestead for non-testnet coins without a stored network
+const resolveErc20Network = (entry) => {
+  if (entry.network) return entry.network;
+  if (entry.proto === 'erc20' && !entry.testnet) return 'homestead';
+  return null;
+};
+
 export const setUserCoins = (activeCoinList, userName) => {
   let result = [];
+  // Tracks the best candidate for each ERC20 (currency_id + network) pair
+  const erc20BestMap = new Map();
 
   for (let i = 0; i < activeCoinList.length; i++) {
-    if (activeCoinList[i].users.includes(userName)) {
-      result.push(activeCoinList[i]);
+    const entry = activeCoinList[i];
+    if (!entry.users.includes(userName)) continue;
+
+    if (entry.proto === 'erc20' && entry.currency_id) {
+      const resolvedNetwork = resolveErc20Network(entry);
+
+      if (resolvedNetwork) {
+        const mapKey = `${entry.currency_id}:${resolvedNetwork}`;
+        // Use entry with the resolved network so migration can use it
+        const entryWithNetwork = resolvedNetwork !== entry.network
+          ? { ...entry, network: resolvedNetwork }
+          : entry;
+        const canonicalId = getCanonicalErc20Id(entry.currency_id, resolvedNetwork);
+        const existing = erc20BestMap.get(mapKey);
+        if (!existing || entry.id === canonicalId) {
+          erc20BestMap.set(mapKey, entryWithNetwork);
+        }
+      } else {
+        result.push(migrateErc20DisplayName(entry));
+      }
+    } else {
+      result.push(entry);
     }
+  }
+
+  // Add the best ERC20 candidate for each (currency_id, network) pair
+  for (const coin of erc20BestMap.values()) {
+    result.push(migrateErc20DisplayName(coin));
+  }
+
+  // If duplicates were removed, persist the cleaned list back to storage
+  const keptIds = new Set(result.map(c => c.id));
+  const cleanedList = activeCoinList.filter(
+    entry => !entry.users.includes(userName) || keptIds.has(entry.id)
+  );
+  if (cleanedList.length < activeCoinList.length) {
+    storeCoins(cleanedList).catch(e => console.warn('Failed to persist ERC20 deduplication', e));
   }
 
   return setCurrentUserCoins(result);

@@ -198,8 +198,9 @@ export const openAddPbaasCurrencyModal = (coinObj, data) => {
 };
 
 export const openAddErc20TokenModal = (coinObj, data) => {
+  const networkName = coinObj.display_name || 'Ethereum';
   openSendModal(
-    `Add ERC20 Token`,
+    `Add Token`,
     coinObj,
     null,
     data == null
@@ -208,7 +209,7 @@ export const openAddErc20TokenModal = (coinObj, data) => {
         }
       : data,
     ADD_ERC20_TOKEN_MODAL,
-    'To add an ERC20 token to your wallet, enter its contract address here and press continue.',
+    `To add a token on ${networkName} to your wallet, enter its contract address here and press continue.`,
   );
 };
 

@@ -12,11 +12,16 @@ import { getCurrency } from '../../../../utils/api/channels/verusid/callCreators
 import { getCurrenciesMappedToEth } from '../../../../utils/api/channels/vrpc/requests/getCurrenciesMappedToEth';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 
+const ETH_BRIDGE_NETWORKS = ['homestead', 'goerli', 'sepolia'];
+
 const AddErc20TokenForm = props => {
   const dispatch = useDispatch();
   const sendModal = useObjectSelector(state => state.sendModal);
 
   const [useMappedCurrency, setUseMappedCurrency] = useState(false);
+
+  const supportsVrscBridge = ETH_BRIDGE_NETWORKS.includes(sendModal.coinObj?.network);
+  const networkName = sendModal.coinObj?.display_name || 'Ethereum';
 
   const formHasError = useCallback(() => {
     const {data} = sendModal;
@@ -111,7 +116,9 @@ const AddErc20TokenForm = props => {
     updateSendFormData: props.updateSendFormData,
     formDataValue: sendModal.data[SEND_MODAL_CONTRACT_ADDRESS_FIELD],
     useMappedCurrency,
-    setUseMappedCurrency
+    setUseMappedCurrency,
+    supportsVrscBridge,
+    networkName
   });
 };
 

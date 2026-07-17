@@ -1,6 +1,6 @@
 import { ADDRESS_BLOCKLIST_FROM_WEBSERVER, LOADING_ACCOUNT, VALIDATING_ACCOUNT } from "../../../../utils/constants/constants";
 import { signIntoAuthenticatedAccount } from "../../../actionCreators";
-import { COIN_MANAGER_MAP, fetchActiveCoins, setUserCoins } from "../../coins/Coins";
+import { COIN_MANAGER_MAP, fetchActiveCoins, removeExistingCoin, setUserCoins } from "../../coins/Coins";
 import {
   activateChainLifecycle,
   activateServiceLifecycle,
@@ -76,8 +76,22 @@ export const initializeAccountData = async (
 
     store.dispatch(setUserCoinsAction);
 
-    for (let i = 0; i < activeCoinsForUser.length; i++) {
-      const coinObj = activeCoinsForUser[i];
+    // Migration: remove mainnet vUSDC.vETH from testnet profiles (it was
+    // incorrectly added as a start coin before the testnet equivalent existed).
+    const MAINNET_VUSDC_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd';
+    const isTestnetAccount = account.testnetOverrides && Object.keys(account.testnetOverrides).length > 0;
+    let coinsToActivate = activeCoinsForUser;
+    if (isTestnetAccount && activeCoinsForUser.some(c => c.id === MAINNET_VUSDC_ID)) {
+      try {
+        await removeExistingCoin(MAINNET_VUSDC_ID, account.id, store.dispatch);
+      } catch (e) {
+        console.warn('Migration: failed to remove mainnet vUSDC from testnet account', e.message);
+      }
+      coinsToActivate = activeCoinsForUser.filter(c => c.id !== MAINNET_VUSDC_ID);
+    }
+
+    for (let i = 0; i < coinsToActivate.length; i++) {
+      const coinObj = coinsToActivate[i];
 
       await Promise.all(
         coinObj.compatible_channels.map(channel => {
@@ -92,7 +106,7 @@ export const initializeAccountData = async (
         }),
       );
 
-      activateChainLifecycle(coinObj, activeCoinsForUser);
+      activateChainLifecycle(coinObj, coinsToActivate);
     }
 
     store.dispatch(setUserCoinsAction);

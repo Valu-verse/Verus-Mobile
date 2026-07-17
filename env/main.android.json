@@ -30,6 +30,9 @@
 
   "ETH_HOMESTEAD": "homestead",
   "ETH_GOERLI": "goerli",
+  "ETH_SEPOLIA": "sepolia",
+  "ETH_POLYGON": "matic",
+  "ETH_POLYGON_AMOY": "matic-amoy",
   "VERUSID_NETWORK_DEFAULT": "VRSC",
 
   "BIOMETRIC_SECURITY_THRESHOLD": "SECURE_HARDWARE",

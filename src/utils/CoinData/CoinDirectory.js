@@ -1,4 +1,23 @@
 import { DLIGHT_PRIVATE, ELECTRUM, ERC20, GENERAL, IS_PBAAS, IS_VERUS, IS_ZCASH, VERUSID, VRPC, WYRE_SERVICE } from "../constants/intervalConstants";
+
+const ETH_NATIVE_NETWORKS = ['homestead', 'goerli', 'sepolia'];
+
+const NETWORK_DISPLAY_NAMES = {
+  'homestead': 'Ethereum',
+  'goerli': 'Goerli Testnet',
+  'sepolia': 'Sepolia Testnet',
+  'matic': 'Polygon',
+  'matic-amoy': 'Polygon Amoy',
+};
+
+/**
+ * Returns the coin directory ID for an ERC20 token.
+ * Ethereum networks use the raw address; non-Ethereum networks prefix with the network name.
+ */
+export const getErc20CoinId = (address, network) => {
+  if (ETH_NATIVE_NETWORKS.includes(network)) return address;
+  return `${network}:${address}`;
+};
 import { getDefaultApps, getSystemNameFromSystemId } from "./CoinData";
 import { electrumServers } from './electrum/servers';
 import { ENABLE_VERUS_IDENTITIES } from '../../../env/index'
@@ -346,26 +365,33 @@ class _CoinDirectory {
    * @returns 
    */
   async addErc20Token(contractDefinition, network = 'homestead', storeResults = true) {
-    const id = contractDefinition.address;
+    const coinId = getErc20CoinId(contractDefinition.address, network);
 
-    if (this.coinExistsInDirectory(id)) {
-      if (this.coins[id].network === network) {
+    if (this.coinExistsInDirectory(coinId)) {
+      if (this.coins[coinId].network === network) {
         return;
       } else {
         throw new Error(
           'Currency already exists in directory on ' +
-            + this.coins[id].network +
+            + this.coins[coinId].network +
             ' network',
         );
       }
     }
 
+    const MAINNET_NETWORKS = ['homestead', 'matic'];
+    const networkDisplayName = NETWORK_DISPLAY_NAMES[network] || network;
+    const tokenBaseName = (contractDefinition.name && contractDefinition.name.trim())
+      ? contractDefinition.name
+      : contractDefinition.symbol;
+    const tokenDisplayName = `${tokenBaseName} on ${networkDisplayName}`;
+
     const tokenCoinObj = {
-      id: contractDefinition.address,
+      id: coinId,
       currency_id: contractDefinition.address,
       system_id: '.eth',
       display_ticker: contractDefinition.symbol,
-      display_name: contractDefinition.name,
+      display_name: tokenDisplayName,
       alt_names: [],
       theme_color: '#141C30',
       compatible_channels: [ERC20],
@@ -374,7 +400,7 @@ class _CoinDirectory {
       tags: [],
       proto: 'erc20',
       network,
-      testnet: network !== 'homestead',
+      testnet: !MAINNET_NETWORKS.includes(network),
       unlisted: true
     }
 
@@ -426,31 +452,31 @@ class _CoinDirectory {
 
   async populateEthereumContractDefinitionsFromStorage() {
     const storedDefinitions = await getStoredContractDefinitions()
-    const mainnetTokens = storedDefinitions[coinsList.ETH.network]
-      ? storedDefinitions[coinsList.ETH.network]
-      : {};
-    const testnetTokens = storedDefinitions[coinsList.GETH.network]
-      ? storedDefinitions[coinsList.GETH.network]
-      : {};
 
-    for (const key in mainnetTokens) {
-      if (this.coinExistsInDirectory(key)) continue;
+    const networkMappings = [
+      coinsList.ETH.network,
+      coinsList.GETH.network,
+      coinsList.MATIC.network,
+      coinsList.MATIC_AMOY.network,
+    ];
 
-      await this.addErc20Token(
-        mainnetTokens[key],
-        coinsList.ETH.network,
-        false
-      )
-    }
+    for (const network of networkMappings) {
+      const tokens = storedDefinitions[network] ? storedDefinitions[network] : {};
 
-    for (const key in testnetTokens) {
-      if (this.coinExistsInDirectory(key)) continue;
+      for (const key in tokens) {
+        const coinId = getErc20CoinId(key, network);
+        // Skip if already in directory by new prefixed ID
+        if (this.coinExistsInDirectory(coinId)) continue;
+        // Skip if an old-format coin with the same address + network already exists
+        const existsByAddress = this.coinExistsInDirectory(key) && this.coins[key]?.network === network;
+        if (existsByAddress) continue;
 
-      await this.addErc20Token(
-        testnetTokens[key],
-        coinsList.GETH.network,
-        false
-      )
+        await this.addErc20Token(
+          tokens[key],
+          network,
+          false
+        )
+      }
     }
   }
 }

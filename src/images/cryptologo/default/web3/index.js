@@ -46,6 +46,8 @@ import SCRVUSD_LIGHT from './scrvusd/scrvusd_light.svg'
 import SCRVUSD_DARK from './scrvusd/scrvusd_dark.svg'
 import CRVUSD_LIGHT from './crvusd/crvusd_light.svg'
 import CRVUSD_DARK from './crvusd/crvusd_dark.svg'
+import MATIC_LIGHT from './matic/matic_light.svg'
+import MATIC_DARK from './matic/matic_dark.svg'
 
 export default {
   ETH: { light: ETH_LIGHT, dark: ETH_DARK },
@@ -72,4 +74,5 @@ export default {
   EURC: { light: EURC_LIGHT, dark: EURC_DARK },
   SCRVUSD: { light: SCRVUSD_LIGHT, dark: SCRVUSD_DARK },
   CRVUSD: { light: CRVUSD_LIGHT, dark: CRVUSD_DARK },
+  MATIC: { light: MATIC_LIGHT, dark: MATIC_DARK },
 }

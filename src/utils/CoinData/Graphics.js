@@ -166,17 +166,21 @@ export const LayeredCoinLogoWithBadges = (
 export const getSimpleLogo = (chainTicker, theme = 'dark') => {
   let proto;
   let color;
+  let network;
+  let displayTicker;
 
   try {
     const coinObj = CoinDirectory.findCoinObj(chainTicker)
     color = coinObj.theme_color;
     proto = coinObj.proto;
+    network = coinObj.network;
+    displayTicker = coinObj.display_ticker;
   } catch(e) {
     proto = 'vrsc';
     color = coinsList.VRSC.theme_color;
   }
   
-  const Logo = getCoinLogo(chainTicker, proto, theme);
+  const Logo = getCoinLogo(chainTicker, proto, theme, network, displayTicker);
 
   return { Logo: Logo, color };
 }
@@ -231,12 +235,17 @@ export const RenderSquareCoinLogo = (
           // It's a mapped token on Verus -> Badge is Verus
           const verusLogoData = getSimpleLogo('VRSC', 'dark');
           SubLogo = verusLogoData.Logo;
-        } else if (
-          coinObj.display_name.includes('on Ethereum')
-        ) {
-          // It's a mapped token on Ethereum -> Badge is Ethereum
-          const ethLogoData = getSimpleLogo('ETH', 'dark');
-          SubLogo = ethLogoData.Logo;
+        } else if (coinObj.proto === 'erc20') {
+          // All ERC20 tokens get a network badge
+          if (coinObj.network === 'matic' || coinObj.network === 'matic-amoy') {
+            // Polygon ERC20 -> Badge is MATIC
+            const maticLogoData = getSimpleLogo('MATIC', 'dark');
+            SubLogo = maticLogoData.Logo;
+          } else {
+            // Default: Ethereum badge
+            const ethLogoData = getSimpleLogo('ETH', 'dark');
+            SubLogo = ethLogoData.Logo;
+          }
         }
       } catch (e) {
         // Should rarely happen now, but keep as safety net

@@ -13,6 +13,11 @@
 */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View } from 'react-native';
+import { Portal, List } from 'react-native-paper';
+import SemiModal from '../../components/SemiModal';
+import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   setActiveCoin,
   setActiveApp,
@@ -87,6 +92,10 @@ const Home = () => {
   const [transferSheetVisible, setTransferSheetVisible] = useState(false);
   const [manageVisible, setManageVisible] = useState(false);
   const [hasValuProofOfPersonhood, setHasValuProofOfPersonhood] = useState(false);
+  const [networkPickerVisible, setNetworkPickerVisible] = useState(false);
+  const [networkPickerCoins, setNetworkPickerCoins] = useState({ eth: null, matic: null });
+
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     // Check for specific "Valu Proof of Personhood" attestation
@@ -285,9 +294,14 @@ const Home = () => {
   };
 
   const _addErc20Token = () => {
-    openAddErc20TokenModal(
-      CoinDirectory.findCoinObj(testnetOverrides.ETH ? testnetOverrides.ETH : 'ETH'),
-    );
+    const isTestnet = testnetOverrides && Object.keys(testnetOverrides).length > 0;
+    const ethCoinId = testnetOverrides.ETH ? testnetOverrides.ETH : 'ETH';
+    const maticCoinId = isTestnet ? 'MATIC_AMOY' : 'MATIC';
+    setNetworkPickerCoins({
+      eth: CoinDirectory.findCoinObj(ethCoinId),
+      matic: CoinDirectory.findCoinObj(maticCoinId),
+    });
+    setNetworkPickerVisible(true);
   };
 
   const _openOnOffRamp = () => {
@@ -318,33 +332,92 @@ const Home = () => {
   };
 
   return (
-    <HomeRender
-      displayCurrencyModalOpen={displayCurrencyModalOpen}
-      displayCurrency={displayCurrency}
-      setDisplayCurrency={setDisplayCurrencyFunc}
-      setDisplayCurrencyModalOpen={setDisplayCurrencyModalOpen}
-      _addCoin={_addCoin}
-      _verusPay={_verusPay}
-      _addPbaasCurrency={_addPbaasCurrency}
-      _addErc20Token={_addErc20Token}
-      handleOpenOnOffRamp={_openOnOffRamp}
-      buySellSheetVisible={buySellSheetVisible}
-      setBuySellSheetVisible={setBuySellSheetVisible}
-      handleBuySellComplete={_handleBuySellComplete}
-      handleTransferPress={_openTransferSheet}
-      transferSheetVisible={transferSheetVisible}
-      setTransferSheetVisible={setTransferSheetVisible}
-      handleTransferReceive={_handleTransferReceive}
-      handleTransferSendConvert={_handleTransferSendConvert}
-      forceUpdate={forceUpdate}
-      loading={loading}
-      assets={cryptoAssets}
-      showBalance={showBalance}
-      openCoin={openCoin}
-      manageVisible={manageVisible}
-      setManageVisible={setManageVisible}
-      hasValuProofOfPersonhood={hasValuProofOfPersonhood}
-    />
+    <>
+      <HomeRender
+        displayCurrencyModalOpen={displayCurrencyModalOpen}
+        displayCurrency={displayCurrency}
+        setDisplayCurrency={setDisplayCurrencyFunc}
+        setDisplayCurrencyModalOpen={setDisplayCurrencyModalOpen}
+        _addCoin={_addCoin}
+        _verusPay={_verusPay}
+        _addPbaasCurrency={_addPbaasCurrency}
+        _addErc20Token={_addErc20Token}
+        handleOpenOnOffRamp={_openOnOffRamp}
+        buySellSheetVisible={buySellSheetVisible}
+        setBuySellSheetVisible={setBuySellSheetVisible}
+        handleBuySellComplete={_handleBuySellComplete}
+        handleTransferPress={_openTransferSheet}
+        transferSheetVisible={transferSheetVisible}
+        setTransferSheetVisible={setTransferSheetVisible}
+        handleTransferReceive={_handleTransferReceive}
+        handleTransferSendConvert={_handleTransferSendConvert}
+        forceUpdate={forceUpdate}
+        loading={loading}
+        assets={cryptoAssets}
+        showBalance={showBalance}
+        openCoin={openCoin}
+        manageVisible={manageVisible}
+        setManageVisible={setManageVisible}
+        hasValuProofOfPersonhood={hasValuProofOfPersonhood}
+      />
+      {networkPickerVisible && networkPickerCoins.eth && networkPickerCoins.matic && (
+        <Portal>
+          <SemiModal
+            animationType="slide"
+            transparent={true}
+            visible={true}
+            onRequestClose={() => setNetworkPickerVisible(false)}
+            title="Select network"
+            flexHeight={0.01}
+            contentContainerStyle={{
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              flex: 0,
+              alignSelf: 'flex-end',
+              width: '100%',
+              paddingBottom: 12 + insets.bottom,
+            }}
+          >
+            <View style={{ paddingHorizontal: 12 }}>
+              <List.Item
+                title={networkPickerCoins.eth.display_name}
+                description="Add a token by contract address on Ethereum"
+                onPress={() => {
+                  setNetworkPickerVisible(false);
+                  setTimeout(() => openAddErc20TokenModal(networkPickerCoins.eth), 0);
+                }}
+                left={() => (
+                  <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
+                    {RenderSquareCoinLogo(networkPickerCoins.eth.id, {}, 32, 32, { disableBadge: true })}
+                  </View>
+                )}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
+                descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 4 }}
+                style={{ backgroundColor: 'white', borderRadius: 12, marginBottom: 12, paddingVertical: 8 }}
+              />
+              <List.Item
+                title={networkPickerCoins.matic.display_name}
+                description="Add a token by contract address on Polygon"
+                onPress={() => {
+                  setNetworkPickerVisible(false);
+                  setTimeout(() => openAddErc20TokenModal(networkPickerCoins.matic), 0);
+                }}
+                left={() => (
+                  <View style={{ width: 40, alignItems: 'center', justifyContent: 'center' }}>
+                    {RenderSquareCoinLogo(networkPickerCoins.matic.id, {}, 32, 32, { disableBadge: true })}
+                  </View>
+                )}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                titleStyle={{ fontSize: 18, fontWeight: '600', color: 'black' }}
+                descriptionStyle={{ fontSize: 14, color: '#666', marginTop: 4 }}
+                style={{ backgroundColor: 'white', borderRadius: 12, paddingVertical: 8 }}
+              />
+            </View>
+          </SemiModal>
+        </Portal>
+      )}
+    </>
   );
 };
 

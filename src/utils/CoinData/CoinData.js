@@ -115,6 +115,8 @@ export const explorers = {
   VRSCTEST: 'https://testex.verus.io',
   ETH: 'https://etherscan.io',
   GETH: 'https://goerli.etherscan.io',
+  MATIC: 'https://polygonscan.com',
+  MATIC_AMOY: 'https://amoy.polygonscan.com',
   RFOX: 'https://etherscan.io',
   BAT: 'https://etherscan.io',
   DAI: 'https://etherscan.io',
@@ -176,6 +178,8 @@ export const CoinLogos = {
   DAIWYRE: CoinLogoIcons.web3.DAI,
   ETH: CoinLogoIcons.web3.ETH,
   GETH: CoinLogoIcons.web3.ETH,
+  MATIC: CoinLogoIcons.web3.MATIC,
+  MATIC_AMOY: CoinLogoIcons.web3.MATIC,
   BAL: CoinLogoIcons.web3.BAL,
   BNT: CoinLogoIcons.web3.BNT,
   HOT: CoinLogoIcons.web3.HOT,
@@ -317,11 +321,18 @@ export const getCoinObj = (coinList, coinId) => {
   })
 }
 
-export const getCoinLogo = (id, proto, theme = 'light') => {
+export const getCoinLogo = (id, proto, theme = 'light', network = null, displayTicker = null) => {
   const _id = id === coinsList.VRSC.currency_id ? "VRSC" : id === coinsList.VRSCTEST.currency_id ? "VRSCTEST" : id;
 
   if (CoinLogos[_id]) return CoinLogos[_id][theme]
-  else if (proto === 'erc20') return CoinLogos.ETH[theme]
+  else if (proto === 'erc20') {
+    // Try to match by display_ticker (e.g. 'USDC', 'DAI') for a proper token logo
+    if (displayTicker && CoinLogos[displayTicker]) {
+      return CoinLogos[displayTicker][theme];
+    }
+    // Fall back to ETH; the network-specific badge is shown separately via RenderSquareCoinLogo
+    return CoinLogos.ETH[theme];
+  }
   else return CoinLogoIcons.pbaas.RenderPbaasCurrencyLogo(_id)[theme]
 }
 

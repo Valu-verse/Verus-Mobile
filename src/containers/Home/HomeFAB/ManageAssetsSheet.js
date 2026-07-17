@@ -94,7 +94,7 @@ const ManageAssetsSheet = ({
             {/* 3) Add ERC-20 token */}
             <List.Item
               title="Add ERC-20 token"
-              description="Add by contract address on Ethereum"
+              description="Add a token by contract address (Ethereum, Polygon…)"
               onPress={() => handleAndClose(onAddErc20)}
               left={(props) => (
                 <List.Icon {...props} icon="ethereum" color={'black'} />

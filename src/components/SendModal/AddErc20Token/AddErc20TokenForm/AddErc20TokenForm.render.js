@@ -10,7 +10,9 @@ export const AddErc20TokenFormRender = ({
   updateSendFormData, 
   formDataValue, 
   useMappedCurrency,
-  setUseMappedCurrency
+  setUseMappedCurrency,
+  supportsVrscBridge,
+  networkName
 }) => {
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
@@ -27,7 +29,7 @@ export const AddErc20TokenFormRender = ({
         <View style={Styles.wideBlock}>
           <TextInput
             returnKeyType="done"
-            label={useMappedCurrency ? "Mapped PBaaS currency" : "ERC20 contract address"}
+            label={useMappedCurrency ? "Mapped PBaaS currency" : `Contract address on ${networkName}`}
             value={formDataValue}
             mode="outlined"
             onChangeText={(text) =>
@@ -37,17 +39,19 @@ export const AddErc20TokenFormRender = ({
             autoCorrect={false}
           />
         </View>
-        <View style={{...Styles.wideBlockDense, paddingTop: 0}}>
-          <Checkbox.Item
-            color={Colors.primaryColor}
-            label={'Find using mapped PBaaS currency'}
-            status={
-              useMappedCurrency ? 'checked' : 'unchecked'
-            }
-            onPress={() => setUseMappedCurrency(!useMappedCurrency)}
-            mode="android"
-          />
-        </View>
+        {supportsVrscBridge && (
+          <View style={{...Styles.wideBlockDense, paddingTop: 0}}>
+            <Checkbox.Item
+              color={Colors.primaryColor}
+              label={'Find using mapped PBaaS currency'}
+              status={
+                useMappedCurrency ? 'checked' : 'unchecked'
+              }
+              onPress={() => setUseMappedCurrency(!useMappedCurrency)}
+              mode="android"
+            />
+          </View>
+        )}
         <View style={Styles.wideBlockDense}>
           <Button mode="contained" onPress={submitData}>
             Continue

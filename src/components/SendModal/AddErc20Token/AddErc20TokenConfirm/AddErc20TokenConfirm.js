@@ -10,7 +10,7 @@ import {
   SEND_MODAL_FORM_STEP_RESULT,
 } from '../../../../utils/constants/sendModal';
 import {AddErc20TokenConfirmRender} from './AddErc20TokenConfirm.render';
-import { CoinDirectory } from '../../../../utils/CoinData/CoinDirectory';
+import { CoinDirectory, getErc20CoinId } from '../../../../utils/CoinData/CoinDirectory';
 import { coinsList } from '../../../../utils/CoinData/CoinsList';
 import { ERC20 } from '../../../../utils/constants/intervalConstants';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
@@ -44,8 +44,7 @@ const AddErc20TokenConfirm = props => {
       for (const key in coinsList) {
         if (
           coinsList[key].proto === ERC20 &&
-          ((coinsList[key].testnet && testAccount) ||
-            (!coinsList[key].testnet && !testAccount)) &&
+          coinsList[key].network === coinObj.network &&
           coinsList[key].currency_id.toLowerCase() === contract.address.toLowerCase()
         ) {
           fullCoinData = CoinDirectory.findCoinObj(key);
@@ -54,7 +53,7 @@ const AddErc20TokenConfirm = props => {
 
       if (fullCoinData == null) {
         await CoinDirectory.addErc20Token(contract, coinObj.network);
-        fullCoinData = CoinDirectory.findCoinObj(contract.address);
+        fullCoinData = CoinDirectory.findCoinObj(getErc20CoinId(contract.address, coinObj.network));
       }
 
       const activeCoinIndex = activeCoinsForUser.findIndex(coin => {

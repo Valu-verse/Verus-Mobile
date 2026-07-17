@@ -164,10 +164,17 @@ export const DEVICE_WINDOW_WIDTH = Dimensions.get('window').width;
 export const DEVICE_WINDOW_HEIGHT = Dimensions.get('window').height;
 
 // Init
-export const START_COINS = ["VRSC", "BTC", "ETH"]
+export const START_COINS = ["VRSC", "BTC", "ETH", "i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd"]
+export const START_ERC20_TOKENS = [
+  { address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', network: 'homestead', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+];
+export const START_ERC20_TOKENS_TESTNET = [
+  { address: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582', network: 'matic-amoy', symbol: 'USDC', name: 'USD Coin', decimals: 6 },
+];
 export const TEST_PROFILE_OVERRIDES = {
   ['VRSC']: 'VRSCTEST',
-  ['ETH']: 'GETH'
+  ['ETH']: 'GETH',
+  ['i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd']: 'iFMqivtShssEpViJbVtqVz53rsXvjqndQn',
 };
 
 // Account data initialization steps

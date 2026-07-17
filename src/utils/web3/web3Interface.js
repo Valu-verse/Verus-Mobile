@@ -7,30 +7,37 @@ import { ERC20 } from '../constants/intervalConstants';
 import { HistorySupportingEtherscanProvider } from './etherscan';
 
 class Web3Interface {
-  constructor(network, apiKeys) {
+  constructor(network, apiKeys, rpcUrl = null) {
     this.network = network;
     this.keys = apiKeys;
 
     this.web3Contracts = {}; // { [key: contractAddress]: Array[contractAddress, contractAbi]}
 
-    /** @type {import('ethers').Provider} */
-    this.DefaultProvider = new ethers.getDefaultProvider(this.network, {
-      etherscan: apiKeys.etherscan,
-      infura: apiKeys.infura,
-      exclusive: [ "etherscan", "infura" ]
-    })
+    if (rpcUrl) {
+      /** @type {import('ethers').Provider} */
+      this.DefaultProvider = new ethers.JsonRpcProvider(rpcUrl);
+      this.EtherscanProvider = null;
+      this.InfuraProvider = null;
+    } else {
+      /** @type {import('ethers').Provider} */
+      this.DefaultProvider = new ethers.getDefaultProvider(this.network, {
+        etherscan: apiKeys.etherscan,
+        infura: apiKeys.infura,
+        exclusive: [ "etherscan", "infura" ]
+      })
 
-    /** @type {HistorySupportingEtherscanProvider} */
-    this.EtherscanProvider = new HistorySupportingEtherscanProvider(
-      this.network,
-      apiKeys.etherscan
-    )
-    
-    /** @type {import('ethers').InfuraProvider} */
-    this.InfuraProvider = new ethers.InfuraProvider(
-      this.network,
-      apiKeys.infura
-    )
+      /** @type {HistorySupportingEtherscanProvider} */
+      this.EtherscanProvider = new HistorySupportingEtherscanProvider(
+        this.network,
+        apiKeys.etherscan
+      )
+      
+      /** @type {import('ethers').InfuraProvider} */
+      this.InfuraProvider = new ethers.InfuraProvider(
+        this.network,
+        apiKeys.infura
+      )
+    }
   }
 
   initContract = async (contractAddress) => {
@@ -106,8 +113,8 @@ class Web3Interface {
     for (const key in coinsList) {
       if (
         coinsList[key].proto === ERC20 &&
-        ((!!coinsList[key].testnet && this.network === 'goerli') ||
-          (!coinsList[key].testnet && this.network === 'homestead')) &&
+        ((!!coinsList[key].testnet && (this.network === 'goerli' || this.network === 'matic-amoy')) ||
+          (!coinsList[key].testnet && (this.network === 'homestead' || this.network === 'matic'))) &&
         coinsList[key].currency_id.toLowerCase() === contractAddress.toLowerCase()
       ) {
         return {
@@ -121,7 +128,7 @@ class Web3Interface {
     try {
       name = await contract.name();
 
-      if (typeof name !== 'string') throw new Error("Name is not string");
+      if (typeof name !== 'string' || name.trim() === '') throw new Error("Name is not string");
     } catch(e) {
       name = contractAddress;
     }
