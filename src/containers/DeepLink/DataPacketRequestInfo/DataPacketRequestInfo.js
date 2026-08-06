@@ -56,7 +56,16 @@ import { modifyAttestationDataForUser } from '../../../actions/actions/attestati
 import SemiModal from '../../../components/SemiModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import axios from 'axios';
+import {
+  describeSignableObject,
+  extractSignableDescriptors,
+  getSignableObjectTitle,
+} from '../../../utils/deeplink/signableObjects';
 const crypto = require('create-hash');
+
+// Marker mime type used internally once a downloaded packet has been resolved
+// into a list of individually signable objects (e.g. a batch of endorsements).
+const SIGNABLE_OBJECTS_MIME_TYPE = 'application/signable-objects';
 
 // Data packet storage type constant
 const DATA_PACKETS_RECEIVED = "data_packets_received";
@@ -283,8 +292,70 @@ const IdentityPickerSheet = ({
   );
 };
 
+// List of individually signable objects from a downloaded packet. Each row can
+// be toggled, and the selected rows are the ones that get signed.
+const SignableObjectList = ({ objects, selectedIndices, labels, onToggle }) => {
+  if (!objects || objects.length === 0) return null;
+
+  return (
+    <View style={styles.signableList}>
+      {objects.map((object, position) => {
+        const isSelected = selectedIndices.includes(object.index);
+        const title = getSignableObjectTitle(object, labels?.[object.label]);
+
+        return (
+          <TouchableOpacity
+            key={`signable-${object.index}`}
+            style={[
+              styles.signableItem,
+              position > 0 && styles.signableItemBorder,
+              isSelected && styles.signableItemSelected,
+            ]}
+            onPress={onToggle ? () => onToggle(object.index) : undefined}
+            activeOpacity={onToggle ? 0.7 : 1}
+          >
+            <View style={styles.signableItemHeader}>
+              <MaterialCommunityIcons
+                name={
+                  onToggle
+                    ? (isSelected ? 'checkbox-marked' : 'checkbox-blank-outline')
+                    : 'file-document-outline'
+                }
+                size={22}
+                color={onToggle && isSelected ? Colors.verusGreenColor : '#BBB'}
+              />
+              <Text style={styles.signableItemTitle} numberOfLines={2}>
+                {title}
+              </Text>
+            </View>
+
+            {object.fields.length > 0 ? (
+              <View style={styles.signableItemBody}>
+                {object.fields.map(field => (
+                  <View key={field.key} style={styles.signableFieldRow}>
+                    <Text style={styles.signableFieldLabel}>{field.label}</Text>
+                    <Text style={styles.signableFieldValue} numberOfLines={2}>
+                      {field.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.signableItemBody}>
+                <Text style={styles.signableFieldValue} numberOfLines={4}>
+                  {object.text || `${object.mimeType || 'Binary data'} (${object.buffer.length} bytes)`}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+};
+
 // URL Download Modal
-const UrlDownloadModal = ({ 
+const UrlDownloadModal = ({
   visible, 
   url, 
   onClose, 
@@ -301,15 +372,20 @@ const UrlDownloadModal = ({
   onAcceptAttestation,
   onRejectAttestation,
   onDescriptorPress,
+  signableObjects,
+  selectedSignableIndices,
+  signableObjectLabels,
+  onToggleSignableObject,
 }) => {
   const insets = useSafeAreaInsets();
-  
+
   if (!visible) return null;
-  
+
   const isTextContent = contentMimeType?.startsWith('text/');
   const isImageContent = contentMimeType?.startsWith('image/');
   const isAttestation = contentMimeType === 'application/attestation';
-  
+  const isSignableObjects = contentMimeType === SIGNABLE_OBJECTS_MIME_TYPE;
+
   return (
     <Portal>
       <SemiModal
@@ -384,6 +460,22 @@ const UrlDownloadModal = ({
                 </View>
               )}
               
+              {isSignableObjects && (
+                <View style={styles.signablePreviewContainer}>
+                  <MaterialCommunityIcons name="file-document-edit-outline" size={24} color={Colors.primaryColor} />
+                  <Text style={styles.attestationSuccessText}>{downloadedContent}</Text>
+                  <Text style={styles.signablePreviewHint}>
+                    Every selected item is signed separately.
+                  </Text>
+                  <SignableObjectList
+                    objects={signableObjects}
+                    selectedIndices={selectedSignableIndices || []}
+                    labels={signableObjectLabels}
+                    onToggle={onToggleSignableObject}
+                  />
+                </View>
+              )}
+
               {isTextContent && !isAttestation && (
                 <View style={styles.textContentPreview}>
                   <Text style={styles.previewLabel}>Content Preview:</Text>
@@ -511,6 +603,18 @@ const DataPacketRequestInfo = props => {
   const [pendingAttestationSigner, setPendingAttestationSigner] = useState(null);
   const [attestationAccepted, setAttestationAccepted] = useState(false);
 
+  // Individually signable objects parsed out of a downloaded packet. A packet
+  // can hold several (e.g. a batch of endorsements) and the user picks which
+  // ones to sign, so one request can return more than one signature.
+  const [signableObjects, setSignableObjects] = useState([]);
+  const [selectedSignableIndices, setSelectedSignableIndices] = useState([]);
+  const [signableObjectLabels, setSignableObjectLabels] = useState({});
+
+  const selectedSignableObjects = useMemo(
+    () => signableObjects.filter(object => selectedSignableIndices.includes(object.index)),
+    [signableObjects, selectedSignableIndices],
+  );
+
   const insets = useSafeAreaInsets();
 
   const accounts = useObjectSelector(state => state.authentication.accounts);
@@ -629,42 +733,62 @@ const DataPacketRequestInfo = props => {
 
     try {
       setLoading(true);
-      
+
       const { chainId, iAddress } = selectedIdentity;
       const coinObjForSign = CoinDirectory.findCoinObj(chainId, null, true);
       const systemId = coinObjForSign.system_id;
-      
+
       // Get current chain height
       const chainInfo = await getInfo(systemId);
       if (chainInfo.error) throw new Error(chainInfo.error.message);
       const height = chainInfo.result.longestchain;
-      
-      // Hash the entire DataPacketRequestDetails buffer
-      const detailsBuffer = details.toBuffer();
-      const signatureHash = crypto('sha256').update(detailsBuffer).digest();
-      
-      // Create SignatureData object
-      const sigData = new SignatureData({
-        version: new BN(1),
-        systemID: systemId,
-        identityID: iAddress,
-        signatureHash: signatureHash,
-        hashType: new BN(5), // SHA256
-        sigType: new BN(1), // TYPE_VERUSID_DEFAULT
-      });
-      
-      // Get the identity hash for signing
-      const sigHash = sigData.getIdentityHash({ version: 2, hash_type: 5, height });
-      
-      // Sign the hash
-      const signature = await signHash(coinObjForSign, iAddress, sigHash, height);
-      sigData.signatureAsVch = Buffer.from(signature, 'base64');
-      
-      // Create VdxfUniValue with SignatureData
+
+      // Produces one SignatureData over an arbitrary buffer with the selected
+      // identity. Used once per object so a request can carry many signatures.
+      const signBuffer = async (buffer) => {
+        const sigData = new SignatureData({
+          version: new BN(1),
+          systemID: systemId,
+          identityID: iAddress,
+          signatureHash: crypto('sha256').update(buffer).digest(),
+          hashType: new BN(5), // SHA256
+          sigType: new BN(1), // TYPE_VERUSID_DEFAULT
+        });
+
+        // Get the identity hash for signing
+        const sigHash = sigData.getIdentityHash({ version: 2, hash_type: 5, height });
+
+        // Sign the hash
+        const signature = await signHash(coinObjForSign, iAddress, sigHash, height);
+        sigData.signatureAsVch = Buffer.from(signature, 'base64');
+
+        return sigData;
+      };
+
+      // Create VdxfUniValue with the SignatureData for every signed object
       const dataKeyMap = [];
-      dataKeyMap.push({ [VDXF_Data.SignatureDataKey.vdxfid]: sigData });
+
+      if (selectedSignableObjects.length > 0) {
+        // A downloaded packet resolved into individual objects: each one is
+        // signed on its own. The signed bytes are emitted next to their
+        // signature so the requester can match each signature to its object
+        // without reconstructing the downloaded packet byte for byte.
+        for (const signableObject of selectedSignableObjects) {
+          const sigData = await signBuffer(signableObject.buffer);
+
+          dataKeyMap.push({ [VDXF_Data.DataDescriptorKey.vdxfid]: signableObject.descriptor });
+          dataKeyMap.push({ [VDXF_Data.SignatureDataKey.vdxfid]: sigData });
+        }
+      } else {
+        // No individually signable objects - sign the whole
+        // DataPacketRequestDetails buffer.
+        const sigData = await signBuffer(details.toBuffer());
+
+        dataKeyMap.push({ [VDXF_Data.SignatureDataKey.vdxfid]: sigData });
+      }
+
       const signatureUniValue = new VdxfUniValue({ values: dataKeyMap });
-      
+
       // Create nested DataDescriptor with signature
       const nestedDescriptor = DataDescriptor.fromJson({
         version: 1,
@@ -1157,10 +1281,21 @@ const DataPacketRequestInfo = props => {
     setPendingAttestationDescriptors([]);
     setPendingAttestationSigner(null);
     setAttestationAccepted(false);
+    setSignableObjects([]);
+    setSelectedSignableIndices([]);
+    setSignableObjectLabels({});
     setDownloadedContent(null);
     setContentMimeType(null);
     setHashVerified(null);
     setUrlDownloadModalVisible(false);
+  };
+
+  const handleToggleSignableObject = (index) => {
+    setSelectedSignableIndices(current =>
+      current.includes(index)
+        ? current.filter(selected => selected !== index)
+        : [...current, index].sort((a, b) => a - b),
+    );
   };
 
   // Download data from URL and verify hash
@@ -1209,14 +1344,15 @@ const DataPacketRequestInfo = props => {
       // Try to parse as DataDescriptor first
       let downloadedDescriptor = null;
       let attestationData = null;
+      let signableObjectData = null;
       let mimeType = 'text/plain';
       let content = '';
-      
+
       try {
         downloadedDescriptor = new DataDescriptor();
         downloadedDescriptor.fromBuffer(dataBuffer);
         setDownloadedDataDescriptor(downloadedDescriptor);
-        
+
         // Check if this is an attestation (no mimetype and contains UniValue objects).
         // A packet may carry more than one attestation, so this returns an array.
         if (!downloadedDescriptor.mimeType || downloadedDescriptor.mimeType === '') {
@@ -1248,9 +1384,32 @@ const DataPacketRequestInfo = props => {
             attestationData = payloads[0];
           }
         }
-        
-        // If not an attestation, process as regular content
+
+        // Not an attestation, but the packet may still hold a list of nested
+        // descriptors the user is being asked to sign individually - for
+        // example a batch of endorsements. Each one becomes its own signature.
         if (!attestationData) {
+          const nestedDescriptors = extractSignableDescriptors(downloadedDescriptor);
+
+          if (nestedDescriptors.length > 0) {
+            const objects = nestedDescriptors.map(describeSignableObject);
+
+            setSignableObjects(objects);
+            // Everything the sender included is selected by default; the user
+            // can deselect individual objects before signing.
+            setSelectedSignableIndices(objects.map(object => object.index));
+            setSignableObjectLabels(await resolveSignerDefinedKeyLabels());
+
+            mimeType = SIGNABLE_OBJECTS_MIME_TYPE;
+            content = objects.length > 1
+              ? `Review these ${objects.length} items before signing.`
+              : 'Review this item before signing.';
+            signableObjectData = objects;
+          }
+        }
+
+        // If not an attestation or a signable object list, process as regular content
+        if (!attestationData && !signableObjectData) {
           mimeType = downloadedDescriptor.mimeType || 'application/octet-stream';
           
           if (mimeType && mimeType.startsWith('text/')) {
@@ -1325,6 +1484,13 @@ const DataPacketRequestInfo = props => {
 
       if (hasUrlDownload && pendingAttestationData && !attestationAccepted) {
         createAlert('Acceptance Required', 'Please review and accept the attestation before continuing.');
+        return;
+      }
+
+      // A signature is produced per selected object, so at least one has to be
+      // selected for there to be anything to return.
+      if (isForUserSig && signableObjects.length > 0 && selectedSignableObjects.length === 0) {
+        createAlert('Nothing Selected', 'Select at least one item to sign before continuing.');
         return;
       }
 
@@ -1592,6 +1758,19 @@ const DataPacketRequestInfo = props => {
       });
     }
 
+    // One signature is produced per selected downloaded object
+    if (signableObjects.length > 0 && isForUserSignature) {
+      rows.push({
+        key: 'signature-count',
+        title: `${selectedSignableObjects.length} of ${signableObjects.length} selected to sign`,
+        subtitle: selectedSignableObjects.length === 1
+          ? 'One signature will be returned.'
+          : `${selectedSignableObjects.length} signatures will be returned.`,
+        rightIcon: selectedSignableObjects.length > 0 ? 'pen' : 'alert-circle-outline',
+        isError: selectedSignableObjects.length === 0,
+      });
+    }
+
     // Request ID
     if (hasRequestId && details.requestID) {
       const requestIdDisplay = details.requestID.toIAddress ? details.requestID.toIAddress() : 'Unknown';
@@ -1664,7 +1843,7 @@ const DataPacketRequestInfo = props => {
     }
 
     return rows;
-  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, embeddedIsSignatureValid, embeddedSignerFqn, embeddedSignerIdentityID, embeddedChainId, embeddedSigDateString, canOpenEmbeddedSignerModal, urlRef, hashVerified, recipientConstraintIds, recipientId, linkedIds]);
+  }, [details, hasRequestId, hasStatements, hasSignature, isForUserSignature, isForTransmittalToUser, hasUrlForDownload, embeddedIsSignatureValid, embeddedSignerFqn, embeddedSignerIdentityID, embeddedChainId, embeddedSigDateString, canOpenEmbeddedSignerModal, urlRef, hashVerified, recipientConstraintIds, recipientId, linkedIds, signableObjects, selectedSignableObjects]);
 
   // Determine if continue button should be disabled
   const continueDisabled = useMemo(() => {
@@ -1672,9 +1851,10 @@ const DataPacketRequestInfo = props => {
     if (isForUserSignature && !selectedIdentity && signedIn) return true;
     if (hasUrlForDownload && hashVerified !== true && signedIn) return true;
     if (hasUrlForDownload && pendingAttestationData && !attestationAccepted && signedIn) return true;
+    if (isForUserSignature && signableObjects.length > 0 && selectedSignableObjects.length === 0 && signedIn) return true;
     if (isForTransmittalToUser && recipientConstraintIds.size > 0 && !recipientId && signedIn) return true;
     return false;
-  }, [isSigned, embeddedIsSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified, pendingAttestationData, attestationAccepted, isForTransmittalToUser, recipientConstraintIds, recipientId]);
+  }, [isSigned, embeddedIsSignatureValid, isForUserSignature, selectedIdentity, signedIn, hasUrlForDownload, hashVerified, pendingAttestationData, attestationAccepted, isForTransmittalToUser, recipientConstraintIds, recipientId, signableObjects, selectedSignableObjects]);
 
   // Determine hero text based on request type
   const getHeroTitle = () => {
@@ -1685,7 +1865,12 @@ const DataPacketRequestInfo = props => {
   };
 
   const getHeroSubtitle = () => {
-    if (isForUserSignature) return 'Sign the included data';
+    if (isForUserSignature) {
+      if (signableObjects.length > 1) {
+        return `Sign ${selectedSignableObjects.length} of ${signableObjects.length} items`;
+      }
+      return 'Sign the included data';
+    }
     if (isForTransmittalToUser) return 'Review and save data';
     if (hasUrlForDownload) return 'Download and verify data';
     return 'Review data packet';
@@ -1732,6 +1917,10 @@ const DataPacketRequestInfo = props => {
           ? `${pendingAttestations.length} attestations`
           : pendingAttestationData?.label}
         attestationSigner={pendingAttestationSigner}
+        signableObjects={signableObjects}
+        selectedSignableIndices={selectedSignableIndices}
+        signableObjectLabels={signableObjectLabels}
+        onToggleSignableObject={handleToggleSignableObject}
         onAcceptAttestation={handleAcceptDownloadedAttestation}
         onRejectAttestation={handleRejectDownloadedAttestation}
         onDescriptorPress={(descriptor) => {
@@ -1883,6 +2072,35 @@ const DataPacketRequestInfo = props => {
             )}
           </View>
         </View>
+
+        {/* Downloaded objects, each signed separately */}
+        {signableObjects.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderLeft}>
+                <MaterialCommunityIcons name="file-document-edit-outline" size={20} color="#666" />
+                <Text style={styles.sectionTitle}>
+                  {isForUserSignature ? 'Items to sign' : 'Downloaded items'}
+                </Text>
+              </View>
+              <View style={styles.objectCountBadge}>
+                <Text style={styles.objectCountText}>
+                  {isForUserSignature
+                    ? `${selectedSignableObjects.length}/${signableObjects.length}`
+                    : signableObjects.length}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.sectionContent}>
+              <SignableObjectList
+                objects={signableObjects}
+                selectedIndices={selectedSignableIndices}
+                labels={signableObjectLabels}
+                onToggle={isForUserSignature ? handleToggleSignableObject : undefined}
+              />
+            </View>
+          </View>
+        )}
 
         {/* Data Objects Section */}
         {details.signableObjects && details.signableObjects.length > 0 && !hasUrlForDownload && (
@@ -2511,6 +2729,67 @@ const styles = StyleSheet.create({
   },
   rejectDownloadButtonContent: {
     height: 44,
+  },
+  signablePreviewContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    backgroundColor: '#EBF6FF',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 8,
+    gap: 8,
+  },
+  signablePreviewHint: {
+    fontSize: 12,
+    color: '#555',
+    textAlign: 'center',
+  },
+  signableList: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  signableItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  signableItemBorder: {
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+  },
+  signableItemSelected: {
+    backgroundColor: '#F4FBF6',
+  },
+  signableItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  signableItemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  signableItemBody: {
+    marginTop: 8,
+    paddingLeft: 32,
+    gap: 4,
+  },
+  signableFieldRow: {
+    flexDirection: 'column',
+  },
+  signableFieldLabel: {
+    fontSize: 11,
+    color: '#888',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  signableFieldValue: {
+    fontSize: 13,
+    color: '#333',
   },
 });
 

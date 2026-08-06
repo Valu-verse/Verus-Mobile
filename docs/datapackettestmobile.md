@@ -331,3 +331,58 @@ For each row where a flag is set, the corresponding data/constraint from Section
 6. **`FLAG_HAS_URL_FOR_DOWNLOAD`**: download from URL in `signableObjects`; verify hash if present; reject on hash mismatch.
 7. **`FLAG_HAS_SIGNATURE`**: verify the embedded inner signature; display result to user.
 8. Handle **all combinations** — flags are a bitmask and any subset of the six flags can be active simultaneously.
+9. **Multi-object downloads**: a downloaded packet may resolve to several objects that each need their own signature — see Section 10.
+
+---
+
+## 10. Multiple Signatures From One Request
+
+`FLAG_HAS_URL_FOR_DOWNLOAD` + `FLAG_FOR_USERS_SIGNATURE` (flags `0x28`, plus request ID and statements in practice: `0x2B`) does not have to describe a single blob. The URL may resolve to a `DataDescriptor` whose `objectdata` is a `VdxfUniValue` containing **one nested `DataDescriptor` per object the user is asked to sign**. A batch of endorsements is the first use of this shape:
+
+```
+DataDescriptor                       (downloaded from URLRef.url, hash-verified)
+ ├─ label: "ValuVerse Endorsements"
+ └─ objectdata: VdxfUniValue
+      ├─ [DataDescriptorKey] DataDescriptor  mimetype application/json  → endorsement 1
+      ├─ [DataDescriptorKey] DataDescriptor  mimetype application/json  → endorsement 2
+      └─ [DataDescriptorKey] DataDescriptor  mimetype application/json  → endorsement 3
+```
+
+### 10.1 Wallet behaviour
+
+1. Download and hash-verify as described in Section 5.6.
+2. Parse the packet's `objectdata` as a `VdxfUniValue` and collect every nested `DataDescriptor`. If none are found, handle the packet as a single object (existing behaviour).
+3. Render each nested object for review. `application/json` payloads are shown field by field; `text/*` payloads are shown as text. The nested `label` is a VDXF key and is resolved to a friendly name through the signer's `DefinedKey` content where possible.
+4. Let the user select which objects to sign. All are selected by default; continuing with none selected is rejected.
+5. Sign **each selected object independently**: `signatureHash = SHA-256(nestedDescriptor.toBuffer())`, then the usual VerusID identity hash (`version 2`, `hash_type 5`, current height) and `signHash`.
+
+When the packet holds no nested descriptors, the whole `DataPacketRequestDetails` buffer is signed instead, exactly as in Section 5.4.
+
+### 10.2 Response shape
+
+All signatures ride in **one** `DataResponseDetails`, inside a single `VdxfUniValue` as interleaved `[DataDescriptorKey, SignatureDataKey]` pairs. Each signature immediately follows the exact bytes it covers, so the requester can attribute a signature without reconstructing the downloaded packet byte for byte:
+
+```
+GenericResponse
+ ├─ requestID          (echoed from DataPacketRequestDetails.requestID)
+ ├─ signature          (VerifiableSignatureData - outer signature over the whole response)
+ └─ details[]
+      └─ DataResponseOrdinalVDXFObject
+           └─ data: DataResponseDetails
+                ├─ requestid
+                └─ data: DataDescriptor (FLAG_SALT_PRESENT)
+                     └─ objectdata: VdxfUniValue
+                          ├─ [DataDescriptorKey] endorsement 1
+                          ├─ [SignatureDataKey]  signature over SHA-256(endorsement 1 bytes)
+                          ├─ [DataDescriptorKey] endorsement 3
+                          └─ [SignatureDataKey]  signature over SHA-256(endorsement 3 bytes)
+```
+
+Deselected objects are absent from the response entirely. The response is delivered to `GenericRequest.responseURIs` as usual (Section 3.3).
+
+### 10.3 Verification checklist for the requester
+
+- [ ] Pairs appear in the same relative order as the published packet, with deselected objects omitted.
+- [ ] For each pair, `SHA-256(descriptor.toBuffer())` equals the paired `SignatureData.signatureHash`.
+- [ ] Each `SignatureData.identityID` / `systemID` matches the outer response signer.
+- [ ] Each signature verifies against the VerusID identity hash at the height reported by `getsignatureinfo`.
