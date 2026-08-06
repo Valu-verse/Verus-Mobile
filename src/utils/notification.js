@@ -3,6 +3,7 @@ import {
   NOTIFICATION_TYPE_DEEPLINK,
   NOTIFICATION_TYPE_LOADING,
   NOTIFICATION_TYPE_NAVIGATION,
+  NOTIFICATION_TYPE_USDC_BRIDGE,
   NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
 } from './constants/notifications';
 
@@ -142,6 +143,44 @@ export class VerusIdProvisioningNotification extends DeeplinkNotification {
       fqn: this.fqn,
       fromService: this.fromService,
       requestType: this.requestType
+    };
+  }
+}
+
+/**
+ * Shown when the user has an EVM USDC balance that can be bridged to Verus.
+ * Tapping navigates to UsdcBridgeScreen.
+ */
+export class UsdcBridgeNotification extends Notification {
+  constructor(body, title, uid, acchash, usdcCoinId, cryptoBalance) {
+    super(body, title, NOTIFICATION_TYPE_USDC_BRIDGE, uid, acchash);
+    this.usdcCoinId = usdcCoinId;
+    this.cryptoBalance = cryptoBalance;
+  }
+
+  static fromJson(json) {
+    const { body, title, uid, acchash, usdcCoinId, cryptoBalance } = json;
+    return new UsdcBridgeNotification(body, title, uid, acchash, usdcCoinId, cryptoBalance);
+  }
+
+  isActionable() { return true; }
+
+  onAction({ navigation }) {
+    navigation.navigate('UsdcBridgeScreen', {
+      usdcCoinId: this.usdcCoinId,
+      cryptoBalance: this.cryptoBalance,
+    });
+  }
+
+  toJson() {
+    return {
+      body: this.body,
+      title: this.title,
+      type: this.type,
+      uid: this.uid,
+      acchash: this.acchash,
+      usdcCoinId: this.usdcCoinId,
+      cryptoBalance: this.cryptoBalance,
     };
   }
 }

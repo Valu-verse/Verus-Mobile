@@ -17,8 +17,9 @@ import { List, Text } from 'react-native-paper';
 import { formatCurrency } from 'react-native-format-currency';
 import { RenderSquareCoinLogo } from '../../utils/CoinData/Graphics';
 import BigNumber from 'bignumber.js';
+import Colors from '../../globals/colors';
 
-const Row = ({ item, displayCurrency, showBalance, onPress }) => {
+const Row = ({ item, displayCurrency, showBalance, onPress, onBridgePress, onCashoutPress, onOfframpPress }) => {
   const { coinObj, fiat, crypto, rate } = item;
   const cryptoAmount = BigNumber(crypto || 0);
   const hasBalance = cryptoAmount.isGreaterThan(0);
@@ -76,7 +77,39 @@ const Row = ({ item, displayCurrency, showBalance, onPress }) => {
           <Text style={styles.cryptoValue}>
             {showBalance ? `${cryptoFormatted} ${coinObj.display_ticker}` : `*** ${coinObj.display_ticker}`}
           </Text>
-          {showRate ? <Text style={styles.fiatRate}>{rateFormatted}</Text> : null}
+          <View style={styles.descriptionRight}>
+            {showRate ? <Text style={styles.fiatRate}>{rateFormatted}</Text> : null}
+            {onBridgePress && hasBalance && showBalance ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onBridgePress(); }}
+                style={styles.bridgeChip}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={styles.bridgeChipText}>Send to Verus</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onCashoutPress && hasBalance && showBalance ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onCashoutPress(); }}
+                style={styles.cashoutChip}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={styles.cashoutChipText}>Cash Out</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onOfframpPress && hasBalance && showBalance ? (
+              <TouchableOpacity
+                onPress={(e) => { e.stopPropagation?.(); onOfframpPress(); }}
+                style={styles.offrampChip}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              >
+                <Text style={styles.offrampChipText}>Send to Polygon</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       )}
       left={() => (
@@ -105,6 +138,12 @@ const ListView = ({
   showBalance,
   onPressAsset,
   onPressAddAssets,
+  onBridgePress,
+  bridgeableCoinIds,
+  cashoutCoinIds,
+  onCashoutPress,
+  offrampableVerusCoinIds,
+  onOfframpPress,
   listHeaderComponent,
   listFooterComponent,
   refreshing = false,
@@ -136,6 +175,21 @@ const ListView = ({
             onPress={
               onPressAsset
                 ? () => onPressAsset(item.coinObj)
+                : undefined
+            }
+            onBridgePress={
+              bridgeableCoinIds && onBridgePress && bridgeableCoinIds.has(item.coinObj.id)
+                ? () => onBridgePress(item.coinObj, item.crypto)
+                : undefined
+            }
+            onCashoutPress={
+              cashoutCoinIds && onCashoutPress && cashoutCoinIds.has(item.coinObj.id)
+                ? () => onCashoutPress(item.coinObj, item.crypto)
+                : undefined
+            }
+            onOfframpPress={
+              offrampableVerusCoinIds && onOfframpPress && offrampableVerusCoinIds.has(item.coinObj.id)
+                ? () => onOfframpPress(item.coinObj, item.crypto)
                 : undefined
             }
           />
@@ -218,10 +272,48 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 6,
   },
+  descriptionRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   cryptoValue: {
     fontSize: 16,
     fontWeight: '500',
     color: '#666666',
+  },
+  bridgeChip: {
+    backgroundColor: Colors.primaryColor + '18',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  bridgeChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.primaryColor,
+  },
+  cashoutChip: {
+    backgroundColor: '#15803D18',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  cashoutChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  offrampChip: {
+    backgroundColor: '#B4530918',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  offrampChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B45309',
   },
   manageAssetsContainer: {
     flexDirection: 'row',

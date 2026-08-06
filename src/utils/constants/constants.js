@@ -177,6 +177,19 @@ export const TEST_PROFILE_OVERRIDES = {
   ['i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd']: 'iFMqivtShssEpViJbVtqVz53rsXvjqndQn',
 };
 
+// USDC bridge — coin IDs for EVM USDC coins that can be bridged to Verus
+// (homestead ETH networks use raw contract address as coin ID)
+export const USDC_ETH_MAINNET_COIN_ID = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+export const USDC_POLYGON_AMOY_COIN_ID = 'matic-amoy:0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582';
+// Persistent storage key for active conversion ID
+export const USDC_BRIDGE_CONVERSION_ID_KEY = 'usdc_bridge_active_conversion_id';
+
+// Offramp: vUSDC Verus coin IDs (source coins for Part A: vUSDC → EVM)
+export const VUSDC_VETH_MAINNET_COIN_ID = 'i61cV2uicKSi1rSMQCBNQeSYC3UAi9GVzd'; // vUSDC.vETH
+// Persistence keys for offramp flows
+export const OFFRAMP_VERUS_TO_EVM_CONVERSION_ID_KEY = 'offramp_verus_to_evm_conversion_id';
+export const OFFRAMP_EVM_TO_FIAT_REQUEST_ID_KEY = 'offramp_evm_to_fiat_request_id';
+
 // Account data initialization steps
 export const VALIDATING_ACCOUNT = 'validating'
 export const LOADING_ACCOUNT = 'loading'

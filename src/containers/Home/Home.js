@@ -62,6 +62,17 @@ import {
 import { useSelector, useDispatch } from 'react-redux';
 import store from '../../store';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { useUsdcBridgeWatcher } from '../../hooks/useUsdcBridgeWatcher';
+import {
+  USDC_ETH_MAINNET_COIN_ID,
+  USDC_POLYGON_AMOY_COIN_ID,
+  VUSDC_VETH_MAINNET_COIN_ID,
+} from '../../utils/constants/constants';
+
+const USDC_BRIDGEABLE_MAINNET = new Set([USDC_ETH_MAINNET_COIN_ID]);
+const USDC_BRIDGEABLE_TESTNET = new Set([USDC_POLYGON_AMOY_COIN_ID]);
+// Verus-side vUSDC coins that can be offramped to EVM (Part A)
+const VERUS_USDC_OFFRAMPABLE_MAINNET = new Set([VUSDC_VETH_MAINNET_COIN_ID]);
 
 const Home = () => {
   const dispatch = useDispatch();
@@ -96,6 +107,35 @@ const Home = () => {
   const [networkPickerCoins, setNetworkPickerCoins] = useState({ eth: null, matic: null });
 
   const insets = useSafeAreaInsets();
+  useUsdcBridgeWatcher();
+
+  const isTestnetProfile = testnetOverrides && Object.keys(testnetOverrides).length > 0;
+  const bridgeableCoinIds = isTestnetProfile
+    ? USDC_BRIDGEABLE_TESTNET
+    : USDC_BRIDGEABLE_MAINNET;
+  // EVM USDC coins that can be cashed out to fiat (Part B) — same set
+  const cashoutCoinIds = bridgeableCoinIds;
+  // Verus vUSDC coins that can be bridged back to EVM (Part A).
+  // Uses multiple signals because the testnet PBaaS ticker ("vUSDC") differs
+  // from the mainnet one ("vUSDC.vETH"), and mapped_to is the most reliable.
+  const offrampableVerusCoinIds = useMemo(
+    () => new Set(
+      activeCoinsForUser
+        .filter(c => {
+          if (c.proto !== 'vrsc') return false;
+          const ticker = (c.display_ticker ?? '').toUpperCase();
+          return (
+            ticker.includes('VUSDC') ||
+            ticker.includes('VUSDC') ||
+            c.mapped_to === 'USDC' ||
+            c.mapped_to === USDC_POLYGON_AMOY_COIN_ID ||
+            c.mapped_to === USDC_ETH_MAINNET_COIN_ID
+          );
+        })
+        .map(c => c.id),
+    ),
+    [activeCoinsForUser],
+  );
 
   useEffect(() => {
     // Check for specific "Valu Proof of Personhood" attestation
@@ -331,6 +371,31 @@ const Home = () => {
     navigation.navigate('SendWizard');
   };
 
+  const _openUsdcBridge = (coinObj, cryptoBalance) => {
+    navigation.navigate('UsdcBridgeScreen', {
+      usdcCoinId: coinObj.id,
+      cryptoBalance,
+    });
+  };
+
+  const _openCashout = (coinObj, cryptoBalance) => {
+    navigation.navigate('EvmToFiatScreen', {
+      usdcCoinId: coinObj.id,
+      cryptoBalance,
+    });
+  };
+
+  const _openVerusToEvm = (vUsdcCoinObj, cryptoBalance) => {
+    const evmCoinId = isTestnetProfile
+      ? USDC_POLYGON_AMOY_COIN_ID
+      : USDC_ETH_MAINNET_COIN_ID;
+    navigation.navigate('VerusToEvmScreen', {
+      vUsdcCoinId: vUsdcCoinObj.id,
+      evmCoinId,
+      cryptoBalance,
+    });
+  };
+
   return (
     <>
       <HomeRender
@@ -354,6 +419,12 @@ const Home = () => {
         forceUpdate={forceUpdate}
         loading={loading}
         assets={cryptoAssets}
+        bridgeableCoinIds={bridgeableCoinIds}
+        onBridgePress={_openUsdcBridge}
+        cashoutCoinIds={cashoutCoinIds}
+        onCashoutPress={_openCashout}
+        offrampableVerusCoinIds={offrampableVerusCoinIds}
+        onOfframpPress={_openVerusToEvm}
         showBalance={showBalance}
         openCoin={openCoin}
         manageVisible={manageVisible}

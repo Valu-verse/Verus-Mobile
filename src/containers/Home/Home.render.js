@@ -51,6 +51,12 @@ export const HomeRender = ({
   forceUpdate,
   loading,
   assets,
+  bridgeableCoinIds,
+  onBridgePress,
+  cashoutCoinIds,
+  onCashoutPress,
+  offrampableVerusCoinIds,
+  onOfframpPress,
   showBalance,
   openCoin,
   manageVisible,
@@ -173,6 +179,12 @@ export const HomeRender = ({
           assets={assets}
           displayCurrency={displayCurrency}
           showBalance={showBalance}
+          bridgeableCoinIds={bridgeableCoinIds}
+          onBridgePress={onBridgePress}
+          cashoutCoinIds={cashoutCoinIds}
+          onCashoutPress={onCashoutPress}
+          offrampableVerusCoinIds={offrampableVerusCoinIds}
+          onOfframpPress={onOfframpPress}
           onPressAsset={openCoin}
           onPressAddAssets={() => setManageVisible(true)}
           listHeaderComponent={null}

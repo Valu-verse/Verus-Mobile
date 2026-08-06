@@ -430,6 +430,118 @@ class ValuService {
       return this.service.post(`${this.url}/attestation-iap-confirm`, payload);
     });
   }
+
+  // ── USDC → vUSDC onramp ──────────────────────────────────────────────────────
+
+  // Get the active network and USDC contract address for the onramp
+  getUsdcDepositInfo = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/onramp/usdc-to-verus/deposit-info`);
+    });
+  };
+
+  // Register a new USDC → vUSDC conversion; returns conversionId + uniquePaymentAddress
+  initiateUsdcToVerus = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/onramp/initiate-usdc-to-verus`, payload);
+    });
+  };
+
+  // Poll a conversion's status by conversionId
+  getUsdcConversionStatus = async (conversionId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(
+        `${this.url}/onramp/usdc-to-verus/status/${conversionId}`,
+      );
+    });
+  };
+
+  // Returns all PENDING / PROCESSING conversions for the authenticated user
+  getActiveUsdcConversions = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/onramp/usdc-to-verus/active`);
+    });
+  };
+
+  // Returns the last 50 conversions (all statuses) for the authenticated user
+  getUsdcConversionHistory = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/onramp/usdc-to-verus/history`);
+    });
+  };
+
+  // ── Part A: vUSDC → EVM USDC (offramp from Verus) ────────────────────────────
+
+  // Discover the active network and the server's permanent Verus deposit address
+  getVerusToEvmDepositInfo = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/offramp/verus-to-evm/deposit-info`);
+    });
+  };
+
+  // Register a new vUSDC → USDC conversion; returns conversionId + verusDepositAddress
+  initiateVerusToEvmOfframp = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/offramp/verus-to-evm/initiate`, payload);
+    });
+  };
+
+  // Poll conversion status by conversionId
+  getVerusToEvmStatus = async (conversionId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(
+        `${this.url}/offramp/verus-to-evm/status/${conversionId}`,
+      );
+    });
+  };
+
+  // Returns all non-final conversions for crash-recovery
+  getActiveVerusToEvmConversions = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/offramp/verus-to-evm/active`);
+    });
+  };
+
+  // Returns the last 50 conversions (all statuses)
+  getVerusToEvmHistory = async () => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/offramp/verus-to-evm/history`);
+    });
+  };
+
+  // ── Part B: EVM USDC → Fiat (Paybis cashout) ─────────────────────────────────
+
+  // Fetch available cashout options for a given country and USDC amount
+  getEvmToFiatOptions = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/offramp/evm-to-fiat/options`, payload);
+    });
+  };
+
+  // Initiate a Paybis cashout session; returns requestId + widgetUrl
+  initiateEvmToFiat = async (payload) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/offramp/evm-to-fiat/initiate`, payload);
+    });
+  };
+
+  // Poll until the Paybis deposit address + amount are ready
+  getEvmToFiatPaymentDetails = async (requestId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(
+        `${this.url}/offramp/evm-to-fiat/payment-details/${requestId}`,
+      );
+    });
+  };
+
+  // Poll cashout status by requestId
+  getEvmToFiatStatus = async (requestId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(
+        `${this.url}/offramp/evm-to-fiat/status/${requestId}`,
+      );
+    });
+  };
 }
 
 export default ValuService;

@@ -15,10 +15,11 @@ import {
   NOTIFICATION_ICON_VERUSID,
   NOTIFICATION_TYPE_VERUS_ID_PROVISIONING,
   NOTIFICATION_TYPE_LOADING,
+  NOTIFICATION_TYPE_USDC_BRIDGE,
 } from '../../../utils/constants/notifications';
 import {dispatchRemoveNotification} from '../../../actions/actions/notifications/dispatchers/notifications';
 import {useObjectSelector} from '../../../hooks/useObjectSelector';
-import {VerusIdProvisioningNotification} from '../../../utils/notification';
+import {VerusIdProvisioningNotification, UsdcBridgeNotification} from '../../../utils/notification';
 import {processVerusId} from '../../Services/ServiceComponents/VerusIdService/VerusIdLogin';
 // State color configuration
 const STATE_COLORS = {
@@ -62,14 +63,20 @@ const NotificationWidget = () => {
       .filter(([_, value]) => {
         return (
           value.acchash === acchash &&
-          value.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING
+          (value.type === NOTIFICATION_TYPE_VERUS_ID_PROVISIONING ||
+            value.type === NOTIFICATION_TYPE_USDC_BRIDGE)
         );
       })
       .map(([uid, value]) => {
-        const notification = VerusIdProvisioningNotification.fromJson(
-          value,
-          processVerusId,
-        );
+        let notification;
+        if (value.type === NOTIFICATION_TYPE_USDC_BRIDGE) {
+          notification = UsdcBridgeNotification.fromJson(value);
+        } else {
+          notification = VerusIdProvisioningNotification.fromJson(
+            value,
+            processVerusId,
+          );
+        }
         notification.uid = uid;
         notification.iconType = value.icon ?? NOTIFICATION_ICON_VERUSID;
         return notification;
@@ -117,7 +124,7 @@ const NotificationWidget = () => {
 
                 <TouchableOpacity
                   accessibilityRole="button"
-                  onPress={() => notification.onAction({navigation, dispatch})}
+                  onPress={() => notification.onAction({ navigation, dispatch })}
                   style={[
                     styles.ctaButton,
                     {

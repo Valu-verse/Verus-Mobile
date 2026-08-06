@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { closeSendModal } from "../../../../actions/actions/sendModal/dispatchers/sendModal";
 import { explorers } from "../../../../utils/CoinData/CoinData";
 import { openUrl } from "../../../../utils/linking";
@@ -8,9 +8,17 @@ import Colors from "../../../../globals/colors";
 import Styles from "../../../../styles";
 import { copyToClipboard } from "../../../../utils/clipboard/clipboard";
 import AnimatedSuccessCheckmark from "../../../AnimatedSuccessCheckmark";
+import { SEND_MODAL_SEND_COMPLETED } from "../../../../utils/constants/sendModal";
 
 const TraditionalCryptoSendResult = (props) => {
   const [params, setParams] = useState(props.route.params == null ? {} : props.route.params.txResult);
+  const { updateSendFormData } = props;
+
+  // Signal to any external watcher (e.g. UsdcBridgeScreen) that the send completed
+  // successfully and expose the txResult so they can retrieve the txid.
+  useEffect(() => {
+    updateSendFormData(SEND_MODAL_SEND_COMPLETED, params);
+  }, []);
 
   const finishSend = () => {
     closeSendModal();

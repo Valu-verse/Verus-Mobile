@@ -17,7 +17,8 @@ class Web3Interface {
       /** @type {import('ethers').Provider} */
       this.DefaultProvider = new ethers.JsonRpcProvider(rpcUrl);
       this.EtherscanProvider = null;
-      this.InfuraProvider = null;
+      // Alias InfuraProvider so code that references it still works with a custom RPC
+      this.InfuraProvider = this.DefaultProvider;
     } else {
       /** @type {import('ethers').Provider} */
       this.DefaultProvider = new ethers.getDefaultProvider(this.network, {

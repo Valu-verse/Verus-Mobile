@@ -44,6 +44,14 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     this.accountId = null;
   }
 
+  get network() {
+    return Object.keys(
+      Store.getState().authentication.activeAccount.testnetOverrides
+    ).length > 0
+      ? "VRSCTEST"
+      : "VRSC";
+  }
+
   async bearerFromSeed(seed) {
     var ripemd160 = crypto.createHash("ripemd160");
     var sha256 = crypto.createHash("sha256");
@@ -69,8 +77,7 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
     if (authenticated && !reauthenticate)
       return { apiKey: this.apiKey, authenticatedAs: this.accountId };
     
-    const isTestnet = Object.keys(Store.getState().authentication.activeAccount.testnetOverrides).length > 0;
-    const system = isTestnet ? "VRSCTEST" : "VRSC";
+    const system = this.network;
 
     const res = await this.service.submitAuthToken(key, system);
 
@@ -232,5 +239,67 @@ export class ValuApi extends AccountBasedFintechApiTemplate {
   getSumSubURL = () => {
     return `${this.service.url}/verusidloginnewaccount`;
   }
+
+  // ── USDC → vUSDC onramp ──────────────────────────────────────────────────────
+
+  getUsdcDepositInfo = async () => {
+    return await this.service.getUsdcDepositInfo();
+  };
+
+  initiateUsdcToVerus = async (payload) => {
+    return await this.service.initiateUsdcToVerus(payload);
+  };
+
+  getUsdcConversionStatus = async (conversionId) => {
+    return await this.service.getUsdcConversionStatus(conversionId);
+  };
+
+  getActiveUsdcConversions = async () => {
+    return await this.service.getActiveUsdcConversions();
+  };
+
+  getUsdcConversionHistory = async () => {
+    return await this.service.getUsdcConversionHistory();
+  };
+
+  // ── Part A: vUSDC → EVM USDC (offramp from Verus) ────────────────────────────
+
+  getVerusToEvmDepositInfo = async () => {
+    return await this.service.getVerusToEvmDepositInfo();
+  };
+
+  initiateVerusToEvmOfframp = async (payload) => {
+    return await this.service.initiateVerusToEvmOfframp(payload);
+  };
+
+  getVerusToEvmStatus = async (conversionId) => {
+    return await this.service.getVerusToEvmStatus(conversionId);
+  };
+
+  getActiveVerusToEvmConversions = async () => {
+    return await this.service.getActiveVerusToEvmConversions();
+  };
+
+  getVerusToEvmHistory = async () => {
+    return await this.service.getVerusToEvmHistory();
+  };
+
+  // ── Part B: EVM USDC → Fiat (Paybis cashout) ─────────────────────────────────
+
+  getEvmToFiatOptions = async (payload) => {
+    return await this.service.getEvmToFiatOptions(payload);
+  };
+
+  initiateEvmToFiat = async (payload) => {
+    return await this.service.initiateEvmToFiat(payload);
+  };
+
+  getEvmToFiatPaymentDetails = async (requestId) => {
+    return await this.service.getEvmToFiatPaymentDetails(requestId);
+  };
+
+  getEvmToFiatStatus = async (requestId) => {
+    return await this.service.getEvmToFiatStatus(requestId);
+  };
 
 }

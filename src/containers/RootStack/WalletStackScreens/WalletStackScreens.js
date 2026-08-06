@@ -14,6 +14,12 @@ import Service from '../../Services/Service/Service';
 import NotificationScreen from '../../Notifications/NotificationScreen';
 import ProfileStackScreens from '../ProfileStackScreens/ProfileStackScreens';
 import CoinMenus from '../../Coin/CoinMenus';
+import UsdcBridgeScreen from '../../UsdcBridge/UsdcBridgeScreen';
+import UsdcBridgeProgressScreen from '../../UsdcBridge/UsdcBridgeProgressScreen';
+import VerusToEvmScreen from '../../UsdcBridge/VerusToEvmScreen';
+import VerusToEvmProgressScreen from '../../UsdcBridge/VerusToEvmProgressScreen';
+import EvmToFiatScreen from '../../UsdcBridge/EvmToFiatScreen';
+import EvmToFiatProgressScreen from '../../UsdcBridge/EvmToFiatProgressScreen';
 
 const WalletStack = createStackNavigator();
 
@@ -50,6 +56,36 @@ const WalletStackScreens = props => {
           headerBackTitleVisible: false,
           headerBackTitle: '',
         }}
+      />
+      <WalletStack.Screen
+        name="UsdcBridgeScreen"
+        component={UsdcBridgeScreen}
+        options={{ title: 'Bridge USDC to Verus', headerBackTitleVisible: false }}
+      />
+      <WalletStack.Screen
+        name="UsdcBridgeProgressScreen"
+        component={UsdcBridgeProgressScreen}
+        options={{ title: 'Bridge in Progress', headerBackTitleVisible: false }}
+      />
+      <WalletStack.Screen
+        name="VerusToEvmScreen"
+        component={VerusToEvmScreen}
+        options={{ title: 'Bridge vUSDC to Polygon', headerBackTitleVisible: false }}
+      />
+      <WalletStack.Screen
+        name="VerusToEvmProgressScreen"
+        component={VerusToEvmProgressScreen}
+        options={{ title: 'Bridge to Polygon: Progress', headerBackTitleVisible: false }}
+      />
+      <WalletStack.Screen
+        name="EvmToFiatScreen"
+        component={EvmToFiatScreen}
+        options={{ title: 'Cash Out USDC', headerBackTitleVisible: false }}
+      />
+      <WalletStack.Screen
+        name="EvmToFiatProgressScreen"
+        component={EvmToFiatProgressScreen}
+        options={{ title: 'Cashout Progress', headerBackTitleVisible: false }}
       />
     </WalletStack.Navigator>
   );

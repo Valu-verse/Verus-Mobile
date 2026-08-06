@@ -293,7 +293,7 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
     },
     {
       id: WIDGET_USDC,
-      text: "Bridge your USDC\nto Verus",
+      text: "Send USDC\nto Verus",
       action: () => navigation.navigate('SendWizard'),
       background: (
         <Svg width="100%" height="100%">

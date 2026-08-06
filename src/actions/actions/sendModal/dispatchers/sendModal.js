@@ -43,7 +43,8 @@ import {
   SEND_MODAL_SYSTEM_ID,
   SEND_MODAL_ENCRYPTED_IDENTITY_SEED,
   RECOVER_IDENTITY_SEND_MODAL,
-  UPDATE_IDENTITY_SEND_MODAL
+  UPDATE_IDENTITY_SEND_MODAL,
+  SEND_MODAL_LOCK_FIELDS,
 } from '../../../../utils/constants/sendModal';
 import {
   CLOSE_SEND_COIN_MODAL,
@@ -298,6 +299,22 @@ export const openDepositSendModal = (coinObj, subWallet, data) => {
       : data,
     DEPOSIT_SEND_MODAL,
     'Select a bank account and enter an amount to deposit into your wallet.',
+  );
+};
+
+export const openUsdcBridgeSendModal = (coinObj, subWallet, toAddress, amount) => {
+  openSendModal(
+    `Send ${coinObj.display_ticker}`,
+    coinObj,
+    subWallet,
+    {
+      [SEND_MODAL_TO_ADDRESS_FIELD]: toAddress,
+      [SEND_MODAL_AMOUNT_FIELD]: amount,
+      [SEND_MODAL_MEMO_FIELD]: '',
+      [SEND_MODAL_LOCK_FIELDS]: true,
+    },
+    TRADITIONAL_CRYPTO_SEND_MODAL,
+    'Please review your USDC transfer to the bridge address. The recipient address and amount are fixed — confirm to send.',
   );
 };
 
