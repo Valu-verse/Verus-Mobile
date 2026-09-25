@@ -1,19 +1,21 @@
 /*
   GenericRequestComplete
   - 2026-02-05: Redesigned UI to match stepper visual language. SafeAreaView layout
-    with mainTitle header, centered checkmark, context-aware response notice card,
-    single gradient "Complete" button in footer bar. Removed Cancel button (action
-    is already done, skipping response delivery is bad UX). Updated notice copy:
-    redirect shows "You'll be redirected to {host} to finish", POST shows
-    "Your response will be sent to the requester".
+  with mainTitle header, centered checkmark, context-aware response notice card,
+  single gradient "Complete" button in footer bar. Removed Cancel button (action
+  is already done, skipping response delivery is bad UX). Updated notice copy:
+  redirect shows "You'll be redirected to {host} to finish", POST shows
+  "Your response will be sent to the requester".
+  - 2026-03-11: Clarified that the surfaced txid belongs to the identity update transaction .
+  - 2026-04-08: Reintroduced a guarded cancel escape hatch after a POST response URI
+  fails so users can leave the screen after at least one delivery attempt.
 */
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { SafeAreaView, StyleSheet, View, Platform, StatusBar, TouchableOpacity, Clipboard } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Text } from 'react-native-paper';
+import { Platform, SafeAreaView, View, TouchableOpacity, Clipboard } from 'react-native';
+import { Button, Text } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import base64url from 'base64url';
 import axios from 'axios';
 import { URL } from 'react-native-url-polyfill';
@@ -26,19 +28,44 @@ import { openUrl } from '../../../utils/linking';
 import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
 import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { signGenericResponse } from '../../../utils/api/channels/vrpc/callCreators';
+import {
+  GenericRequest,
+  GenericResponse,
+  GENERIC_RESPONSE_DEEPLINK_VDXF_KEY,
+  IDENTITY_UPDATE_RESPONSE_VDXF_KEY,
+  ResponseURI,
+  VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID,
+} from 'verus-typescript-primitives';
 import { verifyGenericResponse } from '../../../utils/api/channels/vrpc/requests/verifyGenericResponse';
-import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import { VERUS_MOBILE_HANDLER_ID } from '../../../utils/constants/deeplink';
-import { GenericRequest, GenericResponse, GENERIC_RESPONSE_DEEPLINK_VDXF_KEY, IDENTITY_UPDATE_RESPONSE_VDXF_KEY, ResponseURI } from 'verus-typescript-primitives';
-import BigNumber from 'bignumber.js';
-import { encryptDataToDescriptor } from '../../../utils/crypto/encryptDataDescriptor';
+import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { genericRequestCompleteStyles as styles } from '../../../styles';
+import { markPendingDeeplinkComplete } from '../../../utils/deeplink/pendingDeeplinkStorage';
+import { prepareGenericResponseForSigning } from '../../../utils/deeplink/genericResponse/prepareGenericResponseForSigning';
+import { encryptGenericResponseDetails } from '../../../utils/deeplink/genericResponse/encryptGenericResponseDetails';
+import {
+  assertNoPlaintextExtendedSpendingKey,
+  assertSecurePostResponseUri,
+} from '../../../utils/deeplink/genericResponse/responseDeliverySecurity';
+import {
+  performAfterAuthenticationExpiryCheck,
+  signAfterAuthenticationExpiryCheck,
+} from '../../../utils/deeplink/validator/authenticationRequestValidator';
 
 const GenericRequestComplete = props => {
   const insets = useSafeAreaInsets();
   const { requestBufferString, responseBufferString } = props.route.params;
+  const insets = useSafeAreaInsets();
+  const bottomNavigationInset = Math.max(
+    insets.bottom,
+    Platform.OS === 'android' ? 24 : 0,
+  );
+  const footerBottomPadding = 16 + bottomNavigationInset;
   const signedIn = useSelector(state => state.authentication.signedIn);
+  const passthrough = useSelector(state => state.deeplink.passthrough);
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
+  const [postFailed, setPostFailed] = useState(false);
   const [txidCopied, setTxidCopied] = useState(false);
   const txidCopyTimeoutRef = useRef(null);
 
@@ -50,6 +77,20 @@ const GenericRequestComplete = props => {
 
     dispatch(resetDeeplinkData());
     props.navigation.dispatch(resetAction);
+  };
+
+  const markSavedPendingRequestComplete = async () => {
+    const pendingRequestId =
+      passthrough?.pendingDeeplinkId ||
+      passthrough?.pendingProvisioningDeeplinkId;
+
+    if (pendingRequestId) {
+      try {
+        await markPendingDeeplinkComplete(pendingRequestId);
+      } catch (e) {
+        console.warn('Unable to mark pending deeplink complete', e);
+      }
+    }
   };
 
   const isPostUri = (uri) => {
@@ -82,17 +123,31 @@ const GenericRequestComplete = props => {
 
     if (responseUri == null) return;
 
-    // Accepts either a GenericResponse object or a pre-serialised Buffer
-    const getBuffer = () =>
-      Buffer.isBuffer(responseOrBuffer)
-        ? responseOrBuffer
-        : responseOrBuffer.toBuffer();
+    assertNoPlaintextExtendedSpendingKey(response);
 
     if (isPostUri(responseUri)) {
-      await axios.post(
+      const responseBuffer = response.toBuffer();
+      const secureResponseUri = assertSecurePostResponseUri(
         responseUri.getUriString(),
-        responseOrBuffer.toJson()
       );
+
+      try {
+        await axios.post(
+          secureResponseUri,
+          responseBuffer,
+          { headers: { 'Content-Type': 'application/octet-stream' } }
+        );
+      } catch (error) {
+        const status = error?.response?.status;
+        const statusSuffix = status != null ? ` (HTTP ${status})` : '';
+        const postError = new Error(
+          `Failed to send the response to the requester${statusSuffix}.`
+        );
+
+        postError.isResponsePostError = true;
+        postError.cause = error;
+        throw postError;
+      }
     } else if (isRedirectUri(responseUri)) {
       const url = new URL(responseUri.getUriString());
       url.searchParams.set(
@@ -105,7 +160,7 @@ const GenericRequestComplete = props => {
   };
 
   const responseNotice = useMemo(() => {
-    if (!requestBufferString) return null;
+    if (!requestBufferString || !responseBufferString) return null;
 
     try {
       const request = new GenericRequest();
@@ -115,7 +170,11 @@ const GenericRequestComplete = props => {
       if (!responseUri) return null;
 
       if (isPostUri(responseUri)) {
-        return "Your response will be sent to the requester";
+        const url = new URL(responseUri.getUriString());
+        const responseLabel = request.hasEncryptResponseToAddress()
+          ? "Your encrypted response"
+          : "Your response";
+        return `${responseLabel} will be sent to ${url.protocol}//${url.host}`;
       }
 
       if (isRedirectUri(responseUri)) {
@@ -127,7 +186,7 @@ const GenericRequestComplete = props => {
     }
 
     return null;
-  }, [requestBufferString]);
+  }, [requestBufferString, responseBufferString]);
 
   const identityUpdateTxid = useMemo(() => {
     if (!responseBufferString) return null;
@@ -172,6 +231,30 @@ const GenericRequestComplete = props => {
     Clipboard.setString(identityUpdateTxid);
   };
 
+  const onCancel = async () => {
+    const shouldCancel = await createAlert(
+      'Cancel response?',
+      'If you cancel now, the response will not be sent back to the requester.',
+      [
+        {
+          text: 'Keep trying',
+          style: 'cancel',
+          onPress: () => resolveAlert(false),
+        },
+        {
+          text: 'Cancel response',
+          style: 'destructive',
+          onPress: () => resolveAlert(true),
+        },
+      ],
+      { cancelable: true }
+    );
+
+    if (shouldCancel) {
+      completeRequest();
+    }
+  };
+
   useEffect(() => {
     return () => {
       if (txidCopyTimeoutRef.current) clearTimeout(txidCopyTimeoutRef.current);
@@ -184,11 +267,13 @@ const GenericRequestComplete = props => {
     return `${value.slice(0, start)}...${value.slice(-end)}`;
   };
 
+  // Keep the redesigned success UI while stamping and verifying the response metadata; integrated by Codex GPT-5 to match the upstream protocol path.
   const onComplete = async () => {
     try {
       setLoading(true);
 
       if (!requestBufferString || !responseBufferString) {
+        await markSavedPendingRequestComplete();
         setLoading(false);
         completeRequest();
         return;
@@ -199,12 +284,15 @@ const GenericRequestComplete = props => {
 
       const response = new GenericResponse();
       response.fromBuffer(Buffer.from(responseBufferString, 'hex'), 0);
-      response.createdAt = new BigNumber((Date.now() / 1000).toFixed(0));
-      response.handledBy = VERUS_MOBILE_HANDLER_ID;
 
-      response.setFlags();
-
+      await encryptGenericResponseDetails({ request, response });
+      prepareGenericResponseForSigning({
+        request,
+        response,
+        handledBy: VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID,
+      });
       if (response.signature == null) {
+        await markSavedPendingRequestComplete();
         setLoading(false);
         completeRequest();
         return;
@@ -214,30 +302,30 @@ const GenericRequestComplete = props => {
       const signerSystemName = getSystemNameFromSystemId(signerSystemID);
       const coinObj = CoinDirectory.getBasicCoinObj(signerSystemName);
 
-      const signedResponse = await signGenericResponse(coinObj, response);
+      const signedResponse = await signAfterAuthenticationExpiryCheck(
+        request,
+        () => signGenericResponse(coinObj, response),
+      );
       const verification = await verifyGenericResponse(coinObj, signedResponse);
 
       if (!verification) {
-        throw new Error(
-          'Response failed verification, ensure the identity you selected is still under your control.',
-        );
+        throw new Error('Response failed verification, ensure the identity you selected is still under your control.');
       }
 
-      // If GenericRequest.FLAG_HAS_ENCRYPT_RESPONSE_TO_ADDRESS (0x100) is set, encrypt the entire
-      // signed GenericResponse to request.encryptResponseToAddress before delivery.
-      if (request.hasEncryptResponseToAddress()) {
-        const { encryptedDescriptor } = await encryptDataToDescriptor(
-          request.encryptResponseToAddress.toAddressString(),
-          signedResponse.toBuffer(),
-        );
-        await handleResponseUri(request, encryptedDescriptor);
-      } else {
-        await handleResponseUri(request, signedResponse);
-      }
+      await performAfterAuthenticationExpiryCheck(
+        request,
+        () => handleResponseUri(request, signedResponse),
+      );
+      await markSavedPendingRequestComplete();
     } catch (e) {
-      createAlert('Error', e.message);
+      if (e?.isResponsePostError) {
+        setPostFailed(true);
+      }
+
+      createAlert('Error', e?.message || 'Failed to complete the request.');
       console.warn(e);
       setLoading(false);
+      return;
     }
 
     completeRequest();
@@ -275,7 +363,7 @@ const GenericRequestComplete = props => {
               accessibilityRole="button"
               accessibilityLabel="Copy transaction ID"
             >
-              <Text style={styles.txidLabel}>Transaction ID</Text>
+              <Text style={styles.txidLabel}>Identity update txid</Text>
               <View style={styles.txidValueRow}>
                 <Text style={styles.txidValue} numberOfLines={1}>
                   {truncate(identityUpdateTxid)}
@@ -303,108 +391,32 @@ const GenericRequestComplete = props => {
         )}
       </View>
 
-      {/* Footer with single Complete button */}
-      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
-        <GradientButton
-          onPress={onComplete}
-          style={styles.completeButton}
-        >
-          Complete
-        </GradientButton>
+      {/* Footer actions */}
+      <View style={[styles.footer, {paddingBottom: footerBottomPadding}]}>
+        {postFailed && (
+          <View style={styles.ctaCol}>
+            <Button
+              mode="outlined"
+              onPress={onCancel}
+              style={styles.secondaryCta}
+              contentStyle={styles.secondaryCtaContent}
+              labelStyle={styles.secondaryCtaLabel}
+            >
+              Cancel
+            </Button>
+          </View>
+        )}
+        <View style={styles.ctaCol}>
+          <GradientButton
+            onPress={onComplete}
+            style={styles.completeButton}
+          >
+            Complete
+          </GradientButton>
+        </View>
       </View>
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: -0.2,
-    color: '#1A1A1A',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  checkmarkContainer: {
-    paddingVertical: 16,
-  },
-  noticeCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 24,
-    width: '100%',
-  },
-  noticeText: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    flex: 1,
-  },
-  txidCard: {
-    width: '100%',
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 16,
-  },
-  txidRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  txidLabel: {
-    fontSize: 14,
-    color: '#888',
-  },
-  txidValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  txidValue: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    maxWidth: 170,
-    textAlign: 'right',
-  },
-  copiedLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryColor,
-    marginLeft: 6,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: '#666',
-  },
-  footer: {
-    backgroundColor: 'white',
-    width: '100%',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  completeButton: {
-    width: '100%',
-  },
-});
 
 export default GenericRequestComplete;

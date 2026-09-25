@@ -4,9 +4,9 @@ apply plugin: "com.facebook.react"
 import com.android.build.OutputFile
 
 def versionMajor = 1
-def versionMinor = 0
-def versionRevision = 31
-def versionBuild = 3
+def versionMinor = 1
+def versionRevision = 0
+def versionBuild = 15
 
 def keystorePropertiesFile = rootProject.file("keystore.properties");
 
@@ -202,6 +202,10 @@ dependencies {
     implementation("com.facebook.react:react-android")
 
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.0.0")
+
+    // VerusBiometricEnrollmentModule binds every vault-key read to its own
+    // BiometricPrompt CryptoObject instead of relying on a time-based auth window.
+    implementation("androidx.biometric:biometric:1.1.0")
 
     implementation 'com.google.mlkit:barcode-scanning:17.2.0'
 

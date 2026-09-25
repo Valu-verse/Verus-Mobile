@@ -16,6 +16,7 @@ import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
 import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 import ValuSocialScreen from '../../ValuSocial/ValuSocialScreen';
 import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
+import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
 
 const MainStack = createStackNavigator();
 
@@ -72,6 +73,56 @@ const MainStackScreens = props => {
           title: 'Receive',
         }}
       />
+
+      <MainStack.Screen
+        name="GeneralWalletSettings"
+        component={GeneralWalletSettings}
+        options={{
+          title: "General",
+        }}
+      />
+
+      <MainStack.Screen
+        name="AddressBlocklist"
+        component={AddressBlocklist}
+        options={{
+          title: "Blocked Addresses",
+        }}
+      />
+
+      <MainStack.Screen
+        name="VrpcOverrides"
+        component={VrpcOverrides}
+        options={{
+          title: "Custom RPC Servers",
+        }}
+      />  
+
+      <MainStack.Screen
+        name="NfcBackup"
+        component={NfcBackup}
+        options={{
+          title: "NFC Backup",
+          headerRight: () => null,
+        }}
+      />
+
+      <MainStack.Screen
+        name="CoinSettings"
+        component={CoinSettings}
+        options={({ route }) => ({
+          title: route.params != null ? route.params.title : null,
+        })}
+      />
+
+      <MainStack.Screen
+        name="DeleteProfile"
+        component={DeleteProfile}
+        options={{
+          title: "Delete",
+        }}
+      />
+
       <MainStack.Screen
         name="SecureLoading"
         component={SecureLoading}

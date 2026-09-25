@@ -1270,7 +1270,7 @@
 
 "@bitgo/utxo-lib@git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus":
   version "1.9.6"
-  resolved "git+https://github.com/VerusCoin/BitGoJS.git#3004befaed8ab8bc37bc2704cbd8d2c9742ac329"
+  resolved "git+https://github.com/VerusCoin/BitGoJS.git#1051d8eedf42573403532e51c4bc2846e7caaba9"
   dependencies:
     "@bitgo/blake2b" "3.0.1"
     "@noble/curves" "1.9.7"
@@ -9596,6 +9596,10 @@ react-native-modal@^9.0.0:
     prop-types "^15.6.2"
     react-native-animatable "^1.2.4"
 
+"react-native-nfc-manager@git+https://github.com/VerusCoin/react-native-nfc-manager.git#63ad94f236a945e382190bf71206675eb6cb455c":
+  version "3.17.2"
+  resolved "git+https://github.com/VerusCoin/react-native-nfc-manager.git#63ad94f236a945e382190bf71206675eb6cb455c"
+
 "react-native-os@git+https://github.com/VerusCoin/react-native-os.git#1f79a5ae777ff296bd4911e2eb37e1de6f711d12":
   version "1.2.7"
   resolved "git+https://github.com/VerusCoin/react-native-os.git#1f79a5ae777ff296bd4911e2eb37e1de6f711d12"
@@ -9730,9 +9734,9 @@ react-native-url-polyfill@1.3.0:
     prop-types "^15.7.2"
     yargs "^16.1.1"
 
-"react-native-verus@https://github.com/VerusCoin/react-native-verus.git":
+"react-native-verus@git+https://github.com/VerusCoin/react-native-verus.git":
   version "0.6.10"
-  resolved "https://github.com/VerusCoin/react-native-verus.git#ac3efa1616c27c04551a1d6d0033dc304d65e394"
+  resolved "git+https://github.com/VerusCoin/react-native-verus.git#bf6e877774887bff6b1d93ac8cf234af5e17bf05"
   dependencies:
     biggystring "4.2.3"
     rfc4648 "1.5.4"
@@ -11532,7 +11536,7 @@ version_compare@0.0.3:
 
 "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git", "verus-typescript-primitives@git+https://github.com/VerusCoin/verus-typescript-primitives.git#27e6c076def4416c20a568e31e4c406b10612807":
   version "1.0.0"
-  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#27e6c076def4416c20a568e31e4c406b10612807"
+  resolved "git+https://github.com/VerusCoin/verus-typescript-primitives.git#72d477b836538d6c734162b2c069538122263f3b"
   dependencies:
     base64url "3.0.1"
     bech32 "2.0.0"
@@ -11551,7 +11555,8 @@ version_compare@0.0.3:
 
 "verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client", "verusd-rpc-ts-client@git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#fff4dd8bd94432cd050ec41c5535a1f0233e5178":
   version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#fff4dd8bd94432cd050ec41c5535a1f0233e5178"
+  uid fee3d2b217c2b3b9f63da4527bb852e1cbc5edf2
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client#fee3d2b217c2b3b9f63da4527bb852e1cbc5edf2"
   dependencies:
     axios "1.13.5"
     blake2b "https://github.com/VerusCoin/blake2b"
@@ -11559,7 +11564,15 @@ version_compare@0.0.3:
 
 "verusid-ts-client@git+https://github.com/VerusCoin/verusid-ts-client.git#cc125b540224bcc29a3eae763c1057389df77534":
   version "0.1.0"
-  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#cc125b540224bcc29a3eae763c1057389df77534"
+  resolved "git+https://github.com/VerusCoin/verusd-rpc-ts-client.git#fee3d2b217c2b3b9f63da4527bb852e1cbc5edf2"
+  dependencies:
+    axios "1.13.5"
+    blake2b "https://github.com/VerusCoin/blake2b"
+    verus-typescript-primitives "git+https://github.com/VerusCoin/verus-typescript-primitives.git"
+
+"verusid-ts-client@git+https://github.com/VerusCoin/verusid-ts-client.git":
+  version "0.1.0"
+  resolved "git+https://github.com/VerusCoin/verusid-ts-client.git#e13438fe4b79536b754649f62342b7c0b1123380"
   dependencies:
     "@bitgo/utxo-lib" "git+https://github.com/VerusCoin/BitGoJS.git#utxo-lib-verus"
     axios "1.13.5"

@@ -17,7 +17,8 @@ import {
   API_GET_BALANCES,
   API_GET_FIATPRICE,
   API_GET_INFO,
-  API_GET_ADDRESSES,
+  DLIGHT_PRIVATE,
+  ERC20,
 } from '../../utils/constants/intervalConstants';
 import Colors from '../../globals/colors';
 import BigNumber from 'bignumber.js';
@@ -215,56 +216,56 @@ const DynamicHeader = () => {
 
   // Keep the current card stable when walletItems re-sorts due to balance updates
   useEffect(() => {
-    if (!walletItems.length) return;
-    const targetId = activeWalletIdRef.current;
-    if (!targetId) {
-      activeWalletIdRef.current = walletItems[0].id;
-      return;
+    setLoadingCarouselItems(true);
+    const items = prepareCarouselItems(allSubWallets, selectedSubWallet);
+    setCarouselItems(items);
+    setLoadingCarouselItems(false);
+  }, [allSubWallets, selectedSubWallet, prepareCarouselItems]);
+
+  const setSubWallet = (wallet) => {
+    dispatch(setCoinSubWallet(chainTicker, wallet));
+
+    const items = prepareCarouselItems(allSubWallets, wallet);
+    setCarouselItems(items);
+  };
+
+  const calculateSyncProgress = (subWallet) => {
+    if (info == null || info[subWallet.id] == null) {
+      return null;
+    } else {
+      return info[subWallet.id].percent;
     }
+  };
 
-    const nextIndex = walletItems.findIndex((w) => w.id === targetId);
-    if (nextIndex !== -1 && nextIndex !== activeIndex) {
-      setActiveIndex(nextIndex);
-      setTimeout(() => {
-        flatListRef.current?.scrollToIndex({ index: nextIndex, animated: false });
-      }, 50);
+  const handleItemPress = (index) => {
+    if (selectedSubWallet != null && index !== 0) {
+      setSubWallet(carouselItems[index]);
     }
-  }, [walletItems]);
+  };
 
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-    };
-  }, []);
+  const handleLeftSwipe = () => {
+    if (selectedSubWallet != null && carouselItems.length > 1) {
+      const currentIndex = carouselItems.findIndex(
+        (x) => x.id === selectedSubWallet.id,
+      );
+      const index =
+        currentIndex === carouselItems.length - 1 ? 0 : currentIndex + 1;
 
-  const getWalletFiatDisplay = useCallback((wallet, confirmedBalance) => {
-    if (!wallet || confirmedBalance == null) return null;
-    const fiatChannel = wallet.api_channels?.[API_GET_FIATPRICE];
-    const ratesForChannel = fiatChannel != null ? rates[fiatChannel]?.[chainTicker] : null;
-    const rate = ratesForChannel?.[displayCurrency];
-    if (rate == null) return null;
-    const fiatValue = BigNumber(confirmedBalance).multipliedBy(BigNumber(rate));
-    const [formatted] = formatCurrency({ amount: fiatValue.toFixed(2), code: displayCurrency });
-    return formatted;
-  }, [rates, chainTicker, displayCurrency]);
+      setSubWallet(carouselItems[index]);
+    }
+  };
 
-  const handleScrollEnd = useCallback(
-    (event) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const newIndex = Math.round(offsetX / (CARD_WIDTH + CARD_SPACING));
-      const clampedIndex = Math.max(0, Math.min(newIndex, walletItems.length - 1));
-      
-      if (clampedIndex !== activeIndex) {
-        setActiveIndex(clampedIndex);
-        const wallet = walletItems[clampedIndex];
-        if (wallet) {
-          activeWalletIdRef.current = wallet.id;
-          dispatch(setCoinSubWallet(chainTicker, wallet));
-        }
-      }
-    },
-    [activeIndex, walletItems, chainTicker, dispatch],
-  );
+  const handleRightSwipe = () => {
+    if (selectedSubWallet != null && carouselItems.length > 1) {
+      const currentIndex = carouselItems.findIndex(
+        (x) => x.id === selectedSubWallet.id,
+      );
+      const index =
+        currentIndex === 0 ? carouselItems.length - 1 : currentIndex - 1;
+
+      setSubWallet(carouselItems[index]);
+    }
+  };
 
   const handleCopyAddress = useCallback((walletId, value) => {
     if (!value) return;
@@ -277,119 +278,319 @@ const DynamicHeader = () => {
     }, 2000);
   }, []);
 
-  const getDisplayAddress = useCallback((wallet) => {
-    if (!wallet) return '-';
-    const isVerusId = wallet.name && wallet.name.endsWith('@');
-    if (isVerusId) return wallet.name;
+  const openTokenAddressExplorer = (address, testnet) => {
+    const baseUrl = testnet
+      ? 'https://goerli.etherscan.io/token/'
+      : 'https://etherscan.io/token/';
 
-    const addressChannel = wallet.api_channels?.[API_GET_ADDRESSES];
+    return createAlert(
+      'Go to explorer?',
+      `Would you like to go to ${baseUrl} to see more information about ${address}?`,
+      [
+        {
+          text: 'No',
+          onPress: async () => {
+            resolveAlert(false);
+          },
+        },
+        {
+          text: 'Yes',
+          onPress: () => {
+            openUrl(baseUrl + '/' + address);
+            resolveAlert(false);
+          },
+        },
+      ],
+    );
+  };
+
+  const renderCarouselItem = ({ item, index, alone }) => {
+    const displayBalance =
+      balances[item.id] != null ? balances[item.id].confirmed : null;
+
+    const pendingBalance =
+      balances[item.id] != null ? balances[item.id].pending : null;
+
+    let fiatBalance = null;
+    const ratesForChannel =
+      rates[item.api_channels[API_GET_FIATPRICE]] != null
+        ? rates[item.api_channels[API_GET_FIATPRICE]][chainTicker]
+        : null;
+
     if (
-      addressChannel &&
-      activeAccount &&
-      activeAccount.keys?.[chainTicker]?.[addressChannel]?.addresses?.length > 0
+      displayBalance != null &&
+      ratesForChannel != null &&
+      ratesForChannel[displayCurrency] != null
     ) {
-      return activeAccount.keys[chainTicker][addressChannel].addresses[0];
+      const price = BigNumber(ratesForChannel[displayCurrency]);
+
+      fiatBalance = BigNumber(displayBalance).multipliedBy(price).toFixed(2);
     }
 
-    return wallet.name || '-';
-  }, [activeAccount, chainTicker]);
+    const syncProgress = calculateSyncProgress(item);
+    const shouldShowSyncProgress =
+      item.api_channels[API_GET_INFO] === DLIGHT_PRIVATE &&
+      typeof syncProgress === 'number' &&
+      syncProgress !== 100 &&
+      syncProgress !== -1;
+    const subtitleText = shouldShowSyncProgress
+      ? `Syncing - ${syncProgress.toFixed(2)}%`
+      : `${
+          fiatBalance == null
+            ? '-'
+            : formatCurrency({
+                amount: fiatBalance,
+                code: displayCurrency,
+              })[0]
+        }`;
 
-  const renderWalletCard = useCallback(
-    ({ item, index }) => {
-      const isCopied = copiedWalletId === item.id;
-      
-      const displayAddress = getDisplayAddress(item);
-      const displayAddressShort = truncateMiddle(displayAddress, 8, 8);
-
-      const networkTicker = getNetworkTicker(item.network);
-
-      // Use unique IDs per card to avoid any SVG def collisions across the carousel
-      const safeId = String(item.id || index).replace(/[^a-zA-Z0-9_-]/g, '');
-      const gradId = `cardGrad_${safeId}`;
-      const highlightId = `cardHighlight_${safeId}`;
-
-      const walletBalance = balances?.[item.id]?.confirmed;
-      const walletPending = balances?.[item.id]?.pending;
-      const walletHasError = balanceErrors?.[item.id];
-      const walletSync = info?.[item.id]?.percent;
-
-      const amountText = !showBalance
-        ? '*****'
-        : walletHasError
-          ? CONNECTION_ERROR
-          : walletBalance == null
-            ? '—'
-            : truncateDecimal(walletBalance, 8);
-
-      const fiatText = !showBalance
-        ? '***'
-        : walletHasError
-          ? null
-          : getWalletFiatDisplay(item, walletBalance);
-
-      const pendingText =
-        showBalance &&
-        walletPending != null &&
-        !BigNumber(walletPending).isEqualTo(0)
-          ? `${BigNumber(walletPending).isGreaterThan(0) ? '+' : ''}${truncateDecimal(walletPending, 8)} pending`
-          : null;
-
-      const syncText =
-        walletSync != null && walletSync !== 100 && walletSync !== -1
-          ? `Syncing ${Number(walletSync).toFixed(0)}%`
-          : null;
-
-      const statusLine =
-        pendingText && syncText ? `${pendingText} • ${syncText}` : (pendingText || syncText);
-
-      return (
-        <View style={[styles.walletCard, { width: CARD_WIDTH }]}>
-          <Svg
-            width={CARD_WIDTH}
-            height={CARD_HEIGHT}
-            viewBox={`0 0 ${CARD_WIDTH} ${CARD_HEIGHT}`}
-            style={styles.cardBackground}
-            pointerEvents="none"
+    return (
+      <Animated.View
+        style={{
+          opacity: fadeAnimation,
+          width:
+            index == 0 ? (3 * DEVICE_WINDOW_WIDTH) / 4 : DEVICE_WINDOW_WIDTH / 4,
+          overflow: 'hidden',
+          marginRight: index == 0 && !alone ? 16 : 0,
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+        }}
+      >
+        {index == 0 && !alone && (
+          <Button
+            icon="format-list-bulleted"
+            mode="text"
+            onPress={() => setSubWallet(null)}
+            uppercase={false}
           >
-            <Defs>
-              <LinearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={cardTheme.top} />
-                <Stop offset="0.6" stopColor={cardTheme.mid} />
-                <Stop offset="1" stopColor={cardTheme.bottom} />
-              </LinearGradient>
-              <RadialGradient id={highlightId} cx="0.9" cy="0.15" r="1">
-                <Stop offset="0" stopColor={cardTheme.highlight} stopOpacity="0.35" />
-                <Stop offset="1" stopColor={cardTheme.highlight} stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Rect x="0" y="0" width={CARD_WIDTH} height={CARD_HEIGHT} fill={`url(#${gradId})`} />
-            <Rect x="0" y="0" width={CARD_WIDTH} height={CARD_HEIGHT} fill={`url(#${highlightId})`} />
-          </Svg>
-
-          {/* Subtle network watermark */}
-          {networkTicker ? (
-            <View style={styles.networkWatermark} pointerEvents="none">
-              <Text style={styles.networkWatermarkText} numberOfLines={1}>
-                {networkTicker}
-              </Text>
-              <MaterialCommunityIcons
-                name="link-variant"
-                size={22}
-                color="rgba(255,255,255,0.22)"
-                style={{ marginLeft: 8, marginTop: 2 }}
+            List all cards
+          </Button>
+        )}
+        <Card
+          style={{
+            height: 156,
+            borderRadius: 10,
+            minWidth: (3 * DEVICE_WINDOW_WIDTH) / 4,
+            position: 'relative',
+            overflow: 'hidden',
+            backgroundColor: item.color,
+            opacity: index == 0 ? 1 : 0.3,
+          }}
+          onPress={() => handleItemPress(index)}
+        >
+          <Card.Content
+            style={{
+              display: 'flex',
+              height: '100%',
+              justifyContent: 'space-between',
+            }}
+          >
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center' }}
+              disabled={index != 0}
+              onPress={openReceiveTab}
+            >
+              <View
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: Colors.secondaryColor,
+                  padding: 8,
+                  height: 36,
+                  borderRadius: 8,
+                  flex: 1,
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 'bold',
+                    color: Colors.quaternaryColor,
+                  }}
+                >
+                  {item.name}
+                </Text>
+              </View>
+              <IconButton
+                icon="arrow-down"
+                iconColor={Colors.secondaryColor}
+                style={{
+                  marginRight: 0,
+                }}
               />
-            </View>
-          ) : null}
+            </TouchableOpacity>
+            {!showBalance ? (
+              <Paragraph
+                style={{
+                  fontSize: 18,
+                  marginBottom: 24,
+                  color: Colors.secondaryColor,
+                }}
+                numberOfLines={2}
+              >
+                *********
+              </Paragraph>
+            ) : (
+              <View>
+                <View style={{ flexDirection: 'row' }}>
+                  <Paragraph
+                    style={{
+                      fontSize: 16,
+                      color: Colors.secondaryColor,
+                      fontWeight: balanceErrors[item.id] ? 'normal' : 'bold',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {balanceErrors[item.id]
+                      ? CONNECTION_ERROR
+                      : `${
+                          displayBalance == null
+                            ? '-'
+                            : truncateDecimal(displayBalance, 8)
+                        }${
+                          pendingBalance != null &&
+                          !BigNumber(pendingBalance).isEqualTo(0)
+                            ? ` (${
+                                BigNumber(pendingBalance).isGreaterThan(0)
+                                  ? '+'
+                                  : ''
+                              }${truncateDecimal(pendingBalance, 4)})`
+                            : ''
+                        }`}
+                  </Paragraph>
+                  <Paragraph
+                    style={{
+                      fontSize: 16,
+                      color: Colors.secondaryColor,
+                      alignSelf: 'center',
+                    }}
+                    numberOfLines={1}
+                  >
+                    {balanceErrors[item.id] ? '' : ` ${displayTicker}`}
+                  </Paragraph>
+                </View>
+                <Paragraph
+                  style={{
+                    ...Styles.listItemSubtitleDefault,
+                    fontSize: 12,
+                    color: Colors.secondaryColor,
+                    marginTop: 0,
+                  }}
+                >
+                  {subtitleText}
+                </Paragraph>
+              </View>
+            )}
+            {item.network && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  paddingTop: 4,
+                }}
+              >
+                <View
+                  style={{
+                    borderRadius: 36,
+                    borderColor: Colors.secondaryColor,
+                    borderWidth: 1,
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: 'white',
+                      fontSize: 12,
+                      fontWeight: 'bold',
+                    }}
+                  >{`${getNetworkName(item)}`}</Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: 'white',
+                      fontSize: 12,
+                      alignSelf: 'center',
+                    }}
+                  >{` Network`}</Text>
+                </View>
+              </View>
+            )}
+          </Card.Content>
+        </Card>
+      </Animated.View>
+    );
+  };
 
-          {/* Amount */}
-          <View style={styles.amountSection}>
-            <View style={styles.amountRow}>
-              <Text style={[styles.amountText, { color: cardTheme.text }]} numberOfLines={1}>
-                {amountText}
-              </Text>
-              {!walletHasError && (
-                <Text style={[styles.tickerText, { color: cardTheme.mutedText }]} numberOfLines={1}>
-                  {` ${displayTicker}`}
+  const mappedToEth =
+    activeCoin.mapped_to != null &&
+    mappedCoinObj != null &&
+    (mappedCoinObj.currency_id.toLowerCase() ===
+      VERUS_BRIDGE_DELEGATOR_GOERLI_CONTRACT.toLowerCase() ||
+      mappedCoinObj.currency_id.toLowerCase() ===
+        VERUS_BRIDGE_DELEGATOR_MAINNET_CONTRACT.toLowerCase());
+
+  return (
+    <GestureDetector
+      gesture={Gesture.Fling()
+        .direction(Directions.LEFT)
+        .onEnd(handleLeftSwipe)}
+    >
+      <GestureDetector
+        gesture={Gesture.Fling()
+          .direction(Directions.RIGHT)
+          .onEnd(handleRightSwipe)}
+      >
+        <View
+          style={{
+            maxHeight: 296,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            backgroundColor: Colors.secondaryColor,
+          }}
+        >
+          <View
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+            }}
+          >
+            {showBalance ? (
+              <View style={{ flexDirection: 'row' }}>
+                <Text style={{ fontSize: 18 }}>{'Total: '}</Text>
+                <Text style={{ fontWeight: '500', fontSize: 18 }}>{`${truncateDecimal(
+                  confirmedBalance,
+                  8,
+                )} ${displayTicker}`}</Text>
+              </View>
+            ) : (
+              <Text style={{ fontWeight: '500', fontSize: 18 }}>******</Text>
+            )}
+            {!pendingBalance.isEqualTo(0) && (
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: '300',
+                  color: Colors.quaternaryColor,
+                  paddingTop: 4,
+                }}
+              >
+                <Text style={{ color: Colors.quaternaryColor }}>
+                  {pendingBalance.isGreaterThan(0) ? '+' : ''}
+                </Text>
+                <Text
+                  style={{ fontWeight: '500', color: Colors.quaternaryColor }}
+                >
+                  {truncateDecimal(pendingBalance, 8)}
                 </Text>
               )}
             </View>

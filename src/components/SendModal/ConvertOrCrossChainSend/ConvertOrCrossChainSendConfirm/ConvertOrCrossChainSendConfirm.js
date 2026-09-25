@@ -32,6 +32,7 @@ import {CoinDirectory} from '../../../../utils/CoinData/CoinDirectory';
 import { sendConvertOrCrossChain } from '../../../../utils/api/routers/sendConvertOrCrossChain';
 import { useObjectSelector } from '../../../../hooks/useObjectSelector';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import AnimatedActivityIndicatorBox from '../../../AnimatedActivityIndicatorBox';
 
 function ConvertOrCrossChainSendConfirm({
   navigation,
@@ -58,6 +59,9 @@ function ConvertOrCrossChainSendConfirm({
   const [params, setParams] = useState(route.params.preflight);
   const [confirmationFields, setConfirmationFields] = useState([]);
   const [closedAccordions, setClosedAccordions] = useState({});
+  const [broadcastStatusUnknown, setBroadcastStatusUnknown] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
   const dispatch = useDispatch();
   const balances = route.params.balances;
   const scrollRef = useRef();
@@ -234,6 +238,16 @@ function ConvertOrCrossChainSendConfirm({
 
     setConfirmationFields([
       {
+        key: 'Currency burn',
+        data: `${satsToCoins(
+          BigNumber(satoshis),
+        ).toString()} ${tryRenderFriendlyName(
+          currency,
+        )} will be removed from circulation, reducing the currency's total supply. This burn is the payment; the burn output address does not receive the amount, and the transaction cannot be reversed.`,
+        numLines: 100,
+        condition: burn === true,
+      },
+      {
         key: 'Source',
         data: source,
         numLines: 100,
@@ -244,7 +258,7 @@ function ConvertOrCrossChainSendConfirm({
           }),
       },
       {
-        key: 'Destination',
+        key: burn === true ? 'Burn output address' : 'Destination',
         data: toAddress,
         numLines: 100,
         onPress: () =>
@@ -303,7 +317,7 @@ function ConvertOrCrossChainSendConfirm({
                 ? '2-10 minutes'
                 : '1-5 minutes',
         numLines: 100,
-        condition: preconvert != true
+        condition: preconvert != true && burn !== true
       },
       {
         key: 'Preconvert',
@@ -337,8 +351,10 @@ function ConvertOrCrossChainSendConfirm({
         condition: exportto != null && exportto.length > 0,
       },
       createAccordion(
-        'Currency to send',
-        'The currencies that are being sent as part of this transaction',
+        burn === true ? 'Currency to burn' : 'Currency to send',
+        burn === true
+          ? 'The currency removed from circulation by this payment'
+          : 'The currencies that are being sent as part of this transaction',
         props => <List.Icon {...props} icon="folder" />,
         sent,
       ),
@@ -361,7 +377,9 @@ function ConvertOrCrossChainSendConfirm({
       },
       createAccordion(
         'Remaining Balances',
-        "Your currency remaining in the address you're sending from after subtracting currency sent and fees (only affected balances shown)",
+        burn === true
+          ? "Your currency remaining after subtracting the amount burned and transaction fees (only affected balances shown)"
+          : "Your currency remaining in the address you're sending from after subtracting currency sent and fees (only affected balances shown)",
         props => <List.Icon {...props} icon="folder" />,
         remainingBalances,
         true,
@@ -370,7 +388,7 @@ function ConvertOrCrossChainSendConfirm({
 
     setLoading(false);
     setTimeout(() => {
-      scrollRef.current.flashScrollIndicators();
+      scrollRef.current?.flashScrollIndicators();
     }, 500);
   }, []);
 
@@ -387,7 +405,10 @@ function ConvertOrCrossChainSendConfirm({
   };
 
   const submitData = async () => {
-    await setLoading(true);
+    if (submissionInFlight.current || broadcastStatusUnknown) return;
+    submissionInFlight.current = true;
+
+    setSubmitting(true);
     await setPreventExit(true);
 
     const {output, validation, hex, names, deltas, source, inputs} = params;
@@ -413,15 +434,21 @@ function ConvertOrCrossChainSendConfirm({
           destination: toAddress,
         });
     } catch (e) {
-      Alert.alert('Error', e.message);
+      if (e.ambiguousBroadcast === true) {
+        setBroadcastStatusUnknown(true);
+        Alert.alert('Broadcast status unknown', e.message);
+      } else {
+        Alert.alert('Error', e.message);
+      }
+    } finally {
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_TRANSACTIONS));
+      dispatch(expireCoinData(sendModal.coinObj.id, API_GET_BALANCES));
+
+      await setPreventExit(false);
+      setSubmitting(false);
+      submissionInFlight.current = false;
     }
-
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_FIATPRICE));
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_TRANSACTIONS));
-    dispatch(expireCoinData(sendModal.coinObj.id, API_GET_BALANCES));
-
-    setPreventExit(false);
-    setLoading(false);
   };
 
   const renderItem = (item, index, divide = true) => {
@@ -462,6 +489,8 @@ function ConvertOrCrossChainSendConfirm({
       </React.Fragment>
     );
   };
+
+  if (submitting) return <AnimatedActivityIndicatorBox />;
 
   return (
     <View style={{flex: 1, backgroundColor: Colors.secondaryColor}}>
@@ -519,8 +548,9 @@ function ConvertOrCrossChainSendConfirm({
           labelStyle={{color: Colors.secondaryColor}}
           style={{width: 148}}
           onPress={submitData}
+          disabled={broadcastStatusUnknown}
           mode="contained">
-          Send
+          {broadcastStatusUnknown ? 'Status unknown' : params.output.burn === true ? 'Burn' : 'Send'}
         </Button>
       </View>
     </View>

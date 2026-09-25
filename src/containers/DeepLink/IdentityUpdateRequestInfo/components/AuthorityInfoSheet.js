@@ -3,11 +3,13 @@
   - 2026-02-07: Created. SemiModal that explains what revocation and recovery
     authorities are. Triggered by the info icon on the HighRiskStep authority
     outcome card.
+  - 2026-03-11: Clarified that recovery authority changes can hand over identity control .
 */
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import SemiModal from '../../../../components/SemiModal';
 import GradientButton from '../../../../components/GradientButton';
+import { authorityInfoSheetStyles as styles } from '../../../../styles';
 
 const CONTENT = {
   revocation: {
@@ -20,14 +22,14 @@ const CONTENT = {
   recovery: {
     title: 'What is a recovery authority?',
     paragraphs: [
-      'The recovery authority is an identity that can recover this VerusID if it is revoked or compromised. It can restore access and update the primary addresses.',
-      'Changing the recovery authority means a different identity will have the power to recover this ID.',
+      'The recovery authority is an identity that can recover this VerusID if it is revoked or compromised. It can restore access and change the identity owner.',
+      'Changing the recovery authority means a different identity can recover this ID and potentially hand over control to a new owner.',
     ],
   },
   both: {
     title: 'Authority changes',
     paragraphs: [
-      'The revocation authority can revoke (lock) this VerusID. The recovery authority can recover it if revoked or compromised, restoring access and updating primary addresses.',
+      'The revocation authority can revoke (lock) this VerusID. The recovery authority can recover it if revoked or compromised, restoring access and changing the identity owner.',
       'Both authorities are being changed, meaning different identities will have these powers after this update.',
     ],
   },
@@ -57,27 +59,5 @@ const AuthorityInfoSheet = ({ visible, onClose, type = 'revocation' }) => {
     </SemiModal>
   );
 };
-
-const styles = StyleSheet.create({
-  sheetContent: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    flex: 0,
-    alignSelf: 'flex-end',
-    width: '100%',
-    backgroundColor: 'white',
-  },
-  sheetBody: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 10,
-  },
-  paragraph: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 21,
-    marginBottom: 16,
-  },
-});
 
 export default AuthorityInfoSheet;

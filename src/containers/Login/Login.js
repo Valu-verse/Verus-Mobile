@@ -1,13 +1,16 @@
 /*
-  Updated Login screen:
-  - Added looping onboarding video backdrop and Valu glyph hero copy
-  - Positioned "Powered by Verus" pill at the top-right above the signed-out menu
-  - Preserved existing Login/Create profile CTA styles layered over the new design
-  - Scope limited to this file; authentication flows unchanged
+  This component's purpose is to present the user with the option
+  to log into their accounts, and will only be shown if at least on account
+  exists on the mobile device. It uses the user-entered username and password
+  to find and decrypt the wallet seed in asyncStorage. When mounted, it clears
+  any detecting app update heartbeats located from before, and upon successfull
+  login, creates a new update heartbeat interval.
 */
-import React, {useEffect} from 'react';
-import {View, SafeAreaView, Image, StyleSheet} from 'react-native';
+
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Alert, View, Dimensions, SafeAreaView} from 'react-native';
 import {Text} from 'react-native-paper';
+import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
 import VerusLogoWhite from '../../images/customIcons/verus-logo-white.svg';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
@@ -20,6 +23,12 @@ import {useSelector} from 'react-redux';
 import GradientButton from '../../components/GradientButton';
 import SignedOutDropdown from '../SignedOutDropdown/SignedOutDropdown';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
+import { selectHasAuthenticatedSession } from '../../selectors/authentication';
+import {readDeeplinkFromNfc} from '../../actions/actionDispatchers';
+import {
+  clearPendingDeeplinkRequests,
+  getPendingDeeplinkRequestCount,
+} from '../../utils/deeplink/pendingDeeplinkStorage';
 
 const ValuGlyph = require('../../images/customIcons/valu-icon.png');
 
@@ -35,9 +44,15 @@ const Login = props => {
   );
   
   const accounts = useObjectSelector(state => state.authentication.accounts);
-  const hasAccount = accounts != null && accounts.length > 0;
+  const hasAuthenticatedSession = useSelector(selectHasAuthenticatedSession);
+  const [pendingRequestCount, setPendingRequestCount] = useState(0);
+  const autoOpenTimeoutRef = useRef(null);
 
-  openAuthModal = ignoreDefault => {
+  const openAuthModal = ignoreDefault => {
+    if (hasAuthenticatedSession) {
+      return;
+    }
+
     if (ignoreDefault) {
       openAuthenticateUserModal();
     } else {
@@ -55,38 +70,66 @@ const Login = props => {
   };
 
   useEffect(() => {
+    if (autoOpenTimeoutRef.current != null) {
+      clearTimeout(autoOpenTimeoutRef.current);
+      autoOpenTimeoutRef.current = null;
+    }
+
     if (
+      !hasAuthenticatedSession &&
       !authModalUsed &&
       defaultAccount != null &&
       accounts.find(x => x.accountHash === defaultAccount) != null
     ) {
-      setTimeout(() => {
+      autoOpenTimeoutRef.current = setTimeout(() => {
         openAuthModal();
       }, 700);
     }
-  }, []);
 
-  handleAddUser = () => {
+    return () => {
+      if (autoOpenTimeoutRef.current != null) {
+        clearTimeout(autoOpenTimeoutRef.current);
+        autoOpenTimeoutRef.current = null;
+      }
+    };
+  }, [accounts, authModalUsed, defaultAccount, hasAuthenticatedSession]);
+
+  const handleAddUser = () => {
     props.navigation.navigate('CreateProfile');
   };
 
-  handleRevokeRecover = () => {
+  const handleRevokeRecover = () => {
     props.navigation.navigate('RevokeRecover');
-  }
-
-  handleRecoverSeed = () => {
-    props.navigation.navigate('RecoverSeeds');
   };
 
-  handleRevokeRecover = () => {
-    props.navigation.navigate('RevokeRecover');
-  }
-
-  handleRecoverSeed = () => {
+  const handleRecoverSeed = () => {
     props.navigation.navigate('RecoverSeeds');
   };
 
   return (
+    <SafeAreaView
+      style={{
+        backgroundColor: Colors.secondaryColor,
+        ...Styles.focalCenter,
+      }}>
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          zIndex: 20,
+          elevation: 20,
+        }}>
+        {!modalVisible && <SignedOutDropdown
+          handleRecoverSeed={() => handleRecoverSeed()}
+          handleRevokeRecover={() => handleRevokeRecover()}
+          handlePendingRequests={() => handlePendingRequests()}
+          handleClearPendingRequests={() => handleClearPendingRequests()}
+          handleReadDeeplinkFromNfc={readDeeplinkFromNfc}
+          pendingRequestCount={pendingRequestCount}
+          hasAccount={true}
+        />}
     <SafeAreaView style={styles.root}>
       <View style={styles.topPills}>
         <View style={styles.poweredPill}>

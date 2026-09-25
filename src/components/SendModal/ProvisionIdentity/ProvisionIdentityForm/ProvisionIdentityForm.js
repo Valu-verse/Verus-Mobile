@@ -184,13 +184,27 @@ const ProvisionIdentityForm = (props) => {
         return { ...currentState, loading: true };
       });
     };
+    
+    initializeState();    
+  }, []);  
+  
+  const trimProvisionIdentityInput = () => {
+    const currentIdentity =
+      sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD] || '';
+    const trimmedIdentity = currentIdentity.trim();
 
-    initializeState();
-  }, []);
+    if (trimmedIdentity !== currentIdentity) {
+      props.updateSendFormData(
+        SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
+        trimmedIdentity,
+      );
+    }
 
-  const formHasError = () => {
-    const identity = sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]?.trim() || '';
+    return trimmedIdentity;
+  };
 
+  const formHasError = identity => {
+  
     if (!identity) {
       createAlert('Required Field', 'Identity is a required field.');
       return true;
@@ -220,12 +234,13 @@ const ProvisionIdentityForm = (props) => {
   };
 
   const submitData = async () => {
-    if (formHasError()) return;
+    const identity = trimProvisionIdentityInput();
 
+    if (formHasError(identity)) return;
+  
     props.setLoading(true);
-
-    const { coinObj, data } = sendModal;
-    const identity = data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD];
+  
+    const { coinObj } = sendModal;
 
     let formattedId;
 
@@ -277,28 +292,29 @@ const ProvisionIdentityForm = (props) => {
         }}
       >
         <View style={Styles.wideBlock}>
-          <TextInput
-            returnKeyType="done"
-            label={state.parentname ? "VerusID name" : "i-Address or VerusID name"}
-            value={state.assignedIdentity
-              ? state.friendlyNameMap[state.assignedIdentity]
-                ? `${state.friendlyNameMap[state.assignedIdentity]}`
-                : state.assignedIdentity
-              : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]}
-            mode="outlined"
-            disabled={state.assignedIdentity != null || state.loading}
-            onChangeText={text => {
-              if (state.assignedIdentity == null && !text.endsWith("@")) {
-                props.updateSendFormData(
-                  SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
-                  text
-                );
-              }
-            }}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          <Paragraph style={{ color: "grey" }}>{"Your Fully qualified name will be: \n\n"}{
+        <TextInput
+          returnKeyType="done"
+          label={state.parentname ? "VerusID name" : "i-Address or VerusID name"}
+          value={state.assignedIdentity
+            ? state.friendlyNameMap[state.assignedIdentity]
+              ? `${state.friendlyNameMap[state.assignedIdentity]}`
+              : state.assignedIdentity
+            : sendModal.data[SEND_MODAL_IDENTITY_TO_PROVISION_FIELD]}
+          mode="outlined"
+          disabled={state.assignedIdentity != null || state.loading}
+          onChangeText={text => {
+            if (state.assignedIdentity == null && !text.endsWith("@")) {
+              props.updateSendFormData(
+                SEND_MODAL_IDENTITY_TO_PROVISION_FIELD,
+                text
+              );
+            }
+          }}
+          onBlur={trimProvisionIdentityInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+         <Paragraph style={{color: "grey"}}>{"Your Fully qualified name will be: \n\n"}{
             state.assignedIdentity
               ? state.friendlyNameMap[state.assignedIdentity]
                 ? `${state.friendlyNameMap[state.assignedIdentity]

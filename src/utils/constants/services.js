@@ -5,6 +5,7 @@ export const VERUSID_SERVICE_ID = 'verusid_service'
 export const PBAAS_PRECONVERT_SERVICE_ID = 'pbaas_preconvert'
 export const ATTESTATION_SERVICE_ID = 'attestation_service'
 export const VALU_SERVICE_ID = 'valu_service'
+export const GIFT_CARD_SERVICE_ID = 'gift_card_service'
 
 export const CONNECTED_SERVICE_DISPLAY_INFO = {
   [WYRE_SERVICE_ID]: {
@@ -24,6 +25,10 @@ export const CONNECTED_SERVICE_DISPLAY_INFO = {
   [ATTESTATION_SERVICE_ID]: {
     title: "Attestations",
     description: "Stored attestations that can be used to prove information about you to services you use",
+  },
+  [GIFT_CARD_SERVICE_ID]: {
+    title: "Gift Cards",
+    description: "Create spendable key gift cards to share funds and VerusIDs with another wallet",
     decentralized: true
   }
 }
@@ -32,7 +37,7 @@ export const CONNECTED_SERVICE_CHANNELS = {
   [WYRE_SERVICE_ID]: WYRE_SERVICE
 }
 
-export const CONNECTED_SERVICES = [VERUSID_SERVICE_ID, /*PBAAS_PRECONVERT_SERVICE_ID ,*/ WYRE_SERVICE_ID, VALU_SERVICE_ID, ATTESTATION_SERVICE_ID]
+export const CONNECTED_SERVICES = [VERUSID_SERVICE_ID, GIFT_CARD_SERVICE_ID, /*PBAAS_PRECONVERT_SERVICE_ID ,*/ WYRE_SERVICE_ID, VALU_SERVICE_ID, ATTESTATION_SERVICE_ID]
 
 // Wyre specific constants
 export const WYRE_INDIVIDUAL_NAME = 'individualLegalName'

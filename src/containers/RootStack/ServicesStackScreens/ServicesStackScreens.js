@@ -12,6 +12,8 @@ import NotificationScreen from '../../Notifications/NotificationScreen';
 import WyreServiceAccountData from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceAccountData/WyreServiceAccountData';
 import WyreServiceAddPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceAddPaymentMethod/WyreServiceAddPaymentMethod';
 import WyreServiceEditPaymentMethod from '../../Services/ServiceComponents/WyreService/WyreServiceAccount/WyreServiceEditPaymentMethod/WyreServiceEditPaymentMethod';
+import GiftCardCreate from '../../Services/ServiceComponents/GiftCardService/GiftCardCreate/GiftCardCreate';
+import GiftCardFund from '../../Services/ServiceComponents/GiftCardService/GiftCardFund/GiftCardFund';
 import ViewAttestation from '../../Services/ServiceComponents/AttestationService/ViewAttestation/ViewAttestation';
 import ValuAttestation from '../../Services/ServiceComponents/ValuService/ValuAttestation/ValuAttestation';
 import ValuOnRampChooseSource from '../../Services/ServiceComponents/ValuService/ValuOnRamp/ValuOnRampChooseSource';
@@ -60,6 +62,20 @@ const ServicesStackScreens = props => {
         component={WyreServiceEditPaymentMethod}
         options={{
           title: "Edit Account",
+        }}
+      />
+      <ServicesStack.Screen
+        name="GiftCardCreate"
+        component={GiftCardCreate}
+        options={{
+          title: "Create Gift Card",
+        }}
+      />
+      <ServicesStack.Screen
+        name="GiftCardFund"
+        component={GiftCardFund}
+        options={{
+          title: "Fund Gift Card",
         }}
       />
       <ServicesStack.Screen

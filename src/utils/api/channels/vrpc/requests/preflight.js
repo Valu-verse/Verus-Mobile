@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js";
 import { getAddressBalances } from "./getAddressBalances";
 import { coinsToSats, satsToCoins } from "../../../../math";
-import { DEST_ID, DEST_PKH, ReserveTransfer, TransferDestination, fromBase58Check, toIAddress } from "verus-typescript-primitives";
+import { DEST_ID, DEST_PKH, TransferDestination, fromBase58Check, toIAddress } from "verus-typescript-primitives";
 import { Transaction, networks, smarttxs } from "@bitgo/utxo-lib";
 import { calculateCurrencyTransferFee } from "./calculateCurrencyTransferFee";
 import { getInfo } from "./getInfo";
@@ -10,14 +10,27 @@ import { getAddressUtxos, getSpendableUtxos } from "./getAddressUtxos";
 import { getCurrency, getIdentity } from "../../verusid/callCreators";
 import { getSystemNameFromSystemId } from "../../../../CoinData/CoinData";
 import { estimateConversion } from "./estimateConversion";
-import { IS_FRACTIONAL_FLAG } from "../../../../constants/currencies";
-import { unpackOutput } from "@bitgo/utxo-lib/dist/src/smart_transactions";
+import {
+  IS_FRACTIONAL_FLAG,
+  IS_GATEWAY_FLAG,
+  IS_TOKEN_FLAG,
+} from "../../../../constants/currencies";
 import { coinsList } from "../../../../CoinData/CoinsList";
 import { getSendCurrencyTransaction } from "./getSendCurrencyTransaction";
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../constants/constants";
 import VrpcProvider from "../../../../vrpc/vrpcInterface"
 import { Alert } from "react-native";
-const { createUnfundedCurrencyTransfer, validateFundedCurrencyTransfer } = smarttxs
+import { getCurrencyTransferIntentContext } from "./currencyTransferIntent";
+import {
+  BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE,
+  calculateBurnChangePriceTransferFeeSatoshis,
+  createUnfundedBurnChangePriceTransaction,
+  validateBurnChangePriceTransferOutput,
+} from "./createBurnChangePriceTransaction";
+import {
+  validateCurrencyTransferSpendDeltas,
+} from "./validateCurrencyTransferSpend";
+const { createUnfundedCurrencyTransfer, validateCurrencyTransferIntent, validateFundedCurrencyTransfer } = smarttxs
 
 //TODO: Calculate fee for each coin seperately
 export const preflight = async (coinObj, activeUser, address, amount, params, channelId) => {
@@ -183,6 +196,8 @@ export const validateCurrencyTransferOutputParams = obj => {
     }
   }
 
+  validateBurnChangePriceTransferOutput(obj);
+
   // If we made it here, the object is valid
   return true;
 };
@@ -216,7 +231,6 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
   const currencyDefs = new Map();
   let nativeFeesPaid = BigNumber(0);
   let _feeamount;
-  const ethBridgeDelegatorActive = !(!!(output.bridgeprelaunch));
   delete output.bridgeprelaunch
 
   try {
@@ -224,11 +238,21 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
 
     const saveFriendlyName = async (iaddrOrName) => {
       if (!iaddrOrName) return;
+
+      let requestedCurrencyId;
+      try {
+        if (fromBase58Check(iaddrOrName).version === I_ADDRESS_VERSION) {
+          requestedCurrencyId = iaddrOrName;
+        }
+      } catch (_) {} // Names still need RPC resolution.
       
       const currRes = await getCurrency(systemId, iaddrOrName);
 
       if (currRes.error) throw new Error("Couldn't get currency " + iaddrOrName);
       else {
+        if (requestedCurrencyId && currRes.result.currencyid !== requestedCurrencyId) {
+          throw new Error("Currency definition does not match the requested currency.");
+        }
         friendlyNames.set(currRes.result.currencyid, currRes.result.fullyqualifiedname);
         currencyDefs.set(currRes.result.currencyid, currRes.result);
         return currRes.result.currencyid;
@@ -285,8 +309,16 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     const isConversionOrExport = exportto != null || convertto != null;
     const isNativeSend = currency === systemId;
     const isBasicNativeSend = !isConversionOrExport && currency === systemId;
-    const _feecurrency = feecurrency == null && isConversionOrExport ? systemId : feecurrency;
-    const parentTransactionFee = isConversionOrExport || isBasicNativeSend ? 0.0001 : 0.0002;
+    const _feecurrency =
+      feecurrency == null && (isConversionOrExport || output.burn === true)
+        ? systemId
+        : feecurrency;
+    const parentTransactionFee =
+      output.burn === true
+        ? BURN_CHANGE_PRICE_PARENT_TRANSACTION_FEE
+        : isConversionOrExport || isBasicNativeSend
+          ? 0.0001
+          : 0.0002;
 
     const useSendCurrencyOutput =
       address.isETHAccount() ||
@@ -302,11 +334,43 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
     
     const sourceDefinition = currencyDefs.get(currency);
 
+    if (output.burn === true) {
+      if (
+        (Number(sourceDefinition.options) & IS_TOKEN_FLAG) !== IS_TOKEN_FLAG
+      ) {
+        throw new Error("Only token currencies can be burned.");
+      }
+
+      if (
+        (Number(sourceDefinition.options) & IS_GATEWAY_FLAG) ===
+        IS_GATEWAY_FLAG
+      ) {
+        throw new Error("Gateway currencies cannot be burned.");
+      }
+
+      if (sourceDefinition.systemid !== systemId) {
+        throw new Error(
+          "Currency burns must be created on the currency's native system.",
+        );
+      }
+    }
+
     if ((sourceDefinition.options & IS_FRACTIONAL_FLAG) == IS_FRACTIONAL_FLAG) {
       importToSource = convertto != null && via == null && sourceDefinition.currencies.includes(convertto);
     }
 
-    if (_feeamount == null && isConversionOrExport) {
+    let approvedTransfer;
+
+    if (useSendCurrencyOutput) {
+      // Resolve routing/refunds and quote both fee legs before requesting the
+      // candidate. Never use the candidate to establish its own expected values.
+      approvedTransfer = await getCurrencyTransferIntentContext(
+        systemId, output, source, currencyDefs, saveFriendlyName,
+      );
+      _feeamount = approvedTransfer.totalFeeSatoshis;
+    } else if (_feeamount == null && output.burn === true) {
+      _feeamount = calculateBurnChangePriceTransferFeeSatoshis(address);
+    } else if (_feeamount == null && isConversionOrExport) {
       _feeamount = await calculateCurrencyTransferFee(
         systemId,
         currency,
@@ -393,77 +457,61 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
         _feecurrency,
         via,
         source,
-        vdxftag
+        vdxftag,
+        {
+          preconvert,
+          refundto: approvedTransfer.refundto.getAddressString(),
+        },
       );
 
       if (sendCurrencyRes.error) throw new Error(sendCurrencyRes.error.message);
 
-      const sendCurrencyHex = sendCurrencyRes.result.hextx;
-      
-      const unfundedTxObj = Transaction.fromHex(sendCurrencyHex, networks.verus);
-
-      const outputInfo = unpackOutput(unfundedTxObj.outs[0], systemId);
-
-      /**
-       * @type {ReserveTransfer}
-       */
-      const transDest = outputInfo.params[0].data;
-
-      if (ethBridgeDelegatorActive || (exportto !== "i9nwxtKuVYX4MSbeULLiK2ttVi6rUEhh4X" && exportto !== "iCtawpxUiCc2sEupt7Z4u8SDAncGZpgSKm")) {
-        if (!transDest.transferDestination.isGateway()) throw new Error("Expected gateway output");
-        if (transDest.transferDestination.gatewayID !== exportto) throw new Error("Expected gateway_id to match exportto");
-        if (transDest.transferDestination.gatewayCode !== "i3UXS5QPRQGNRDDqVnyWTnmFCTHDbzmsYk") throw new Error("Expected null gateway_code");
-        if (!transDest.transferDestination.hasAuxDests()) throw new Error("Expected output with aux dests");
-
-        if (transDest.transferDestination.auxDests.length > 0) {
-          const selfSystemRes = await getCurrency(systemId, systemId);
-          if (selfSystemRes.error) throw new Error("Couldn't get own system information")
-
-          const permittedAuxDests = selfSystemRes.result.notaries != null && exportto != null ? selfSystemRes.result.notaries : []
-
-          for (const aux_dest of transDest.transferDestination.auxDests) {
-            if (aux_dest.hasAuxDests()) {
-              throw new Error("Nested aux destinations not supported");
-            }
-    
-            if (aux_dest.isGateway()) throw new Error("Expected non gateway output in aux dest");
-    
-            const addrString = aux_dest.getAddressString();
-            if (
-              addrString !== addrDest &&
-              addrString !== source &&
-              !(permittedAuxDests.includes(addrString) && aux_dest.isIAddr())
-            )
-              throw new Error(
-                `Aux dest ${addrString} does not match source or destination`,
-              );
-          }
-        }
-      }
-      
-      if (transDest.transferDestination.getAddressString() !== addrDest) throw new Error("Expected output to match destination address");
-
       unfundedTxHex = sendCurrencyRes.result.hextx;
-    } else {
-      unfundedTxHex = createUnfundedCurrencyTransfer(
+      const intentValidation = validateCurrencyTransferIntent(
         systemId,
-        [
+        unfundedTxHex,
+        { ...output, importtosource: importToSource },
+        networks.verus,
+        approvedTransfer.context,
+      );
+
+      if (!intentValidation.valid) throw new Error(intentValidation.message);
+    } else {
+      const expiryHeight = Number(
+        BigNumber(infoRes.result.longestchain).plus(BigNumber(100)).toString(),
+      );
+
+      if (output.burn === true) {
+        // The legacy builder used by other send paths does not count `burn`
+        // alone as a reserve transfer and would emit an ordinary output.
+        unfundedTxHex = createUnfundedBurnChangePriceTransaction(
+          systemId,
           {
             ...output,
             feesatoshis: _feeamount,
             feecurrency: _feecurrency,
-            importtosource: importToSource,
-            bridgeid,
-            vdxftag
           },
-        ],
-        networks.verus,
-        Number(
-          BigNumber(infoRes.result.longestchain).plus(BigNumber(100)).toString(),
-        ),
-        4,
-        0x892f2085,
-      );
+          expiryHeight,
+        );
+      } else {
+        unfundedTxHex = createUnfundedCurrencyTransfer(
+          systemId,
+          [
+            {
+              ...output,
+              feesatoshis: _feeamount,
+              feecurrency: _feecurrency,
+              importtosource: importToSource,
+              bridgeid,
+              vdxftag
+            },
+          ],
+          networks.verus,
+          expiryHeight,
+          4,
+          0x892f2085,
+        );
+      }
     }
 
     const utxoList = await getSpendableUtxos(systemId, currency, [source]);
@@ -507,11 +555,12 @@ export const preflightCurrencyTransfer = async (coinObj, channelId, activeUser, 
       }
     };
 
-    deltas.forEach((value, key) => {
-      if (key !== currency && key !== feecurrency && value.isGreaterThan(0)) {
-        throw new Error("Can only spend either fee currency or sent currency.")
-      } 
-    })
+    validateCurrencyTransferSpendDeltas({
+      currency,
+      deltas,
+      feeCurrency: feecurrency,
+      systemId,
+    });
 
     Object.keys(validation.fees).forEach((key) => {
       const value = BigNumber(validation.fees[key]);

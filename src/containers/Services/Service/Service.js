@@ -3,10 +3,16 @@
 */  
 
 import React, { Component } from "react"
-import { PBAAS_PRECONVERT_SERVICE_ID, VERUSID_SERVICE_ID, WYRE_SERVICE_ID, ATTESTATION_SERVICE_ID, VALU_SERVICE_ID } from "../../../utils/constants/services";
+import {
+  GIFT_CARD_SERVICE_ID,
+  PBAAS_PRECONVERT_SERVICE_ID,
+  VERUSID_SERVICE_ID,
+  WYRE_SERVICE_ID, ATTESTATION_SERVICE_ID, VALU_SERVICE_ID,
+} from "../../../utils/constants/services";
 import VerusIdService from "../ServiceComponents/VerusIdService/VerusIdService";
 import WyreService from "../ServiceComponents/WyreService/WyreService";
 import PbaasPreconvertService from "../ServiceComponents/PbaasPreconvertService/PbaasPreconvertService";
+import GiftCardService from "../ServiceComponents/GiftCardService/GiftCardService";
 import AttestationService from "../ServiceComponents/AttestationService/AttestationService";
 import ValuService from "../ServiceComponents/ValuService/ValuService";
 class Service extends Component {
@@ -22,6 +28,7 @@ class Service extends Component {
       [WYRE_SERVICE_ID]: <WyreService navigation={props.navigation}/>,
       [VERUSID_SERVICE_ID]: <VerusIdService navigation={props.navigation}/>,
       [PBAAS_PRECONVERT_SERVICE_ID]: <PbaasPreconvertService navigation={props.navigation}/>,
+      [GIFT_CARD_SERVICE_ID]: <GiftCardService navigation={props.navigation}/>,
       [ATTESTATION_SERVICE_ID]: <AttestationService navigation={props.navigation}/>,
       [VALU_SERVICE_ID]: <ValuService navigation={props.navigation} subScreen={this.state.subScreen} subScreenData={this.state.subScreenData}/>,
     }

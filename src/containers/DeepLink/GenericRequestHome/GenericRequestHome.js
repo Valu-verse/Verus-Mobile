@@ -1,31 +1,63 @@
-import React, {useState, useEffect} from 'react';
+/*
+  GenericRequestHome 
+  - Coordinates generic request detail handlers, chooses the matching deeplink
+    screen, and forwards completed responses through the request flow.
+*/
+import React, {useCallback, useState, useEffect} from 'react';
 import {Linking, TouchableOpacity, View} from 'react-native';
 import { Portal, Text } from 'react-native-paper';
+import {useSelector} from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Styles from '../../../styles/index';
 import { primitives } from "verusid-ts-client"
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
-import { AUTHENTICATION_REQUEST_VDXF_KEY, DEEPLINK_PROTOCOL_URL_STRING, GenericRequest, GenericResponse, IDENTITY_UPDATE_REQUEST_VDXF_KEY, VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID, 
-  VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY,
-  PROVISION_IDENTITY_DETAILS_VDXF_KEY } from 'verus-typescript-primitives';
+import {
+  AUTHENTICATION_REQUEST_VDXF_KEY,
+  APP_ENCRYPTION_REQUEST_VDXF_KEY,
+  DEEPLINK_PROTOCOL_URL_STRING,
+  GenericRequest,
+  GenericResponse,
+  IDENTITY_UPDATE_REQUEST_VDXF_KEY,
+  PROVISION_IDENTITY_DETAILS_VDXF_KEY,
+  CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY,
+  DATA_PACKET_REQUEST_VDXF_KEY,
+  SPENDABLE_KEY_DETAILS_VDXF_KEY,
+  USER_DATA_REQUEST_VDXF_KEY,
+  VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID,
+  VERUSPAY_INVOICE_DETAILS_VDXF_KEY,
+} from 'verus-typescript-primitives';
 import InvoiceInfo from '../InvoiceInfo/InvoiceInfo';
 import { handleVerusPayInvoiceDetailsVDXFObject } from '../../../utils/deeplink/handlers/verusPayInvoiceDetailsHandler';
 import { handleAuthenticationRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/authenticationRequestDetailsHandler';
 import { handleIdentityUpdateRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/identityUpdateRequestDetailsHandler';
+import { handleProvisionIdentityDetailsVDXFObject } from '../../../utils/deeplink/handlers/provisionIdentityDetailsHandler';
 import { handleAppEncryptionRequestVDXFObject } from '../../../utils/deeplink/handlers/appEncryptionRequestHandler';
-import { handleDataPacketRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestDetailsHandler';
-import { handleUserDataRequestDetailsVDXFObject } from '../../../utils/deeplink/handlers/userDataRequestDetailsHandler';
+import { handleCreateWalletBackupDetailsVDXFObject } from '../../../utils/deeplink/handlers/createWalletBackupDetailsHandler';
+import { handleSpendableKeyDetailsVDXFObject } from '../../../utils/deeplink/handlers/spendableKeyDetailsHandler';
+import { handleUserDataRequestVDXFObject } from '../../../utils/deeplink/handlers/userDataRequestHandler';
+import { handleDataPacketRequestVDXFObject } from '../../../utils/deeplink/handlers/dataPacketRequestHandler';
 import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import { CommonActions } from '@react-navigation/native';
 import AuthenticationRequestInfo from '../AuthenticationRequestInfo/AuthenticationRequestInfo';
 import IdentityUpdateRequestInfo from '../IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import AppEncryptionRequestInfo from '../AppEncryptionRequestInfo/AppEncryptionRequestInfo';
+import WalletBackupRequestInfo from '../WalletBackupRequestInfo/WalletBackupRequestInfo';
+import SpendableKeyRequestInfo from '../SpendableKeyRequestInfo/SpendableKeyRequestInfo';
+import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
+import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
+import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { isDeeplinkHandlerInstalled } from '../../../utils/deeplink/isDeeplinkHandlerInstalled';
 import Colors from '../../../globals/colors';
+import {
+  getFriendlyNameMap,
+  getIdentity,
+} from '../../../utils/api/channels/verusid/callCreators';
+import {
+  EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE,
+  isExperimentalGenericRequestDetailKey,
+  isExperimentalGenericRequestsEnabled,
+} from '../../../utils/deeplink/experimentalDeeplinks';
 
-import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
-import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
 
 const GenericRequestHome = props => {
   const {
@@ -46,6 +78,10 @@ const GenericRequestHome = props => {
 
   const [valuInstalled, setValuInstalled] = useState(false);
   const [openInAnotherAppVisible, setOpenInAnotherAppVisible] = useState(false);
+  const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] =
+    useState(null);
+  const passthrough = useSelector(state => state.deeplink.passthrough);
+  const experimentalRequestsAllowed = useSelector(isExperimentalGenericRequestsEnabled);
 
   /**
    * @type {[number, (number) => {}]}
@@ -77,11 +113,12 @@ const GenericRequestHome = props => {
   detailHandlers.set(VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid, handleVerusPayInvoiceDetailsVDXFObject);
   detailHandlers.set(AUTHENTICATION_REQUEST_VDXF_KEY.vdxfid, handleAuthenticationRequestDetailsVDXFObject);
   detailHandlers.set(IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid, handleIdentityUpdateRequestDetailsVDXFObject);
-  detailHandlers.set(APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid, handleAppEncryptionRequestVDXFObject);
-  detailHandlers.set(DATA_PACKET_REQUEST_VDXF_KEY.vdxfid, handleDataPacketRequestDetailsVDXFObject);
-  detailHandlers.set(USER_DATA_REQUEST_VDXF_KEY.vdxfid, handleUserDataRequestDetailsVDXFObject);
   detailHandlers.set(PROVISION_IDENTITY_DETAILS_VDXF_KEY.vdxfid, handleProvisionIdentityDetailsVDXFObject);
   detailHandlers.set(APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid, handleAppEncryptionRequestVDXFObject);
+  detailHandlers.set(CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid, handleCreateWalletBackupDetailsVDXFObject);
+  detailHandlers.set(SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid, handleSpendableKeyDetailsVDXFObject);
+  detailHandlers.set(USER_DATA_REQUEST_VDXF_KEY.vdxfid, handleUserDataRequestVDXFObject);
+  detailHandlers.set(DATA_PACKET_REQUEST_VDXF_KEY.vdxfid, handleDataPacketRequestVDXFObject);
   /**
    * Processes a detail in the request at a certain index
    * @param {number} index 
@@ -91,7 +128,25 @@ const GenericRequestHome = props => {
 
     if (detail) {
       const iaddr = detail.getIAddressKey();
+
+      if (
+        !experimentalRequestsAllowed &&
+        isExperimentalGenericRequestDetailKey(iaddr)
+      ) {
+        throw new Error(EXPERIMENTAL_DEEPLINK_DISABLED_MESSAGE);
+      }
+
       if (detailHandlers.has(iaddr)) {
+        if (
+          passthrough?.skipWalletBackupRequests &&
+          iaddr === CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid
+        ) {
+          return {
+            response,
+            handledIndices: [index],
+          };
+        }
+
         setDetailIndex(index);
         return await detailHandlers.get(iaddr)(request, response, index);
       }
@@ -152,6 +207,7 @@ const GenericRequestHome = props => {
    * @param {Array<number>} handledIndices
    */
   const next = async (response, handledIndices) => {
+    if (request.isTestnet()) response.setIsTestnet();
     let newDetailsProcessed = detailsProcessed;
 
     for (const handledIndex of handledIndices) {
@@ -161,13 +217,54 @@ const GenericRequestHome = props => {
     }
 
     if (request && newDetailsProcessed < request.details.length) {
-      props.navigation.popToTop();
+      const navigationState = props.navigation.getState
+        ? props.navigation.getState()
+        : null;
+
+      if (
+        navigationState &&
+        navigationState.type === 'stack' &&
+        navigationState.index > 0 &&
+        typeof props.navigation.popToTop === 'function'
+      ) {
+        props.navigation.popToTop();
+      }
     }
 
     setResponse(response);
     setProcessedDetailIndices([...processedDetailIndices, ...handledIndices]);
     setDetailsProcessed(newDetailsProcessed);
   }
+
+  const getVerusId = useCallback(async (systemId, iAddrOrName) => {
+    const identity = await getIdentity(systemId, iAddrOrName);
+
+    if (identity.error) throw new Error(identity.error.message);
+    return identity.result;
+  }, []);
+
+  const openVerusIdDetailsModal = useCallback((systemId, iAddress) => {
+    setVerusIdDetailsModalProps({
+      loadVerusId: () => getVerusId(systemId, iAddress),
+      visible: true,
+      animationType: 'slide',
+      cancel: () => setVerusIdDetailsModalProps(null),
+      loadFriendlyNames: async () => {
+        try {
+          const identityObj = await getVerusId(systemId, iAddress);
+
+          return getFriendlyNameMap(systemId, identityObj);
+        } catch (e) {
+          return {
+            ['i5w5MuNik5NtLcYmNzcvaoixooEebB6MGV']: 'VRSC',
+            ['iJhCezBExJHvtyH3fGhNnt2NhU4Ztkf2yq']: 'VRSCTEST',
+          };
+        }
+      },
+      iAddress,
+      chain: systemId,
+    });
+  }, [getVerusId]);
 
   useEffect(() => {
     isDeeplinkHandlerInstalled(VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID).then(installed => {
@@ -181,6 +278,7 @@ const GenericRequestHome = props => {
       const req = new primitives.GenericRequest();
       req.fromBuffer(Buffer.from(deeplinkData, 'hex'));
 
+      if (req.isTestnet()) response.setIsTestnet();
       setRequest(req);
       setDetailsProcessed(0);
     }
@@ -266,6 +364,18 @@ const GenericRequestHome = props => {
         detailIndex={detailIndex}
       />
     ),
+    [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: () => (
+      <UserDataRequestInfo
+        {...displayProps}
+        cancel={props.cancel}
+        setLoading={props.setLoading}
+        navigation={props.navigation}
+        next={next}
+        response={response}
+        request={request}
+        detailIndex={detailIndex}
+      />
+    ),
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
       <DataPacketRequestInfo
         {...displayProps}
@@ -278,8 +388,8 @@ const GenericRequestHome = props => {
         detailIndex={detailIndex}
       />
     ),
-    [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: () => (
-      <UserDataRequestInfo
+    [CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid]: () => (
+      <WalletBackupRequestInfo
         {...displayProps}
         cancel={props.cancel}
         setLoading={props.setLoading}
@@ -289,9 +399,23 @@ const GenericRequestHome = props => {
         request={request}
         detailIndex={detailIndex}
       />
+    ),
+    [SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid]: () => (
+      <SpendableKeyRequestInfo
+        {...displayProps}
+        cancel={props.cancel}
+        setLoading={props.setLoading}
+        navigation={props.navigation}
+        next={next}
+        response={response}
+        request={request}
+        detailIndex={detailIndex}
+        openVerusIdDetailsModal={openVerusIdDetailsModal}
+      />
     )
   };
 
+  // Keep handler selection and alternate-app routing explicit; integrated by Codex GPT-5 so new VDXF types do not bypass the redesign flow.
   const openInValu = () => {
     const originalUri = request.toWalletDeeplinkUri();
     const redirectUri = originalUri.replace(
@@ -327,6 +451,9 @@ const GenericRequestHome = props => {
         </TouchableOpacity>
       )}
       <Portal>
+        {verusIdDetailsModalProps != null && (
+          <VerusIdDetailsModal {...verusIdDetailsModalProps} />
+        )}
         <ListSelectionModal
           visible={openInAnotherAppVisible}
           cancel={() => setOpenInAnotherAppVisible(false)}

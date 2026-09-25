@@ -2,18 +2,63 @@
   ListSelectionModal
   - Modal with searchable list selection
   - Updated 2026-01-22: Converted to modern SemiModal with search bar
+  ListSelectionModal
+  - Modal with searchable list selection
+  - Updated 2026-01-22: Converted to modern SemiModal with search bar
 */
 
 import React, { Component } from "react";
 import SemiModal from "../SemiModal";
 import { List } from "react-native-paper"
-import { TouchableOpacity, FlatList, View, TextInput as RNTextInput, StyleSheet, KeyboardAvoidingView, Platform } from "react-native"
+import { TouchableOpacity, FlatList, View, TextInput as RNTextInput, KeyboardAvoidingView, Platform } from "react-native"
+import { listSelectionModalStyles as styles } from "../../styles";
 import Colors from "../../globals/colors";
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 class ListSelectionModal extends Component {
   constructor(props) {
     super(props);
+    this.state = {
+      searchQuery: '',
+      searchFocused: false,
+    };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (
+      prevProps.visible &&
+      !this.props.visible &&
+      (this.state.searchQuery.length > 0 || this.state.searchFocused)
+    ) {
+      this.setState({ searchQuery: '', searchFocused: false });
+    }
+  }
+
+  handleSelect = (item) => {
+    const { onSelect, cancel } = this.props;
+    this.setState({ searchQuery: '' });
+    if (onSelect) {
+      onSelect(item);
+      cancel();
+    }
+  }
+
+  getFilteredData = () => {
+    const { data, showSearch } = this.props;
+    const { searchQuery } = this.state;
+    const dataList = Array.isArray(data) ? data : [];
+
+    if (!showSearch || !searchQuery.trim()) {
+      return dataList;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return dataList.filter((item) => 
+      item.title?.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query) ||
+      item.key?.toString().toLowerCase().includes(query)
+    );
     this.state = {
       searchQuery: '',
       searchFocused: false,

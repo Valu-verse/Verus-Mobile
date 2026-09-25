@@ -12,17 +12,23 @@
     authority changes, shows a clean card with the authority type as label and
     the target ID name prominently. Info icon opens AuthorityInfoSheet explaining
     what the authority is. Summary card and details toggle hidden for authority-only.
+  - 2026-03-06: Added a content-clear branch  so clearing current identity content
+    is described as a publication visibility risk instead of a control change.
+    Trimmed duplicate summary/detail blocks for the action:4-only case.
 */
 import React, { useMemo, useState } from 'react';
-import { ScrollView, TouchableOpacity, View, StyleSheet, Platform } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { Checkbox, Portal, Text } from 'react-native-paper';
 import Colors from '../../../../globals/colors';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { VERUSID_REVOCATION_AUTH, VERUSID_RECOVERY_AUTH } from '../../../../utils/constants/verusidObjectData';
 import AuthorityInfoSheet from '../components/AuthorityInfoSheet';
+import IdentityStateChangeCard from '../components/IdentityStateChangeCard';
+import { highRiskStepStyles as localStyles } from '../../../../styles';
 
 const HighRiskStep = ({
   highRiskChanges,
+  identityStateChange,
   primaryAddressAfterUpdateInfo,
   acknowledged,
   onToggle,
@@ -40,6 +46,7 @@ const HighRiskStep = ({
 
   const walletCount = primaryAddressAfterUpdateInfo?.walletCount ?? 0;
   const externalCount = primaryAddressAfterUpdateInfo?.externalCount ?? 0;
+  const minimumSignatures = primaryAddressAfterUpdateInfo?.minimumSignatures ?? 1;
 
   // Extract authority changes for the dedicated authority card
   const authorityChanges = useMemo(() => {
@@ -48,7 +55,14 @@ const HighRiskStep = ({
     return { revocation, recovery };
   }, [highRiskChanges]);
 
-  const isAuthorityOnly = !hasPrimaryInfo && (authorityChanges.revocation || authorityChanges.recovery);
+  const isAuthorityOnly = !hasPrimaryInfo && (authorityChanges.revocation || authorityChanges.recovery) &&
+    !(highRiskChanges || []).some(change => change.highRiskType === 'signature-threshold');
+  const isContentClearOnly =
+    !hasPrimaryInfo &&
+    !authorityChanges.revocation &&
+    !authorityChanges.recovery &&
+    (highRiskChanges || []).length === 1 &&
+    highRiskChanges[0].highRiskType === 'content-clear';
 
   // Determine info sheet type based on which authorities are changing
   const authorityInfoType = useMemo(() => {
@@ -60,12 +74,12 @@ const HighRiskStep = ({
   const outcome = useMemo(() => {
     // Primary address change outcomes
     if (hasPrimaryInfo) {
-      if (walletCount === 0) {
+      if (walletCount < minimumSignatures) {
         return {
           icon: 'shield-alert-outline',
           color: Colors.warningButtonColor,
-          title: 'You will lose control of this ID',
-          description: 'None of the primary addresses will be in your wallet.',
+          title: 'Your idenitty will need additional signatures after this update',
+          description: `After this update, your identity will have ${walletCount} primary ${walletCount === 1 ? 'address' : 'addresses'}, but ${minimumSignatures} signatures will be required to spend/sign from this ID.`,
         };
       }
 
@@ -74,7 +88,7 @@ const HighRiskStep = ({
           icon: 'shield-alert-outline',
           color: Colors.infoButtonColor,
           title: 'You will share control',
-          description: 'An external address will also control this identity.',
+          description: `After this update, your wallet will have enough primary addresses to meet the ${minimumSignatures}-signature requirement. External addresses can also participate in signing.`,
         };
       }
 
@@ -82,7 +96,16 @@ const HighRiskStep = ({
         icon: 'shield-check-outline',
         color: Colors.primaryColor,
         title: 'You will still control this ID',
-        description: 'All primary addresses are in your wallet.',
+        description: `After this update, all primary addresses will be in your wallet. ${minimumSignatures} ${minimumSignatures === 1 ? 'signature will' : 'signatures will'} be required.`,
+      };
+    }
+
+    if (isContentClearOnly) {
+      return {
+        icon: 'shield-alert-outline',
+        color: Colors.warningButtonColor,
+        title: 'Apps may stop seeing current content',
+        description: 'After you confirm, apps may no longer see content from this identity. Earlier on-chain versions may still be publicly retrievable.',
       };
     }
 
@@ -93,21 +116,24 @@ const HighRiskStep = ({
       title: 'Review required',
       description: 'These changes can affect who controls this identity.',
     };
-  }, [hasPrimaryInfo, walletCount, externalCount]);
+  }, [hasPrimaryInfo, walletCount, externalCount, minimumSignatures, isContentClearOnly]);
 
   /* Build a compact, plain-language summary of what's changing */
   const changeSummaryLines = useMemo(() => {
-    return (highRiskChanges || []).map(change => {
-      const isExternal = change?.type === 'primary-add' && change?.walletMatch === false;
-      return {
-        key: change.key,
-        title: change.title,
-        isExternal,
-        type: change.type,
-        data: change.data,
-        valueLabel: change.valueLabel,
-      };
-    });
+    return (highRiskChanges || [])
+      .filter(change => change.highRiskType !== 'identity-state')
+      .map(change => {
+        const isExternal = change?.type === 'primary-add' && change?.walletMatch === false;
+        return {
+          key: change.key,
+          title: change.title,
+          warning: change.highRiskType === 'signature-threshold' ? change.warning : null,
+          isExternal,
+          type: change.type,
+          data: change.data,
+          valueLabel: change.valueLabel,
+        };
+      });
   }, [highRiskChanges]);
 
   const renderOutlinedBadge = ({ icon, label, color, style, size }) => {
@@ -151,9 +177,15 @@ const HighRiskStep = ({
         <View style={parentStyles.header}>
           <Text style={parentStyles.mainTitle}>High-risk changes</Text>
           <Text style={parentStyles.subtitle}>
-            These changes can affect who controls this identity.
+            {isContentClearOnly
+              ? 'This clears current identity content.'
+              : identityStateChange
+              ? 'These changes can affect identity access and when its funds can be spent.'
+              : 'These changes can affect who controls this identity.'}
           </Text>
         </View>
+
+        <IdentityStateChangeCard change={identityStateChange} detailed />
 
         {/* Authority-only card — vertical connector from current -> new */}
         {isAuthorityOnly && (
@@ -251,7 +283,7 @@ const HighRiskStep = ({
         )}
 
         {/* Generic outcome card — for primary address or other non-authority changes */}
-        {!isAuthorityOnly && (
+        {!isAuthorityOnly && changeSummaryLines.length > 0 && (
           <>
             <View style={localStyles.outcomeCard}>
               <View style={localStyles.outcomeHeaderRow}>
@@ -283,7 +315,7 @@ const HighRiskStep = ({
             </View>
 
             {/* Compact change summary */}
-            {changeSummaryLines.length > 0 && (
+            {!isContentClearOnly && changeSummaryLines.length > 0 && (
               <View style={localStyles.summaryCard}>
                 {changeSummaryLines.map((line, idx) => (
                   <View
@@ -299,7 +331,10 @@ const HighRiskStep = ({
                       color={line.type === 'primary-add' ? Colors.infoButtonColor : Colors.warningButtonColor}
                       style={{ marginRight: 10 }}
                     />
-                    <Text style={localStyles.summaryText}>{line.title}</Text>
+                    <View style={{flex: 1}}>
+                      <Text style={[localStyles.summaryText, {flex: 0}]}>{line.title}</Text>
+                      {line.warning && <Text style={localStyles.outcomeDesc}>{line.warning}</Text>}
+                    </View>
                     {line.isExternal && renderOwnershipBadge({ inWallet: false, style: { marginLeft: 8 } })}
                   </View>
                 ))}
@@ -307,25 +342,27 @@ const HighRiskStep = ({
             )}
 
             {/* View details — progressive disclosure for power users */}
-            <TouchableOpacity
-              style={localStyles.detailsToggle}
-              onPress={() => setDetailsExpanded(x => !x)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View change details"
-            >
-              <MaterialCommunityIcons
-                name={detailsExpanded ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#888"
-                style={{ marginRight: 5 }}
-              />
-              <Text style={localStyles.detailsToggleText}>
-                {detailsExpanded ? 'Hide details' : 'View details'}
-              </Text>
-            </TouchableOpacity>
+            {!isContentClearOnly && (
+              <TouchableOpacity
+                style={localStyles.detailsToggle}
+                onPress={() => setDetailsExpanded(x => !x)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="View change details"
+              >
+                <MaterialCommunityIcons
+                  name={detailsExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color="#888"
+                  style={{ marginRight: 5 }}
+                />
+                <Text style={localStyles.detailsToggleText}>
+                  {detailsExpanded ? 'Hide details' : 'View details'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
-            {detailsExpanded && (
+            {!isContentClearOnly && detailsExpanded && (
               <View style={localStyles.detailsCard}>
                 {/* Addresses after update */}
                 {hasPrimaryInfo && (
@@ -404,9 +441,16 @@ const HighRiskStep = ({
             uncheckedColor="#B0B0B0"
           />
           <View style={{ flex: 1 }}>
-            <Text style={localStyles.ackTitle}>I understand these high-risk changes.</Text>
+            <Text style={localStyles.ackTitle}>
+              {isContentClearOnly
+                ? 'I understand this clears current identity content.'
+                : 'I understand these high-risk changes.'}
+            </Text>
             {hasUnownedPrimaryAddress && (
               <Text style={localStyles.ackSubtitle}>Includes an external primary address.</Text>
+            )}
+            {identityStateChange && (
+              <Text style={localStyles.ackSubtitle}>Includes the identity status and timelock changes shown above.</Text>
             )}
           </View>
         </TouchableOpacity>
@@ -422,283 +466,5 @@ const HighRiskStep = ({
     </View>
   );
 };
-
-const localStyles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-
-  /* ── Authority-only card ── */
-  authorityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    padding: 16,
-    marginBottom: 12,
-  },
-  authorityLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  authorityLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#888',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    flex: 1,
-  },
-  infoIconButton: {
-    marginLeft: 6,
-    padding: 2,
-  },
-  transitionContainer: {
-    flexDirection: 'row',
-    marginTop: 10,
-    marginLeft: 4,
-  },
-  connectorColumn: {
-    alignItems: 'center',
-    width: 14,
-    marginRight: 10,
-    paddingTop: 4,
-  },
-  connectorLine: {
-    width: 1.5,
-    flex: 1,
-    backgroundColor: '#D4D4D4',
-    borderRadius: 1,
-  },
-  transitionValues: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  authorityCurrent: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#999',
-    marginBottom: 6,
-  },
-  authorityTarget: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1A1A',
-    marginTop: 2,
-  },
-  authorityRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
-    paddingBottom: 14,
-  },
-
-  /* ── Outcome card ── */
-  outcomeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    padding: 16,
-    marginBottom: 12,
-  },
-  outcomeHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  outcomeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outcomeTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  outcomeDesc: {
-    fontSize: 13,
-    color: '#555',
-    lineHeight: 18,
-    marginTop: 2,
-  },
-
-  /* ── Outlined badges ── */
-  outcomeBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 14,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  badgeIcon: {
-    marginRight: 4,
-  },
-  badgeText: {
-    fontSize: 11,
-    lineHeight: 13,
-  },
-  badgeLg: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  badgeIconLg: {
-    marginRight: 6,
-  },
-  badgeTextLg: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  /* ── Compact change summary ── */
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    paddingHorizontal: 16,
-    marginBottom: 4,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-  },
-  summaryRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
-  },
-  summaryText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-
-  /* ── Details toggle ── */
-  detailsToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    marginBottom: 4,
-  },
-  detailsToggleText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#888',
-  },
-
-  /* ── Details panel (progressive disclosure) ── */
-  detailsCard: {
-    backgroundColor: '#F9F9F9',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    padding: 14,
-    marginBottom: 12,
-  },
-  detailsSection: {
-    marginBottom: 4,
-  },
-  detailsSectionBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-    paddingTop: 12,
-    marginTop: 8,
-  },
-  detailsSectionTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  addressRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    fontFamily: Platform.select({
-      ios: 'Menlo',
-      android: 'monospace',
-      default: 'monospace',
-    }),
-  },
-  valueBlock: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 10,
-    marginBottom: 8,
-  },
-  valueLabel: {
-    fontSize: 10,
-    color: '#888',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 4,
-  },
-  valueData: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    fontFamily: Platform.select({
-      ios: 'Menlo',
-      android: 'monospace',
-      default: 'monospace',
-    }),
-  },
-
-  /* ── Sticky acknowledgment ── */
-  stickyAck: {
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  ackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ackTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  ackSubtitle: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-    lineHeight: 16,
-  },
-});
 
 export default HighRiskStep;

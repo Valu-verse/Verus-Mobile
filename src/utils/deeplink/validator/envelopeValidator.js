@@ -1,5 +1,7 @@
 // Updated invoice detail type checks to use VerusPayInvoiceDetailsOrdinalVDXFObject.
-import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject } from "verus-typescript-primitives"
+import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject , CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY, SPENDABLE_KEY_DETAILS_VDXF_KEY, SpendableKeyDetailsOrdinalVDXFObject,
+  USER_DATA_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY,
+  CreateWalletBackupDetailsOrdinalVDXFObject} from "verus-typescript-primitives"
 import { getInfo, verifyGenericRequest } from "../../api/channels/vrpc/callCreators"
 import { getIdentity } from "../../api/channels/verusid/callCreators";
 import { validateAuthenticationRequestVDXFObject } from "./authenticationRequestValidator";
@@ -7,6 +9,10 @@ import { validateIdentityUpdateRequestVDXFObject } from "./identityUpdateRequest
 import { validateProvisionIdentityDetailsVDXFObject } from "./provisionIdentityDetailsValidator";
 import { validateVerusPayInvoiceVDXFObject } from "./verusPayInvoiceDetailsValidator";
 import { validateAppEncryptionRequestVDXFObject } from "./appEncryptionRequestValidator";
+import { validateCreateWalletBackupDetailsVDXFObject } from "./createWalletBackupDetailsValidator";
+import { validateSpendableKeyDetailsVDXFObject } from "./spendableKeyDetailsValidator";
+import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
+import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
 import { validateGenericRequestGroupings } from "./allowedGenericRequestGroupings";
@@ -27,7 +33,9 @@ export const isRequestRequiredSignature = (request) => {
   const details = request.details;
 
   return !details.every((detail) => {
-    return detail instanceof VerusPayInvoiceDetailsOrdinalVDXFObject 
+    return detail instanceof VerusPayInvoiceDetailsOrdinalVDXFObject ||
+      detail instanceof SpendableKeyDetailsOrdinalVDXFObject || 
+      detail instanceof CreateWalletBackupDetailsOrdinalVDXFObject
   })
 }
 
@@ -38,8 +46,10 @@ export const getValidatorForDetail = (detailKey) => {
     [PROVISION_IDENTITY_DETAILS_VDXF_KEY.vdxfid]: validateProvisionIdentityDetailsVDXFObject,
     [VERUSPAY_INVOICE_DETAILS_VDXF_KEY.vdxfid]: validateVerusPayInvoiceVDXFObject,
     [APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid]: validateAppEncryptionRequestVDXFObject,
-    [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: validateDataPacketRequestVDXFObject,
-    [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: validateUserDataRequestVDXFObject
+    [CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid]: validateCreateWalletBackupDetailsVDXFObject,
+    [SPENDABLE_KEY_DETAILS_VDXF_KEY.vdxfid]: validateSpendableKeyDetailsVDXFObject,
+    [USER_DATA_REQUEST_VDXF_KEY.vdxfid]: validateUserDataRequestVDXFObject,
+    [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: validateDataPacketRequestVDXFObject
   }
 
   if (Object.keys(detailValidators).includes(detailKey)) {

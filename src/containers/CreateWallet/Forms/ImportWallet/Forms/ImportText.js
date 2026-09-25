@@ -26,7 +26,7 @@ import {createAlert} from '../../../../../actions/actions/alert/dispatchers/aler
 import GradientButton from '../../../../../components/GradientButton';
 import ScanSeed from '../../../../../components/ScanSeed';
 import Colors from '../../../../../globals/colors';
-import {SMALL_DEVICE_HEGHT} from '../../../../../utils/constants/constants';
+import Styles from '../../../../../styles';
 
 export default function ImportText({
   qr,

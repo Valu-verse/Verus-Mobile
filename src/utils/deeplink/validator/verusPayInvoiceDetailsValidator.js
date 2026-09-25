@@ -5,13 +5,26 @@ import { getInfo } from "../../api/channels/vrpc/callCreators";
 import { blocksToTime } from "../../math";
 import { GenericRequest, VerusPayInvoiceDetails } from "verus-typescript-primitives/dist/vdxf/classes";
 import { getCurrency } from "../../api/channels/verusid/callCreators";
+import { validateVerusPayBurnChangePrice } from "../verusPayBurnChangePrice";
 
 /**
  * @param {GenericRequest} request
  * @param {number} detailIndex
  */
 export const validateVerusPayInvoiceVDXFObject = (request, detailIndex) => {
-  return validateVerusPayInvoiceDetails(request.getDetails(detailIndex).data);
+  const details = request.getDetails(detailIndex).data;
+
+  if (details.isTestnet() !== request.isTestnet()) {
+    throw new Error(
+      `Invoice details are for ${
+        details.isTestnet() ? "testnet" : "mainnet"
+      }, but the enclosing request is for ${
+        request.isTestnet() ? "testnet" : "mainnet"
+      }.`
+    );
+  }
+
+  return validateVerusPayInvoiceDetails(details);
 }
 
 /**
@@ -42,6 +55,12 @@ export const validateVerusPayInvoiceDetails = async (details) => {
 
   const requestedCurrency = await getCurrency(coinObj.system_id, details.requestedcurrencyid)
   if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
+
+  validateVerusPayBurnChangePrice(
+    details,
+    requestedCurrency.result,
+    coinObj.system_id,
+  );
 
   if (details.isPreconvert()) {
     if (chainInfo.result.longestchain - requestedCurrency.result.startblock >= 0) {

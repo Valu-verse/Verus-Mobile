@@ -11,12 +11,14 @@
   - 2026-02-06: Redesigned CMM change items as card-based layout when showChangeBadges is true.
     Title gets its own row, badges sit below it, and description blocks use left accent bars
     with truncated previews for cleaner scanning.
+  - 2026-03-06: Clarified current-content removal wording  so pre-confirmation cards use
+    future tense and content-clear actions get dedicated copy.
 */
 import React, { useEffect, useState } from 'react';
 import { Clipboard, FlatList, TouchableOpacity, Alert, View, Image, ScrollView, StyleSheet } from 'react-native';
 import { Text, List, Divider, Paragraph } from 'react-native-paper';
 import Colors from '../globals/colors';
-import Styles from '../styles';
+import Styles, { verusIdObjectDataStyles as LocalStyles } from '../styles';
 import { Revoke, Recover, Coins } from '../images/customIcons';
 import { openUrl } from "../utils/linking";
 import AnimatedSuccessCheckmark from "./AnimatedSuccessCheckmark";
@@ -139,6 +141,8 @@ export default function VerusIdObjectData(props) {
     cmmDataKeys,
     extraListItems,
     showChangeBadges
+    extraListItems,
+    showChangeBadges
   } = props;
   
   const [listData, setListData] = useState([]);
@@ -175,22 +179,9 @@ export default function VerusIdObjectData(props) {
     return formatValue(data);
   };
 
-  const isContentMultiMapRemove = (rawData) => {
-    const isRemoveObj = (obj) => {
-      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
-      const keys = Object.keys(obj);
-      if (keys.length !== 1) return false;
-      return getVDXFKeyLabel(keys[0], true) === 'content multi map remove';
-    };
-
-    if (isRemoveObj(rawData)) return true;
-    if (Array.isArray(rawData)) return rawData.some(isRemoveObj);
-    return false;
-  };
-
   const getCmmChangeType = (hasExisting, updateEntry) => {
     if (!updateEntry) return null;
-    if (isContentMultiMapRemove(updateEntry.rawData)) return 'removed';
+    if (updateEntry.removeMeta) return 'removed';
     if (!hasExisting) return 'added';
     return 'appended';
   };
@@ -198,11 +189,11 @@ export default function VerusIdObjectData(props) {
   const getChangeBadgeConfig = (changeType) => {
     switch (changeType) {
       case 'added':
-        return { icon: 'plus-circle-outline', label: 'Added', color: Colors.verusGreenColor };
+        return { icon: 'plus-circle-outline', label: 'New key', color: Colors.verusGreenColor };
       case 'appended':
-        return { icon: 'plus-circle-outline', label: 'Adding', color: Colors.verusGreenColor };
+        return { icon: 'plus-circle-outline', label: 'Add value', color: Colors.verusGreenColor };
       case 'removed':
-        return { icon: 'minus-circle-outline', label: 'Removed', color: Colors.warningButtonColor };
+        return { icon: 'minus-circle-outline', label: 'Will remove', color: Colors.warningButtonColor };
       default:
         return null;
     }
@@ -211,7 +202,19 @@ export default function VerusIdObjectData(props) {
   const getBadgeList = (item) => {
     const badges = [];
     const baseBadge = getChangeBadgeConfig(item.changeType);
-    if (baseBadge) badges.push(baseBadge);
+    if (baseBadge) {
+      if (item.changeType === 'removed') {
+        badges.push({
+          ...baseBadge,
+          label: item.removeMeta?.action === 4 ? 'Will clear' : 'Will remove',
+        });
+      } else {
+        badges.push(baseBadge);
+      }
+    }
+    if (item.isEncryptedKey) {
+      badges.push({ icon: 'shield-lock-outline', label: 'Will encrypt', color: Colors.primaryColor });
+    }
     return badges;
   };
 
@@ -268,10 +271,10 @@ export default function VerusIdObjectData(props) {
       ? ` (hash ${valueHash.substring(0, 10)}...)`
       : '';
 
-    if (action === 4) return 'All content keys and values';
-    if (action === 3) return `All values under ${entryLabel || 'selected key'}`;
-    if (action === 2) return `All matching values under ${entryLabel || 'selected key'}${valueHashText}`;
-    if (action === 1) return `One value under ${entryLabel || 'selected key'}${valueHashText}`;
+    if (action === 4) return 'All current content keys and values';
+    if (action === 3) return `All current values under ${entryLabel || 'selected key'}`;
+    if (action === 2) return `All current matching values under ${entryLabel || 'selected key'}${valueHashText}`;
+    if (action === 1) return `One current matching value under ${entryLabel || 'selected key'}${valueHashText}`;
 
     return 'Selected content';
   };
@@ -282,29 +285,32 @@ export default function VerusIdObjectData(props) {
       : (item.updatedData ?? updateEntry?.data ?? item.data);
 
     if (item.changeType === 'added') {
-      return renderCmmDescBlock('New', updatedPreview || 'New value', Colors.verusGreenColor);
+      return renderCmmDescBlock('New key', updatedPreview || 'New value', Colors.verusGreenColor);
     }
 
     if (item.changeType === 'removed') {
+      const actionLabel = item.removeMeta?.action === 4 ? 'Will clear' : 'Will remove';
+
       if (item.removeMeta) {
         const removeActionDescription = getRemoveActionDescription(item.removeMeta);
 
         return (
           <>
-            {item.data != null && !item.hideOldData && renderCmmDescBlock('Existing', item.data, '#CCC', true)}
-            {renderCmmDescBlock('Removing', removeActionDescription || 'Selected content', Colors.warningButtonColor)}
+            {item.data != null && !item.hideOldData && renderCmmDescBlock('Current', item.data, '#CCC', item.removeMeta.action === 3)}
+            {renderCmmDescBlock(actionLabel, removeActionDescription || 'Selected content', Colors.warningButtonColor)}
           </>
         );
       }
 
-      return renderCmmDescBlock('Removing', item.data || 'Unknown value', Colors.warningButtonColor, true);
+      // keep removal cards clearly pre-confirmation by avoiding past tense labels.
+      return renderCmmDescBlock(actionLabel, item.data || 'Unknown value', Colors.warningButtonColor, true);
     }
 
     if (item.changeType === 'appended') {
       return (
         <>
           {item.data != null && renderCmmDescBlock('Existing', item.data, '#CCC')}
-          {renderCmmDescBlock('Adding', updatedPreview || 'New value', Colors.verusGreenColor)}
+          {renderCmmDescBlock('Add value', updatedPreview || 'New value', Colors.verusGreenColor)}
         </>
       );
     }
@@ -353,6 +359,23 @@ export default function VerusIdObjectData(props) {
 
         {/* Description blocks */}
         {renderCmmChangeDescription(item, updateEntry)}
+
+        {/* Encrypted key info */}
+        {item.isEncryptedKey && (
+          <View style={LocalStyles.encryptedKeyInfo}>
+            <MaterialCommunityIcons
+              name="shield-lock-outline"
+              size={14}
+              color={Colors.primaryColor}
+              style={{ marginRight: 6, marginTop: 1 }}
+            />
+            <Text style={LocalStyles.encryptedKeyInfoText}>
+              This credential data will be encrypted before it is stored on-chain.
+              Neither the credential type nor its contents will be publicly visible.
+              The identity's z-address must match the z-address linked to your account's shielded (Z) seed.
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -571,6 +594,7 @@ export default function VerusIdObjectData(props) {
             dataInDescription: true,
             changeType,
             isEncrypted: Boolean(updateEntry && updateEntry.isEncrypted),
+            isEncryptedKey: Boolean(updateEntry && updateEntry.isEncryptedKey),
             updatedData: updateEntry ? updateEntry.data : null,
             removeMeta: updateEntry ? updateEntry.removeMeta : null
           };
@@ -582,16 +606,22 @@ export default function VerusIdObjectData(props) {
           const iAddr = key.split(':')[1];
           const updateEntry = displayUpdates[VERUSID_CMM_INFO.key][key];
           const shortIAddr = updateEntry && updateEntry.displayTitle ? updateEntry.displayTitle : getCmmDataKey(iAddr);
-          const changeType = getCmmChangeType(false, updateEntry);
+          const removedKey = updateEntry?.removeMeta?.action !== 4
+            ? updateEntry?.removeMeta?.entryKey
+            : null;
+          const currentValues = removedKey ? verusId.identity.contentmultimap?.[removedKey] : null;
+          const hasCurrentValues = currentValues != null && (!Array.isArray(currentValues) || currentValues.length > 0);
+          const changeType = getCmmChangeType(hasCurrentValues, updateEntry);
           
           contentMultiMapInfo[key] = {
             key,
             title: shortIAddr,
-            data: updateEntry ? updateEntry.data : null,
-            hideOldData: true,
+            data: hasCurrentValues ? getCmmDataLabel(currentValues) : updateEntry ? updateEntry.data : null,
+            hideOldData: !hasCurrentValues,
             dataInDescription: true,
             changeType,
             isEncrypted: Boolean(updateEntry && updateEntry.isEncrypted),
+            isEncryptedKey: Boolean(updateEntry && updateEntry.isEncryptedKey),
             updatedData: updateEntry ? updateEntry.data : null,
             removeMeta: updateEntry ? updateEntry.removeMeta : null
           };
@@ -630,7 +660,7 @@ export default function VerusIdObjectData(props) {
         setExpandedAccordions(initialExpandedState);
       }
     }
-  }, [verusId, friendlyNames, updates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad]);
+  }, [verusId, friendlyNames, displayUpdates, cmmDataKeys, chainInfo, coinObj, hideUnchanged, hideDataOnLoad]);
 
   copyDataToClipboard = (data, name) => {
     Clipboard.setString(data);

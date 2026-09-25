@@ -1,1059 +1,608 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, StatusBar, Platform } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Portal, Text } from 'react-native-paper';
-import { useSelector } from 'react-redux';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  UserDataRequestDetails,
-  DataDescriptor,
-  DataResponseDetails,
-  DataResponseOrdinalVDXFObject,
-  GenericResponse,
-  VerifiableSignatureData,
-  CompactAddressObject,
-} from 'verus-typescript-primitives';
-import * as VDXF_Data from 'verus-typescript-primitives/dist/vdxf/vdxfdatakeys';
-import { IdentityVdxfidMap } from 'verus-typescript-primitives/dist/utils/IdentityData';
-import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
-import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
-import Colors from '../../../globals/colors';
-import GradientButton from '../../../components/GradientButton';
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { Button, Checkbox, Text } from 'react-native-paper';
+import { useSelector } from 'react-redux';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
-import { SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
-import { createAlert, resolveAlert } from '../../../actions/actions/alert/dispatchers/alert';
-import { unixToDate } from '../../../utils/math';
-import { getSystemNameFromSystemId } from '../../../utils/CoinData/CoinData';
-import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
-import { getIdentity } from '../../../utils/api/channels/verusid/callCreators';
+import {GenericResponse} from 'verus-typescript-primitives';
+import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
+import Colors from '../../../globals/colors';
+import { dataRequestInfoStyles as styles } from '../../../styles';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import { requestServiceStoredData } from '../../../utils/auth/authBox';
 import { VERUSID_SERVICE_ID } from '../../../utils/constants/services';
-import { createAttestationResponseBuffer } from '../../../utils/attestations/createAttestationResponse';
-import { BN } from 'bn.js';
+import { VERUSID_NETWORK_DEFAULT } from '../../../../env/index';
+import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import { SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
+import { createAlert } from '../../../actions/actions/alert/dispatchers/alert';
+import { unixToDate } from '../../../utils/math';
+import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
+import IdentityPickerSheet from '../AuthenticationRequestInfo/components/IdentityPickerSheet';
+import {
+  getMissingCredentialKeys,
+  getScopedCredentials,
+} from '../../../utils/deeplink/credentials/scopedCredentials';
+import { buildUserDataResponse } from '../../../utils/deeplink/userData/buildUserDataResponse';
+import {ensureGenericResponseSigner} from '../../../utils/deeplink/genericResponse/ensureGenericResponseSigner';
+import {userDataRequestedSignerMatchesIdentity} from '../../../utils/deeplink/userData/requestedSigner';
+import {getMatchingRequestAccounts} from '../../../utils/deeplink/requestAccounts';
 
-// ── Helpers ──
-
-const truncateAddress = (addr) => {
+const truncateAddress = addr => {
   if (!addr || addr.length <= 14) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
 };
 
-const DATA_TYPE_LABELS = {
-  1: 'Full data',
-  2: 'Partial data',
-  3: 'Collection',
-};
-
-const REQUEST_TYPE_LABELS = {
-  1: 'Attestation',
-  2: 'Claim',
-  3: 'Credential',
-};
-
-const DATA_TYPE_DESCRIPTIONS = {
-  1: 'The requesting application wants to receive ALL data in this object. Review the contents carefully before approving.',
-  2: 'The requesting application wants only specific fields. Other fields will be sent as cryptographic hashes only.',
-  3: 'The requesting application wants multiple data objects. Review each before approving.',
-};
-
-const REQUEST_TYPE_DESCRIPTIONS = {
-  1: 'Requesting an attestation (third-party signed statement about you)',
-  2: 'Requesting a claim (your self-asserted data)',
-  3: 'Requesting a verifiable credential',
-};
-
-// ── Detail Row Component ──
-
-const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder, singleLine, isError }) => {
-  const Wrapper = onPress ? TouchableOpacity : View;
-  const wrapperProps = onPress ? { onPress, activeOpacity: 0.7 } : {};
-  return (
-    <Wrapper
-      style={[
-        styles.detailRow,
-        showBorder && styles.detailRowBorder,
-        onPress && styles.detailRowPressable,
-        isError && styles.detailRowError,
-      ]}
-      {...wrapperProps}
-    >
-      <View style={styles.detailLeft}>
-        <Text style={[styles.detailTitle, isError && styles.detailTitleError]} numberOfLines={singleLine ? 1 : undefined}>{title}</Text>
-        {subtitle ? <Text style={[styles.detailSubtitle, isError && styles.detailSubtitleError]}>{subtitle}</Text> : null}
-      </View>
-      {rightIcon ? (
-        <MaterialCommunityIcons name={rightIcon} size={18} color={isError ? "#C62828" : "#888"} />
-      ) : null}
-    </Wrapper>
+const hasLinkedIdentity = (linkedIds, chainId, identityID) => {
+  return Object.prototype.hasOwnProperty.call(
+    linkedIds[chainId] || {},
+    identityID,
   );
 };
 
-// ── Friendly label for a VDXF key ──
+const DetailRow = ({ title, subtitle, showBorder, icon }) => (
+  <View style={[styles.detailRow, showBorder && styles.detailRowBorder]}>
+    <View style={styles.detailLeft}>
+      <Text style={styles.detailTitle}>{title}</Text>
+      {subtitle ? <Text style={styles.detailSubtitle}>{subtitle}</Text> : null}
+    </View>
+    {icon ? <MaterialCommunityIcons name={icon} size={18} color="#888" /> : null}
+  </View>
+);
 
-const friendlyKeyLabel = (vdxfKey) => {
-  return IdentityVdxfidMap[vdxfKey]?.EN || vdxfKey;
-};
-
-// ── Extract field labels from an attestation's data descriptors ──
-
-const extractFieldLabels = (attestationDetails) => {
-  const labels = [];
+const formatJson = value => {
   try {
-    const descriptorKeyId = VDXF_Data.DataDescriptorKey?.vdxfid;
-    if (attestationDetails?.mmrDescriptor?.dataDescriptors) {
-      for (const dd of attestationDetails.mmrDescriptor.dataDescriptors) {
-        const json = dd.toJson?.();
-        // Handle nested format: objectdata[DataDescriptorKey] = { label, ... }
-        const nested = json?.objectdata?.[descriptorKeyId];
-        // Handle flat format: { label, objectdata: { message } }
-        const label = nested?.label || json?.label;
-        if (label) {
-          labels.push(friendlyKeyLabel(label));
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('Error extracting field labels:', e);
+    return JSON.stringify(value, null, 2);
+  } catch (_) {
+    return String(value);
   }
-  return labels;
 };
 
-// ══════════════════════════════════════════════════════════════════════════════
-// Main Component
-// ══════════════════════════════════════════════════════════════════════════════
+const CredentialField = ({ label, value, monospace }) => {
+  if (value == null || value === '') return null;
 
-const UserDataRequestInfo = (props) => {
-  const insets = useSafeAreaInsets();
+  return (
+    <View style={styles.payloadField}>
+      <Text style={styles.payloadLabel}>{label}</Text>
+      <Text style={monospace ? styles.payloadCodeText : styles.payloadText}>
+        {value}
+      </Text>
+    </View>
+  );
+};
+
+const CredentialConsent = ({ credential, index, checked, onToggle, showBorder }) => (
+  <View style={[styles.credentialDisclosure, showBorder && styles.detailRowBorder]}>
+    <View style={styles.credentialDisclosureHeader}>
+      <View style={styles.detailLeft}>
+        <Text style={styles.detailTitle}>{credential.credentialKey}</Text>
+        {credential.label ? (
+          <Text style={styles.detailSubtitle}>{credential.label}</Text>
+        ) : null}
+      </View>
+      <MaterialCommunityIcons name="key-variant" size={18} color="#888" />
+    </View>
+    <CredentialField
+      label="Credential being sent"
+      value={formatJson(credential.credential)}
+      monospace
+    />
+    <CredentialField
+      label="Credential scopes"
+      value={formatJson(credential.scopes)}
+      monospace
+    />
+    <TouchableOpacity
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      activeOpacity={0.75}
+      onPress={onToggle}
+      style={[styles.reviewCheckRow, styles.credentialConsentRow]}
+    >
+      <View pointerEvents="none">
+        <Checkbox.Android
+          status={checked ? 'checked' : 'unchecked'}
+          color={Colors.verusGreenColor}
+          uncheckedColor="#888"
+        />
+      </View>
+      <View style={styles.reviewCheckTextContainer}>
+        <Text style={styles.reviewCheckTitle}>
+          {`I agree to send credential ${index + 1}`}
+        </Text>
+        <Text style={styles.reviewCheckSubtitle}>
+          This credential will be encrypted and sent to the requester.
+        </Text>
+      </View>
+    </TouchableOpacity>
+  </View>
+);
+
+const UserDataRequestInfo = props => {
   const {
-    // From displayProps (handler output)
-    detailsBufferString,
-    requestSignerFqn,
-    requestSignerIdentityID,
-    requestSignerSystemID,
-    requestSigtime,
-    coinObj,
-    chainInfo,
-    dataType,
-    requestType,
-    searchDataKey,
-    signerIAddress,
     signerFqn,
-    requestIDDisplay,
-    requestedKeys,
-    matchingAttestations,
-    hasResponseURIs,
-    // Standard props from GenericRequestHome
+    signerSystemID,
+    signerSystemName,
+    signerIdentityID,
+    sigtime,
+    credentialRequests = [],
+    requestScope,
+    requestedSignerID,
     cancel,
-    navigation,
     next,
     response,
     request,
     detailIndex,
   } = props;
 
-  // ── Redux state ──
   const signedIn = useSelector(state => state.authentication.signedIn);
   const sendModalType = useSelector(state => state.sendModal.type);
-  const activeAccount = useObjectSelector(state => state.authentication.activeAccount);
+  const accounts = useObjectSelector(state => state.authentication.accounts);
   const encryptedIds = useObjectSelector(state => state.services.stored[VERUSID_SERVICE_ID]);
-  const requestIsTestnet = request != null ? request.isTestnet() : false;
+  const testnetOverrides = useObjectSelector(
+    state => state.authentication.activeAccount?.testnetOverrides || {},
+  );
+  const identityNetwork = testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    ? testnetOverrides[VERUSID_NETWORK_DEFAULT]
+    : VERUSID_NETWORK_DEFAULT;
 
-  // ── Local state ──
-  const [loading, setLoading] = useState(false);
+  const [linkedIds, setLinkedIds] = useState({});
+  const [linkedIdsLoaded, setLinkedIdsLoaded] = useState(false);
+  const [sortedIds, setSortedIds] = useState({});
+  const [selectedIdentity, setSelectedIdentity] = useState(null);
+  const [identitySheetVisible, setIdentitySheetVisible] = useState(false);
+  const [credentials, setCredentials] = useState([]);
+  const [missingCredentialKeys, setMissingCredentialKeys] = useState([]);
+  const [credentialsLoading, setCredentialsLoading] = useState(false);
   const [waitingForSignin, setWaitingForSignin] = useState(false);
-  const [verusIdDetailsModalProps, setVerusIdDetailsModalProps] = useState(null);
+  const [acknowledgedCredentials, setAcknowledgedCredentials] = useState({});
 
-  // ── Derived values ──
-  const isPartialData = dataType === UserDataRequestDetails.PARTIAL_DATA.toNumber();
-  const isFullData = dataType === UserDataRequestDetails.FULL_DATA.toNumber();
-  const isCollection = dataType === UserDataRequestDetails.COLLECTION.toNumber();
+  const requestIsTestnet = request != null ? request.isTestnet() : false;
+  const identityChain = requestIsTestnet ? 'VRSCTEST' : identityNetwork;
+  const matchingAccounts = useMemo(
+    () => getMatchingRequestAccounts(accounts, requestIsTestnet),
+    [accounts, requestIsTestnet],
+  );
+  const credentialKeys = useMemo(
+    () => credentialRequests.map(item => item.key),
+    [credentialRequests],
+  );
+  const requesterLabel = signerFqn || signerIdentityID || 'Requester';
+  const sigDateString = sigtime ? unixToDate(sigtime) : null;
+  const requestedSignerUnavailable =
+    linkedIdsLoaded &&
+    requestedSignerID != null &&
+    !hasLinkedIdentity(linkedIds, identityChain, requestedSignerID);
 
-  const isSigned = !!(requestSignerFqn || requestSignerIdentityID);
-  const requesterLabel = requestSignerFqn || requestSignerIdentityID || 'Unknown requester';
-  const requesterAddress = requestSignerFqn ? requestSignerIdentityID : null;
-  const requestSigDateString = requestSigtime ? unixToDate(requestSigtime) : null;
-  const requestChainId = requestSignerSystemID
-    ? getSystemNameFromSystemId(requestSignerSystemID) || requestSignerSystemID
-    : null;
-
-  // ── Attestation field preview ──
-  const attestationFieldLabels = useMemo(() => {
-    if (!matchingAttestations || matchingAttestations.length === 0) return [];
-
-    if (isCollection) {
-      return matchingAttestations.map(att => ({
-        name: att.name,
-        fields: extractFieldLabels(att.attestationDetails),
-      }));
-    }
-
-    // Single attestation — show its fields
-    const att = matchingAttestations[0];
-    return [{
-      name: att.name,
-      fields: extractFieldLabels(att.attestationDetails),
-    }];
-  }, [matchingAttestations, isCollection]);
-
-  // Which fields will be shared (for PARTIAL_DATA)
-  const sharedFieldLabels = useMemo(() => {
-    if (!isPartialData || !requestedKeys) return [];
-    return requestedKeys.map(k => friendlyKeyLabel(k));
-  }, [isPartialData, requestedKeys]);
-
-  // ── isWrongRequestType check (testnet/mainnet mismatch) ──
-  const isWrongRequestType = useMemo(() => {
-    if (!activeAccount) return false;
-    // If testnet request but no testnet profiles, or vice versa
-    return false; // simplified — the validator already checks this
-  }, [activeAccount, requestIsTestnet]);
-
-  // ── Auth modal callback ──
   useEffect(() => {
-    if (waitingForSignin && signedIn) {
-      setWaitingForSignin(false);
-    }
-  }, [signedIn, waitingForSignin]);
-
-  // ── Build detail rows ──
-  const detailRows = useMemo(() => {
-    const rows = [];
-
-    // Data type
-    rows.push({
-      key: 'data-type',
-      title: DATA_TYPE_LABELS[dataType] || `Data type ${dataType}`,
-      subtitle: DATA_TYPE_DESCRIPTIONS[dataType] || '',
-      rightIcon: isFullData ? 'file-document' : isPartialData ? 'file-document-edit' : 'file-document-multiple',
-    });
-
-    // Request type
-    rows.push({
-      key: 'request-type',
-      title: REQUEST_TYPE_LABELS[requestType] || `Request type ${requestType}`,
-      subtitle: REQUEST_TYPE_DESCRIPTIONS[requestType] || '',
-      rightIcon: requestType === 1 ? 'certificate' : requestType === 2 ? 'account-voice' : 'shield-check',
-    });
-
-    // Search data key (what is being looked up)
-    if (searchDataKey && searchDataKey.length > 0) {
-      const labels = searchDataKey.map(entry => {
-        const key = Object.keys(entry)[0];
-        const val = entry[key];
-        return val ? `${friendlyKeyLabel(key)}: ${val}` : friendlyKeyLabel(key);
-      });
-      rows.push({
-        key: 'search-data',
-        title: 'Searching for',
-        subtitle: labels.join('\n'),
-        rightIcon: 'magnify',
-      });
-    }
-
-    // Signer constraint
-    if (signerFqn || signerIAddress) {
-      rows.push({
-        key: 'signer',
-        title: `Data signed by: ${signerFqn || signerIAddress}`,
-        subtitle: signerFqn ? signerIAddress : undefined,
-        rightIcon: 'account-key',
-        onPress: signerIAddress ? () => copyToClipboard(signerIAddress, {
-          title: 'Signer address copied',
-          message: `${signerIAddress} copied to clipboard.`,
-        }) : undefined,
-      });
-    }
-
-    // Request ID
-    if (requestIDDisplay) {
-      rows.push({
-        key: 'request-id',
-        title: requestIDDisplay,
-        subtitle: 'Request ID',
-        rightIcon: 'content-copy',
-        onPress: () => copyToClipboard(requestIDDisplay, {
-          title: 'Request ID copied',
-          message: `${requestIDDisplay} copied to clipboard.`,
-        }),
-      });
-    }
-
-    // Requested keys (PARTIAL_DATA)
-    if (isPartialData && sharedFieldLabels.length > 0) {
-      rows.push({
-        key: 'requested-keys',
-        title: 'Fields to share',
-        subtitle: sharedFieldLabels.join(', '),
-        rightIcon: 'format-list-checks',
-      });
-    }
-
-    // Full data warning
-    if (isFullData) {
-      rows.push({
-        key: 'full-data-warning',
-        title: 'All data will be shared',
-        subtitle: 'The entire signed data object will be returned to the requester.',
-        rightIcon: 'alert-circle-outline',
-        isError: true,
-      });
-    }
-
-    // No matching attestations warning
-    if (!matchingAttestations || matchingAttestations.length === 0) {
-      rows.push({
-        key: 'no-match',
-        title: 'No matching data found',
-        subtitle: signerIAddress
-          ? `No data signed by ${signerFqn || signerIAddress} was found on this device.`
-          : 'No data matching this request was found on this device.',
-        rightIcon: 'alert-circle-outline',
-        isError: true,
-      });
-    }
-
-    return rows;
-  }, [dataType, requestType, searchDataKey, signerFqn, signerIAddress,
-      requestIDDisplay, isPartialData, isFullData, sharedFieldLabels,
-      matchingAttestations]);
-
-  // ── Continue disabled ──
-  const continueDisabled = useMemo(() => {
-    if (!matchingAttestations || matchingAttestations.length === 0) return true;
-    if (!hasResponseURIs) return true;
-    return false;
-  }, [matchingAttestations, hasResponseURIs]);
-
-  // ── Build and send response ──
-  const buildAndSendResponse = async () => {
-    try {
-      setLoading(true);
-
-      const att = isCollection ? matchingAttestations[0] : matchingAttestations[0];
-      if (!att || !att.raw || !att.raw.data) {
-        throw new Error('Selected attestation is missing raw data');
+    const loadLinkedIds = async () => {
+      try {
+        const verusIdServiceData = await requestServiceStoredData(VERUSID_SERVICE_ID);
+        setLinkedIds(verusIdServiceData.linked_ids || {});
+      } catch (_) {
+        setLinkedIds({});
+      } finally {
+        setLinkedIdsLoaded(true);
       }
+    };
 
-      // Build the response payload from the raw stored attestation hex.
-      // For PARTIAL_DATA, filter the MMR descriptors to only include
-      // the requested keys, then re-serialise the filtered attestation.
-      const responseBuffer = createAttestationResponseBuffer(
-        att.raw.data,
-        isPartialData ? requestedKeys : null,
+    if (signedIn) {
+      setLinkedIdsLoaded(false);
+      loadLinkedIds();
+    } else {
+      setLinkedIdsLoaded(false);
+    }
+  }, [encryptedIds, signedIn]);
+
+  useEffect(() => {
+    const sorted = {};
+    for (const chainId of Object.keys(linkedIds)) {
+      sorted[chainId] = linkedIds[chainId]
+        ? Object.keys(linkedIds[chainId]).sort((a, b) => {
+            const nameA = linkedIds[chainId][a] || '';
+            const nameB = linkedIds[chainId][b] || '';
+            return nameA.localeCompare(nameB);
+          })
+        : [];
+    }
+    setSortedIds(sorted);
+  }, [linkedIds]);
+
+  useEffect(() => {
+    if (!linkedIdsLoaded) return;
+
+    const chainIds = linkedIds[identityChain] || {};
+    const selectedIdentityIsAllowed =
+      selectedIdentity != null &&
+      selectedIdentity.chainId === identityChain &&
+      hasLinkedIdentity(linkedIds, identityChain, selectedIdentity.iAddress) &&
+      userDataRequestedSignerMatchesIdentity(
+        requestedSignerID,
+        selectedIdentity.iAddress,
       );
 
-      // Wrap the binary attestation payload in a DataDescriptor
-      const dataDescriptor = new DataDescriptor({
-        version: new BN(1),
-        objectdata: responseBuffer,
-      });
-
-      // Echo the originating request's requestID onto the response detail so
-      // the server can correlate this response with its request. The requestID
-      // lives on the request's UserDataRequestDetails, and DataResponseDetails
-      // serializes it via FLAG_HAS_REQUEST_ID when present.
-      const requestDetailData = request.getDetails(detailIndex)?.data;
-      const requestID = requestDetailData?.hasRequestID?.()
-        ? requestDetailData.requestID
-        : undefined;
-
-      // Wrap in DataResponseDetails
-      const responseDetails = new DataResponseDetails({
-        data: dataDescriptor,
-        requestID,
-      });
-
-      // Wrap in DataResponseOrdinalVDXFObject
-      const responseOrdinal = new DataResponseOrdinalVDXFObject({
-        data: responseDetails,
-      });
-
-      // Attach to the GenericResponse
-      const baseResponse = response || new GenericResponse();
-      if (baseResponse.details == null) baseResponse.details = [];
-      baseResponse.details = [...baseResponse.details, responseOrdinal];
-
-      // Ensure the multi-details flag is set when there are 2+ details
-      if (baseResponse.details.length > 1 && typeof baseResponse.setHasMultiDetails === 'function') {
-        baseResponse.setHasMultiDetails();
-      }
-
-      // Set signature using the attestation recipient identity so
-      // GenericRequestComplete can sign and deliver the response.
-      if (baseResponse.signature == null) {
-        let recipientIAddress = att.raw?.recipientId;
-        const systemID = att.attestationDetails?.signatureData?.systemID;
-
-        if (!recipientIAddress || !systemID) {
-          throw new Error(
-            'Attestation is missing recipient identity or system information. ' +
-            'Cannot sign the response.',
-          );
-        }
-
-        // recipientId may be an FQN (e.g. "name@") rather than an i-address.
-        // Resolve it to an i-address via getIdentity if needed.
-        if (!recipientIAddress.startsWith('i')) {
-          const idResult = await getIdentity(systemID, recipientIAddress);
-          if (idResult.error || !idResult.result?.identity?.identityaddress) {
-            throw new Error(
-              `Could not resolve recipient identity "${recipientIAddress}" to an i-address.`,
-            );
-          }
-          recipientIAddress = idResult.result.identity.identityaddress;
-        }
-
-        baseResponse.signature = new VerifiableSignatureData({
-          systemID: CompactAddressObject.fromIAddress(systemID),
-          identityID: CompactAddressObject.fromIAddress(recipientIAddress),
-        });
-        baseResponse.setSigned();
-      }
-
-      return baseResponse;
-    } catch (e) {
-      console.error('Error building user data response:', e);
-      createAlert('Error', `Failed to build response: ${e.message}`);
-      return null;
-    } finally {
-      setLoading(false);
+    if (selectedIdentity != null && !selectedIdentityIsAllowed) {
+      setSelectedIdentity(null);
+      return;
     }
-  };
 
-  // ── Handle approve ──
-  const handleContinue = async () => {
-    if (signedIn) {
-      if (!matchingAttestations || matchingAttestations.length === 0) {
-        createAlert('No data', 'No matching data was found on this device.');
+    if (selectedIdentity == null) {
+      const firstIAddress = requestedSignerID != null
+        ? (
+          hasLinkedIdentity(linkedIds, identityChain, requestedSignerID)
+            ? requestedSignerID
+            : null
+        )
+        : Object.keys(chainIds)[0];
+
+      if (firstIAddress) {
+        setSelectedIdentity({
+          chainId: identityChain,
+          iAddress: firstIAddress,
+          friendlyName: chainIds[firstIAddress] || firstIAddress,
+        });
+      }
+    }
+  }, [
+    identityChain,
+    linkedIds,
+    linkedIdsLoaded,
+    requestedSignerID,
+    selectedIdentity,
+  ]);
+
+  useEffect(() => {
+    if (waitingForSignin && signedIn && sendModalType == null) {
+      setWaitingForSignin(false);
+    }
+  }, [signedIn, sendModalType, waitingForSignin]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCredentials = async () => {
+      if (
+        !signedIn ||
+        !selectedIdentity ||
+        !userDataRequestedSignerMatchesIdentity(
+          requestedSignerID,
+          selectedIdentity.iAddress,
+        )
+      ) {
+        setCredentials([]);
+        setMissingCredentialKeys(credentialKeys);
         return;
       }
 
-      // Show confirmation dialog
-      const dataTypeLabel = DATA_TYPE_LABELS[dataType] || 'data';
-      const requestTypeLabel = REQUEST_TYPE_LABELS[requestType]?.toLowerCase() || 'data';
+      setCredentialsLoading(true);
+      try {
+        const foundCredentials = await getScopedCredentials({
+          systemID: signerSystemID,
+          identityAddress: selectedIdentity.iAddress,
+          scope: requestScope,
+          credentialKeys,
+        });
 
-      createAlert(
-        `Share ${requestTypeLabel} data`,
-        `Are you sure you want to share your ${dataTypeLabel.toLowerCase()} ${requestTypeLabel} data with ${requesterLabel}?`,
-        [
-          {
-            text: 'No',
-            onPress: () => {
-              resolveAlert();
-            },
-          },
-          {
-            text: 'Yes',
-            onPress: async () => {
-              resolveAlert();
-              const builtResponse = await buildAndSendResponse();
-              if (builtResponse) {
-                next(builtResponse, [detailIndex]);
-              }
-            },
-          },
-        ],
-        { cancelable: false },
-      );
-    } else {
-      // Need to sign in first
-      setWaitingForSignin(true);
-
-      // Build allowlist from linked IDs
-      const allowList = [];
-      if (encryptedIds) {
-        try {
-          const storedIds = await requestServiceStoredData(VERUSID_SERVICE_ID);
-          if (storedIds) {
-            for (const [iAddr, idData] of Object.entries(storedIds)) {
-              if (idData) {
-                const chainId = idData.chainId || (requestIsTestnet ? 'VRSCTEST' : 'VRSC');
-                const coinObj = CoinDirectory.findCoinObj(chainId, null, true);
-                if (coinObj && coinObj.testnet === requestIsTestnet) {
-                  allowList.push(iAddr);
-                }
-              }
-            }
-          }
-        } catch (e) {
-          console.warn('Error building allowlist:', e);
+        if (!cancelled) {
+          setCredentials(foundCredentials);
+          setMissingCredentialKeys(getMissingCredentialKeys(credentialKeys, foundCredentials));
         }
+      } catch (e) {
+        if (!cancelled) {
+          setCredentials([]);
+          setMissingCredentialKeys(credentialKeys);
+          createAlert('Credential Error', e.message || 'Unable to load credentials.');
+        }
+      } finally {
+        if (!cancelled) setCredentialsLoading(false);
       }
+    };
 
-      if (allowList.length > 0) {
-        openAuthenticateUserModal({ [SEND_MODAL_USER_ALLOWLIST]: allowList });
-      } else {
-        createAlert(
-          'Cannot continue',
-          `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profiles found, cannot respond to user data request.`,
-        );
-      }
-    }
+    loadCredentials();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    credentialKeys,
+    requestScope,
+    requestedSignerID,
+    selectedIdentity,
+    signedIn,
+    signerSystemID,
+  ]);
+
+  useEffect(() => {
+    setAcknowledgedCredentials({});
+  }, [credentials]);
+
+  const isIdentityAllowed = (chainId, iAddress) => {
+    return (
+      chainId === identityChain &&
+      userDataRequestedSignerMatchesIdentity(requestedSignerID, iAddress)
+    );
   };
 
-  // ── Handle signer details press ──
-  const handleSignerDetailsPress = () => {
-    if (requestSignerIdentityID && requestSignerSystemID) {
-      setVerusIdDetailsModalProps({
-        iAddress: requestSignerIdentityID,
-        systemId: requestSignerSystemID,
-        visible: true,
-        onClose: () => setVerusIdDetailsModalProps(null),
+  const handleSelectIdentity = (chainId, iAddress, friendlyName) => {
+    if (!isIdentityAllowed(chainId, iAddress)) {
+      createAlert(
+        'Requested signer required',
+        `This request must be answered by ${requestedSignerID}.`,
+      );
+      return;
+    }
+
+    setSelectedIdentity({ chainId, iAddress, friendlyName });
+    setIdentitySheetVisible(false);
+  };
+
+  const handleSignin = () => {
+    if (matchingAccounts.length === 0) {
+      createAlert(
+        'No profile found',
+        `No ${requestIsTestnet ? 'testnet' : 'mainnet'} profile is available for this request.`,
+      );
+      return;
+    }
+
+    openAuthenticateUserModal({
+      [SEND_MODAL_USER_ALLOWLIST]: matchingAccounts,
+    });
+    setWaitingForSignin(true);
+  };
+
+  const toggleCredentialAcknowledgement = index => {
+    setAcknowledgedCredentials(current => ({
+      ...current,
+      [index]: !current[index],
+    }));
+  };
+
+  const credentialReviewComplete =
+    credentials.length === 0 ||
+    credentials.every((_, index) => acknowledgedCredentials[index]);
+
+  const handleContinue = async () => {
+    if (!credentialReviewComplete) {
+      createAlert(
+        'Review required',
+        'Review and agree to every credential being sent before continuing.',
+      );
+      return;
+    }
+
+    if (!signedIn) {
+      handleSignin();
+      return;
+    }
+
+    if (!selectedIdentity) {
+      setIdentitySheetVisible(true);
+      return;
+    }
+
+    if (
+      !userDataRequestedSignerMatchesIdentity(
+        requestedSignerID,
+        selectedIdentity.iAddress,
+      )
+    ) {
+      createAlert(
+        'Requested signer required',
+        `This request must be answered by ${requestedSignerID}.`,
+      );
+      return;
+    }
+
+    if (credentialsLoading) return;
+
+    try {
+      const coinObj = CoinDirectory.findCoinObj(selectedIdentity.chainId);
+      if (!coinObj) throw new Error("Unsupported signing chain.");
+
+      const updatedResponse = response || new GenericResponse();
+      const detail = request.getDetails(detailIndex);
+      const responseDetail = buildUserDataResponse({
+        userDataDetail: detail.data,
+        credentials,
       });
+
+      updatedResponse.details = updatedResponse.details || [];
+
+      if (responseDetail != null) {
+        updatedResponse.details.push(responseDetail);
+      }
+
+      if (updatedResponse.details.length > 0) {
+        ensureGenericResponseSigner({
+          response: updatedResponse,
+          systemID: coinObj.system_id,
+          identityID: selectedIdentity.iAddress,
+        });
+      }
+
+      updatedResponse.setFlags();
+
+      next(updatedResponse, [detailIndex]);
+    } catch (e) {
+      createAlert('Error', e.message || 'Failed to build credential response.');
     }
   };
 
-  const canOpenSignerModal = !!(requestSignerIdentityID && requestSignerSystemID);
+  const continueDisabled =
+    credentialsLoading ||
+    waitingForSignin ||
+    requestedSignerUnavailable ||
+    !credentialReviewComplete;
 
-  // ── Hero title / subtitle ──
-  const getHeroTitle = () => {
-    if (isCollection) return `${searchDataKey?.length || 0} objects`;
-    return DATA_TYPE_LABELS[dataType] || 'Data request';
-  };
+  if (credentialsLoading && credentials.length === 0) {
+    return <AnimatedActivityIndicatorBox />;
+  }
 
-  const getHeroSubtitle = () => {
-    return REQUEST_TYPE_LABELS[requestType] || 'Unknown type';
-  };
+  return (
+    <SafeAreaView style={styles.root}>
+      <IdentityPickerSheet
+        visible={identitySheetVisible}
+        linkedIds={linkedIds}
+        sortedIds={sortedIds}
+        isIdentityAllowed={isIdentityAllowed}
+        selectedIdentity={selectedIdentity}
+        onClose={() => setIdentitySheetVisible(false)}
+        onSelect={handleSelectIdentity}
+      />
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Render
-  // ══════════════════════════════════════════════════════════════════════════
-
-  return loading ? (
-    <AnimatedActivityIndicatorBox />
-  ) : (
-    <SafeAreaView style={styles.container}>
-      <Portal>
-        {verusIdDetailsModalProps != null && (
-          <VerusIdDetailsModal {...verusIdDetailsModalProps} />
-        )}
-      </Portal>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>User data request</Text>
+          <MaterialCommunityIcons name="card-account-details-outline" size={48} color={Colors.primaryColor} />
+          <Text style={styles.headerTitle}>Credential Request</Text>
+          <Text style={styles.headerSubtitle}>
+            {requesterLabel} is requesting credential data from your identity.
+          </Text>
         </View>
 
-        {/* Requester card */}
-        {isSigned ? (
-          <TouchableOpacity
-            style={styles.requesterCard}
-            onPress={canOpenSignerModal ? handleSignerDetailsPress : undefined}
-            activeOpacity={canOpenSignerModal ? 0.7 : 1}
-          >
-            <View style={styles.requesterHeaderRow}>
-              <View style={styles.requesterIconContainer}>
-                <MaterialCommunityIcons
-                  name="account-lock"
-                  size={28}
-                  color={Colors.verusGreenColor}
-                />
-              </View>
-              <View style={styles.requesterTextContainer}>
-                <Text style={styles.requesterLabel}>Request from</Text>
-                <Text style={styles.requesterName}>{requesterLabel}</Text>
-                {requesterAddress ? (
-                  <Text style={styles.requesterAddress}>{truncateAddress(requesterAddress)}</Text>
-                ) : null}
-              </View>
-              {canOpenSignerModal ? (
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={24}
-                  color={Colors.verusDarkGray}
-                />
-              ) : null}
-            </View>
-            <View style={styles.requesterDetailsRow}>
-              {requestChainId ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{requestChainId}</Text>
-                </View>
-              ) : null}
-              {requestSigDateString ? (
-                <View style={styles.chipContainer}>
-                  <Text style={styles.chipText}>{requestSigDateString}</Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.unsignedCard}>
-            <View style={styles.unsignedIconContainer}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#B45309" />
-            </View>
-            <View style={styles.unsignedTextContainer}>
-              <Text style={styles.unsignedTitle}>Unsigned request</Text>
-              <Text style={styles.unsignedSubtitle}>
-                This user data request does not include a verified signer identity.
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Hero section */}
-        <View style={styles.heroContainer}>
-          <Text style={styles.heroAmount}>{getHeroTitle()}</Text>
-          <Text style={styles.heroCurrency}>{getHeroSubtitle()}</Text>
-        </View>
-
-        {/* Request details section */}
-        <View style={styles.sectionCard}>
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <MaterialCommunityIcons name="information-outline" size={20} color="#666" />
-              <Text style={styles.sectionTitle}>Request details</Text>
-            </View>
+            <Text style={styles.sectionTitle}>Requested Credentials</Text>
           </View>
-          <View style={styles.sectionContent}>
-            {detailRows.length === 0 ? (
-              <View style={styles.emptyRow}>
-                <Text style={styles.emptyText}>No additional details.</Text>
-              </View>
-            ) : (
-              detailRows.map((row, index) => (
-                <DetailRow
-                  key={row.key}
-                  title={row.title}
-                  subtitle={row.subtitle}
-                  onPress={row.onPress}
-                  rightIcon={row.rightIcon}
-                  showBorder={index > 0}
-                  singleLine={row.singleLine}
-                  isError={row.isError}
-                />
-              ))
-            )}
-          </View>
+          {credentialRequests.map((item, index) => (
+            <DetailRow
+              key={item.key}
+              title={item.key}
+              showBorder={index > 0}
+            />
+          ))}
         </View>
 
-        {/* Matching attestations section */}
-        {matchingAttestations && matchingAttestations.length > 0 && (
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderLeft}>
-                <MaterialCommunityIcons name="shield-check-outline" size={20} color="#666" />
-                <Text style={styles.sectionTitle}>
-                  {isCollection ? 'Matching objects' : 'Matching data'}
-                </Text>
-              </View>
-              {isCollection && (
-                <View style={styles.objectCountBadge}>
-                  <Text style={styles.objectCountText}>{matchingAttestations.length}</Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.sectionContent}>
-              {attestationFieldLabels.map((att, attIdx) => (
-                <View
-                  key={`att-${attIdx}`}
-                  style={[
-                    styles.attestationItem,
-                    attIdx > 0 && styles.detailRowBorder,
-                  ]}
-                >
-                  <Text style={styles.attestationName}>{att.name}</Text>
-                  {att.fields.length > 0 ? (
-                    att.fields.map((field, fIdx) => {
-                      const isShared = !isPartialData || (requestedKeys && requestedKeys.some(
-                        k => friendlyKeyLabel(k) === field
-                      ));
-                      return (
-                        <View key={`field-${fIdx}`} style={styles.fieldRow}>
-                          <MaterialCommunityIcons
-                            name={isShared ? 'eye' : 'eye-off'}
-                            size={14}
-                            color={isShared ? Colors.verusGreenColor : '#BBB'}
-                          />
-                          <Text
-                            style={[
-                              styles.fieldLabel,
-                              !isShared && styles.fieldLabelHashed,
-                            ]}
-                          >
-                            {field}
-                          </Text>
-                          {isPartialData && !isShared && (
-                            <Text style={styles.hashBadge}>hash only</Text>
-                          )}
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={styles.noFieldsText}>No fields available</Text>
-                  )}
-                </View>
-              ))}
-            </View>
+        {missingCredentialKeys.length > 0 ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              {missingCredentialKeys.length} requested credential{missingCredentialKeys.length === 1 ? '' : 's'} will not be returned.
+            </Text>
           </View>
-        )}
+        ) : null}
 
-        {/* No response URIs warning */}
-        {!hasResponseURIs && (
-          <View style={styles.unsignedCard}>
-            <View style={styles.unsignedIconContainer}>
-              <MaterialCommunityIcons name="link-off" size={24} color="#B45309" />
-            </View>
-            <View style={styles.unsignedTextContainer}>
-              <Text style={styles.unsignedTitle}>No response URI</Text>
-              <Text style={styles.unsignedSubtitle}>
-                This request does not include a response URI. Your data cannot be returned to the requester.
+        {credentials.length > 0 ? (
+          <View style={styles.dangerCard}>
+            <Text style={styles.dangerText}>
+              The credentials below will be encrypted and sent to {requesterLabel}. Only continue if every credential is expected.
+            </Text>
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Credentials Being Sent</Text>
+          </View>
+          {credentials.length === 0 ? (
+            <Text style={styles.emptyText}>No matching credentials were found for this scope.</Text>
+          ) : (
+            credentials.map((credential, index) => (
+              <CredentialConsent
+                key={`${credential.credentialKey}-${index}`}
+                credential={credential}
+                index={index}
+                checked={!!acknowledgedCredentials[index]}
+                onToggle={() => toggleCredentialAcknowledgement(index)}
+                showBorder={index > 0}
+              />
+            ))
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Requester</Text>
+          </View>
+          <DetailRow title={requesterLabel} subtitle={signerIdentityID} />
+          <DetailRow
+            title={signerSystemName || signerSystemID}
+            subtitle={sigDateString ? `Signed ${sigDateString}` : 'Signed request'}
+            showBorder
+          />
+          <DetailRow title="Scope" subtitle={requestScope} showBorder />
+          {requestedSignerID ? (
+            <DetailRow
+              title="Required response identity"
+              subtitle={requestedSignerID}
+              showBorder
+            />
+          ) : null}
+        </View>
+
+        {requestedSignerUnavailable ? (
+          <View style={styles.warningCard}>
+            <Text style={styles.warningText}>
+              The identity required by this request is not linked to the current profile.
+            </Text>
+          </View>
+        ) : null}
+
+        <TouchableOpacity
+          style={[
+            styles.identitySelectCard,
+            selectedIdentity && styles.identitySelectCardSelected,
+          ]}
+          onPress={() => signedIn ? setIdentitySheetVisible(true) : handleSignin()}
+          activeOpacity={0.7}
+        >
+          <View style={styles.identitySelectIconContainer}>
+            <MaterialCommunityIcons
+              name={selectedIdentity ? 'account-check' : 'account-question'}
+              size={28}
+              color={selectedIdentity ? Colors.verusGreenColor : Colors.primaryColor}
+            />
+          </View>
+          <View style={styles.identitySelectTextContainer}>
+            <Text style={styles.identitySelectLabel}>Respond With</Text>
+            <Text
+              style={[
+                styles.identitySelectName,
+                selectedIdentity && styles.identitySelectNameSelected,
+              ]}
+              numberOfLines={1}
+            >
+              {selectedIdentity ? selectedIdentity.friendlyName : 'Select identity'}
+            </Text>
+            {selectedIdentity ? (
+              <Text style={styles.identitySelectAddress}>
+                {truncateAddress(selectedIdentity.iAddress)}
               </Text>
-            </View>
+            ) : null}
           </View>
-        )}
-
-        <View style={{ height: 24 }} />
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#AAA" />
+        </TouchableOpacity>
       </ScrollView>
 
-      {/* Footer buttons */}
-      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
+      <View style={styles.footer}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"
-            onPress={() => cancel()}
+            onPress={cancel}
             style={styles.secondaryCta}
             contentStyle={styles.secondaryCtaContent}
-            uppercase={false}
-            buttonColor="#EBF6FF"
-            textColor={Colors.primaryColor}
             labelStyle={styles.secondaryCtaLabel}
           >
-            Cancel
+            Deny
           </Button>
         </View>
         <View style={styles.ctaCol}>
-          <GradientButton
-            onPress={() => handleContinue()}
-            style={styles.primaryCta}
+          <Button
+            mode="contained"
+            onPress={handleContinue}
             disabled={continueDisabled}
+            style={styles.primaryCta}
+            contentStyle={styles.primaryCtaContent}
+            labelStyle={styles.primaryCtaLabel}
           >
             Continue
-          </GradientButton>
+          </Button>
         </View>
       </View>
     </SafeAreaView>
   );
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Styles
-// ══════════════════════════════════════════════════════════════════════════════
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  header: {
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: -0.2,
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  requesterCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    zIndex: 2,
-  },
-  requesterHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  requesterIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  requesterTextContainer: {
-    flex: 1,
-  },
-  requesterLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  requesterName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  requesterAddress: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 2,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  requesterDetailsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chipContainer: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  chipText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
-  },
-  unsignedCard: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  unsignedIconContainer: {
-    width: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 2,
-  },
-  unsignedTextContainer: {
-    flex: 1,
-  },
-  unsignedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#92400E',
-    marginBottom: 4,
-  },
-  unsignedSubtitle: {
-    fontSize: 12,
-    color: '#92400E',
-    lineHeight: 18,
-  },
-  heroContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 24,
-  },
-  heroAmount: {
-    fontSize: 40,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    letterSpacing: -1,
-    textAlign: 'center',
-  },
-  heroCurrency: {
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
-    marginTop: 4,
-    textTransform: 'uppercase',
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  objectCountBadge: {
-    backgroundColor: Colors.primaryColor + '15',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  objectCountText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryColor,
-  },
-  sectionContent: {
-    padding: 0,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  detailRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  detailRowPressable: {},
-  detailLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  detailTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    marginBottom: 2,
-  },
-  detailSubtitle: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 16,
-  },
-  emptyRow: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  emptyText: {
-    fontSize: 12,
-    color: '#888',
-  },
-  detailRowError: {
-    backgroundColor: '#FFEBEE',
-    borderLeftWidth: 3,
-    borderLeftColor: '#C62828',
-  },
-  detailTitleError: {
-    color: '#C62828',
-    fontWeight: '600',
-  },
-  detailSubtitleError: {
-    color: '#D32F2F',
-  },
-  // Attestation items
-  attestationItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  attestationName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 8,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-    paddingLeft: 4,
-    gap: 8,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    color: '#333',
-    flex: 1,
-  },
-  fieldLabelHashed: {
-    color: '#AAA',
-  },
-  hashBadge: {
-    fontSize: 10,
-    color: '#AAA',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  noFieldsText: {
-    fontSize: 12,
-    color: '#AAA',
-    fontStyle: 'italic',
-  },
-  // Footer
-  footer: {
-    backgroundColor: 'white',
-    width: '100%',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  ctaCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  secondaryCta: {
-    width: '100%',
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EBF6FF',
-    borderWidth: 0,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  secondaryCtaContent: {
-    height: 44,
-  },
-  secondaryCtaLabel: {
-    color: Colors.primaryColor,
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
-  primaryCta: {
-    width: '100%',
-    alignSelf: 'stretch',
-    height: 44,
-    borderRadius: 22,
-  },
-});
 
 export default UserDataRequestInfo;

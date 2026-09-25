@@ -17,20 +17,23 @@ import {
   TextInput as NativeTextInput
 } from "react-native";
 import { NavigationActions } from '@react-navigation/compat';
-import { resetPwd, setBiometry, signOut } from '../../../../actions/actionCreators';
+import { resetPwd, signOut } from '../../../../actions/actionCreators';
 import { connect } from 'react-redux';
 import AlertAsync from "react-native-alert-async";
 import { TextInput, Button } from "react-native-paper";
 import Styles from '../../../../styles/index'
 import Colors from '../../../../globals/colors';
 import { createAlert } from "../../../../actions/actions/alert/dispatchers/alert";
-import scorePassword from "../../../../utils/auth/scorePassword";
-import { MIN_PASS_LENGTH, MIN_PASS_SCORE, PASS_SCORE_LIMIT } from "../../../../utils/constants/constants";
 import { CommonActions } from "@react-navigation/native";
-import { clearActiveAccountLifecycles } from "../../../../actions/actionDispatchers";
 import { removeBiometricPassword } from "../../../../utils/keychain/biometrics";
 
-class ResetPwd extends Component {
+const passwordAutofillProps = {
+  autoComplete: "off",
+  importantForAutofill: "no",
+  textContentType: "none",
+};
+
+export class ResetPwd extends Component {
   constructor() {
     super();
     this.state = {
@@ -106,14 +109,18 @@ class ResetPwd extends Component {
   }
 
   handleLogout = () => {
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: this.props.activeAccount?.accountHash || null,
+      sessionEpoch: this.props.sessionEpoch,
+    };
     this.resetToScreen("SecureLoading", null, {
       task: () => {
         // Hack to prevent crash on screens that require activeAccount not to be null
         // TODO: Find a more elegant solution
         return new Promise((resolve, reject) => {
           setTimeout(async () => {
-            await clearActiveAccountLifecycles()
-            this.props.dispatch(signOut())
+            this.props.dispatch(signOut(sessionScope))
             resolve()
           }, 1000)
         })
@@ -142,21 +149,10 @@ class ResetPwd extends Component {
       if (!_newPwd || _newPwd.length < 1) {
         this.handleError("Required field", "newPwd")
         _errors = true
-      } else if (_newPwd.length < 5) {
-        this.handleError("Min 5 characters", "newPwd")
-        _errors = true
       } else if (_newPwd === _oldPwd) {
         this.handleError("Current and new passwords must be different", "newPwd")
         createAlert("Error", "Current and new passwords must be different")
         _errors = true
-      } else {
-        const passScore = scorePassword(_newPwd, MIN_PASS_LENGTH, PASS_SCORE_LIMIT);
-
-        if (passScore < MIN_PASS_SCORE) {
-          this.handleError("Please choose a stronger password", "newPwd")
-          createAlert("Error", "Please choose a stronger password")
-          _errors = true
-        }
       }
 
       if (_newPwd !== _confirmNewPwd) {
@@ -170,11 +166,6 @@ class ResetPwd extends Component {
         .then(async (res) => {
           if (res) {
             if (this.props.activeAccount) {
-              if (this.props.activeAccount.biometry) {
-                await removeBiometricPassword(this.props.activeAccount.accountHash)
-              }
-              
-              await setBiometry(this.props.activeAccount.accountHash, false)
               return (resetPwd(this.props.activeAccount.accountHash, this.state.newPwd, this.state.oldPwd))
             } else {
               console.warn("Error, no active account")
@@ -184,9 +175,25 @@ class ResetPwd extends Component {
             return false
           }
         })
-        .then((action) => {
+        .then(async (action) => {
           if (action) {
+            const biometricAccountHash = this.props.activeAccount.biometry
+              ? this.props.activeAccount.accountHash
+              : null
             this.props.dispatch(action)
+
+            // Biometric login was disabled in the same durable transaction as
+            // the password change. Removing its stale Keychain entry is now
+            // best-effort and cannot make the reset appear to have failed.
+            if (biometricAccountHash != null) {
+              try {
+                await removeBiometricPassword(biometricAccountHash)
+              } catch (e) {
+                console.warn("Failed to remove biometrics")
+                console.warn(e)
+              }
+            }
+
             this.onSuccess()
           } else {
             this.setState({ loading: false })
@@ -195,6 +202,7 @@ class ResetPwd extends Component {
         })
         .catch((error) => {
           console.warn(error)
+          this.setState({ loading: false })
         })
       } 
     });
@@ -220,10 +228,11 @@ class ResetPwd extends Component {
               selectionColor={Colors.primaryColor}
               render={(props) => (
                 <NativeTextInput
+                  {...props}
                   autoCapitalize={"none"}
                   autoCorrect={false}
+                  {...passwordAutofillProps}
                   secureTextEntry={true}
-                  {...props}
                 />
               )}
               error={this.state.errors.oldPwd}
@@ -234,15 +243,16 @@ class ResetPwd extends Component {
               returnKeyType="done"
               dense
               onChangeText={(text) => this.setState({ newPwd: text })}
-              label="New password (min. 5 characters)"
+              label="New password"
               underlineColor={Colors.primaryColor}
               selectionColor={Colors.primaryColor}
               render={(props) => (
                 <NativeTextInput
+                  {...props}
                   autoCapitalize={"none"}
                   autoCorrect={false}
+                  {...passwordAutofillProps}
                   secureTextEntry={true}
-                  {...props}
                 />
               )}
               error={this.state.errors.newPwd}
@@ -260,10 +270,11 @@ class ResetPwd extends Component {
               selectionColor={Colors.primaryColor}
               render={(props) => (
                 <NativeTextInput
+                  {...props}
                   autoCapitalize={"none"}
                   autoCorrect={false}
+                  {...passwordAutofillProps}
                   secureTextEntry={true}
-                  {...props}
                 />
               )}
               error={this.state.errors.confirmNewPwd}
@@ -294,6 +305,7 @@ class ResetPwd extends Component {
 const mapStateToProps = (state) => {
   return {
     activeAccount: state.authentication.activeAccount,
+    sessionEpoch: state.authentication.sessionEpoch,
   }
 };
 

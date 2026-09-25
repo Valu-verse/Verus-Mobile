@@ -1,23 +1,41 @@
 import * as React from 'react';
-import { Menu, Text } from 'react-native-paper';
-import { SafeAreaView, TouchableOpacity, StyleSheet } from 'react-native';
+import {Menu, IconButton} from 'react-native-paper';
+import {Platform, StatusBar, View} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Colors from '../../globals/colors';
 
 const SignedOutDropdown = (props) => {
   const {
     handleRecoverSeed,
     handleRevokeRecover,
-    hasAccount
+    handlePendingRequests,
+    handleClearPendingRequests,
+    handleReadDeeplinkFromNfc,
+    hasAccount,
+    pendingRequestCount = 0,
   } = props;
   const [visible, setVisible] = React.useState(false);
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  );
 
   const openMenu = () => setVisible(true);
 
   const closeMenu = () => setVisible(false);
 
-  const actions = !hasAccount
-      ? []
-      : [
+  const actions = [
+    ...(handleReadDeeplinkFromNfc
+      ? [
+          {
+            label: 'Read deeplink from NFC',
+            onPress: handleReadDeeplinkFromNfc,
+          },
+        ]
+      : []),
+    ...(hasAccount
+      ? [
           {
             label: 'Recover profile seed',
             onPress: handleRecoverSeed,
@@ -28,11 +46,16 @@ const SignedOutDropdown = (props) => {
           }
         ];
 
-  if (actions.length === 0) {
-    return null;
-  }
-
   return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: "flex-end",
+        paddingTop: topInset,
+        paddingRight: 4,
+        zIndex: 20,
+        elevation: 20,
+      }}>
     <SafeAreaView style={styles.container}>
       <Menu
         visible={visible}
@@ -57,28 +80,8 @@ const SignedOutDropdown = (props) => {
           />
         ))}
       </Menu>
-    </SafeAreaView>
+    </View>
   );
 };
 
 export default SignedOutDropdown;
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-  },
-  morePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#E6E6E6',
-  },
-  moreLabel: {
-    color: Colors.quinaryColor,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-});

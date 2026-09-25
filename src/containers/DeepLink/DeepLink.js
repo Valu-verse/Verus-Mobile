@@ -37,7 +37,7 @@ import InvoiceInfo from './InvoiceInfo/InvoiceInfo';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { verifyIdentityUpdateRequest } from '../../utils/api/channels/vrpc/requests/verifyIdentityUpdateRequest';
 import { extractIdentityUpdateRequestSig } from '../../utils/api/channels/vrpc/requests/extractIdentityUpdateRequestSig';
-import { APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, DATA_TYPE_DEFINEDKEY, DefinedKey, IDENTITY_UPDATE_REQUEST_VDXF_KEY, nameAndParentAddrToIAddr, USER_DATA_REQUEST_VDXF_KEY } from 'verus-typescript-primitives';
+import { DATA_TYPE_DEFINEDKEY, DefinedKey, nameAndParentAddrToIAddr } from 'verus-typescript-primitives';
 import IdentityUpdateRequestInfo from './IdentityUpdateRequestInfo/IdentityUpdateRequestInfo';
 import { getIdentityContent } from '../../utils/api/channels/verusid/requests/getIdentityContent';
 import { capitalizeString } from '../../utils/stringUtils';
@@ -47,15 +47,30 @@ import GenericRequestHome from './GenericRequestHome/GenericRequestHome';
 import { openAuthenticateUserModal } from '../../actions/actions/sendModal/dispatchers/sendModal';
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../utils/constants/sendModal';
 import store from '../../store';
+import { selectHasAuthenticatedSession } from '../../selectors/authentication';
+import {
+  assertExperimentalDeeplinkAllowed,
+  assertExperimentalGenericRequestAllowed,
+} from '../../utils/deeplink/experimentalDeeplinks';
+import {
+  validateVerusPayBurnChangePrice,
+  VERUSPAY_BURN_OWN_ADDRESS_DISPLAY,
+} from '../../utils/deeplink/verusPayBurnChangePrice';
+import {assertRequestNetworkMatchesAccount} from '../../utils/deeplink/requestAccounts';
 
 const DeepLink = (props) => {
   const deeplinkId = useSelector((state) => state.deeplink.id)
   const deeplinkData = useObjectSelector((state) => state.deeplink.data)
 
   const signedIn = useSelector((state) => state.authentication.signedIn)
+  const hasAuthenticatedSession = useSelector(selectHasAuthenticatedSession)
+  const alertActive = useSelector(state => state.alert.active);
   const sendModalVisible = useSelector(state => state.sendModal.visible);
   const sendModalType = useSelector(state => state.sendModal.type);
   const accounts = useObjectSelector(state => state.authentication.accounts)
+  const activeAccount = useObjectSelector(
+    state => state.authentication.activeAccount,
+  )
   const [displayKey, setDisplayKey] = useState(null)
   const [loading, setLoading] = useState(false)
   const [displayProps, setDisplayProps] = useState({})
@@ -71,6 +86,11 @@ const DeepLink = (props) => {
         index: 0,
         routes: [{name: 'SignedInStack'}],
       });
+    } else if (accounts.length === 0) {
+      resetAction = CommonActions.reset({
+        index: 0,
+        routes: [{name: 'SignedOutNoKeyStack'}],
+      });
     } else {
       resetAction = CommonActions.reset({
         index: 0,
@@ -85,26 +105,16 @@ const DeepLink = (props) => {
     const request = new primitives.GenericRequest();
     request.fromBuffer(Buffer.from(deeplinkData, 'hex'));
 
+    if (signedIn) {
+      assertRequestNetworkMatchesAccount(activeAccount, request.isTestnet());
+    }
+
     const requiresDelegatedUserCheck =
       request.isSigned() &&
       request.hasAppOrDelegatedID() &&
       request.appOrDelegatedID.toAddress() !== request.signature.identityID.toAddress();
     
-    const experimentalRequestsAllowed = store.getState().settings.generalWalletSettings.enableExperimentalGenericRequests === true;
-
-    if (!experimentalRequestsAllowed) {
-      const hasExperimentalRequest = request.details.some(detail =>
-        detail.getIAddressKey() === IDENTITY_UPDATE_REQUEST_VDXF_KEY.vdxfid || 
-        detail.getIAddressKey() === APP_ENCRYPTION_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === DATA_PACKET_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === USER_DATA_REQUEST_VDXF_KEY.vdxfid ||
-        detail.getIAddressKey() === DATA_PACKET_REQUEST_VDXF_KEY.vdxfid
-      );
-
-      if (hasExperimentalRequest) {
-        throw new Error("This type of request is currently experimental and disabled in your general wallet settings.");
-      }
-    }
+    assertExperimentalGenericRequestAllowed(request, store.getState());
 
     if (requiresDelegatedUserCheck && !signedIn) {
       setWaitingForSignin(true);
@@ -145,6 +155,13 @@ const DeepLink = (props) => {
   const processVerusPayInvoice = async () => {
     const invoice = primitives.VerusPayInvoice.fromJson(deeplinkData)
 
+    if (signedIn) {
+      assertRequestNetworkMatchesAccount(
+        activeAccount,
+        invoice.details.isTestnet(),
+      );
+    }
+
     if (!invoice.details.acceptsNonVerusSystems() && invoice.details.excludesVerusBlockchain()) {
       throw new Error("This invoice accepts no systems to pay on, and is therefore unpayable.")
     }
@@ -155,10 +172,28 @@ const DeepLink = (props) => {
     const chainInfo = await getInfo(coinObj.system_id)
     if (chainInfo.error) throw new Error(chainInfo.error.message)
 
+    const requestedCurrency = await getCurrency(
+      coinObj.system_id,
+      invoice.details.requestedcurrencyid,
+    );
+    if (requestedCurrency.error) {
+      throw new Error(requestedCurrency.error.message);
+    }
+
+    validateVerusPayBurnChangePrice(
+      invoice.details,
+      requestedCurrency.result,
+      coinObj.system_id,
+    );
+
     const getDestinationDisplay = async () => {
       let destinationDisplay;
 
-      if (invoice.details.acceptsAnyDestination()) destinationDisplay = 'any destination'
+      if (invoice.details.acceptsAnyDestination()) {
+        destinationDisplay = invoice.details.isBurnChangePrice()
+          ? VERUSPAY_BURN_OWN_ADDRESS_DISPLAY
+          : 'any destination';
+      }
       else if (invoice.details.destination.isIAddr()) {
         const destinationId = await getIdentity(coinObj.system_id, invoice.details.destination.getAddressString())
         if (destinationId.error) throw new Error(destinationId.error.message)
@@ -225,9 +260,6 @@ const DeepLink = (props) => {
         const signedBy = await getIdentity(coinObj.system_id, invoice.signing_id)
         if (signedBy.error) throw new Error(signedBy.error.message)
 
-        const requestedCurrency = await getCurrency(coinObj.system_id, invoice.details.requestedcurrencyid)
-        if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
-
         await validateExpiry()
         setDisplayProps({
           detailsBufferString: invoice.details.toBuffer().toString('hex'),
@@ -252,9 +284,6 @@ const DeepLink = (props) => {
         cancel();
       }
     } else {
-      const requestedCurrency = await getCurrency(coinObj.system_id, invoice.details.requestedcurrencyid)
-      if (requestedCurrency.error) throw new Error(requestedCurrency.error.message)
-
       await validateExpiry()
       setDisplayProps({
         detailsBufferString: invoice.details.toBuffer().toString('hex'),
@@ -521,6 +550,8 @@ const DeepLink = (props) => {
 
   const processDeeplink = async () => {
     try {
+      assertExperimentalDeeplinkAllowed(deeplinkId, store.getState());
+
       switch (deeplinkId) {
         case primitives.VERUSPAY_INVOICE_VDXF_KEY.vdxfid:
           await processVerusPayInvoice();
@@ -573,9 +604,13 @@ const DeepLink = (props) => {
   }, [waitingForSignin, authModalOpened, sendModalVisible, sendModalType]);
 
   useEffect(() => {
-    if (authModalOpened && !signedIn && waitingForSignin) {
+    if (authModalOpened && !hasAuthenticatedSession && waitingForSignin) {
       const authModalClosed =
-        sendModalType !== AUTHENTICATE_USER_SEND_MODAL || !sendModalVisible;
+        !alertActive &&
+        (
+          sendModalType !== AUTHENTICATE_USER_SEND_MODAL ||
+          !sendModalVisible
+        );
 
       if (authModalClosed) {
         setWaitingForSignin(false);
@@ -584,7 +619,14 @@ const DeepLink = (props) => {
         cancel();
       }
     }
-  }, [authModalOpened, signedIn, waitingForSignin, sendModalVisible, sendModalType]);
+  }, [
+    alertActive,
+    authModalOpened,
+    hasAuthenticatedSession,
+    waitingForSignin,
+    sendModalVisible,
+    sendModalType,
+  ]);
 
   const screens = {
     [LOGIN_CONSENT_INFO]: () => (

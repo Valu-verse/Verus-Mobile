@@ -1,113 +1,64 @@
-import { UserDataRequestOrdinalVDXFObject, UserDataRequestDetails, AuthenticationRequestOrdinalVDXFObject, GenericRequest } from "verus-typescript-primitives/dist/vdxf/classes";
-import { BN } from "bn.js";
+import {
+  GenericRequest,
+  UserDataRequestDetails,
+  UserDataRequestOrdinalVDXFObject,
+} from "verus-typescript-primitives";
+import { getUserDataRequestedSignerID } from "../userData/requestedSigner";
 
 /**
- * @param {GenericRequest} request 
+ * @param {GenericRequest} request
  * @param {number} detailIndex
  */
 export const validateUserDataRequestVDXFObject = (request, detailIndex) => {
+  if (!request.isSigned()) {
+    throw new Error("User data requests require a signed GenericRequest.");
+  }
+
   const detailsObject = request.getDetails(detailIndex);
 
   if (!(detailsObject instanceof UserDataRequestOrdinalVDXFObject)) {
     throw new Error("User data request details not found at specified index");
   }
 
-  if (detailsObject.data == null || !detailsObject.data.isValid()) {
+  const details = detailsObject.data;
+
+  if (details == null || !details.isValid()) {
     throw new Error("Invalid user data request details.");
   }
 
-  const details = detailsObject.data;
-
-  // ── searchDataKey always required ──
-  if (!details.searchDataKey || details.searchDataKey.length === 0) {
-    throw new Error("searchDataKey must be a non-empty array.");
+  if (!details.requestType.eq(UserDataRequestDetails.CREDENTIAL)) {
+    throw new Error("Only credential user data requests are supported on mobile.");
   }
 
-  // ── dataType must be 1, 2, or 3 ──
-  if (!details.dataType || typeof details.dataType.toNumber !== 'function') {
-    throw new Error("dataType is missing or not a valid BN instance.");
-  }
-  const dt = details.dataType.toNumber();
-  if (dt < 1 || dt > 3) {
-    throw new Error(`Invalid dataType: ${dt}. Must be 1 (FULL_DATA), 2 (PARTIAL_DATA), or 3 (COLLECTION).`);
+  if (!request.hasEncryptResponseToAddress() || request.encryptResponseToAddress == null) {
+    throw new Error("Credential user data requests must specify encryptResponseToAddress.");
   }
 
-  // ── requestType must be 1, 2, or 3 ──
-  if (!details.requestType || typeof details.requestType.toNumber !== 'function') {
-    throw new Error("requestType is missing or not a valid BN instance.");
-  }
-  const rt = details.requestType.toNumber();
-  if (rt < 1 || rt > 3) {
-    throw new Error(`Invalid requestType: ${rt}. Must be 1 (ATTESTATION), 2 (CLAIM), or 3 (CREDENTIAL).`);
+  try {
+    request.encryptResponseToAddress.toAddressString();
+  } catch (e) {
+    throw new Error("Invalid encryptResponseToAddress for credential user data request.");
   }
 
-  // ── Flag / data consistency (bits 0-2) ──
-
-  // FLAG_HAS_REQUEST_ID
-  if (details.hasRequestID() && !details.requestID) {
-    throw new Error("FLAG_HAS_REQUEST_ID is set but requestID is missing.");
-  }
-  if (!details.hasRequestID() && details.requestID) {
-    throw new Error("requestID is present but FLAG_HAS_REQUEST_ID is not set.");
+  if (!details.dataType.eq(UserDataRequestDetails.FULL_DATA)) {
+    throw new Error("Only full credential data requests are supported on mobile.");
   }
 
-  // FLAG_HAS_SIGNER
-  if (details.hasSigner() && !details.signer) {
-    throw new Error("FLAG_HAS_SIGNER is set but signer is missing.");
-  }
-  if (!details.hasSigner() && details.signer) {
-    throw new Error("signer is present but FLAG_HAS_SIGNER is not set.");
+  getUserDataRequestedSignerID(details);
+
+  if (!Array.isArray(details.searchDataKey) || details.searchDataKey.length === 0) {
+    throw new Error("User data request must specify at least one credential key.");
   }
 
-  // FLAG_HAS_REQUESTED_KEYS
-  if (details.hasRequestedKeys() && (!details.requestedKeys || details.requestedKeys.length === 0)) {
-    throw new Error("FLAG_HAS_REQUESTED_KEYS is set but requestedKeys are missing or empty.");
-  }
-  if (!details.hasRequestedKeys() && details.requestedKeys && details.requestedKeys.length > 0) {
-    throw new Error("requestedKeys are present but FLAG_HAS_REQUESTED_KEYS is not set.");
-  }
+  const hasInvalidSearchDataKey = details.searchDataKey.some(item => {
+    if (item == null || typeof item !== "object") return true;
 
-  // ── dataType ↔ requestedKeys cross-constraints ──
+    const keys = Object.keys(item);
 
-  const isPartialData = UserDataRequestDetails.PARTIAL_DATA && dt === UserDataRequestDetails.PARTIAL_DATA.toNumber();
-  const isFullData = UserDataRequestDetails.FULL_DATA && dt === UserDataRequestDetails.FULL_DATA.toNumber();
-  const isCollection = UserDataRequestDetails.COLLECTION && dt === UserDataRequestDetails.COLLECTION.toNumber();
+    return keys.length !== 1 || !Buffer.isBuffer(item[keys[0]]);
+  });
 
-  // PARTIAL_DATA requires requestedKeys
-  if (isPartialData && !details.hasRequestedKeys()) {
-    throw new Error("PARTIAL_DATA requires FLAG_HAS_REQUESTED_KEYS to be set with requestedKeys.");
+  if (hasInvalidSearchDataKey) {
+    throw new Error("User data request credential search values must be binary hashes.");
   }
-
-  // FULL_DATA and COLLECTION forbid requestedKeys
-  if ((isFullData || isCollection) && details.hasRequestedKeys()) {
-    throw new Error(
-      `FLAG_HAS_REQUESTED_KEYS is not allowed with ${isFullData ? 'FULL_DATA' : 'COLLECTION'}.`
-    );
-  }
-
-  // ── GenericRequest-level constraints ──
-
-  // An AuthenticationRequestOrdinalVDXFObject must precede the user data request
-  let foundAuthBefore = false;
-  for (let i = 0; i < detailIndex; i++) {
-    const precedingDetail = request.getDetails(i);
-    if (precedingDetail instanceof AuthenticationRequestOrdinalVDXFObject) {
-      foundAuthBefore = true;
-      break;
-    }
-  }
-  if (!foundAuthBefore) {
-    throw new Error(
-      "UserDataRequestOrdinalVDXFObject requires an AuthenticationRequestOrdinalVDXFObject " +
-      "preceding it in the details array."
-    );
-  }
-
-  // responseURIs should be present
-  if (!request.hasResponseURIs || !request.hasResponseURIs() || !request.responseURIs || request.responseURIs.length === 0) {
-    throw new Error(
-      "UserDataRequestOrdinalVDXFObject requires responseURIs in the GenericRequest " +
-      "so the user's data can be returned."
-    );
-  }
-}
+};

@@ -25,7 +25,8 @@ import { getIdentity, getFriendlyNameMap } from '../../../utils/api/channels/ver
 import { unixToDate } from '../../../utils/math';
 import { useDispatch, useSelector } from 'react-redux';
 import Colors from '../../../globals/colors';
-import { closeSendModal, openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
+import { VerusIdLogo } from '../../../images/customIcons';
+import { openAuthenticateUserModal } from '../../../actions/actions/sendModal/dispatchers/sendModal';
 import { AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST } from '../../../utils/constants/sendModal';
 import AnimatedActivityIndicatorBox from '../../../components/AnimatedActivityIndicatorBox';
 import GradientButton from '../../../components/GradientButton';
@@ -36,19 +37,7 @@ import { CoinDirectory } from '../../../utils/CoinData/CoinDirectory';
 import { addCoin, addKeypairs, setUserCoins } from '../../../actions/actionCreators';
 import { refreshActiveChainLifecycles } from '../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
-import { checkIfAttestationProvision as checkAttestationProvision } from '../../../utils/attestations/downloadAttestation';
-import { LOGIN_PERMISSION_TYPES, PERMISSION_STATUS } from '../../../utils/constants/loginPermissions';
-import { setPermissionAgreed } from '../../../actions/actions/deeplink/creators/passthroughData';
-import VerusIdAtIcon from '../../../images/customIcons/verusid-at-icon.svg';
-
-const Connector = () => {
-  return (
-    <View style={styles.connectorContainer}>
-      <View style={styles.connectorLine} />
-      <View style={styles.connectorArrow} />
-    </View>
-  );
-};
+import {scopeSessionAction} from '../../../actions/actions/updates/sessionRequests';
 
 const LoginRequestInfo = props => {
   const insets = useSafeAreaInsets();
@@ -81,6 +70,21 @@ const LoginRequestInfo = props => {
   
   const dispatch = useDispatch()
   const isTestnet = activeAccount ? Object.keys(activeAccount.testnetOverrides).length > 0 : false;
+  const sessionEpoch = useObjectSelector(
+    state => state.authentication.sessionEpoch,
+  );
+
+  let mainLoginMessage = '';
+
+  if (challenge.redirect_uris && challenge.redirect_uris.length > 0) {
+    mainLoginMessage = `${signerFqn} is requesting login with VerusID`
+  } else {
+    if (passthrough?.fqnToAutoLink) {
+      mainLoginMessage = `VerusID from ${signerFqn} now ready to link`
+    } else {
+      mainLoginMessage = `Would you like to request a VerusID from ${signerFqn}?`
+    }
+  }
 
   const getVerusId = async (chain, iAddrOrName) => {
     const identity = await getIdentity(CoinDirectory.getBasicCoinObj(chain).system_id, iAddrOrName);
@@ -112,11 +116,20 @@ const LoginRequestInfo = props => {
   }
 
   useEffect(() => {
-    if (signedIn && waitingForSignin) {
-      closeSendModal()
+    const rootSystemJustAdded = prevRootSystemAdded === false && rootSystemAdded === true;
+    setPrevRootSystemAdded(rootSystemAdded);
+
+    // Profile initialization loads coins before sign-in finishes. Resume once,
+    // after the authentication dialog has completed and closed.
+    if (
+      signedIn &&
+      sendModalType !== AUTHENTICATE_USER_SEND_MODAL &&
+      (waitingForSignin || rootSystemJustAdded)
+    ) {
+      setWaitingForSignin(false);
       handleContinue()
     }
-  }, [signedIn, waitingForSignin]);
+  }, [signedIn, waitingForSignin, rootSystemAdded, prevRootSystemAdded, sendModalType]);
 
   useEffect(() => {
     setReq(new primitives.LoginConsentRequest(deeplinkData))
@@ -561,6 +574,12 @@ const LoginRequestInfo = props => {
 
   const addRootSystem = async () => {
     setLoading(true)
+    const sessionScope = {
+      sessionScoped: true,
+      accountHash: activeAccount.accountHash,
+      sessionEpoch,
+    };
+    const requestContext = {sessionScope};
 
     try {
       const fullCoinData = CoinDirectory.findCoinObj(chain_id)
@@ -572,6 +591,7 @@ const LoginRequestInfo = props => {
           activeAccount.keyDerivationVersion == null
             ? 0
             : activeAccount.keyDerivationVersion,
+          requestContext,
         ),
       );
 
@@ -580,17 +600,18 @@ const LoginRequestInfo = props => {
         activeCoinList,
         activeAccount.id,
         fullCoinData.compatible_channels,
+        requestContext,
       );
 
       if (addCoinAction) {
         dispatch(addCoinAction);
 
         const setUserCoinsAction = setUserCoins(
-          activeCoinList,
+          addCoinAction.activeCoinList,
           activeAccount.id,
         );
-        dispatch(setUserCoinsAction);
-
+        dispatch(scopeSessionAction(setUserCoinsAction, sessionScope));
+  
         refreshActiveChainLifecycles(setUserCoinsAction.payload.activeCoinsForUser);
       } else {
         createAlert("Error", "Error adding coin")
@@ -979,483 +1000,5 @@ const LoginRequestInfo = props => {
     ? renderSimpleMode()
     : renderDetailedMode();
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 24 : 0,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  header: {
-    marginBottom: 20,
-    marginTop: 8,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: -0.2,
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
-  requesterCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    zIndex: 2,
-  },
-  requesterHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  requesterIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  requesterTextContainer: {
-    flex: 1,
-  },
-  requesterLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  requesterName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  requesterDetailsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chipContainer: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  chipText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
-  },
-  intentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  intentRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  intentIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: '#ECFDF3',
-  },
-  intentTextContainer: {
-    flex: 1,
-  },
-  intentTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  intentSubtitle: {
-    fontSize: 13,
-    color: '#444',
-    lineHeight: 18,
-  },
-  intentHelper: {
-    fontSize: 12,
-    color: '#777',
-    marginTop: 4,
-  },
-  connectorContainer: {
-    alignItems: 'center',
-    height: 40,
-    justifyContent: 'center',
-    zIndex: 1,
-    marginTop: -2,
-    marginBottom: -2,
-  },
-  connectorLine: {
-    width: 2,
-    height: '100%',
-    backgroundColor: '#E0E0E0',
-    position: 'absolute',
-  },
-  connectorArrow: {
-    width: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-    borderStyle: 'solid',
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderBottomWidth: 0,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: '#E0E0E0',
-    position: 'absolute',
-    bottom: 0,
-  },
-  targetCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    zIndex: 2,
-  },
-  targetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  targetIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  targetInfo: {
-    flex: 1,
-  },
-  targetLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  targetName: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1A1A1A',
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  summaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  summaryTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  statusPillReady: {
-    backgroundColor: '#ECFDF3',
-    borderColor: '#A7F3D0',
-  },
-  statusPillPending: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FED7AA',
-  },
-  statusPillNeutral: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#E5E7EB',
-  },
-  statusPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statusPillTextReady: {
-    color: Colors.verusGreenColor,
-  },
-  statusPillTextPending: {
-    color: '#B45309',
-  },
-  statusPillTextNeutral: {
-    color: '#6B7280',
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: 24,
-  },
-  summaryItem: {
-    alignItems: 'flex-start',
-  },
-  summaryCount: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    marginBottom: 12,
-    overflow: 'hidden',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 8,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  sectionHelper: {
-    fontSize: 12,
-    color: '#888',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    marginTop: -4,
-  },
-  sectionContent: {
-    padding: 0,
-  },
-  permissionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-    backgroundColor: '#FFFFFF',
-  },
-  permissionItemHighlight: {
-    backgroundColor: '#F7F7F7',
-    borderLeftWidth: 4,
-    borderLeftColor: Colors.verusGreenColor,
-  },
-  permissionLeft: {
-    flex: 1,
-    marginRight: 12,
-  },
-  permissionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#1A1A1A',
-    marginBottom: 2,
-  },
-  permissionSubtitle: {
-    fontSize: 12,
-    color: '#888',
-    lineHeight: 16,
-  },
-  permissionStatusIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  permissionStatusIncluded: {
-    backgroundColor: '#ECFDF3',
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-  },
-  permissionStatusElevated: {
-    shadowColor: '#ccc',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  permissionStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 4,
-    paddingHorizontal: 4,
-  },
-  permissionStatusMessage: {
-    fontSize: 12,
-    color: '#666',
-    flex: 1,
-  },
-  footer: {
-    backgroundColor: 'white',
-    width: '100%',
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
-  },
-  ctaCol: {
-    flex: 1,
-    minWidth: 0,
-  },
-  secondaryCta: {
-    width: '100%',
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EBF6FF',
-    borderWidth: 0,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  secondaryCtaContent: {
-    height: 44,
-  },
-  secondaryCtaLabel: {
-    color: Colors.primaryColor,
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0,
-    textTransform: 'none',
-  },
-  primaryCta: {
-    width: '100%',
-    alignSelf: 'stretch',
-    height: 44,
-    borderRadius: 22,
-  },
-  // Simple mode styles
-  simpleContent: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  simpleHeader: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  simpleIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#EBF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  simpleTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  simpleSubtitle: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  simpleRequesterCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-  },
-  simpleRequesterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  simpleRequesterName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginLeft: 10,
-  },
-  simpleChipRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  simpleChip: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  simpleChipText: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
-  },
-  simpleInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 8,
-  },
-  simpleInfoText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-});
 
 export default LoginRequestInfo;

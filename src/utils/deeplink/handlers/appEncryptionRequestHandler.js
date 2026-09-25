@@ -11,8 +11,8 @@ import {
   AppEncryptionRequestOrdinalVDXFObject,
   AppEncryptionResponseOrdinalVDXFObject,
   SaplingPaymentAddress,
-  DataDescriptor,
-  DataDescriptorOrdinalVDXFObject,
+  DataResponseDetails,
+  DataResponseOrdinalVDXFObject,
   GenericRequest,
   GenericResponse,
   IdentityID,
@@ -31,37 +31,9 @@ import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
 import { getBlock } from "../../api/channels/vrpc/requests/getBlock";
 import { getSignatureInfo } from "../../api/channels/vrpc/requests/getSignatureInfo";
 
-import { requestPrivKey, requestSeeds } from "../../auth/authBox";
-import { DLIGHT_PRIVATE } from "../../constants/intervalConstants";
-import { isDlightSpendingKey, parseDlightSeed } from "../../keys";
-
 import { zGetEncryptionAddress } from "../../api/channels/dlight/requests/zGetEncryptionAddress";
-import { encryptDataToDescriptor } from "../../crypto/encryptDataDescriptor";
-
-
-/**
- * Gets an extended spending key for zGetEncryptionAddress.
- * If the user has a mnemonic seed stored, it is converted to an extsk
- * via Tools.deriveSaplingSpendingKey so behaviour is identical regardless
- * of what form the seed was originally stored in.
- *
- * @param {string} systemID - Coin system ID (e.g. 'VRSC')
- * @returns {Promise<{extsk: string}>}
- * @throws {Error} If no key material can be retrieved
- */
-const getKeyMaterial = async (systemID) => {
-  const coinObj = CoinDirectory.getBasicCoinObj(systemID);
-
-  try {
-    const esk = await requestPrivKey(coinObj.id, DLIGHT_PRIVATE);
-    if (esk) return { extsk: esk };
-  } catch (e) {}
-  
-  throw new Error(
-    `No Z (shielded address) seed has been set up. ` +
-    `Please go to Settings → Profile and set up a Z Seed before accepting encryption requests.`
-  );
-};
+import { encryptDataBufferToDescriptor } from "../../crypto/encryptDataDescriptor";
+import { getKeyMaterial } from "../../crypto/getKeyMaterial";
 
 // ============================================================================
 // Main Handler - Returns displayProps for UI
@@ -190,6 +162,16 @@ export const handleAppEncryptionRequestVDXFObject = async (request, response, de
 // Processing Function - Called after user approval
 // ============================================================================
 
+export const buildEncryptedAppEncryptionResponseDetail = (
+  encryptionRequest,
+  encryptedDescriptor,
+) => new DataResponseOrdinalVDXFObject({
+  data: new DataResponseDetails({
+    requestID: encryptionRequest.hasRequestID() ? encryptionRequest.requestID : undefined,
+    data: encryptedDescriptor,
+  })
+});
+
 /**
  * Derives keys and builds the response object.
  * Called by AppEncryptionRequestInfo after user approval.
@@ -198,7 +180,7 @@ export const handleAppEncryptionRequestVDXFObject = async (request, response, de
  * @param {GenericRequest} params.request - The parent GenericRequest
  * @param {number} params.detailIndex - Index of the encryption request detail
  * @param {string} params.responseSignerID - The user's signing identity i-address
- * @returns {Promise<AppEncryptionResponseOrdinalVDXFObject|DataDescriptorOrdinalVDXFObject>}
+ * @returns {Promise<AppEncryptionResponseOrdinalVDXFObject|DataResponseOrdinalVDXFObject>}
  * @throws {Error} If processing fails
  */
 export const processAppEncryptionRequest = async ({
@@ -232,14 +214,20 @@ export const processAppEncryptionRequest = async ({
     throw new Error("Unsupported system: " + systemID);
   }
 
+  // Check if spending key requested via flags
+  const returnESK = encryptionRequest.returnESK();
+
+  if (returnESK && !encryptionRequest.hasEncryptResponseToAddress()) {
+    throw new Error(
+      "Extended spending keys can only be returned in an encrypted response.",
+    );
+  }
+
   // Get extended spending key for derivation
   const keyMaterial = await getKeyMaterial(coinObj.id);
 
   // Use appOrDelegatedID if present, otherwise use requestSignerID
   const appID = appOrDelegatedID || requestSignerID;
-
-  // Check if spending key requested via flags
-  const returnESK = encryptionRequest.returnESK();
 
   // Determine toId: the derivationID from the encryption request is the
   // identity we derive a shared key with (matches daemon's "toid").
@@ -317,6 +305,12 @@ export const processAppEncryptionRequest = async ({
     : null;
 
   if (!encryptTo) {
+    if (returnESK) {
+      throw new Error(
+        "Extended spending keys can only be returned in an encrypted response.",
+      );
+    }
+
     // Return unencrypted response
     return {
       responseDetail: new AppEncryptionResponseOrdinalVDXFObject({
@@ -330,17 +324,19 @@ export const processAppEncryptionRequest = async ({
   // (If GenericRequest.FLAG_HAS_ENCRYPT_RESPONSE_TO_ADDRESS is also set, GenericRequestComplete
   //  will additionally encrypt the entire signed GenericResponse at send time.)
   const { encryptedDescriptor, encryptedDescriptorJson } =
-    await encryptDataToDescriptor(encryptTo, responseDetails.toBuffer());
+    await encryptDataBufferToDescriptor(encryptTo, responseDetails.toBuffer());
 
   return {
-    responseDetail: new DataDescriptorOrdinalVDXFObject({
-      data: encryptedDescriptor
-    }),
+    responseDetail: buildEncryptedAppEncryptionResponseDetail(
+      encryptionRequest,
+      encryptedDescriptor,
+    ),
     encryptedDescriptorJson,
   };
 };
 
 export default {
   handleAppEncryptionRequestVDXFObject,
+  buildEncryptedAppEncryptionResponseDetail,
   processAppEncryptionRequest
 };

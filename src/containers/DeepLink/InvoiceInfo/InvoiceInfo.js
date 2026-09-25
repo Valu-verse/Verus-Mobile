@@ -1,13 +1,13 @@
 // Updated invoice request UI to match DeepLink request styling.
 import React, {useState, useEffect} from 'react';
-import {SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View, Platform, StatusBar} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {Platform, SafeAreaView, ScrollView, TouchableOpacity, View} from 'react-native';
 import { primitives } from "verusid-ts-client"
 import { Button, Portal, Text } from 'react-native-paper';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { getFriendlyNameMap, getIdentity } from '../../../utils/api/channels/verusid/callCreators';
 import { blocksToTime, satsToCoins, unixToDate } from '../../../utils/math';
 import { useSelector } from 'react-redux';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '../../../globals/colors';
 import GradientButton from '../../../components/GradientButton';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -21,6 +21,7 @@ import ListSelectionModal from '../../../components/ListSelectionModal/ListSelec
 import { copyToClipboard } from '../../../utils/clipboard/clipboard';
 import BigNumber from 'bignumber.js';
 import { useObjectSelector } from '../../../hooks/useObjectSelector';
+import { invoiceInfoStyles as styles } from '../../../styles';
 
 const DetailRow = ({ title, subtitle, onPress, rightIcon, showBorder }) => {
   const Wrapper = onPress ? TouchableOpacity : View;
@@ -64,6 +65,12 @@ const InvoiceInfo = props => {
     chainInfo,
     acceptedSystemsDefinitions
   } = props;
+
+  const bottomNavigationInset = Math.max(
+    insets.bottom,
+    Platform.OS === 'android' ? 24 : 0,
+  );
+  const footerBottomPadding = 16 + bottomNavigationInset;
 
   const { fullyqualifiedname } = currencyDefinition;
   const [details, setDetails] = useState(new primitives.VerusPayInvoiceDetails());
@@ -302,27 +309,34 @@ const InvoiceInfo = props => {
   const isAnyAmount = details.acceptsAnyAmount() || amountDisplay == null;
   const heroAmount = isAnyAmount ? "Any Amount" : amountDisplay;
   const heroCurrency = fullyqualifiedname;
+  const isBurnChangePrice = details.isBurnChangePrice();
 
-  const destinationLabel = details.acceptsAnyDestination() || !destinationDisplay
-    ? 'Any destination'
-    : destinationDisplay;
+  const destinationLabel = isBurnChangePrice && details.acceptsAnyDestination()
+    ? 'Your own address'
+    : details.acceptsAnyDestination() || !destinationDisplay
+      ? 'Any destination'
+      : destinationDisplay;
 
   const detailRows = [];
   detailRows.push({
     key: 'destination',
     title: destinationLabel,
-    subtitle: 'Destination',
+    subtitle: isBurnChangePrice
+      ? 'Burn output address (does not receive the amount)'
+      : 'Destination',
     onPress: details.acceptsAnyDestination()
       ? null
       : () =>
           copyToClipboard(destinationDisplay, {
-            title: 'Destination copied',
+            title: isBurnChangePrice
+              ? 'Burn output address copied'
+              : 'Destination copied',
             message: `${destinationDisplay} copied to clipboard.`,
           }),
     rightIcon: details.acceptsAnyDestination() ? null : 'content-copy',
   });
 
-  if (details.acceptsConversion()) {
+  if (details.acceptsConversion() && !isBurnChangePrice) {
     detailRows.push({
       key: 'conversion',
       title: 'Conversion supported',
@@ -349,7 +363,9 @@ const InvoiceInfo = props => {
     detailRows.push({
       key: 'networks',
       title: acceptedSystemsLabel,
-      subtitle: 'Supported payment networks',
+      subtitle: isBurnChangePrice
+        ? 'Supported burn networks'
+        : 'Supported payment networks',
       onPress: () => openListSelectionModal(),
       rightIcon: 'information-outline',
     });
@@ -390,7 +406,11 @@ const InvoiceInfo = props => {
             searchPlaceholder="Search networks"
             onSelect={handleSupportedNetworkSelect}
             cancel={() => setIsListSelectionModalVisible(false)}
-            title="Supported Payment Networks"
+            title={
+              isBurnChangePrice
+                ? "Supported Burn Networks"
+                : "Supported Payment Networks"
+            }
             flexHeight={1}
           />
         )}
@@ -401,7 +421,9 @@ const InvoiceInfo = props => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.mainTitle}>VerusPay invoice</Text>
+          <Text style={styles.mainTitle}>
+            {isBurnChangePrice ? 'VerusPay burn request' : 'VerusPay invoice'}
+          </Text>
         </View>
 
         {isSigned ? (
@@ -462,6 +484,27 @@ const InvoiceInfo = props => {
           <Text style={styles.heroCurrency}>{heroCurrency}</Text>
         </View>
 
+        {isBurnChangePrice ? (
+          <View style={styles.burnInfoCard}>
+            <View style={styles.burnInfoIconContainer}>
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={26}
+                color={Colors.verusGreenColor}
+              />
+            </View>
+            <View style={styles.burnInfoTextContainer}>
+              <Text style={styles.burnInfoTitle}>Burn payment</Text>
+              <Text style={styles.burnInfoSubtitle}>
+                Burning completes this payment by permanently removing the
+                selected currency from circulation, reducing total supply and
+                increasing scarcity for holders. The burn output address does
+                not receive the amount, and the transaction cannot be reversed.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
@@ -491,7 +534,7 @@ const InvoiceInfo = props => {
 
         <View style={{ height: 24 }} />
       </ScrollView>
-      <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom + 16) }]}>
+      <View style={[styles.footer, {paddingBottom: footerBottomPadding}]}>
         <View style={styles.ctaCol}>
           <Button
             mode="contained"
@@ -508,7 +551,7 @@ const InvoiceInfo = props => {
         </View>
         <View style={styles.ctaCol}>
           <GradientButton onPress={() => handleContinue()} style={styles.primaryCta}>
-            Continue
+            {isBurnChangePrice ? 'Review burn' : 'Continue'}
           </GradientButton>
         </View>
       </View>

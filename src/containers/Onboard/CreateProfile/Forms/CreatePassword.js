@@ -25,42 +25,53 @@ import Colors from '../../../../globals/colors';
 import scorePassword from '../../../../utils/auth/scorePassword';
 import { MIN_PASS_LENGTH, MIN_PASS_SCORE, PASS_SCORE_LIMIT, SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 
+const passwordAutofillProps = {
+  autoComplete: 'off',
+  importantForAutofill: 'no',
+  textContentType: 'none',
+};
+
 export default function CreatePassword({password, setPassword, navigation}) {
   const {height} = Dimensions.get('window');
-  const insets = useSafeAreaInsets();
 
-  const [pwd, setPwd] = useState('');
-  const [score, setScore] = useState(0);
-  const [isFocused, setIsFocused] = useState(false);
+  const [firstBox, setFirstBox] = useState('');
+  const [secondBox, setSecondBox] = useState('');
+  const [passwordAffixDetails, setPasswordAffixDetails] = useState({
+    text: "strength",
+    color: Colors.tertiaryColor
+  });
   
   useEffect(() => {
-    if (!pwd) setScore(0)
-    else setScore(scorePassword(pwd, MIN_PASS_LENGTH, PASS_SCORE_LIMIT))
-  }, [pwd])
+    calculatePasswordAffix()
+  }, [firstBox])
 
-  const level = useMemo(() => {
-    if (!pwd) return 0;
-    if (score < MIN_PASS_SCORE) return 2; // weak shows two red bars
-    const span = PASS_SCORE_LIMIT - MIN_PASS_SCORE;
-    const adjusted = Math.max(0, Math.min(1, (score - MIN_PASS_SCORE) / span));
-    // Ensure MIN_PASS_SCORE starts at 3 bars; scale remaining 2 bars across the range
-    return Math.min(5, 3 + Math.ceil(adjusted * 2)); // 3..5
-  }, [pwd, score])
+  const calculatePasswordAffix = () => {
+    if (!firstBox) {
+      setPasswordAffixDetails({
+        text: "strength",
+        color: Colors.tertiaryColor
+      })
+    } else {
+      const passScore = scorePassword(firstBox, MIN_PASS_LENGTH, PASS_SCORE_LIMIT);
 
-  const levelColor = useMemo(() => {
-    if (level <= 2) return Colors.warningButtonColor
-    if (level === 3) return Colors.infoButtonColor
-    if (level === 4) return Colors.primaryColor
-    return Colors.verusGreenColor
-  }, [level])
-
-  const strengthLabel = useMemo(() => {
-    if (!pwd) return 'strength';
-    if (level <= 2) return 'weak';
-    if (level === 3) return 'mediocre';
-    if (level === 4) return 'good';
-    return 'excellent';
-  }, [pwd, level])
+      if (passScore < MIN_PASS_SCORE) {
+        setPasswordAffixDetails({
+          text: "weak",
+          color: Colors.warningButtonColor
+        })
+      } else if (passScore < PASS_SCORE_LIMIT - ((PASS_SCORE_LIMIT - MIN_PASS_SCORE) / 2)) {
+        setPasswordAffixDetails({
+          text: "mediocre",
+          color: Colors.infoButtonColor
+        })
+      } else {
+        setPasswordAffixDetails({
+          text: "strong",
+          color: Colors.verusGreenColor
+        })
+      }
+    }
+  }
 
   const validate = () => {
     const res = {valid: false, message: ''};
@@ -68,8 +79,8 @@ export default function CreatePassword({password, setPassword, navigation}) {
     if (!pwd || pwd.length < 1) {
       res.message = 'Please enter a password.';
       return res;
-    } else if (score < MIN_PASS_SCORE) {
-      res.message = 'Please enter a stronger password.';
+    } else if (firstBox !== secondBox) {
+      res.message = 'Password and confirm password do not match.';
       return res;
     }
 
@@ -89,65 +100,94 @@ export default function CreatePassword({password, setPassword, navigation}) {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.secondaryColor }}>
-      <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
-        <View style={{ flex: 1, backgroundColor: Colors.secondaryColor, paddingHorizontal: 24, paddingTop: height < SMALL_DEVICE_HEGHT ? 40 : 60 }}>
-          <Text style={{ textAlign: 'left', color: '#1A1A1A', fontSize: 32, fontWeight: '700', letterSpacing: -0.5, marginBottom: 12 }}>{'Create password'}</Text>
-          <Text style={{ textAlign: 'left', fontSize: 16, lineHeight: 22, color: '#555', marginBottom: 16 }}>{'This password encrypts your wallet in this profile.'}</Text>
-
-          <View style={{ marginBottom: 8 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A1A1A', marginBottom: 8 }}>{'Password'}</Text>
-            <View
-              style={[
-                styles.inputContainer,
-                isFocused && styles.inputContainerFocused,
-              ]}
-            >
-              <RNTextInput
-                value={pwd}
-                onChangeText={setPwd}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                placeholder={'Enter password'}
-                placeholderTextColor={'#999'}
-                returnKeyType={'done'}
-                autoCapitalize={'none'}
-                autoCorrect={false}
-                spellCheck={false}
-                secureTextEntry={true}
-                onSubmitEditing={next}
-                style={styles.input}
-              />
-            </View>
-            {/* Strength bars */}
-            <View style={{ flexDirection: 'row', marginTop: 10 }}>
-              {[0,1,2,3,4].map((i) => (
-                <View key={i} style={{
-                  height: 6,
-                  flex: 1,
-                  marginRight: i < 4 ? 6 : 0,
-                  borderRadius: 3,
-                  backgroundColor: i < level ? levelColor : '#E0E0E0'
-                }} />
-              ))}
-            </View>
-            {pwd ? (
-              <Text style={{ marginTop: 6, fontSize: 12, color: '#666' }}>{`Strength: ${strengthLabel}`}</Text>
-            ) : null}
-          </View>
-
-          <View style={{ flex: 1 }} />
-
-          <GradientButton
-            onPress={next}
-            disabled={!pwd || score < MIN_PASS_SCORE}
-            style={[styles.continueButton, { marginBottom: Math.max(24, insets.bottom + 16) }]}
-          >
-            {'Continue'}
-          </GradientButton>
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <View
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          flex: 1,
+          alignItems: 'center',
+          backgroundColor: Colors.secondaryColor,
+        }}>
+        <View
+          style={{
+            alignItems: 'center',
+            position: 'absolute',
+            top: height < SMALL_DEVICE_HEGHT ? 60 : height / 2 - 250,
+          }}>
+          <Text
+            style={{
+              textAlign: 'center',
+              color: Colors.primaryColor,
+              fontSize: 28,
+              fontWeight: 'bold',
+            }}>
+            {'Create Password'}
+          </Text>
+          <Paragraph
+            style={{
+              textAlign: 'center',
+              width: '75%',
+              marginTop: 24,
+              width: 280,
+            }}>
+            {
+              'Create a secure password for your profile. Your password will be used to encrypt your wallet.'
+            }
+          </Paragraph>
+          <TextInput
+            returnKeyType="done"
+            label="Create password"
+            value={firstBox}
+            mode={'outlined'}
+            style={{
+              width: '75%',
+              marginTop: 24,
+              width: 280,
+            }}
+            placeholder="Enter password"
+            dense={true}
+            onChangeText={text => setFirstBox(text)}
+            autoCapitalize={'none'}
+            autoCorrect={false}
+            {...passwordAutofillProps}
+            secureTextEntry={true}
+            right={<TextInput.Affix text={passwordAffixDetails.text} textStyle={{color: passwordAffixDetails.color}}/>}
+          />
+          <TextInput
+            returnKeyType="done"
+            label="Confirm password"
+            value={secondBox}
+            mode={'outlined'}
+            style={{
+              width: '75%',
+              marginTop: 8,
+              width: 280,
+            }}
+            placeholder="Enter password"
+            dense={true}
+            onChangeText={text => setSecondBox(text)}
+            autoCapitalize={'none'}
+            autoCorrect={false}
+            {...passwordAutofillProps}
+            secureTextEntry={true}
+          />
         </View>
-      </TouchableWithoutFeedback>
-    </SafeAreaView>
+        <TallButton
+          onPress={next}
+          mode="contained"
+          labelStyle={{fontWeight: 'bold'}}
+          disabled={firstBox.length == 0 || secondBox.length == 0}
+          style={{
+            position: 'absolute',
+            bottom: 80,
+            width: 280,
+          }}>
+          {'Next'}
+        </TallButton>
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 

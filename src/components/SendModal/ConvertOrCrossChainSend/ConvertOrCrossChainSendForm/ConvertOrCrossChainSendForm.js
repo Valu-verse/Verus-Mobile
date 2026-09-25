@@ -15,6 +15,7 @@ import {
   SEND_MODAL_EXPORTTO_FIELD,
   SEND_MODAL_FORM_STEP_CONFIRM,
   SEND_MODAL_IS_PRECONVERT,
+  SEND_MODAL_IS_BURN_CHANGE_PRICE,
   SEND_MODAL_MAPPING_FIELD,
   SEND_MODAL_PRICE_ESTIMATE,
   SEND_MODAL_SHOW_CONVERTTO_FIELD,
@@ -54,10 +55,13 @@ import { selectAddressBlocklist } from "../../../../selectors/settings";
 import { I_ADDRESS_VERSION, R_ADDRESS_VERSION } from "../../../../utils/constants/constants";
 import { getWeb3ProviderForNetwork } from "../../../../utils/web3/provider";
 import { useObjectSelector } from "../../../../hooks/useObjectSelector";
+import {showFundRawTransactionErrorAlert} from '../../../../utils/vrpc/fundRawTransactionError';
 
 const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFormData, navigation }) => {
   const { height } = Dimensions.get('window');
   const sendModal = useObjectSelector(state => state.sendModal);
+  const isBurnChangePrice =
+    sendModal.data[SEND_MODAL_IS_BURN_CHANGE_PRICE] === true;
   const allSubWallets = useObjectSelector(state => state.coinMenus.allSubWallets);
   const activeUser = useObjectSelector(state => state.authentication.activeAccount);
   const addresses = useObjectSelector(state => selectAddresses(state));
@@ -844,7 +848,12 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
     const channel = subWallet.api_channels[API_SEND];
 
     if (!localBalances) {
-      createAlert("Balances Not Loaded", "Have not loaded local balances yet, cannot send transaction.");
+      createAlert(
+        "Balances Not Loaded",
+        `Have not loaded local balances yet, cannot ${
+          isBurnChangePrice ? "burn currency" : "send transaction"
+        }.`,
+      );
       return true;
     }
 
@@ -951,6 +960,9 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
         address: await selectAddress(data[SEND_MODAL_TO_ADDRESS_FIELD]),
         satoshis: coinsToSats(BigNumber(amount)).toString(),
         preconvert: selectData(data[SEND_MODAL_IS_PRECONVERT]),
+        burn: data[SEND_MODAL_IS_BURN_CHANGE_PRICE] === true
+          ? true
+          : undefined,
         vdxftag: selectData(data[SEND_MODAL_VDXF_TAG])
       }
 
@@ -1008,7 +1020,9 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
       if (submittedsats !== resout.satoshis) {
         if (sendModal.data[SEND_MODAL_STRICT_AMOUNT]) {
           throw new Error(
-            `You have insufficient funds to send your submitted amount of ${satsToCoins(
+            `You have insufficient funds to ${
+              isBurnChangePrice ? "burn" : "send"
+            } your submitted amount of ${satsToCoins(
               BigNumber(submittedsats),
             ).toString()} ${coinObj.display_ticker} plus the transaction fee.`,
           );
@@ -1026,7 +1040,9 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
 
       navigation.navigate(SEND_MODAL_FORM_STEP_CONFIRM, { preflight: res.result, balances: localBalances });
     } catch (e) {
-      Alert.alert("Error", e.message);
+      if (!showFundRawTransactionErrorAlert(e)) {
+        Alert.alert("Error", e.message);
+      }
     }
 
     setLoading(false);
@@ -1190,7 +1206,15 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
                     SEND_MODAL_AMOUNT_FIELD
                   ]
                 }
+                sendingFromLabel={
+                  isBurnChangePrice ? "Burning from" : "Sending from"
+                }
                 sendingFromValue={sendModal.subWallet.name}
+                recipientAddressLabel={
+                  isBurnChangePrice
+                    ? "Burn output address (does not receive funds)"
+                    : "Recipient address"
+                }
                 recipientAddressValue={
                   sendModal.data[SEND_MODAL_TO_ADDRESS_FIELD]
                 }
@@ -1199,6 +1223,9 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
                 }
                 onSelfPress={() => handleSelfPressed()}
                 amountValue={sendModal.data[SEND_MODAL_AMOUNT_FIELD]}
+                amountLabel={
+                  isBurnChangePrice ? "Amount to burn" : "Amount"
+                }
                 onAmountChange={text =>
                   updateSendFormData(SEND_MODAL_AMOUNT_FIELD, text)
                 }
@@ -1333,7 +1360,7 @@ const ConvertOrCrossChainSendForm = ({ setLoading, setModalHeight, updateSendFor
           loading={loadingSuggestions}
           disabled={loadingSuggestions || (!searchMode && localBalances == null)}
           style={{width: 100, alignSelf: 'center'}}>
-          {searchMode ? 'Done' : 'Send'}
+          {searchMode ? 'Done' : isBurnChangePrice ? 'Review burn' : 'Send'}
         </Button>
       </View>
     </TouchableWithoutFeedback>

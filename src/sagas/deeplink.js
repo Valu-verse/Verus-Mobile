@@ -12,13 +12,17 @@ import { primitives } from 'verusid-ts-client'
 import { MAX_DEEPLINK_STRING_LENGTH } from '../utils/constants/deeplink';
 import { DEEPLINK_PROTOCOL_URL_STRING, GENERIC_REQUEST_DEEPLINK_VDXF_KEY, GenericRequest, VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID, VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID } from 'verus-typescript-primitives';
 import { isDeeplinkHandlerInstalled } from '../utils/deeplink/isDeeplinkHandlerInstalled';
+import {
+  getPendingDeeplinkPassthrough,
+  savePendingDeeplinkRequest,
+} from '../utils/deeplink/pendingDeeplinkStorage';
 
 export default function* deeplinkSaga() {
   yield all([takeEvery(SET_DEEPLINK_URL, handleDeeplinkUrl)]);
 }
 
 function* handleDeeplinkUrl(action) {
-  const {url: urlstring} = action.payload;
+  const {url: urlstring, passthrough = null} = action.payload;
 
   if (urlstring != null) {
     try {
@@ -28,7 +32,10 @@ function* handleDeeplinkUrl(action) {
       const isInternalProtocol = url.protocol === `${DEEPLINK_PROTOCOL_URL_STRING}${VERUS_MOBILE_GENERIC_REQUEST_HANDLER_ID}:`;
 
       if (url.protocol === `${DEEPLINK_PROTOCOL_URL_STRING}:` || isInternalProtocol) {
-        const otherHandlerInstalled = yield call(isDeeplinkHandlerInstalled, 1);
+        const otherHandlerInstalled = yield call(
+          isDeeplinkHandlerInstalled,
+          VALU_MOBILE_GENERIC_REQUEST_HANDLER_ID,
+        );
 
         if (isInternalProtocol && !otherHandlerInstalled) {
           throw new Error("Internal deeplinks cannot be used unless multiple deeplink handlers are installed.");
@@ -69,11 +76,33 @@ function* handleDeeplinkUrl(action) {
           }
         }
 
+        const requestBufferString = req.toBuffer().toString('hex');
+        let savedPendingRequest = null;
+
+        try {
+          savedPendingRequest = yield call(savePendingDeeplinkRequest, {
+            requestBufferString,
+            uri: parseUri,
+          });
+        } catch (e) {
+          console.warn('Unable to save pending deeplink', e?.message ?? e);
+        }
+
+        const pendingPassthrough = getPendingDeeplinkPassthrough(savedPendingRequest);
+        const mergedPassthrough =
+          pendingPassthrough != null || passthrough != null
+            ? {
+                ...(pendingPassthrough || {}),
+                ...(passthrough || {}),
+              }
+            : null;
+
         yield call(handleFinishDeeplink, {
           type: SET_DEEPLINK_DATA,
           payload: {
             id: GENERIC_REQUEST_DEEPLINK_VDXF_KEY.vdxfid,
-            data: req.toBuffer().toString('hex'),
+            data: requestBufferString,
+            passthrough: mergedPassthrough,
           },
         });
       } else {
