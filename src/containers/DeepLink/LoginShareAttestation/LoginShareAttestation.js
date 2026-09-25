@@ -25,6 +25,9 @@ import { from } from "readable-stream";
 import  { RequestInformation, RequestItem } from "../../../utils/attestations/valuCompatibility";
 const { getSignatureInfo } = require("../../../utils/api/channels/vrpc/requests/getSignatureInfo");
 
+primitives.ATTESTATION_READ_REQUEST = {
+            vdxfid: "iNqLaiDJjcADGCvXcQZnPqwTqMXzQbDCFu"};
+
 class LoginShareAttestation extends Component {
   constructor(props) {
     super(props);

@@ -303,6 +303,8 @@ const LoginRequestInfo = props => {
         // Process each subject item directly
         subject.forEach((subjectItem, index) => {
           const { vdxfkey } = subjectItem;
+          primitives.ATTESTATION_READ_REQUEST = {
+            vdxfid: "iNqLaiDJjcADGCvXcQZnPqwTqMXzQbDCFu"};
           console.log(`Processing subject item with vdxfkey: ${vdxfkey}`);
           let permissionData = null;
 

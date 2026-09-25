@@ -9,13 +9,31 @@ export default function ImportIntro({navigation, label}) {
   const {height} = Dimensions.get('window');
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.secondaryColor }}>
-      <View style={{ flex: 1, backgroundColor: Colors.secondaryColor, paddingHorizontal: 24, paddingTop: 40 }}>
-        <Text style={{ textAlign: 'left', color: '#1A1A1A', fontSize: 32, fontWeight: '700', letterSpacing: -0.5, marginBottom: 12 }}>
-          {label ? label : 'Import your wallet'}
-        </Text>
-        <Text style={{ textAlign: 'left', fontSize: 16, lineHeight: 22, color: '#555', marginBottom: 24 }}>
-          {'Choose how you want to bring an existing wallet into this profile.'}
+    <View
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        flex: 1,
+        alignItems: 'center',
+        backgroundColor: Colors.secondaryColor,
+      }}>
+      <View
+        style={{
+          alignItems: 'center',
+          position: 'absolute',
+          top: height / 2 - 220
+        }}>
+        <Text
+          style={{
+            textAlign: 'center',
+            color: Colors.primaryColor,
+            fontSize: 28,
+            fontWeight: 'bold',
+            marginBottom: 48,
+            maxWidth: "90%"
+          }}>
+          {label ? label : 'Import Wallet'}
         </Text>
         <Button
           icon={({ size, color }) => (
@@ -119,6 +137,6 @@ export default function ImportIntro({navigation, label}) {
           {"Enter Key/Seed"}
         </Button>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

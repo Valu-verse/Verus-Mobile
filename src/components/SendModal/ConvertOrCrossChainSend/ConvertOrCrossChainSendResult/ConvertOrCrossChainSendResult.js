@@ -117,8 +117,6 @@ const ConvertOrCrossChainSendResult = (props) => {
             color: Colors.verusDarkGray,
           }}>
           {isBurnChangePrice ? 'burn output: ' : 'to '}
-          <Text style={{color: Colors.basicButtonColor, textAlign: 'center'}}>
-          {'to '}
           <Text style={{ color: Colors.basicButtonColor, textAlign: 'center' }}>
             {destination}
           </Text>

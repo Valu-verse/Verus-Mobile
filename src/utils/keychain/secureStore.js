@@ -1061,7 +1061,7 @@ class SecureStore {
       }
 
       return AsyncStorage.getItem(key, callback);
-    }
+    });
   }
 
   /**

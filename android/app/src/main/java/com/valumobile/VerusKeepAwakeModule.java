@@ -1,4 +1,4 @@
-package com.verusmobile;
+package com.valumobile;
 
 import android.app.Activity;
 import android.view.WindowManager;

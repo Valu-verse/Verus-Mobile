@@ -1,22 +1,26 @@
-/*
-  2025-11-22: Removed Settings routes from MainStack now that Settings has its
-  own bottom-tab stack, keeping MainStack focused on wallet/coin flows.
-  2024-12-09: Added SendWizard navigator for new send/convert flow.
-*/
 import React from 'react';
 import { createStackNavigator } from "@react-navigation/stack";
 import { defaultHeaderOptions } from '../../../utils/navigation/header';
 import AddCoin from '../../AddCoin/AddCoin'
 import CoinDetails from '../../CoinDetails/CoinDetails'
 import DisplaySeed from '../../DisplaySeed/DisplaySeed'
+import SettingsMenus from '../../Settings/SettingsMenus'
 import CoinMenus from '../../Coin/CoinMenus'
+import VerusPay from '../../VerusPay/VerusPay'
+import ProfileInfo from '../../Settings/ProfileSettings/ProfileInfo/ProfileInfo'
+import ResetPwd from '../../Settings/ProfileSettings/ResetPwd/ResetPwd'
+import RecoverSeed from '../../Settings/ProfileSettings/RecoverSeed/RecoverSeed'
+import GeneralWalletSettings from '../../Settings/WalletSettings/GeneralWalletSettings/GeneralWalletSettings'
+import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSettings'
+import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile'
 import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
-import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
-import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
+import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
+import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
+import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
 import ValuSocialScreen from '../../ValuSocial/ValuSocialScreen';
 import SendWizardNavigator from '../../SendWizard/SendWizardNavigator';
-import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
+
 
 const MainStack = createStackNavigator();
 
@@ -58,19 +62,29 @@ const MainStackScreens = props => {
 
       <MainStack.Screen name="CoinMenus" component={CoinMenus} />
 
+      <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
+
       <MainStack.Screen
-        name="ReceiveAssetsList"
-        component={ReceiveAssetsList}
+        name="ProfileInfo"
+        component={ProfileInfo}
         options={{
-          title: 'Receive assets',
+          title: "Info",
         }}
       />
 
       <MainStack.Screen
-        name="ReceiveAssetDetails"
-        component={ReceiveAssetDetails}
+        name="ResetPwd"
+        component={ResetPwd}
         options={{
-          title: 'Receive',
+          title: "Reset",
+        }}
+      />
+
+      <MainStack.Screen
+        name="RecoverSeed"
+        component={RecoverSeed}
+        options={{
+          title: "Recover",
         }}
       />
 

@@ -37,14 +37,20 @@ const SignedOutDropdown = (props) => {
     ...(hasAccount
       ? [
           {
-            label: 'Recover profile seed',
+            label: 'Recover account seeds',
             onPress: handleRecoverSeed,
           },
           {
-            label: 'Revoke or recover VerusID',
+            label: 'Revoke/Recover VerusID',
             onPress: handleRevokeRecover,
-          }
-        ];
+          },
+          {
+            label: `Pending requests (${pendingRequestCount})`,
+            onPress: handlePendingRequests,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <View
@@ -56,18 +62,16 @@ const SignedOutDropdown = (props) => {
         zIndex: 20,
         elevation: 20,
       }}>
-    <SafeAreaView style={styles.container}>
       <Menu
         visible={visible}
         onDismiss={closeMenu}
         anchor={
-          <TouchableOpacity
+          <IconButton
+            icon="dots-vertical"
+            size={28}
             onPress={openMenu}
-            activeOpacity={0.8}
-            style={styles.morePill}
-          >
-            <Text style={styles.moreLabel}>More</Text>
-          </TouchableOpacity>
+            iconColor={Colors.quaternaryColor}
+          />
         }>
         {actions.map((action, index) => (
           <Menu.Item

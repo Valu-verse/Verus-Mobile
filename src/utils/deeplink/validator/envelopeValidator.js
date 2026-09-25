@@ -1,6 +1,5 @@
 // Updated invoice detail type checks to use VerusPayInvoiceDetailsOrdinalVDXFObject.
 import { AUTHENTICATION_REQUEST_VDXF_KEY, GenericRequest, IDENTITY_UPDATE_REQUEST_VDXF_KEY, PROVISION_IDENTITY_DETAILS_VDXF_KEY, VERUSPAY_INVOICE_DETAILS_VDXF_KEY, APP_ENCRYPTION_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY, USER_DATA_REQUEST_VDXF_KEY, VerusPayInvoiceDetailsOrdinalVDXFObject , CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY, SPENDABLE_KEY_DETAILS_VDXF_KEY, SpendableKeyDetailsOrdinalVDXFObject,
-  USER_DATA_REQUEST_VDXF_KEY, DATA_PACKET_REQUEST_VDXF_KEY,
   CreateWalletBackupDetailsOrdinalVDXFObject} from "verus-typescript-primitives"
 import { getInfo, verifyGenericRequest } from "../../api/channels/vrpc/callCreators"
 import { getIdentity } from "../../api/channels/verusid/callCreators";
@@ -13,8 +12,6 @@ import { validateCreateWalletBackupDetailsVDXFObject } from "./createWalletBacku
 import { validateSpendableKeyDetailsVDXFObject } from "./spendableKeyDetailsValidator";
 import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
 import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
-import { validateDataPacketRequestVDXFObject } from "./dataPacketRequestValidator";
-import { validateUserDataRequestVDXFObject } from "./userDataRequestValidator";
 import { validateGenericRequestGroupings } from "./allowedGenericRequestGroupings";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import VrpcProvider from '../../vrpc/vrpcInterface';

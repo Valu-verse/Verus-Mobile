@@ -12,7 +12,7 @@ import {Alert, View, Dimensions, SafeAreaView} from 'react-native';
 import {Text} from 'react-native-paper';
 import Styles from '../../styles/index';
 import Colors from '../../globals/colors';
-import VerusLogoWhite from '../../images/customIcons/verus-logo-white.svg';
+import {VerusLogo} from '../../images/customIcons';
 import {openAuthenticateUserModal} from '../../actions/actions/sendModal/dispatchers/sendModal';
 import {
   SEND_MODAL_FORM_STEP_CONFIRM,
@@ -30,7 +30,7 @@ import {
   getPendingDeeplinkRequestCount,
 } from '../../utils/deeplink/pendingDeeplinkStorage';
 
-const ValuGlyph = require('../../images/customIcons/valu-icon.png');
+const {height} = Dimensions.get('window');
 
 const Login = props => {
   const defaultAccount = useSelector(
@@ -106,6 +106,53 @@ const Login = props => {
     props.navigation.navigate('RecoverSeeds');
   };
 
+  const handlePendingRequests = () => {
+    props.navigation.navigate('ProvisioningDeeplinks');
+  };
+
+  const handleClearPendingRequests = () => {
+    Alert.alert(
+      'Clear pending requests?',
+      'This will remove saved pending deeplink requests from this device.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearPendingDeeplinkRequests();
+              setPendingRequestCount(0);
+            } catch (e) {
+              console.warn('Unable to clear pending deeplink requests', e);
+            }
+          },
+        },
+      ],
+      {cancelable: true},
+    );
+  };
+
+  const loadPendingRequestCount = useCallback(async () => {
+    try {
+      setPendingRequestCount(await getPendingDeeplinkRequestCount());
+    } catch (e) {
+      console.warn('Unable to load pending deeplink request count', e);
+      setPendingRequestCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPendingRequestCount();
+
+    const unsubscribe = props.navigation.addListener(
+      'focus',
+      loadPendingRequestCount,
+    );
+
+    return unsubscribe;
+  }, [loadPendingRequestCount, props.navigation]);
+
   return (
     <SafeAreaView
       style={{
@@ -130,129 +177,60 @@ const Login = props => {
           pendingRequestCount={pendingRequestCount}
           hasAccount={true}
         />}
-    <SafeAreaView style={styles.root}>
-      <View style={styles.topPills}>
-        <View style={styles.poweredPill}>
-          <Text style={styles.poweredText}>Powered by</Text>
-          <VerusLogoWhite width={68} height={16} />
-        </View>
-        <SignedOutDropdown
-          hasAccount={hasAccount}
-          handleRecoverSeed={handleRecoverSeed}
-          handleRevokeRecover={handleRevokeRecover}
-        />
       </View>
-
-      <View style={styles.overlay}>
-        <View style={styles.copyWrap}>
-          <Image source={ValuGlyph} style={styles.heroIcon} />
-          <Text style={styles.headline}>
-            Take control of what matters most — your value.
-          </Text>
-        </View>
+      <VerusLogo
+        width={180}
+        height={'15%'}
+        style={{top: 100, position: 'absolute'}}
+      />
+      <View
+        style={{
+          alignItems: 'center',
+          position: 'absolute',
+          top: height / 2 - 40,
+        }}>
+        <Text
+          style={{
+            textAlign: 'center',
+            color: Colors.primaryColor,
+            fontSize: 28,
+            fontWeight: 'bold',
+          }}>
+          {'Welcome to Verus'}
+        </Text>
+        <Text
+          style={{
+            textAlign: 'center',
+            color: Colors.primaryColor,
+            fontSize: 20,
+          }}>
+          {'Truth and Privacy for All'}
+        </Text>
       </View>
       <GradientButton
         onPress={() => openAuthModal()}
         mode="contained"
-        style={styles.loginCta}
-      >
+        labelStyle={{fontWeight: 'bold'}}
+        style={{
+          position: 'absolute',
+          bottom: 86,
+          width: 280,
+        }}>
         {'Login'}
       </GradientButton>
       <GradientButton
         onPress={() => handleAddUser()}
-        mode="outlined"
-        labelStyle={{ color: Colors.primaryColor, fontWeight: '600', fontSize: 16 }}
-        style={styles.secondaryCta}
-      >
-        {'Create new profile'}
+        mode="text"
+        labelStyle={{fontWeight: 'bold'}}
+        style={{
+          position: 'absolute',
+          bottom: 30,
+          width: 280,
+        }}>
+        {'Add a profile'}
       </GradientButton>
     </SafeAreaView>
   );
 };
 
 export default Login;
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.secondaryColor,
-    justifyContent: 'center',
-  },
-  topPills: {
-    position: 'absolute',
-    top: 68,
-    right: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    zIndex: 2,
-  },
-  poweredPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(49, 101, 212, 0.95)',
-    marginRight: 8,
-  },
-  poweredText: {
-    color: Colors.secondaryColor,
-    fontSize: 11.5,
-    fontWeight: '600',
-    marginRight: 8,
-    letterSpacing: -0.2,
-  },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    paddingHorizontal: 32,
-    paddingTop: 250,
-  },
-  copyWrap: {
-    maxWidth: 320,
-    paddingTop: 16,
-    paddingBottom: 28,
-    alignItems: 'flex-start',
-  },
-  heroIcon: {
-    width: 56,
-    height: 56,
-    resizeMode: 'contain',
-    marginBottom: 18,
-  },
-  headline: {
-    color: Colors.quinaryColor,
-    textAlign: 'left',
-    fontSize: 32,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-    lineHeight: 36,
-  },
-  loginCta: {
-    position: 'absolute',
-    bottom: 100,
-    left: 20,
-    right: 20,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  secondaryCta: {
-    position: 'absolute',
-    bottom: 30,
-    left: 20,
-    right: 20,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderWidth: 2,
-    borderColor: Colors.primaryColor,
-    elevation: 0,
-    shadowColor: 'transparent',
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    shadowOffset: { width: 0, height: 0 },
-  },
-});

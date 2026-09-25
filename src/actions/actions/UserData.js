@@ -530,7 +530,7 @@ export const validateLogin = (
   deferSessionInitialization = false,
 ) => {
   return new Promise((resolve, reject) => {
-    checkPinForUser(password, account.id, alertOnFail, true)
+    checkPinForUser(password, account.id, true, true)
       .then(() => {
         return authenticateAccount(
           account,

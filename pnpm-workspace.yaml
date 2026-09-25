@@ -107,3 +107,4 @@ allowBuilds:
   keccak: true
   react-native-elements: true
   secp256k1: true
+  react-native-inappbrowser-reborn: false

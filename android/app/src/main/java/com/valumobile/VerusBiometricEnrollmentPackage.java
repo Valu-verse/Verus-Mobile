@@ -1,4 +1,4 @@
-package com.verusmobile;
+package com.valumobile;
 
 import androidx.annotation.NonNull;
 

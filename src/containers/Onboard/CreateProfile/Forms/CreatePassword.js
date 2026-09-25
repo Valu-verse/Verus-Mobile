@@ -1,27 +1,15 @@
-/*
-  Updated CreatePassword screen:
-  - Single password input (no confirm) with inline strength bars (5 stripes)
-  - Uses existing scorePassword() backend for scoring; UI only changed
-  - Styling aligned with ChooseName (top-left title, custom input)
-  - Continue navigates to ConfirmPassword
-  - 2026-01-26: Updated input field and primary button to match Unlock.js styling pattern
-    (soft background with focus border/shadow, GradientButton for primary CTA).
-*/
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Dimensions,
   TouchableWithoutFeedback,
   Keyboard,
-  TextInput as RNTextInput,
-  SafeAreaView,
-  StyleSheet,
 } from 'react-native';
-import {Text} from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {Text, Paragraph, Button, TextInput} from 'react-native-paper';
 import {createAlert} from '../../../../actions/actions/alert/dispatchers/alert';
-import GradientButton from '../../../../components/GradientButton';
+import TallButton from '../../../../components/LargerButton';
 import Colors from '../../../../globals/colors';
+import { getSupportedBiometryType } from '../../../../utils/keychain/keychain';
 import scorePassword from '../../../../utils/auth/scorePassword';
 import { MIN_PASS_LENGTH, MIN_PASS_SCORE, PASS_SCORE_LIMIT, SMALL_DEVICE_HEGHT } from '../../../../utils/constants/constants';
 
@@ -76,7 +64,7 @@ export default function CreatePassword({password, setPassword, navigation}) {
   const validate = () => {
     const res = {valid: false, message: ''};
 
-    if (!pwd || pwd.length < 1) {
+    if (!firstBox || firstBox.length < 1) {
       res.message = 'Please enter a password.';
       return res;
     } else if (firstBox !== secondBox) {
@@ -94,8 +82,13 @@ export default function CreatePassword({password, setPassword, navigation}) {
     if (!valid) {
       createAlert('Error', message);
     } else {
-      setPassword(pwd);
-      navigation.navigate('ConfirmPassword');
+      setPassword(firstBox);
+
+      if ((await getSupportedBiometryType()).biometry) {
+        navigation.navigate('UseBiometrics');
+      } else {
+        navigation.navigate('CreateWallet');
+      }
     }
   };
 
@@ -190,33 +183,3 @@ export default function CreatePassword({password, setPassword, navigation}) {
     </TouchableWithoutFeedback>
   );
 }
-
-const styles = StyleSheet.create({
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F7F7F7',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    height: 52,
-  },
-  inputContainerFocused: {
-    backgroundColor: '#FFF',
-    borderColor: Colors.primaryColor,
-    shadowColor: Colors.primaryColor,
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  input: {
-    flex: 1,
-    height: 52,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#000',
-  },
-  continueButton: {
-    marginBottom: 24,
-  },
-});

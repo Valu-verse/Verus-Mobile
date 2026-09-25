@@ -55,7 +55,6 @@ import {
 const GenericRequestComplete = props => {
   const insets = useSafeAreaInsets();
   const { requestBufferString, responseBufferString } = props.route.params;
-  const insets = useSafeAreaInsets();
   const bottomNavigationInset = Math.max(
     insets.bottom,
     Platform.OS === 'android' ? 24 : 0,

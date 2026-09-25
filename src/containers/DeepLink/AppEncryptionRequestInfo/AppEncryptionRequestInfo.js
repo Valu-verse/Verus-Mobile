@@ -717,10 +717,11 @@ const AppEncryptionRequestInfo = (props) => {
                       </View>
                     </TouchableOpacity>
                   </View>
-                </View>
-              )}
+                  </>
+                ) : null}
             </View>
           )}
+          </View>
         </ScrollView>
 
         {/* Footer: single Continue button */}

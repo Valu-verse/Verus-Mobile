@@ -127,6 +127,9 @@ importers:
       '@react-native-community/netinfo':
         specifier: 6.0.2
         version: 6.0.2(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))
+      '@react-navigation/bottom-tabs':
+        specifier: ^6.6.1
+        version: 6.6.1(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-screens@2.9.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
       '@react-navigation/compat':
         specifier: 5.3.20
         version: 5.3.20(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react@18.2.0)
@@ -280,9 +283,15 @@ importers:
       react-native-haptic-feedback:
         specifier: 1.11.0
         version: 1.11.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))
+      react-native-iap:
+        specifier: 12.15.5
+        version: 12.15.5(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
       react-native-image-picker:
         specifier: 5.7.0
         version: 5.7.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      react-native-inappbrowser-reborn:
+        specifier: ^3.7.0
+        version: 3.7.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))
       react-native-keyboard-aware-scroll-view:
         specifier: 0.9.5
         version: 0.9.5(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))
@@ -347,8 +356,11 @@ importers:
         specifier: git+https://github.com/VerusCoin/react-native-vector-icons.git
         version: https://codeload.github.com/VerusCoin/react-native-vector-icons/tar.gz/8e7de391c452401b0e2bf0da695aa0edeb8b323d
       react-native-verus:
-        specifier: git+https://github.com/VerusCoin/react-native-verus.git
+        specifier: https://github.com/VerusCoin/react-native-verus.git
         version: https://codeload.github.com/VerusCoin/react-native-verus/tar.gz/971a75cdd4d2efdf0097c9f0ad379d478a6ca68f(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))
+      react-native-video:
+        specifier: ^6.17.0
+        version: 6.19.3(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
       react-native-vision-camera:
         specifier: 4.3.1
         version: 4.3.1(react-native-reanimated@2.14.4(@babel/core@7.29.7)(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
@@ -1318,6 +1330,16 @@ packages:
   '@react-native/polyfills@2.0.0':
     resolution: {integrity: sha512-K0aGNn1TjalKj+65D7ycc1//H9roAQ51GJVk5ZJQFb2teECGmzd86bYDC0aYdbRf7gtovescq4Zt6FR0tgXiHQ==}
 
+  '@react-navigation/bottom-tabs@6.6.1':
+    resolution: {integrity: sha512-9oD4cypEBjPuaMiu9tevWGiQ4w/d6l3HNhcJ1IjXZ24xvYDSs0mqjUcdt8SWUolCvRrYc/DmNBLlT83bk0bHTw==}
+    deprecated: This version is no longer supported
+    peerDependencies:
+      '@react-navigation/native': ^6.0.0
+      react: '*'
+      react-native: 0.71.19
+      react-native-safe-area-context: '>= 3.0.0'
+      react-native-screens: '>= 3.0.0'
+
   '@react-navigation/compat@5.3.20':
     resolution: {integrity: sha512-4CDw3QRN2zKj2L1Fxjq6ZOK95EW8UOnW3Par1o+P07qc+dZTAL1poKeRx74yqGLQyGVawozTHOgyE8/XWjdDvg==}
     deprecated: This version is no longer supported
@@ -1345,6 +1367,15 @@ packages:
 
   '@react-navigation/elements@1.3.17':
     resolution: {integrity: sha512-sui8AzHm6TxeEvWT/NEXlz3egYvCUog4tlXA4Xlb2Vxvy3purVXDq/XsM56lJl344U5Aj/jDzkVanOTMWyk4UA==}
+    deprecated: This version is no longer supported
+    peerDependencies:
+      '@react-navigation/native': ^6.0.0
+      react: '*'
+      react-native: 0.71.19
+      react-native-safe-area-context: '>= 3.0.0'
+
+  '@react-navigation/elements@1.3.31':
+    resolution: {integrity: sha512-bUzP4Awlljx5RKEExw8WYtif8EuQni2glDaieYROKTnaxsu9kEIA515sXQgUDZU4Ob12VoL7+z70uO3qrlfXcQ==}
     deprecated: This version is no longer supported
     peerDependencies:
       '@react-navigation/native': ^6.0.0
@@ -1909,7 +1940,7 @@ packages:
     engines: {node: '>=6.0.0'}
 
   bip39@https://codeload.github.com/VerusCoin/bip39/tar.gz/17d3bbefc80d243903eabd60e0ed64f20aa2bf31:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/bip39/tar.gz/17d3bbefc80d243903eabd60e0ed64f20aa2bf31}
+    resolution: {gitHosted: true, integrity: sha512-GOs7fBZ5eCDGiIFsEjd9pAXhk8025Nf70U5HunC9WQehQEizOs9fFiQPJ0GYwP5IOl0PWVJYnuB0wsrKmIsDPg==, tarball: https://codeload.github.com/VerusCoin/bip39/tar.gz/17d3bbefc80d243903eabd60e0ed64f20aa2bf31}
     version: 3.0.3
 
   bip66@1.1.0:
@@ -1922,11 +1953,11 @@ packages:
     resolution: {integrity: sha512-pef6gxZFztEhaE9RY9HmWVmiIHqCb2OyS4HPKkpc6CIiiOa3Qmuoylxc5P2EkU3w+5eTSifI9SEZC88idAIGow==}
 
   bitcoin-ops@https://codeload.github.com/VerusCoin/bitcoin-ops/tar.gz/a5f8f56e658301bc39881d41740b3a0010530efd:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/bitcoin-ops/tar.gz/a5f8f56e658301bc39881d41740b3a0010530efd}
+    resolution: {gitHosted: true, integrity: sha512-+3LLV17SuOeTYf0ENXqE/O/9/5e10badygAMVCTKrkAwUDHVb9wGz+b7lTi3ORluN0MgzfHwt8Y26xOz9AoG8g==, tarball: https://codeload.github.com/VerusCoin/bitcoin-ops/tar.gz/a5f8f56e658301bc39881d41740b3a0010530efd}
     version: 1.4.1
 
   bitgo-utxo-lib@https://codeload.github.com/VerusCoin/bitgo-utxo-lib/tar.gz/5765ef99b05b345d6e7db6d9b8cd5a7de0f56d18:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/bitgo-utxo-lib/tar.gz/5765ef99b05b345d6e7db6d9b8cd5a7de0f56d18}
+    resolution: {gitHosted: true, integrity: sha512-CxAY/1z4MwqLLP0y6QEMp6uMqneFR38lYx6M4UQnc/AESlYMKDsO4za1+iU5LZ0QUpBZ0BAbyo9OgBfQ7lNOvg==, tarball: https://codeload.github.com/VerusCoin/bitgo-utxo-lib/tar.gz/5765ef99b05b345d6e7db6d9b8cd5a7de0f56d18}
     version: 1.2.1
     engines: {node: '>=4.0.0'}
 
@@ -1938,11 +1969,11 @@ packages:
     version: 2.0.0
 
   blake2b@https://codeload.github.com/VerusCoin/blake2b/tar.gz/578dc12b7b68a3ce76d1e1add1402b28a5890a6b:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/blake2b/tar.gz/578dc12b7b68a3ce76d1e1add1402b28a5890a6b}
+    resolution: {gitHosted: true, integrity: sha512-GEeL7g7d9GL3IQLvW48tQDB6tab1oLevNYhKrVRmM9IMRhHTC3E42IqX0oiFu8GOfqZ16YERHCOmCR95QFKHfQ==, tarball: https://codeload.github.com/VerusCoin/blake2b/tar.gz/578dc12b7b68a3ce76d1e1add1402b28a5890a6b}
     version: 2.1.4
 
   blake2b@https://codeload.github.com/michaeltout/blake2b/tar.gz/777f844b986173d08fc27fe9547c6f6320a82d62:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/michaeltout/blake2b/tar.gz/777f844b986173d08fc27fe9547c6f6320a82d62}
+    resolution: {gitHosted: true, integrity: sha512-fRPKx31yPzR3BZGOSyN5F8crUHfFGyrpSp9b7S7Yk7DdW9r3umPhIggMSSPuz6LXKcdWBXvk/l5V122Oj/8IdA==, tarball: https://codeload.github.com/michaeltout/blake2b/tar.gz/777f844b986173d08fc27fe9547c6f6320a82d62}
     version: 2.1.3
 
   bn.js@4.12.3:
@@ -2724,7 +2755,7 @@ packages:
     resolution: {integrity: sha512-E3yKUyl0Fs95nvTFQZe/ZSNcofhDzUsDlA5y2uoRmf1+Ec7gpGhNCsgKkZBRh7Br5op8mJcYF/jFbmjj909+nQ==}
 
   ethers@https://codeload.github.com/VerusCoin/ethers.js/tar.gz/9fd9d41d017a5e3b329aca47c79786e69cd40b99:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/ethers.js/tar.gz/9fd9d41d017a5e3b329aca47c79786e69cd40b99}
+    resolution: {gitHosted: true, integrity: sha512-wUKV1MojBKdyPXdgQxxo4M1Q10WNa0fZEfHsZG4Te0QsWYgb678V/liGGabzpDl78iNKXKHtOZQzlu4ceYerLQ==, tarball: https://codeload.github.com/VerusCoin/ethers.js/tar.gz/9fd9d41d017a5e3b329aca47c79786e69cd40b99}
     version: 6.15.0
     engines: {node: '>=14.0.0'}
 
@@ -4441,7 +4472,7 @@ packages:
     resolution: {integrity: sha512-Jh3mEs/xUBs/z9mKkj2mM07MMQ2SdtW9mU4FOo5DQyA2kDte6lW87vIYFkWw1nxpzc7sy28ahMsgId8LTtKZsg==}
 
   react-native-cache@https://codeload.github.com/VerusCoin/react-native-cache/tar.gz/f8c1a72b50177aa93de5e8c329b1523409505dd6:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-cache/tar.gz/f8c1a72b50177aa93de5e8c329b1523409505dd6}
+    resolution: {gitHosted: true, integrity: sha512-8hD21lyPg8pRJqnndKpdQO9jIzJpEQDE1MRoDWT1Oq5yZVqWNxeF8Q6Y/lBhS0mpOM6rZ/CLObnrUvjl0ApCVQ==, tarball: https://codeload.github.com/VerusCoin/react-native-cache/tar.gz/f8c1a72b50177aa93de5e8c329b1523409505dd6}
     version: 1.1.7
 
   react-native-codegen@0.71.6:
@@ -4468,7 +4499,7 @@ packages:
       react-native: 0.71.19
 
   react-native-format-currency@https://codeload.github.com/VerusCoin/react-native-format-currency/tar.gz/7002ee86a689ea52f1ff1e7fb71e216f282fad35:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-format-currency/tar.gz/7002ee86a689ea52f1ff1e7fb71e216f282fad35}
+    resolution: {gitHosted: true, integrity: sha512-sZ84Z9Yad29dRTa92AdDXa+znWgOY1gtRWroy3N+xj+K+SIF8VZkrxl7aBhWfsxFWPlAY/ooTHYyOotS3u/Sww==, tarball: https://codeload.github.com/VerusCoin/react-native-format-currency/tar.gz/7002ee86a689ea52f1ff1e7fb71e216f282fad35}
     version: 0.0.3
 
   react-native-fs@2.18.0:
@@ -4491,10 +4522,25 @@ packages:
     peerDependencies:
       react-native: 0.71.19
 
+  react-native-iap@12.15.5:
+    resolution: {integrity: sha512-Pmqoj0Ge0oEor+HuKkBkYSXau+5boRRvzQHB5G9Dz1S16NA2eiVzT+LO1mk9IhRabK3PS5P7kJJtyCdQ+hfMRQ==}
+    peerDependencies:
+      expo: '>=47.0.0'
+      react: '>=16.13.1'
+      react-native: 0.71.19
+    peerDependenciesMeta:
+      expo:
+        optional: true
+
   react-native-image-picker@5.7.0:
     resolution: {integrity: sha512-LGBrFQzKEAt/u4z+IcY7COZA7N6lCeLQ2dMu1PubK10+d9YBRS8n/ABNj48CJhEpUhcRPt7H3iWbwIuOlcZrDA==}
     peerDependencies:
       react: '*'
+      react-native: 0.71.19
+
+  react-native-inappbrowser-reborn@3.7.1:
+    resolution: {integrity: sha512-4HSomJzElAqzJs5ORQmYY79fBQ/33WRQ1tScyHaREfvpLpZfoMX1moopGaytXGmakmYmR9RaYWOYZaZr9bZoOw==}
+    peerDependencies:
       react-native: 0.71.19
 
   react-native-iphone-x-helper@1.3.1:
@@ -4531,7 +4577,7 @@ packages:
     resolution: {integrity: sha512-j4xeIK9noHU/ksp2Ndc8NI1qJvjApToqGvqLEu2wtYeaISanbhtd0S3V4hZkSlCa3DZtegl6aaMZBLeH1q6xfA==}
 
   react-native-nfc-manager@https://codeload.github.com/VerusCoin/react-native-nfc-manager/tar.gz/63ad94f236a945e382190bf71206675eb6cb455c:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-nfc-manager/tar.gz/63ad94f236a945e382190bf71206675eb6cb455c}
+    resolution: {gitHosted: true, integrity: sha512-6H6DVoreczoHoEXpX7scRtVs8DPQ9iB4LGJ+vmj5Ak2LDZgEcesw9tpseu4htYNJzldLcjRXgSk+lXoDpSTWZg==, tarball: https://codeload.github.com/VerusCoin/react-native-nfc-manager/tar.gz/63ad94f236a945e382190bf71206675eb6cb455c}
     version: 3.17.2
     peerDependencies:
       '@expo/config-plugins': '*'
@@ -4540,7 +4586,7 @@ packages:
         optional: true
 
   react-native-os@https://codeload.github.com/VerusCoin/react-native-os/tar.gz/1f79a5ae777ff296bd4911e2eb37e1de6f711d12:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-os/tar.gz/1f79a5ae777ff296bd4911e2eb37e1de6f711d12}
+    resolution: {gitHosted: true, integrity: sha512-yubA/TdMEo3+9iTQuV/EOpVrK7mArmLjz2SOrXcjsvYgpnNU2fvn/A4Uidd2pc7sak2Ah+5UVXTbDZfitToNww==, tarball: https://codeload.github.com/VerusCoin/react-native-os/tar.gz/1f79a5ae777ff296bd4911e2eb37e1de6f711d12}
     version: 1.2.7
 
   react-native-paper@5.12.5:
@@ -4626,7 +4672,7 @@ packages:
       react-native-reanimated: '*'
 
   react-native-tcp@https://codeload.github.com/VerusCoin/react-native-tcp/tar.gz/be5f656ffd3aa4559270e8472ee24a1c36029cf1:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-tcp/tar.gz/be5f656ffd3aa4559270e8472ee24a1c36029cf1}
+    resolution: {gitHosted: true, integrity: sha512-8zyxiFgux3PYbd5Lreo6FbkwdPInVDDAEbxItl9Gu2lFePGb4BkN435OYbw9j9n+qOsHGibozKbQ7gbbU3V9mA==, tarball: https://codeload.github.com/VerusCoin/react-native-tcp/tar.gz/be5f656ffd3aa4559270e8472ee24a1c36029cf1}
     version: 4.0.0
     peerDependencies:
       react-native: 0.71.19
@@ -4640,7 +4686,7 @@ packages:
       react-native: 0.71.19
 
   react-native-vector-icons@https://codeload.github.com/VerusCoin/react-native-vector-icons/tar.gz/8e7de391c452401b0e2bf0da695aa0edeb8b323d:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/react-native-vector-icons/tar.gz/8e7de391c452401b0e2bf0da695aa0edeb8b323d}
+    resolution: {gitHosted: true, integrity: sha512-oQOlSIU9hzZYLTsVycKoT7j9/1Xc2gSp0qNAJzPuHYC9wfHsAA70eHb8FcoAyeTNW33XkQFiPuZ4SvFwuoVPUQ==, tarball: https://codeload.github.com/VerusCoin/react-native-vector-icons/tar.gz/8e7de391c452401b0e2bf0da695aa0edeb8b323d}
     version: 8.1.0
     hasBin: true
 
@@ -4648,6 +4694,12 @@ packages:
     resolution: {gitHosted: true, integrity: sha512-p2NDgGKX+BL1sv3WEq+DQZOUN/05xqMxDhA6eErg5vndLEvuHbwG8aP32K3FKTyTJ4Yc5mWPinjdit+fXo0MkA==, tarball: https://codeload.github.com/VerusCoin/react-native-verus/tar.gz/971a75cdd4d2efdf0097c9f0ad379d478a6ca68f}
     version: 0.6.10
     peerDependencies:
+      react-native: 0.71.19
+
+  react-native-video@6.19.3:
+    resolution: {integrity: sha512-hI0YhEH6NdkfbFfMoZTZizEmLIm13rLlMf6KyWlGSe0+6If7/gvhapR2j/BMKBEwmlAIZjU4A6ax4Qn7yssjLQ==}
+    peerDependencies:
+      react: '*'
       react-native: 0.71.19
 
   react-native-vision-camera@4.3.1:
@@ -5460,7 +5512,7 @@ packages:
     resolution: {integrity: sha512-a9YzbQmnPZ3GhnE/LCxyRhL+xCP7SrYN+XAMCszRpwp8WRR89Jp8+1tw1InkBuZ+6jWKxGe+cr6SJpdP8RShtw==}
 
   verus-pay-utils@https://codeload.github.com/VerusCoin/verus-pay-utils/tar.gz/cc34a4cae48f30714200742eca3d43ee42e13290:
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/VerusCoin/verus-pay-utils/tar.gz/cc34a4cae48f30714200742eca3d43ee42e13290}
+    resolution: {gitHosted: true, integrity: sha512-CFDUPUQbM9uZ8rScxbYVMiQqway81P4D3MsKW/XRAWFgQUL4G7DnoQHskpdfTwuznC+VIPGv11mFdiD8HQCNag==, tarball: https://codeload.github.com/VerusCoin/verus-pay-utils/tar.gz/cc34a4cae48f30714200742eca3d43ee42e13290}
     version: 2.0.0
 
   verus-typescript-primitives@https://codeload.github.com/VerusCoin/verus-typescript-primitives/tar.gz/3ffa9d77a3dd98c23fe4f66cf4368946906de780:
@@ -6914,6 +6966,17 @@ snapshots:
 
   '@react-native/polyfills@2.0.0': {}
 
+  '@react-navigation/bottom-tabs@6.6.1(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-screens@2.9.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      '@react-navigation/elements': 1.3.31(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      '@react-navigation/native': 6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      color: 4.2.3
+      react: 18.2.0
+      react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
+      react-native-safe-area-context: 4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      react-native-screens: 2.9.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      warn-once: 0.1.1
+
   '@react-navigation/compat@5.3.20(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@react-navigation/native': 6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
@@ -6943,6 +7006,13 @@ snapshots:
       warn-once: 0.1.1
 
   '@react-navigation/elements@1.3.17(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      '@react-navigation/native': 6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+      react: 18.2.0
+      react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
+      react-native-safe-area-context: 4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
+
+  '@react-navigation/elements@1.3.31(@react-navigation/native@6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native-safe-area-context@4.11.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)':
     dependencies:
       '@react-navigation/native': 6.0.13(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0)
       react: 18.2.0
@@ -10985,9 +11055,20 @@ snapshots:
     dependencies:
       react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
 
+  react-native-iap@12.15.5(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
+
   react-native-image-picker@5.7.0(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0):
     dependencies:
       react: 18.2.0
+      react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
+
+  react-native-inappbrowser-reborn@3.7.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0)):
+    dependencies:
+      invariant: 2.2.4
+      opencollective-postinstall: 2.0.3
       react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
 
   react-native-iphone-x-helper@1.3.1(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0)):
@@ -11150,6 +11231,11 @@ snapshots:
       biggystring: 4.2.3
       react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
       rfc4648: 1.5.4
+
+  react-native-video@6.19.3(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0):
+    dependencies:
+      react: 18.2.0
+      react-native: 0.71.19(@babel/core@7.29.7)(react@18.2.0)
 
   react-native-vision-camera@4.3.1(react-native-reanimated@2.14.4(@babel/core@7.29.7)(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0))(react-native@0.71.19(@babel/core@7.29.7)(react@18.2.0))(react@18.2.0):
     dependencies:

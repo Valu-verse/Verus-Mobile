@@ -1,13 +1,9 @@
 /*
   Updated LandingScreen:
-  - Implemented looping muted background video for onboarding hero using react-native-video
-  - Refined "Powered by Verus" pill placement/sizing for top-right alignment
-  - Introduced refreshed VALU glyph PNG above headline copy with updated messaging
-  - Softened primary CTA to a translucent pill and added inline policy disclaimer below it
-  - Kept changes contained to this file
+  - Uses a looping muted background video behind a single live landing UI.
 */
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { SafeAreaView, View, StyleSheet, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import Video from 'react-native-video';
 import GradientButton from '../../../components/GradientButton';
@@ -19,7 +15,7 @@ const OnboardingVideo = require('../../../images/valu-onb-video1.mp4');
 
 export default function LandingScreen(props) {
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
       <Video
         source={OnboardingVideo}
         style={styles.backgroundVideo}
@@ -30,12 +26,13 @@ export default function LandingScreen(props) {
         playWhenInactive={false}
         disableFocus
       />
+
       <View style={styles.poweredPill}>
         <Text style={styles.poweredText}>Powered by</Text>
         <VerusLogoWhite width={68} height={16} />
       </View>
 
-      <View style={styles.overlay}>
+      <View style={styles.content}>
         <View style={styles.copyWrap}>
           <Image source={ValuGlyph} style={styles.heroIcon} />
           <Text style={styles.headline}>
@@ -45,6 +42,12 @@ export default function LandingScreen(props) {
       </View>
 
       <View style={styles.footerBlock}>
+        <GradientButton
+          onPress={() => props.navigation.navigate('CreateProfile')}
+          style={styles.primaryCta}
+        >
+          {'Get started'}
+        </GradientButton>
         <Text style={styles.policyCopy}>
           By continuing you agree to our{' '}
           <Text style={styles.policyLink} onPress={() => null}>
@@ -57,22 +60,14 @@ export default function LandingScreen(props) {
           .
         </Text>
       </View>
-
-      <GradientButton
-        onPress={() => props.navigation.navigate('CreateProfile')}
-        style={styles.primaryCta}
-      >
-        {"Get started"}
-      </GradientButton>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: Colors.secondaryColor,
-    justifyContent: 'center',
+    backgroundColor: '#EFFFFF',
   },
   backgroundVideo: {
     position: 'absolute',
@@ -83,7 +78,7 @@ const styles = StyleSheet.create({
   },
   poweredPill: {
     position: 'absolute',
-    top: 68,
+    top: 48,
     right: 24,
     flexDirection: 'row',
     alignItems: 'center',
@@ -100,17 +95,15 @@ const styles = StyleSheet.create({
     marginRight: 8,
     letterSpacing: -0.2,
   },
-  overlay: {
+  content: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     alignItems: 'flex-start',
     paddingHorizontal: 32,
-    paddingTop: 250,
+    paddingTop: 72,
   },
   copyWrap: {
     maxWidth: 320,
-    paddingTop: 16,
-    paddingBottom: 28,
     alignItems: 'flex-start',
   },
   heroIcon: {
@@ -128,10 +121,9 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   footerBlock: {
-    position: 'absolute',
-    bottom: 72,
-    width: '100%',
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    alignItems: 'stretch',
   },
   policyCopy: {
     color: Colors.quinaryColor,
@@ -140,16 +132,15 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     maxWidth: 320,
     textAlign: 'center',
+    alignSelf: 'center',
+    marginTop: 14,
   },
   policyLink: {
     color: Colors.quinaryColor,
     fontWeight: '600',
   },
   primaryCta: {
-    position: 'absolute',
-    bottom: 120,
-    left: 20,
-    right: 20,
+    width: '100%',
     elevation: 0,
     shadowColor: 'transparent',
     shadowOpacity: 0,

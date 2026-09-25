@@ -22,6 +22,9 @@ import { convertFqnToDisplayFormat } from '../../utils/fullyqualifiedname';
 import { resetDeeplinkData } from '../../actions/actionCreators';
 import { setDeeplinkCancel } from '../../actions/actions/deeplink/creators/deeplink';
 
+primitives.ATTESTATION_READ_REQUEST = {
+            vdxfid: "iNqLaiDJjcADGCvXcQZnPqwTqMXzQbDCFu"};
+
 const authorizedPermissions = [primitives.IDENTITY_VIEW.vdxfid, 
   primitives.IDENTITY_AGREEMENT.vdxfid, 
   primitives.ATTESTATION_READ_REQUEST.vdxfid, 
