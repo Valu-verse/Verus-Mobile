@@ -528,9 +528,10 @@ export const validateLogin = (
   account,
   password,
   deferSessionInitialization = false,
+  alertOnFail = true,
 ) => {
   return new Promise((resolve, reject) => {
-    checkPinForUser(password, account.id, true, true)
+    checkPinForUser(password, account.id, alertOnFail, true)
       .then(() => {
         return authenticateAccount(
           account,

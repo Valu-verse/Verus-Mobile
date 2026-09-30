@@ -7,6 +7,7 @@ import { getIdentity } from "../../api/channels/verusid/callCreators";
 import { CoinDirectory } from "../../CoinData/CoinDirectory";
 import { getSystemNameFromSystemId } from "../../CoinData/CoinData";
 import { convertFqnToDisplayFormat } from "../../fullyqualifiedname";
+import { getSignedRequestDisplayProps } from "./requestDisplayUtils";
 import { BN } from "bn.js";
 const createHash = require("create-hash");
 
@@ -148,38 +149,15 @@ export const handleDataPacketRequestDetailsVDXFObject = async (request, response
     }
   }
 
-  // Also extract main request signature info if present
-  let requestSignerFqn = undefined;
-  let requestSignerIdentityID = undefined;
-  let requestSignerSystemID = undefined;
-  let requestSigtime = undefined;
-
-  if (request.isSigned()) {
-    requestSignerIdentityID = request.signature.identityID.toIAddress();
-    requestSignerSystemID = request.signature.systemID.toIAddress();
-
-    try {
-      const sigInfo = await getSignatureInfo(
-        requestSignerSystemID,
-        requestSignerIdentityID,
-        request.signature.signatureAsVch.toString('base64')
-      );
-
-      if (sigInfo.height) {
-        const sigblock = await getBlock(requestSignerSystemID, sigInfo.height);
-        if (!sigblock.error) {
-          requestSigtime = sigblock.result.time;
-        }
-      }
-
-      const signedBy = await getIdentity(requestSignerSystemID, requestSignerIdentityID);
-      if (!signedBy.error) {
-        requestSignerFqn = convertFqnToDisplayFormat(signedBy.result.fullyqualifiedname);
-      }
-    } catch (e) {
-      console.warn("Error getting request signature info:", e);
-    }
-  }
+  // Main request signature info - the GenericRequest wrapping this detail is
+  // always signed (enforced by the deeplink validator), so this is fetched
+  // the same way DataPacketRequestInfo's handler does for the signature screen.
+  const {
+    signerFqn: requestSignerFqn,
+    signerSystemID: requestSignerSystemID,
+    signerIdentityID: requestSignerIdentityID,
+    sigtime: requestSigtime,
+  } = await getSignedRequestDisplayProps(request);
 
   displayProps = {
     detailsBufferString: details.toBuffer().toString('hex'),

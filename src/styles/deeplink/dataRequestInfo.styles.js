@@ -311,4 +311,138 @@ export default StyleSheet.create({
     letterSpacing: 0,
     textTransform: 'none',
   },
+  // Statement modal (DataPacketRequestInfoTransmittal)
+  statementModalContent: {
+    paddingHorizontal: 20,
+    maxHeight: 300,
+  },
+  statementModalText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    lineHeight: 22,
+  },
+  statementModalActions: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  // Download/attestation modal (DataPacketRequestInfoTransmittal)
+  downloadModalContent: {
+    paddingHorizontal: 20,
+    maxHeight: 400,
+  },
+  downloadUrlContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  downloadUrl: {
+    flex: 1,
+    fontSize: 13,
+    color: '#666',
+  },
+  downloadErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  downloadErrorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#C62828',
+  },
+  downloadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+  },
+  downloadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  downloadedContentContainer: {
+    marginTop: 8,
+  },
+  hashVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  hashVerifiedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  hashFailedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  hashFailedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#C62828',
+  },
+  attestationSuccessContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 8,
+    gap: 12,
+  },
+  attestationSuccessText: {
+    fontSize: 14,
+    color: '#1A1A1A',
+    lineHeight: 20,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  attestationMetaText: {
+    fontSize: 13,
+    color: '#1A1A1A',
+    textAlign: 'center',
+  },
+  attestationListContainer: {
+    width: '100%',
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    overflow: 'visible',
+  },
+  textContentPreview: {
+    marginTop: 8,
+  },
+  imageContentPreview: {
+    marginTop: 8,
+  },
+  previewImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  downloadModalActions: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
 });

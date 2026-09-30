@@ -1,9 +1,12 @@
 import {
   DataDescriptor,
+  DataPacketRequestDetails,
   DataPacketRequestOrdinalVDXFObject,
 } from "verus-typescript-primitives";
+import { BN } from "bn.js";
 import createHash from "create-hash";
 import { getSignedRequestDisplayProps } from "./requestDisplayUtils";
+import { handleDataPacketRequestDetailsVDXFObject } from "./dataPacketRequestDetailsHandler";
 
 const sha256Hex = buffer => createHash("sha256").update(buffer).digest("hex");
 
@@ -87,11 +90,34 @@ export const handleDataPacketRequestVDXFObject = async (request, response, detai
   }
 
   const requestDetail = detail.data;
+  const isForTransmittal = requestDetail.flags
+    .and(DataPacketRequestDetails.FLAG_FOR_TRANSMITTAL_TO_USER)
+    .gt(new BN(0));
+  const isForUserSignature = requestDetail.flags
+    .and(DataPacketRequestDetails.FLAG_FOR_USERS_SIGNATURE)
+    .gt(new BN(0));
+
+  // Packets that only ask to hand data to the user (no signature requested)
+  // use the richer transmittal/download/attestation screen instead of the
+  // signature review screen.
+  if (isForTransmittal && !isForUserSignature) {
+    const detailsResult = await handleDataPacketRequestDetailsVDXFObject(request, response, detailIndex);
+
+    return {
+      ...detailsResult,
+      displayProps: {
+        ...detailsResult.displayProps,
+        useTransmittalScreen: true,
+      },
+    };
+  }
+
   const displayProps = await getSignedRequestDisplayProps(request);
 
   return {
     displayProps: {
       ...displayProps,
+      useTransmittalScreen: false,
       detailsBufferString: requestDetail.toBuffer().toString("hex"),
       statements: requestDetail.statements || [],
       signableObjectSummaries: requestDetail.signableObjects.map(getSignableObjectSummary),

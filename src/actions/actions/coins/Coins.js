@@ -159,6 +159,33 @@ export const addCoin = (
   });
 }
 
+const ERC20_NETWORK_DISPLAY_NAMES = {
+  'homestead': 'Ethereum', 'goerli': 'Goerli Testnet', 'sepolia': 'Sepolia Testnet',
+  'matic': 'Polygon', 'matic-amoy': 'Polygon Amoy',
+};
+
+// Returns the canonical (preferred) ID for an ERC20 token on a given network
+const getCanonicalErc20Id = (currencyId, network) => {
+  const ETH_NATIVE = ['homestead', 'goerli', 'sepolia'];
+  if (ETH_NATIVE.includes(network)) return currencyId;
+  return `${network}:${currencyId}`;
+};
+
+// Resolves the network for an ERC20 coin, inferring homestead for non-testnet coins without a stored network
+const resolveErc20Network = (entry) => {
+  if (entry.network) return entry.network;
+  if (entry.proto === 'erc20' && !entry.testnet) return 'homestead';
+  return null;
+};
+
+// Applies display_name migration to a coin object (returns a new object)
+const migrateErc20DisplayName = (coin) => {
+  if (coin.proto !== 'erc20' || !coin.network || coin.display_name?.includes(' on ')) return coin;
+  const networkDisplayName = ERC20_NETWORK_DISPLAY_NAMES[coin.network] || coin.network;
+  const baseName = (coin.display_name && coin.display_name.trim()) ? coin.display_name : coin.display_ticker;
+  return { ...coin, display_name: `${baseName} on ${networkDisplayName}` };
+};
+
 // Remove a user's name from an active coin, or removes from all if coinID is 
 // null
 export const removeExistingCoin = async (

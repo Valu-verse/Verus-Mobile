@@ -93,7 +93,7 @@ export const coinsList = {
     tags: [IS_VERUS, IS_ZCASH, IS_PBAAS, IS_PBAAS_ROOT, IS_CONVERTABLE_WITH_VRSC_ETH_BRIDGE],
     proto: 'vrsc',
     dlight_endpoints: dlightServers.vrsc,
-    vrpc_endpoints: ['https://v2api.verus.services'],
+    vrpc_endpoints: ['https://api.verus.services'],
     decimals: DEFAULT_DECIMALS,
     seconds_per_block: 60,
     default_app: 'wallet',

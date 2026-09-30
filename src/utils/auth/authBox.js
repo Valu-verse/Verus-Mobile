@@ -3,7 +3,7 @@
 // This only works if a user is logged in
 
 import store from "../../store";
-import { CHANNELS } from "../constants/intervalConstants";
+import { CHANNELS, ELECTRUM, VALU_SERVICE } from "../constants/intervalConstants";
 import { randomBytes } from "../crypto/randomBytes";
 import { getSessionCredential, setSessionCredential } from "../keychain/keychain";
 import { arrayToObject } from "../objectManip";
@@ -100,6 +100,13 @@ export const requestSeeds = async () => {
       },
       true
     );
+
+    // The Valu service never had its own onboarding/import step for most
+    // users, it piggybacks on the wallet's primary seed unless a distinct
+    // valu_service seed was explicitly linked (see ValuServiceIntroSlider).
+    if (seeds[VALU_SERVICE] == null) {
+      seeds[VALU_SERVICE] = seeds[ELECTRUM] || null;
+    }
 
     return seeds;
   }

@@ -302,20 +302,36 @@ export const initializeAccountData = async (
   password,
   makeDefault = false,
   setInitStep = () => {},
-  initializationId = beginAccountInitialization(),
+  options = {},
 ) => {
-  const startingSessionScope = captureSessionScope(store.getState());
+  const {
+    initializationId = beginAccountInitialization(),
+    alertOnFail = true,
+  } = options;
+  // Before AUTHENTICATE_USER there is no account identity to scope against, and
+  // a previous sign-out's SIGN_OUT_COMPLETE can still clear `activeAccount`
+  // mid-load. Only a session epoch change (new login/sign-out) invalidates this.
+  const startingSessionEpoch =
+    store.getState().authentication.sessionEpoch || 0;
   const assertInitializationActive = () => {
+    const currentSessionEpoch =
+      store.getState().authentication.sessionEpoch || 0;
+
     if (
       initializationId !== accountInitializationSequence ||
-      !sessionScopeIsCurrent(store.getState(), startingSessionScope)
+      currentSessionEpoch !== startingSessionEpoch
     ) {
       throw new Error('A newer account session replaced this account load.');
     }
   };
 
   setInitStep(VALIDATING_ACCOUNT);
-  const accountAuthenticator = await validateLogin(account, password);
+  const accountAuthenticator = await validateLogin(
+    account,
+    password,
+    false,
+    alertOnFail,
+  );
 
   if (accountAuthenticator) {
     setInitStep(LOADING_ACCOUNT);
@@ -564,6 +580,6 @@ export const refreshAccountData = async (
     password,
     makeDefault,
     setInitStep,
-    initializationId,
+    {initializationId},
   );
 };

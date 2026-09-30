@@ -44,6 +44,7 @@ import WalletBackupRequestInfo from '../WalletBackupRequestInfo/WalletBackupRequ
 import SpendableKeyRequestInfo from '../SpendableKeyRequestInfo/SpendableKeyRequestInfo';
 import UserDataRequestInfo from '../UserDataRequestInfo/UserDataRequestInfo';
 import DataPacketRequestInfo from '../DataPacketRequestInfo/DataPacketRequestInfo';
+import DataPacketRequestInfoTransmittal from '../DataPacketRequestInfo/DataPacketRequestInfoTransmittal';
 import ListSelectionModal from '../../../components/ListSelectionModal/ListSelectionModal';
 import VerusIdDetailsModal from '../../../components/VerusIdDetailsModal/VerusIdDetailsModal';
 import { isDeeplinkHandlerInstalled } from '../../../utils/deeplink/isDeeplinkHandlerInstalled';
@@ -377,16 +378,29 @@ const GenericRequestHome = props => {
       />
     ),
     [DATA_PACKET_REQUEST_VDXF_KEY.vdxfid]: () => (
-      <DataPacketRequestInfo
-        {...displayProps}
-        cancel={props.cancel}
-        setLoading={props.setLoading}
-        navigation={props.navigation}
-        next={next}
-        response={response}
-        request={request}
-        detailIndex={detailIndex}
-      />
+      displayProps.useTransmittalScreen ? (
+        <DataPacketRequestInfoTransmittal
+          {...displayProps}
+          cancel={props.cancel}
+          setLoading={props.setLoading}
+          navigation={props.navigation}
+          next={next}
+          response={response}
+          request={request}
+          detailIndex={detailIndex}
+        />
+      ) : (
+        <DataPacketRequestInfo
+          {...displayProps}
+          cancel={props.cancel}
+          setLoading={props.setLoading}
+          navigation={props.navigation}
+          next={next}
+          response={response}
+          request={request}
+          detailIndex={detailIndex}
+        />
+      )
     ),
     [CREATE_WALLET_BACKUP_DETAILS_VDXF_KEY.vdxfid]: () => (
       <WalletBackupRequestInfo
