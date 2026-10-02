@@ -9,8 +9,19 @@ const mockCoin = {id: 'VRSC', testnet: false, compatible_channels: ['vrpc']};
 
 jest.mock('react-native', () => ({
   Dimensions: {get: () => ({height: 800})},
+  StyleSheet: {create: styles => styles},
+  Platform: {OS: 'android'}, StatusBar: {currentHeight: 24},
   SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView',
   TouchableOpacity: 'TouchableOpacity', View: 'View',
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({top: 0, bottom: 0, left: 0, right: 0}),
+}));
+jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
+jest.mock('../../../images/customIcons/verusid-at-icon.svg', () => 'VerusIdAtIcon');
+jest.mock('../../../components/GradientButton', () => 'GradientButton');
+jest.mock('../../attestations/downloadAttestation', () => ({
+  checkIfAttestationProvision: jest.fn(() => false),
 }));
 jest.mock('react-native-paper', () => ({
   Button: 'Button', Divider: 'Divider', Portal: 'Portal', Text: 'Text',
@@ -20,9 +31,12 @@ jest.mock('react-redux', () => ({
   useSelector: selector => selector(mockState), useDispatch: () => mockDispatch,
 }));
 jest.mock('verusid-ts-client', () => ({
-  primitives: {LoginConsentRequest: class {
-    constructor(data) { Object.assign(this, data); }
-  }},
+  primitives: {
+    IDENTITY_VIEW: {vdxfid: 'identity-view'},
+    LoginConsentRequest: class {
+      constructor(data) { Object.assign(this, data); }
+    },
+  },
 }));
 jest.mock('../../../styles', () => ({}));
 jest.mock('../../../images/customIcons', () => ({VerusIdLogo: 'VerusIdLogo'}));
@@ -54,7 +68,10 @@ const {AUTHENTICATE_USER_SEND_MODAL, SEND_MODAL_USER_ALLOWLIST} = require('../..
 
 const account = {id: 'profile', accountHash: 'profile-hash', testnetOverrides: {}, keys: {}};
 const deeplinkData = {
-  system_id: 'system', signing_id: 'signer', challenge: {redirect_uris: ['https://example.test/login']},
+  system_id: 'system', signing_id: 'signer', challenge: {
+    redirect_uris: ['https://example.test/login'],
+    requested_access: [{vdxfkey: 'identity-view'}],
+  },
 };
 const navigate = jest.fn();
 const props = {deeplinkData, sigtime: 100, signerFqn: 'Requester@', cancel: jest.fn(), navigation: {navigate}};
@@ -64,8 +81,8 @@ const render = () => act(() => {
   if (renderer) renderer.update(element);
   else renderer = create(element);
 });
-const pressContinue = () => renderer.root.findAllByType('Button')
-  .find(button => button.props.children === 'Continue').props.onPress();
+const pressContinue = () => renderer.root.findAllByType('GradientButton')
+  .find(button => ['Continue', 'Choose identity'].includes(button.props.children)).props.onPress();
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -83,9 +100,9 @@ afterEach(() => {
   renderer = null;
 });
 
-it('opens authentication once while the selected profile and currencies hydrate before sign-in', () => {
+it('opens authentication once while the selected profile and currencies hydrate before sign-in', async () => {
   render();
-  act(pressContinue);
+  await act(pressContinue);
   expect(mockOpenAuthenticate).toHaveBeenCalledWith({[SEND_MODAL_USER_ALLOWLIST]: [account]});
 
   mockState.sendModal.type = AUTHENTICATE_USER_SEND_MODAL;
@@ -99,9 +116,9 @@ it('opens authentication once while the selected profile and currencies hydrate 
   expect(mockCloseSendModal).not.toHaveBeenCalled();
 });
 
-it('waits for the authentication result to close before continuing exactly once', () => {
+it('waits for the authentication result to close before continuing exactly once', async () => {
   render();
-  act(pressContinue);
+  await act(pressContinue);
   mockState.sendModal = {type: AUTHENTICATE_USER_SEND_MODAL, visible: true};
   render();
   // The profile and its coins may finish together while the auth modal is
@@ -117,7 +134,7 @@ it('waits for the authentication result to close before continuing exactly once'
   mockState.sendModal.type = null;
   render();
   expect(navigate).toHaveBeenCalledTimes(1);
-  expect(navigate).toHaveBeenCalledWith('LoginRequestIdentity', {deeplinkData});
+  expect(navigate).toHaveBeenCalledWith('LoginRequestIdentity', {});
 
   mockState.coins.activeCoinsForUser = [mockCoin, {id: 'BTC'}];
   render();
@@ -126,10 +143,10 @@ it('waits for the authentication result to close before continuing exactly once'
   expect(mockCloseSendModal).not.toHaveBeenCalled();
 });
 
-it('does not continue when authentication closes without signing in', () => {
+it('does not continue when authentication closes without signing in', async () => {
   mockState.coins.activeCoinsForUser = [mockCoin];
   render();
-  act(pressContinue);
+  await act(pressContinue);
   mockState.sendModal.type = AUTHENTICATE_USER_SEND_MODAL;
   render();
   mockState.sendModal.type = null;
@@ -138,14 +155,14 @@ it('does not continue when authentication closes without signing in', () => {
   expect(mockOpenAuthenticate).toHaveBeenCalledTimes(1);
 });
 
-it('continues immediately for an already signed-in profile with the root currency', () => {
+it('continues immediately for an already signed-in profile with the root currency', async () => {
   mockState.authentication = {...mockState.authentication, activeAccount: account, signedIn: true};
   mockState.coins.activeCoinsForUser = [mockCoin];
   render();
   expect(navigate).not.toHaveBeenCalled();
-  act(pressContinue);
+  await act(pressContinue);
   expect(navigate).toHaveBeenCalledTimes(1);
-  expect(navigate).toHaveBeenCalledWith('LoginRequestIdentity', {deeplinkData});
+  expect(navigate).toHaveBeenCalledWith('LoginRequestIdentity', {});
   expect(mockOpenAuthenticate).not.toHaveBeenCalled();
 });
 

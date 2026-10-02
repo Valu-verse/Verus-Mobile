@@ -25,7 +25,7 @@ const EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEY_SET = new Set(
 const EXPERIMENTAL_DEEPLINK_ID_SET = new Set(EXPERIMENTAL_DEEPLINK_IDS);
 
 export const isExperimentalGenericRequestsEnabled = state =>
-  state?.settings?.generalWalletSettings?.enableExperimentalGenericRequests === true;
+  true;
 
 export const isExperimentalGenericRequestDetailKey = detailKey =>
   EXPERIMENTAL_GENERIC_REQUEST_DETAIL_KEY_SET.has(detailKey);
