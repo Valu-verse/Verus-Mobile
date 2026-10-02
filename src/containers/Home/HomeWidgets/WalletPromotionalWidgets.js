@@ -247,7 +247,12 @@ const WalletPromotionalWidgets = ({ hasValuProofOfPersonhood, onVisibilityChange
       action: () => {
         // If user has Proof of Personhood, navigate directly to view it
         if (hasValuProofOfPersonhood && valuProofOfPersonhoodAttestation) {
-          navigation.navigate('ViewAttestation', { attestation: valuProofOfPersonhoodAttestation });
+          // ViewAttestation is registered in the Identity tab stack, not the Wallet stack
+          navigation.navigate('IdentityTab', {
+            screen: 'ViewAttestation',
+            params: { attestation: valuProofOfPersonhoodAttestation },
+            initial: false,
+          });
         } else {
           navigation.navigate('Service', {
             service: VALU_SERVICE_ID,
