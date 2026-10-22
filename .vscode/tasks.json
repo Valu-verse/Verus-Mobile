@@ -1,0 +1,43 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Android app",
+			"type": "shell",
+			"command": "pnpm",
+			"args": ["android"],
+			"options": {
+				"env": {
+					"JAVA_HOME": "${env:HOME}/.local/share/java/temurin-17",
+					"ANDROID_HOME": "${env:HOME}/Android/Sdk",
+					"ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
+					"PATH": "${env:HOME}/.local/share/java/temurin-17/bin:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator:${env:PATH}"
+				}
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Start Android emulator (API 35)",
+			"type": "shell",
+			"command": "${env:HOME}/Android/Sdk/emulator/emulator",
+			"options": {
+				"env": {
+					"QT_QPA_PLATFORM": "xcb"
+				}
+			},
+			"args": [
+				"-avd",
+				"Verus_API_35",
+				"-no-snapshot",
+				"-gpu",
+				"host",
+				"-feature",
+				"-Vulkan",
+				"-cores",
+				"4"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

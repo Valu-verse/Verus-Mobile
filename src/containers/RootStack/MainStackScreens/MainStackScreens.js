@@ -15,6 +15,8 @@ import CoinSettings from '../../Settings/WalletSettings/CoinSettings/CoinSetting
 import DeleteProfile from '../../Settings/ProfileSettings/DeleteProfile/DeleteProfile'
 import SecureLoading from '../../SecureLoading/SecureLoading'
 import HomeTabScreens from '../HomeTabScreens/HomeTabScreens';
+import ReceiveAssetsList from '../../Transfer/ReceiveAssetsList';
+import ReceiveAssetDetails from '../../Transfer/ReceiveAssetDetails';
 import AddressBlocklist from '../../Settings/WalletSettings/AddressBlocklist/AddressBlocklist';
 import VrpcOverrides from '../../Settings/WalletSettings/VrpcOverrides/VrpcOverrides';
 import NfcBackup from '../../Settings/WalletSettings/NfcBackup/NfcBackup';
@@ -61,6 +63,22 @@ const MainStackScreens = props => {
       />
 
       <MainStack.Screen name="CoinMenus" component={CoinMenus} />
+
+      <MainStack.Screen
+        name="ReceiveAssetsList"
+        component={ReceiveAssetsList}
+        options={{
+          title: 'Receive assets',
+        }}
+      />
+
+      <MainStack.Screen
+        name="ReceiveAssetDetails"
+        component={ReceiveAssetDetails}
+        options={{
+          title: 'Receive',
+        }}
+      />
 
       <MainStack.Screen name="SettingsMenus" component={SettingsMenus} />
 

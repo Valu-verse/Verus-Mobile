@@ -64,6 +64,18 @@ echo "export PATH=$PATH:$ANDROID_SDK_ROOT/platform-tools" >> ~/.bashrc
 
 3. Install `openjdk-17-jdk` package
 
+Use JDK **17** for this project's Gradle 7.5 wrapper. Java 25 causes
+`Unsupported class file major version 69`; changing JVM warning flags does
+not resolve that incompatibility. Set `JAVA_HOME` to your JDK 17 installation
+and add `$JAVA_HOME/bin` to `PATH`. Confirm with `java -version` and
+`cd android && ./gradlew --version`.
+
+Create an untracked `android/local.properties` with your current SDK path:
+
+```properties
+sdk.dir=/absolute/path/to/Android/Sdk
+```
+
 4. Install `nvm`, select and use Node.js 22
 ```
 # from https://github.com/nvm-sh/nvm?tab=readme-ov-file#install--update-script
@@ -99,8 +111,11 @@ cd verus-android-wallet-sdk
 
 # stop here and open verus-android-wallet-sdk repo in Android studio, to download gradle with proper versions
 
-# On Ubuntu 22.04 and later, if 'python' cmd does not map to python2.7, create a local.properties, so rust can locate it
-echo "rust.pythonCommand=/usr/bin/python2" >> local.properties
+# Set your SDK location and a Python 3.12 executable in this SDK repo's local.properties.
+# The Rust Gradle plugin uses the pipes module, removed in Python 3.13.
+# Replace these paths with your local installation paths.
+echo "sdk.dir=$HOME/Android/Sdk" >> local.properties
+echo "rust.pythonCommand=/absolute/path/to/python3.12" >> local.properties
 
 # then run gradle wrapper to generate local Maven artifacts
 ./gradlew publishToMavenLocal
@@ -112,6 +127,57 @@ echo "rust.pythonCommand=/usr/bin/python2" >> local.properties
 9. Open a separate window and run `pnpm start` or `pnpm exec react-native start`
 
 10. Build and install by running `pnpm android`
+
+### Fedora / user-local development environment
+
+When using a user-local Temurin 17 installation at
+`$HOME/.local/share/java/temurin-17`, configure the shell as follows:
+
+```sh
+export JAVA_HOME="$HOME/.local/share/java/temurin-17"
+export ANDROID_HOME="$HOME/Android/Sdk"
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export PATH="$HOME/.cargo/bin:$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+```
+
+Persist these exports in `~/.bashrc` or a file sourced by it. Fedora's default
+`~/.bashrc` sources `~/.bashrc.d/*.sh`. Open a new terminal or source the
+environment file before running `pnpm android`.
+
+Install Android platforms 34 (native wallet SDK) and 35 (app), build tools
+34.0.0 and 33.0.0, NDK 27.0.12077973, and CMake 3.22.1. Build the native wallet
+SDK with Rust 1.81.0 and its Android targets, then publish its artifacts to
+Maven Local as described above. Python 3.12 can be installed separately
+without replacing Fedora's system Python.
+
+In VS Code, **Terminal > Run Task > Run Android app** uses this user-local
+JDK and SDK layout. Start the emulator with the task below first to avoid
+React Native's automatic emulator launch using incompatible graphics
+settings.
+
+### Linux emulator startup troubleshooting
+
+If an API 37 device fails to boot, create a separate API 35 Google APIs
+`x86_64` virtual device named `Verus_API_35` in Android Studio's Device Manager.
+Keep the original device to preserve its apps and data.
+
+On Linux systems where software rendering crashes, try host graphics with
+Vulkan disabled and a cold boot:
+
+```sh
+QT_QPA_PLATFORM=xcb "$HOME/Android/Sdk/emulator/emulator" \
+  -avd Verus_API_35 -no-snapshot -gpu host -feature -Vulkan -cores 4
+```
+
+In VS Code, **Terminal > Run Task > Start Android emulator (API 35)** runs
+this configuration. The task assumes the SDK is installed at
+`$HOME/Android/Sdk`. Once Android has booted, run `pnpm android` to install
+the app.
+
+If startup reports that the same AVD is already running, check for an actual
+emulator process before removing stale lock files. Do not delete locks while
+the device is running, and do not wipe device data as a first troubleshooting
+step.
 
 ## Android (on Windows)
 

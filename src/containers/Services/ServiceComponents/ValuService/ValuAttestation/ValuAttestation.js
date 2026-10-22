@@ -69,6 +69,8 @@ const ValuAttestation = (props) => {
     const [loading, setLoading] = useState(true); // Start with loading true
     const [status, setStatus] = useState(null); // Start with null instead of empty string
     const [mainButtonText, setMainButtonText] = useState("Get Proof for $9.99");
+    // Backend switch: when the server reports payment is not required, the purchase step is skipped
+    const [paymentRequired, setPaymentRequired] = useState(true);
     const [appState, setAppState] = useState(AppState.currentState);
     const [identityChoiceModalVisible, setIdentityChoiceModalVisible] = useState(false);
     const [existingIdentityModalVisible, setExistingIdentityModalVisible] = useState(false);
@@ -446,6 +448,13 @@ const ValuAttestation = (props) => {
                 throw new Error(reply.error);
             }
             let POLStatus = reply.data.status;
+            const flag = reply.data.paymentRequired ?? reply.data.payment_required;
+            const isPaymentRequired = !(flag === false || flag === 0 || flag === 'false');
+            setPaymentRequired(isPaymentRequired);
+
+            if (!isPaymentRequired && [VALU_POL_PAYMENT_STARTED, VALU_POL_PAYMENT_PENDING, VALU_POL_PAYMENT_FAILED].includes(POLStatus)) {
+                POLStatus = VALU_POL_PAYMENT_RECEIVED;
+            }
 
             setMainButtonText(buttonMessages[POLStatus]);
             setValuReply(reply);
@@ -1121,7 +1130,7 @@ const ValuAttestation = (props) => {
             steps.forEach(s => s.state = 'done');
         }
 
-        return steps;
+        return paymentRequired ? steps : steps.filter(s => s.key !== 'purchase');
     };
 
     return (
@@ -1349,7 +1358,7 @@ const ValuAttestation = (props) => {
                                     <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#E8E8E8', alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2 }}>
                                         <Text style={{ fontSize: 12, fontWeight: '600', color: 'black' }}>1</Text>
                                     </View>
-                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>Choose or create your VerusID (included with the purchase).</Text>
+                                    <Text style={{ fontSize: 14, color: '#333', lineHeight: 20, flex: 1 }}>{paymentRequired ? "Choose or create your VerusID (included with the purchase)." : "Choose or create your VerusID."}</Text>
                                 </View>
 
                                 {/* Step 2 */}
