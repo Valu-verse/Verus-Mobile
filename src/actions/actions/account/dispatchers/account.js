@@ -1,6 +1,6 @@
 import { ADDRESS_BLOCKLIST_FROM_WEBSERVER, LOADING_ACCOUNT, VALIDATING_ACCOUNT } from "../../../../utils/constants/constants";
 import { signIntoAuthenticatedAccount, signOut } from "../../../actionCreators";
-import { COIN_MANAGER_MAP, fetchActiveCoins, setUserCoins } from "../../coins/Coins";
+import { COIN_MANAGER_MAP, fetchActiveCoins, removeExistingCoin, setUserCoins } from "../../coins/Coins";
 import {
   activateChainLifecycle,
   activateServiceLifecycle,
