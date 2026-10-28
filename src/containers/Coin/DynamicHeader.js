@@ -41,7 +41,7 @@ import Styles from '../../styles';
 import { useObjectSelector } from '../../hooks/useObjectSelector';
 import { coinsList } from '../../utils/CoinData/CoinsList';
 
-const DynamicHeader = ({ switchTab }) => {
+const DynamicHeader = ({ switchTab, onReceivePress }) => {
   const dispatch = useDispatch();
 
   const chainTicker = useSelector((state) => state.coins.activeCoin.id);
@@ -219,8 +219,11 @@ const DynamicHeader = ({ switchTab }) => {
     }
   };
 
+  // Hosts without a receive tab (Valu's CoinMenus) pass onReceivePress; the
+  // tabbed upstream CoinMenus passes switchTab instead.
   const openReceiveTab = () => {
-    switchTab(2);
+    if (onReceivePress) onReceivePress();
+    else if (switchTab) switchTab(2);
   };
 
   const openTokenAddressExplorer = (address, testnet) => {
