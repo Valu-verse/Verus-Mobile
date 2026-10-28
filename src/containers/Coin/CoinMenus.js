@@ -354,7 +354,7 @@ const CoinMenus = () => {
               <View style={styles.contentContainer}>
                 {renderHeader()}
               </View>
-              <DynamicHeader />
+              <DynamicHeader onReceivePress={handleReceivePress} />
             </View>
             {renderOverviewContent()}
 
