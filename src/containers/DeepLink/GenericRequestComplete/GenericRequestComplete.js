@@ -114,7 +114,7 @@ const GenericRequestComplete = props => {
     return redirectUri || null;
   };
 
-  const handleResponseUri = async (request, responseOrBuffer) => {
+  const handleResponseUri = async (request, response) => {
     if (!request) return;
 
     const responseUris = request.responseURIs || [];
@@ -151,7 +151,7 @@ const GenericRequestComplete = props => {
       const url = new URL(responseUri.getUriString());
       url.searchParams.set(
         GENERIC_RESPONSE_DEEPLINK_VDXF_KEY.vdxfid,
-        base64url(getBuffer())
+        base64url(response.toBuffer())
       );
 
       openUrl(url.toString());
