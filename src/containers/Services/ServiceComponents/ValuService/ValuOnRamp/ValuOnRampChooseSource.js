@@ -21,6 +21,7 @@
   - Aligns CTA typography across review flow buttons
   - Fixed vertical alignment of CTA button label
   - Selected payment method now shows provider-specific icon with 32px footprint
+  - 2026-10-30: Options can come from Paybis or MoonPay; disclosure copy, link and acceptance follow the selected provider
 */
 
 import React, { Component } from "react";
@@ -39,6 +40,7 @@ import {
   Platform,
   Dimensions,
   Image,
+  AppState,
 } from 'react-native';
 import {
   Button,
@@ -62,11 +64,11 @@ import { requestPersonalData } from "../../../../../utils/auth/authBox";
 import { PERSONAL_LOCATIONS } from "../../../../../utils/constants/personal";
 import { modifyPersonalDataForUser } from "../../../../../actions/actionDispatchers";
 import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
-import { initiateOnrampRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
+import { initiateOnrampRequest, completeOnrampRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 import { saveGeneralSettings } from "../../../../../actions/actionCreators";
 import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
-import { normalizePaymentMethodLabel, getPaymentMethodMeta } from '../shared/valuPaymentMethodMeta';
+import { normalizePaymentMethodLabel, getPaymentMethodMeta, getProviderMeta } from '../shared/valuPaymentMethodMeta';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import GradientButton from "../../../../../components/GradientButton";
 
@@ -74,14 +76,22 @@ import GradientButton from "../../../../../components/GradientButton";
 const ALLOWED_COUNTRIES = ["US", "CA", "GB", "AT", "BE", "CY", "CZ", "EE", "FI", "FR", "DE", 
   "GR", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PT", "RO", "SK", "SI", "ES"];
 
-const ONRAMP_DISCLOSURE_PARAGRAPHS = [
-  "Paybis is our licensed payments partner and securely handles your checkout.",
+const getOnrampDisclosureParagraphs = (providerMeta) => [
+  `${providerMeta.label} is our licensed payments partner and securely handles your checkout.`,
   "Your purchase will be deposited as USDC to your Ethereum wallet address."
 ];
 
-const ONRAMP_DISCLOSURE_LEARN_MORE_URL = 'https://paybis.com';
+const getOnrampDisclosureMessage = (providerMeta) => {
+  const [partner, deposit] = getOnrampDisclosureParagraphs(providerMeta);
+  const learnMore = providerMeta.url ? ` Learn more at ${providerMeta.url.replace(/^https?:\/\/(www\.)?/, '')}.` : '';
+  return `${partner}${learnMore}\n\n${deposit}`;
+};
 
-const ONRAMP_DISCLOSURE_MESSAGE = `${ONRAMP_DISCLOSURE_PARAGRAPHS[0]} Learn more at paybis.com.\n\n${ONRAMP_DISCLOSURE_PARAGRAPHS[1]}`;
+// Paybis keeps the original V1 key so users who already accepted are not asked again
+const getOnrampDisclosureSettingKey = (providerMeta) =>
+  providerMeta.key === 'paybis'
+    ? 'valuOnrampDisclosureAcceptedV1'
+    : `valuOnrampDisclosureAccepted_${providerMeta.key}`;
 
 class ValuOnRampChooseSource extends Component {
   beforeRemoveUnsubscribe = null;
@@ -339,6 +349,62 @@ class ValuOnRampChooseSource extends Component {
     }
   };
 
+  // Resolves the next time the app comes back to the foreground (external browser flow)
+  waitForAppActive() {
+    return new Promise((resolve) => {
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') {
+          subscription.remove();
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Polls the order outcome briefly: provider webhooks can arrive a few seconds after the
+  // checkout page closes. Returns 'paid' | 'pending' | 'not_paid' | 'failed' | null (unknown).
+  async fetchOnrampOutcome(requestId, attempts = 4, delayMs = 2000) {
+    let outcome = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const res = await ValuProvider.getOnRampStatus(requestId);
+        outcome = res?.outcome || null;
+      } catch (e) {
+        console.warn('Could not check on-ramp order status:', e?.message || e);
+        outcome = null;
+      }
+      if (outcome === 'paid' || outcome === 'pending' || outcome === 'failed') return outcome;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
+    return outcome;
+  }
+
+  async handleCheckoutClosed(requestId) {
+    if (!requestId) {
+      this.setState({ congratsVisible: true });
+      return;
+    }
+
+    this.setState({ loading: true });
+    const outcome = await this.fetchOnrampOutcome(requestId);
+    this.setState({ loading: false });
+
+    if (outcome === 'paid' || outcome === 'pending') {
+      this.setState({ congratsVisible: true });
+    } else if (outcome === 'not_paid') {
+      completeOnrampRequest(requestId);
+      Alert.alert("Purchase not completed", "The checkout was closed before payment, so you have not been charged.");
+    } else if (outcome === 'failed') {
+      completeOnrampRequest(requestId);
+      Alert.alert("Payment failed", "The payment provider did not complete this purchase. You have not been charged for it.");
+    } else {
+      Alert.alert(
+        "Purchase status unknown",
+        "We couldn't confirm this purchase yet. If you completed the payment, your USDC will arrive shortly and you'll be able to see it in your wallet."
+      );
+    }
+  }
+
   async startOnRamp() {
     // Extra safety: prevent starting if an inline error is present or amount is empty or no payment option selected
     if (this.state.error != null || this.state.amount === "" || this.state.radioValue === null) return;
@@ -390,11 +456,13 @@ class ValuOnRampChooseSource extends Component {
               endExit: 'slide_out_right'
             }
           });
-          // Browser closed - show congratulations screen
-          this.setState({ congratsVisible: true });
+          // Browser closed. That alone says nothing about payment (the user may have
+          // tapped X), so ask the server what happened to the order.
+          await this.handleCheckoutClosed(reply.requestId);
         } else {
-          Linking.openURL(reply.url);
-          this.setState({ congratsVisible: true });
+          await Linking.openURL(reply.url);
+          await this.waitForAppActive();
+          await this.handleCheckoutClosed(reply.requestId);
         }
       } catch (error) {
         console.error("Error starting on-ramp:", error);
@@ -402,13 +470,15 @@ class ValuOnRampChooseSource extends Component {
       }
     };
 
+    const providerMeta = getProviderMeta(this.getSelectedOption()?.provider);
+    const disclosureSettingKey = getOnrampDisclosureSettingKey(providerMeta);
     const hasAccepted = this.props.generalWalletSettings &&
-      this.props.generalWalletSettings.valuOnrampDisclosureAcceptedV1 === true;
+      this.props.generalWalletSettings[disclosureSettingKey] === true;
 
     if (!hasAccepted) {
       createAlert(
         "Before you continue",
-        ONRAMP_DISCLOSURE_MESSAGE,
+        getOnrampDisclosureMessage(providerMeta),
         [
           {
             text: 'Cancel',
@@ -419,7 +489,7 @@ class ValuOnRampChooseSource extends Component {
             text: 'Got it',
             onPress: async () => {
               try {
-                await this.props.dispatch(await saveGeneralSettings({ valuOnrampDisclosureAcceptedV1: true }));
+                await this.props.dispatch(await saveGeneralSettings({ [disclosureSettingKey]: true }));
               } catch(e) {
                 // Non-fatal if persistence fails; still continue
                 console.warn('Failed to persist on-ramp disclosure acceptance', e);
@@ -877,6 +947,8 @@ class ValuOnRampChooseSource extends Component {
     const paymentLabel = selectedOption
       ? normalizePaymentMethodLabel(selectedOption.paymentMethod) || selectedOption.paymentMethod
       : null;
+    const providerMeta = getProviderMeta(selectedOption?.provider);
+    const disclosureParagraphs = getOnrampDisclosureParagraphs(providerMeta);
 
     const amountReceived =
       selectedOption && selectedOption.amountReceived != null
@@ -1009,17 +1081,22 @@ class ValuOnRampChooseSource extends Component {
           {/* Disclosure */}
           <View style={styles.reviewDisclosure}>
             <Text style={styles.reviewDisclosureText}>
-              {ONRAMP_DISCLOSURE_PARAGRAPHS[0]}{' '}
-              <Text
-                style={styles.reviewDisclosureLink}
-                onPress={this.handlePaybisLearnMore}
-              >
-                Learn more
-              </Text>
-              .
+              {disclosureParagraphs[0]}
+              {providerMeta.url ? (
+                <>
+                  {' '}
+                  <Text
+                    style={styles.reviewDisclosureLink}
+                    onPress={() => this.handleProviderLearnMore(providerMeta)}
+                  >
+                    Learn more
+                  </Text>
+                  .
+                </>
+              ) : null}
             </Text>
             <Text style={[styles.reviewDisclosureText, { marginBottom: 0 }]}>
-              {ONRAMP_DISCLOSURE_PARAGRAPHS[1]}
+              {disclosureParagraphs[1]}
             </Text>
           </View>
         </ScrollView>
@@ -1162,8 +1239,8 @@ class ValuOnRampChooseSource extends Component {
     this.navigateToAttestationAccept(mockAttestation, transactionData);
   };
 
-  handlePaybisLearnMore = () => {
-    Linking.openURL(ONRAMP_DISCLOSURE_LEARN_MORE_URL);
+  handleProviderLearnMore = (providerMeta) => {
+    if (providerMeta?.url) Linking.openURL(providerMeta.url);
   };
 
   renderCongratsScreen = () => {

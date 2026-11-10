@@ -1,4 +1,3 @@
-import { requestSeeds } from "../../../../../utils/auth/authBox";
 import { SUPPORTED_BANK_CURRENCIES } from "../../../../../utils/constants/currencies";
 import { VALU_SERVICE } from "../../../../../utils/constants/intervalConstants";
 import { VALU_SERVICE_ID } from "../../../../../utils/constants/services"
@@ -84,9 +83,7 @@ export const updateValuAccount = async channelStore => {
     let accountId = channelStore.accountId;
 
     if (!channelStore.authenticated) {
-      const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Valu seed present');
-      accountId = (await ValuInterface.authenticate(seed)).authenticatedAs;
+      accountId = (await ValuInterface.authenticate()).authenticatedAs;
     }
 
     if (accountId == null) return {channel: VALU_SERVICE, body: null};
@@ -105,9 +102,7 @@ export const updateValuAccount = async channelStore => {
 export const updateValuPaymentMethods = async channelStore => {
   try {
     if (!channelStore.authenticated) {
-      const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Valu seed present');
-      await ValuInterface.authenticate(seed);
+      await ValuInterface.authenticate();
       console.log(2)
     }
 
@@ -154,9 +149,7 @@ export const updateValuRates = async () => {
 export const updateValuTransfers = async channelStore => {
   try {
     if (!channelStore.authenticated) {
-      const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Wyre seed present');
-      await ValuInterface.authenticate(seed);
+      await ValuInterface.authenticate();
       console.log(3)
     }
 

@@ -16,7 +16,6 @@ import { addCoin, addKeypairs, setUserCoins } from '../../../../../actions/actio
 import { refreshActiveChainLifecycles } from '../../../../../actions/actions/intervals/dispatchers/lifecycleManager';
 import { createAlert } from '../../../../../actions/actions/alert/dispatchers/alert';
 import { initiatePartnerUserId } from '../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager';
-import { requestSeeds } from '../../../../../utils/auth/authBox';
 import { API_GET_BALANCES, ERC20, ETH, VALU_SERVICE } from '../../../../../utils/constants/intervalConstants';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 // No drag handle – we follow other modals with a Close button in header
@@ -142,9 +141,7 @@ const BuySellSheet = ({ visible, onClose, onComplete }) => {
       try {
         // Ensure partner user ID is initialized
         if (!valuService.partnerUserId) {
-          const seed = (await requestSeeds())[VALU_SERVICE];
-          if (seed == null) throw new Error('No Valu seed present');
-          await initiatePartnerUserId(seed);
+          await initiatePartnerUserId();
         }
 
         const location = await requestPersonalData(PERSONAL_LOCATIONS);

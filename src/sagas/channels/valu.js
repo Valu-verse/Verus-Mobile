@@ -5,9 +5,6 @@ import {
   CHECK_FOR_ACTIVE_OFFRAMP_PROCESS,
   SIGN_IN_USER
 } from "../../utils/constants/storeType";
-import { requestSeeds } from "../../utils/auth/authBox";
-import { VALU_SERVICE } from "../../utils/constants/intervalConstants";
-import ValuProvider from "../../utils/services/ValuProvider";
 import { initiatePartnerUserId } from "../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 
 export default function* valuCoinSaga() {
@@ -27,15 +24,8 @@ function* handleCheckForActiveOfframpProcess(action) {
 
 function* handleInitializeValuService() {
   try {
-    const seeds = yield call(requestSeeds);
-    const seed = seeds[VALU_SERVICE];
-    
-    if (seed == null) {
-      return;
-    }
-    
-    yield call([ValuProvider, ValuProvider.authenticate], seed);
-    yield call(initiatePartnerUserId, seed);
+    // Wallet login (or stored v2 credentials) for the active network
+    yield call(initiatePartnerUserId);
   } catch (error) {
     // Silently fail if Valu service initialization fails
   }

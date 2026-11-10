@@ -1,9 +1,7 @@
 import React, { Component } from "react"
 import { connect } from 'react-redux'
 import { VALU_SERVICE_ID } from "../../../../utils/constants/services";
-import { VALU_SERVICE} from "../../../../utils/constants/intervalConstants"
 import { ValuServiceRender } from "./ValuService.render";
-import { requestSeeds } from "../../../../utils/auth/authBox";
 import { initiatePartnerUserId } from "../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 
 class ValuService extends Component {
@@ -19,9 +17,7 @@ class ValuService extends Component {
 
   async componentDidMount() {
     if (this.props.valuService.partnerUserId == undefined) {
-      const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error('No Valu seed present');
-        await initiatePartnerUserId(seed);
+      await initiatePartnerUserId();
     }
   }
 

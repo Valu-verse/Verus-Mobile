@@ -9,6 +9,7 @@
   - Adjusted fee text size and capitalization
   - Used by both ValuOnRampChooseSource and ValuOffRampChooseSource flows
   - 2026-01-12: Standardized header close affordance to shared SemiModal header (top-right X).
+  - 2026-10-30: Options can come from several providers (Paybis, MoonPay); each row shows "via <provider>".
 */
 
 import React from 'react';
@@ -21,6 +22,7 @@ import SemiModal from '../../../../../components/SemiModal';
 import Colors from '../../../../../globals/colors';
 import {
   getPaymentMethodMeta,
+  getProviderMeta,
   normalizePaymentMethodLabel,
 } from './valuPaymentMethodMeta';
 
@@ -187,10 +189,11 @@ const ValuPaymentMethodSheet = (props) => {
                   : 'Fee unavailable';
 
               const optionDisabled = !meetsMinimum;
+              const providerLabel = option?.provider ? getProviderMeta(option.provider).label : null;
 
               return (
                 <TouchableOpacity
-                  key={`${option?.paymentMethod || 'method'}-${index}`}
+                  key={`${option?.provider || 'provider'}-${option?.paymentMethod || 'method'}-${index}`}
                   onPress={() => handleSelect(option, index)}
                   activeOpacity={0.7}
                   style={[
@@ -210,7 +213,7 @@ const ValuPaymentMethodSheet = (props) => {
                         optionDisabled ? styles.optionValueWarning : null,
                       ]}
                     >
-                      {feeDisplay}
+                      {providerLabel ? `${feeDisplay} · via ${providerLabel}` : feeDisplay}
                     </Text>
                   </View>
                   <MaterialCommunityIcons 

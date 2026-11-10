@@ -14,6 +14,8 @@
   - Aligned loading states, CTA styling, and fee breakdown with ValuOnRampChooseSource
   - Fixed vertical alignment of CTA button label
   - Selected payout method now shows provider-specific icon with 32px footprint
+  - 2026-10-30: Payout options can come from Paybis or MoonPay; disclosure names the selected provider.
+    Payment-check URL carries the wallet network so the API resolves the right provider environment.
 */
 
 import React, { Component } from "react";
@@ -44,7 +46,6 @@ import InAppBrowser from 'react-native-inappbrowser-reborn';
 import { formatCurrency } from "react-native-format-currency";
 import {CommonActions} from '@react-navigation/native';
 
-import { VALU_URL } from "../../../../../utils/constants/constants";
 
 // Local imports
 import Styles from "../../../../../styles";
@@ -60,7 +61,7 @@ import { createAlert, resolveAlert } from '../../../../../actions/actions/alert/
 import { initiateOfframpRequest } from "../../../../../actions/actions/channels/valu/dispatchers/ValuWalletReduxManager";
 import NumericKeypad from '../../../../../components/Keypad/NumericKeypad';
 import ValuPaymentMethodSheet from '../shared/ValuPaymentMethodSheet';
-import { normalizePaymentMethodLabel, getPaymentMethodMeta } from '../shared/valuPaymentMethodMeta';
+import { normalizePaymentMethodLabel, getPaymentMethodMeta, getProviderMeta } from '../shared/valuPaymentMethodMeta';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import { extractLedgerData } from '../../../../../utils/ledger/extractLedgerData';
 import GradientButton from "../../../../../components/GradientButton";
@@ -335,6 +336,7 @@ class ValuOffRampChooseSource extends Component {
 
   renderReviewScreen(isSmall) {
     const selectedOption = this.getSelectedOption();
+    const providerMeta = getProviderMeta(selectedOption?.provider);
     const amountNumber = Number(this.state.amount || 0);
     const formattedSellAmount = this.formatTokenAmount(this.state.amount || 0);
     const payoutLabel = selectedOption
@@ -474,9 +476,11 @@ class ValuOffRampChooseSource extends Component {
           <View style={styles.reviewDisclosure}>
             <Text style={[styles.reviewDisclosureText, { marginBottom: 0 }]}>
               Payouts are processed by our partner,{' '}
-              <Text style={styles.reviewDisclosureLink} onPress={() => Linking.openURL('https://paybis.com')}>
-                Paybis
-              </Text>
+              {providerMeta.url ? (
+                <Text style={styles.reviewDisclosureLink} onPress={() => Linking.openURL(providerMeta.url)}>
+                  {providerMeta.label}
+                </Text>
+              ) : providerMeta.label}
               . Depending on your payout method, funds may take up to a few business days to arrive.
             </Text>
           </View>
@@ -726,7 +730,9 @@ class ValuOffRampChooseSource extends Component {
       initiateOfframpRequest({
         requestId: reply.requestId,
         status: 'AWAITING_PAYMENT',
-        url: `${VALU_URL}/offramp/userpaymentcheck?requestId=${reply.requestId}&OffRampLastStep=true`
+        // Server pages need the signed t= token, so only a URL the server returned is usable.
+        // The server does not return a payment-check URL yet (see docs/audit_api_va_mobile.md §9).
+        url: reply.paymentCheckUrl || null
       });
 
       if (await InAppBrowser.isAvailable()) {

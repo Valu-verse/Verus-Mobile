@@ -256,6 +256,15 @@ const GetSponsoredAttestation = (props) => {
                         updateDeeplinkUrl(attestationStatus.data);
                         setLoading(false);
                         // The deeplink will be handled by the deeplink saga and open the acceptance screen
+                    } else if (attestationStatus?.success === false && /not controlled by your wallet/i.test(attestationStatus.error || '')) {
+                        // The server only issues attestations for identities this wallet controls
+                        setLoading(false);
+                        createAlert(
+                            'Identity Not Linked',
+                            attestationStatus.error,
+                            [{ text: 'OK', onPress: () => resolveAlert() }],
+                            { cancelable: false }
+                        );
                     } else if (attestationStatus?.success === false) {
                         // Backend returned an error - don't mark as complete
                         console.error('❌ Backend error getting attestation:', attestationStatus.error);

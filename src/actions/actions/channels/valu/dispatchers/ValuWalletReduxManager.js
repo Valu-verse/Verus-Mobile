@@ -40,13 +40,16 @@ export const closeValuCoinWallet = async (coinObj) => {
   return
 }
 
-export const initiatePartnerUserId = async (seed) => {
-  const bearer = await ValuProvider.bearerFromSeed(seed);
+// partnerUserId is the Valu account id from the wallet login. (It used to be the
+// seed-derived secret key, which must never leave the device.) The server ignores it
+// in request bodies and uses the signed-in account instead.
+export const initiatePartnerUserId = async () => {
+  const { authenticatedAs } = await ValuProvider.authenticate();
   Store.dispatch({
-  type: INITIATE_VALU_PARTNER_USER_ID,
-    payload: { partnerUserId: bearer }
+    type: INITIATE_VALU_PARTNER_USER_ID,
+    payload: { partnerUserId: authenticatedAs }
   })
-  return bearer
+  return authenticatedAs
 }
 
 export const initiateOnrampRequest = (requestId, details) => {

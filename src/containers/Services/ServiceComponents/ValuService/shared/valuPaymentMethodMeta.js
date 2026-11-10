@@ -3,6 +3,7 @@
   - Normalizes Valu payment method names to canonical display labels
   - Provides icon configuration (SVG or Material icon) for each known method
   - Supplies lookup helpers used by Valu on/off-ramp flows
+  - Provider metadata (Paybis, MoonPay) so options from several ramp providers can share one list
 */
 
 import RevolutPaySvg from '../../../../../images/paymentIcons/revolut1.svg';
@@ -25,7 +26,7 @@ const normalizeKey = (value) => {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[\/]/g, ' ')
+    .replace(/[\/_]/g, ' ')
     .replace(/\s+/g, ' ');
 };
 
@@ -163,6 +164,49 @@ const PAYMENT_METHOD_MAP = {
       Component: PixSvg,
     },
   },
+  'gbp bank transfer': {
+    label: 'UK bank transfer',
+    icon: {
+      type: 'mcicon',
+      name: 'bank',
+      color: ICON_COLOR_DEFAULT,
+    },
+  },
+  'ach bank transfer': {
+    label: 'ACH bank transfer',
+    icon: {
+      type: 'mcicon',
+      name: 'bank',
+      color: ICON_COLOR_DEFAULT,
+    },
+  },
+};
+
+// Keyed by the `provider` field the Valu API returns on each on/off-ramp option
+const PROVIDER_MAP = {
+  paybis: {
+    label: 'Paybis',
+    url: 'https://paybis.com',
+  },
+  moonpay: {
+    label: 'MoonPay',
+    url: 'https://www.moonpay.com',
+  },
+};
+
+export const getProviderMeta = (rawValue) => {
+  const key = normalizeKey(rawValue);
+  const meta = PROVIDER_MAP[key];
+
+  if (meta) {
+    return { key, ...meta };
+  }
+
+  return {
+    key: key || 'paybis',
+    label: (typeof rawValue === 'string' && rawValue.trim()) || 'Paybis',
+    url: null,
+  };
 };
 
 export const getPaymentMethodMeta = (rawValue) => {

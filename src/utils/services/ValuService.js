@@ -1,166 +1,295 @@
 import axios from 'axios';
 import crypto from 'crypto'
-import { mnemonicToSeed } from 'bip39'
 import { Platform } from 'react-native'
-import RNFS from "react-native-fs"
 
 import { VALU_URL } from '../constants/constants';
-import { VALU_SERVICE_ID } from '../constants/services';
-import { Buffer } from 'buffer'
 
-const parseError = (error) => (
-  error.response ? error.response.data.message : error.toString()
-)
+// Turns an axios error into a user-facing message. The server's own message is shown for
+// 4xx responses; 500s carry generic text by design, so they are not parsed.
+const parseError = (error) => {
+  const status = error?.response?.status;
+  const data = error?.response?.data;
 
-class ValuService {
-  constructor(url, service) {
-    this.url = url;
-    this.service = service;
-    this.authInterceptor = null;
-    this.valuToken = null;
-    this.apiKey = null;
+  if (status === 429) return "Too many requests to the Valu server. Please wait a moment and try again.";
+  if (status === 503) return "The Valu service is temporarily unavailable. Please try again later.";
+  if (status >= 500) return "The Valu server could not complete the request. Please try again later.";
+  if (data && typeof data === 'object') {
+    return data.error || data.message || error.toString();
+  }
+  return error?.response ? error.toString() : (error?.message || String(error));
+};
 
-    this.cache = {
-      accounts: {}
+const toValuError = (error) => {
+  const e = new Error(parseError(error));
+  e.status = error?.response?.status;
+  e.code = error?.response?.data?.code;
+  if (error?.response?.status === 429) e.retryAfter = error.response.headers?.["retry-after"];
+  return e;
+};
+
+// Headers that tell the Valu API which network (mainnet/testnet) the wallet is on.
+// The API uses these to pick the matching provider keys (MoonPay/Paybis/Stripe/Sumsub
+// sandbox vs production) so a single API deployment can serve both networks.
+export const VALU_NETWORK_HEADER = "x-valu-network";
+export const VALU_EVM_NETWORK_HEADER = "x-valu-evm-network";
+
+// 401 codes from the server's request signer (see docs/audit_api_va_mobile.md, section 4)
+export const VALU_AUTH_CODES = Object.freeze({
+  UPGRADE_REQUIRED: 'AUTH_UPGRADE_REQUIRED',
+  TIMESTAMP_REQUIRED: 'AUTH_TIMESTAMP_REQUIRED',
+  STALE: 'AUTH_STALE',
+  NONCE_INVALID: 'AUTH_NONCE_INVALID',
+  REPLAY: 'AUTH_REPLAY',
+  INVALID: 'AUTH_INVALID',
+  MISSING: 'AUTH_MISSING',
+  CHALLENGE_INVALID: 'CHALLENGE_INVALID',
+  NETWORK_MISMATCH: 'NETWORK_MISMATCH',
+  LEGACY_AUTH_DISABLED: 'LEGACY_AUTH_DISABLED',
+  RATE_LIMITED: 'RATE_LIMITED',
+});
+
+// Server time minus device time, in seconds. Learned from AUTH_STALE responses.
+let clockOffsetSeconds = 0;
+
+export const getClockOffsetSeconds = () => clockOffsetSeconds;
+
+const nowSeconds = () => Math.floor(Date.now() / 1000) + clockOffsetSeconds;
+
+// 32 hex chars, new for every request (including retries)
+const createNonce = () => crypto.randomBytes(16).toString('hex');
+
+// The exact string that is signed and sent as the body. The server rebuilds it with
+// JSON.stringify(req.body), and treats an empty body as "".
+const serializeBody = (method, data) => {
+  if (String(method).toUpperCase() === 'GET' || data == null) return "";
+
+  let obj = data;
+  if (typeof data === 'string') {
+    if (data.length === 0) return "";
+    try {
+      obj = JSON.parse(data);
+    } catch (e) {
+      return data;
     }
   }
 
-  static build() {
+  if (typeof obj === 'object' && !Array.isArray(obj) && Object.keys(obj).length === 0) return "";
+  return JSON.stringify(obj);
+};
+
+export const signValuRequest = (method, fullUrl, bodyString, apiKey, apiSecret) => {
+  const timestamp = String(nowSeconds());
+  const nonce = createNonce();
+  const body = String(method).toUpperCase() !== 'GET' ? bodyString : '';
+  const signature = crypto
+    .createHmac('sha256', apiSecret)
+    .update(`${timestamp}.${nonce}.${fullUrl}${body}`)
+    .digest('hex');
+
+  return {
+    'x-api-key': apiKey,
+    'x-api-timestamp': timestamp,
+    'x-api-nonce': nonce,
+    'x-api-signature': signature,
+  };
+};
+
+class ValuService {
+  /**
+   * @param {string} url
+   * @param {import('axios').AxiosInstance} service
+   * @param {() => {network: string, evmNetwork: string}} getNetworkContext
+   * @param {{
+   *   getCredentials: (network: string) => Promise<{apiKey: string, apiSecret: string}>,
+   *   onCredentialsRejected: (network: string, code: string) => Promise<void>,
+   * }} auth
+   */
+  constructor(url, service, getNetworkContext = null, auth = null) {
+    this.url = url;
+    this.service = service;
+    this.getNetworkContext = getNetworkContext;
+    this.auth = auth;
+
+    // Plain client for the unauthenticated login endpoints
+    this.loginService = axios.create({
+      baseURL: url,
+      headers: { "Content-Type": "application/json" },
+      timeout: 15000,
+    });
+    this.loginService.interceptors.request.use((config) => {
+      config.headers = { ...config.headers, ...this.networkHeaders() };
+      return config;
+    });
+
+    // Every other call goes through the signer
+    this.service.interceptors.request.use(
+      (config) => this.signConfig(config),
+      (error) => Promise.reject(error)
+    );
+    this.service.interceptors.response.use(
+      (response) => response,
+      (error) => this.handleAuthFailure(error)
+    );
+  }
+
+  static build(getNetworkContext = null, auth = null) {
     const service = axios.create({
       baseURL: VALU_URL,
       headers: {
         "Content-Type": "application/json",
       },
-      timeout: 7000,
+      timeout: 15000,
     });
 
-    return new ValuService(VALU_URL, service);
+    return new ValuService(VALU_URL, service, getNetworkContext, auth);
   }
 
-  static signUrlString(url_body, bearer) {
-    return crypto.createHmac("sha256", bearer).update(url_body).digest().toString("hex");
-  }
-
-  static signUrlBuffer = (url, data, bearer) => {
-    const urlBuffer = Buffer.from(url);
-    const dataToBeSigned = Buffer.concat([urlBuffer, data]);
-
-    return crypto.createHmac("sha256", bearer).update(dataToBeSigned).digest().toString("hex");
-  };
-
-  static formatCryptoSrn = (coinObj, address) => {
-    if (coinObj.id === "BTC") {
-      return this.formatSrn(address, "bitcoin");
-    } else if (coinObj.proto === "erc20" || coinObj.proto === "eth") {
-      return this.formatSrn(address, "ethereum");
-    } else {
-      throw new Error(`${coinObj.id} SRNs are not supported.`);
-    }
-  };
-
-  static decodeSrn = (srn) => {
-    const srnArr = srn.split(":");
+  networkHeaders() {
+    const context = this.getNetworkContext ? this.getNetworkContext() : null;
+    if (context == null) return {};
 
     return {
-      id: srnArr[1],
-      type: srnArr[0],
+      [VALU_NETWORK_HEADER]: context.network,
+      [VALU_EVM_NETWORK_HEADER]: context.evmNetwork,
     };
-  };
+  }
 
-  static formatSrn = (id, srnType) => {
-    return `${srnType}:${id}`;
-  };
+  currentNetwork() {
+    const context = this.getNetworkContext ? this.getNetworkContext() : null;
+    return context ? context.network : null;
+  }
+
+  fullUrl(config) {
+    let uri = axios.getUri(config);
+    if (uri.substr(0, 4) !== "http") {
+      uri = (config.baseURL || this.url).replace(/\/+$/, "") + uri;
+    }
+    return uri;
+  }
+
+  async signConfig(config) {
+    if (this.auth == null) throw new Error("Valu API client has no credential provider");
+
+    const network = this.currentNetwork();
+    const { apiKey, apiSecret } = await this.auth.getCredentials(network);
+
+    // Serialise once, sign that string, and send the same string
+    const bodyString = serializeBody(config.method, config.data);
+    if (String(config.method).toUpperCase() !== 'GET') {
+      config.data = bodyString.length > 0 ? bodyString : undefined;
+    }
+
+    config.headers = {
+      ...config.headers,
+      ...this.networkHeaders(),
+      ...signValuRequest(config.method, this.fullUrl(config), bodyString, apiKey, apiSecret),
+    };
+    config.valuNetwork = network;
+
+    return config;
+  }
+
+  // Handles the 401/409/410 codes from section 4 of the audit brief, with at most one retry.
+  async handleAuthFailure(error) {
+    const response = error?.response;
+    const config = error?.config;
+    const code = response?.data?.code;
+
+    if (response == null || config == null || config.valuRetried) {
+      return Promise.reject(error);
+    }
+
+    const network = config.valuNetwork || this.currentNetwork();
+    let retry = false;
+
+    if (response.status === 401) {
+      switch (code) {
+        case VALU_AUTH_CODES.STALE: {
+          const serverDate = Date.parse(response.headers?.date);
+          if (!Number.isNaN(serverDate)) {
+            clockOffsetSeconds = Math.round((serverDate - Date.now()) / 1000);
+          }
+          retry = true;
+          break;
+        }
+        case VALU_AUTH_CODES.REPLAY:
+          retry = true;
+          break;
+        case VALU_AUTH_CODES.UPGRADE_REQUIRED:
+        case VALU_AUTH_CODES.INVALID:
+          // Stored credentials are stale or were never upgraded: run the wallet login again
+          await this.auth.onCredentialsRejected(network, code);
+          retry = true;
+          break;
+        default:
+          // AUTH_TIMESTAMP_REQUIRED / AUTH_NONCE_INVALID / AUTH_MISSING are signer bugs
+          console.warn(`Valu API rejected a signed request: ${code || 'unknown'}`);
+      }
+    } else if (response.status === 409 && code === VALU_AUTH_CODES.NETWORK_MISMATCH) {
+      // The stored key belongs to the other network; get credentials for this one
+      await this.auth.onCredentialsRejected(network, code);
+      retry = true;
+    } else if (response.status === 410 && code === VALU_AUTH_CODES.LEGACY_AUTH_DISABLED) {
+      await this.auth.onCredentialsRejected(network, code);
+      retry = true;
+    }
+
+    if (!retry) return Promise.reject(error);
+
+    // Re-runs the request interceptor: new timestamp, new nonce, current credentials
+    return this.service.request({ ...config, valuRetried: true });
+  }
 
   static formatCall = async (call) => {
     try {
       const { data } = await call();
       return data;
     } catch (error) {
-      throw new Error(parseError(error));
+      throw toValuError(error);
     }
-  };
-
-  static bearerFromSeed = async (seed) => {
-    var ripemd160 = crypto.createHash("ripemd160");
-    var sha256 = crypto.createHash("sha256");
-
-    const VALU_SERVICE_CANONICAL = Buffer.from(VALU_SERVICE_ID, "utf8");
-
-    const sha256Hash = sha256
-      .update(await mnemonicToSeed(seed))
-      .update(VALU_SERVICE_CANONICAL)
-      .digest();
-
-    return ripemd160.update(sha256Hash).digest().toString("hex");
   };
 
   static formatUploadUri = (uri) => {
     return Platform.OS === "android" ? uri : uri.replace("file://", "");
   };
 
-  authenticate(valuToken, apiKey) {
-    if (this.valuToken == null) {
-      this.apiKey = apiKey;
-      this.valuToken = valuToken;
+  // ── Wallet login (unauthenticated) ────────────────────────────────────────────
 
-      this.authInterceptor = this.service.interceptors.request.use(
-        (config) => {
-          config.url = config.url.includes("timestamp")
-            ? config.url
-            : config.url + `?timestamp=${Date.now()}`;
-
-          if (config.method === "get") {
-            config.headers["x-api-signature"] = ValuService.signUrlString(
-              axios.getUri(config),
-              valuToken
-            );
-          } else {
-            let uri = axios.getUri(config);
-
-            if (uri.substr(0, 4) !== "http") {
-              uri = config.baseURL.replace(/\/+$/, "") + uri;
-            }
-
-            config.headers["x-api-signature"] = ValuService.signUrlString(
-              config.data == null ? uri : uri + JSON.stringify(config.data),
-              valuToken
-            );
-          }
-          config.headers["x-payload-digest-alg"] = "sha256";
-          config.headers["x-api-key"] = apiKey;
-
-          return config;
-        },
-        (error) => {
-          return Promise.reject(error);
-        }
-      );
-    }
-  }
-
-  deauthenticate() {
-    this.valuToken = null;
-    this.apiKey = null;
-    this.service.interceptors.request.eject(this.authInterceptor);
-    this.authInterceptor = null;
-
-    this.cache = {
-      accounts: {}
-    }
-  }
-
-  submitAuthToken = async (secretKey, network) => {
+  // Step 1: one-time challenge, valid for 5 minutes
+  requestLoginChallenge = async (network) => {
     return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/sessions/auth/key`, {
-        secretKey,
-        network,
+      return this.loginService.post(`${this.url}/sessions/auth/challenge`, { network }, {
+        headers: { [VALU_NETWORK_HEADER]: network },
       });
+    });
+  };
+
+  // Step 2: exchange the wallet-signed challenge for apiKey + apiSecret
+  submitWalletLogin = async (network, requestB64) => {
+    return await ValuService.formatCall(() => {
+      return this.loginService.post(`${this.url}/sessions/auth/wallet`, { network, request: requestB64 }, {
+        headers: { [VALU_NETWORK_HEADER]: network },
+      });
+    });
+  };
+
+  // Challenge for /attestation-status, tied to the api key, reusable for 10 minutes
+  getAuthChallenge = async (purpose) => {
+    return await ValuService.formatCall(() => {
+      return this.service.post(`${this.url}/auth/challenge`, { purpose });
     });
   };
 
   getOnRampURL = async (payload) => {
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/onramp/getonrampsession`, payload);
+    });
+  };
+
+  // Outcome of an onramp order: { outcome: 'paid' | 'pending' | 'not_paid' | 'failed' }
+  getOnRampStatus = async (requestId) => {
+    return await ValuService.formatCall(() => {
+      return this.service.get(`${this.url}/onramp/status/${encodeURIComponent(requestId)}`);
     });
   };
 
@@ -174,13 +303,6 @@ class ValuService {
     
     return await ValuService.formatCall(() => {
       return this.service.post(`${this.url}/attestation-status`,signedRequest);
-    });
-  };
-
-  getAttestationPaymentSessionId = async (address) => {
-
-    return await ValuService.formatCall(() => {
-      return this.service.post(`${this.url}/attestation-session:${address}`);
     });
   };
 
@@ -248,37 +370,6 @@ class ValuService {
     }, true);
   };
 
-
-  uploadFile = async (uri, url, format = "image/jpeg") => {
-    return await ValuService.formatCall(async () => {
-      const base64 = await RNFS.readFile(uri, "base64");
-      const buffer = Buffer.from(base64, "base64");
-
-      const res = await axios.post(url, buffer, {
-        headers: {
-          "Content-Type": `${format}; charset=utf-8`,
-          "X-Api-Key": this.apiKey,
-          "X-Api-Signature": ValuService.signUrlBuffer(url, buffer, this.valuToken),
-        },
-      });
-
-      // const res = await fetch(url, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": `${format}; charset=utf-8`,
-      //     "X-Api-Key": this.apiKey,
-      //     "X-Api-Signature": ValuService.signUrlBuffer(
-      //       url,
-      //       buffer,
-      //       this.valuToken
-      //     ),
-      //   },
-      //   body: buffer,
-      // });
-
-      return { data: { buffer, res } };
-    }, true);
-  };
 
   createPaymentMethod = async (paymentMethod) => {
     return await ValuService.formatCall(() => {
@@ -351,6 +442,7 @@ class ValuService {
       baseURL: this.url,
       headers: {
         "Content-Type": "application/json",
+        ...this.networkHeaders(),
       },
     });
 
@@ -364,6 +456,7 @@ class ValuService {
       baseURL: this.url,
       headers: {
         "Content-Type": "application/json",
+        ...this.networkHeaders(),
       },
     });
 

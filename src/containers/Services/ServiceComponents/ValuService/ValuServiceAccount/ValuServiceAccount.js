@@ -253,9 +253,7 @@ updateTaxCountry() {
   async checkAccountCreationStatus() {
     if (!this.props.valuAuthenticated) {
 
-      const seed = (await requestSeeds())[VALU_SERVICE];
-      if (seed == null) throw new Error("No Valu seed present");
-      await ValuProvider.authenticate(seed);
+      await ValuProvider.authenticate();
     }
   }
 
